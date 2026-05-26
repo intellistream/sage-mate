@@ -1,0 +1,16 @@
+[Unit]
+Description=Sage Faculty Twin application server
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=__REPO_ROOT__
+Environment=APP_PORT=55601
+Environment=PYTHON_BIN=__PYTHON_BIN__
+ExecStart=__REPO_ROOT__/tools/run_app_server.sh
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=default.target

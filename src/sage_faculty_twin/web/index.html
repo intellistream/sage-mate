@@ -1,0 +1,549 @@
+<!doctype html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>学术分身</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+        href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@500;700&display=swap"
+        rel="stylesheet" />
+    <link rel="stylesheet" href="./styles.css" />
+</head>
+
+<body>
+    <div class="app-shell">
+        <header class="topbar">
+            <div class="topbar-brand" aria-label="学术分身介绍">
+                <div class="topbar-brand-mark" aria-hidden="true">S</div>
+                <div class="topbar-brand-copy">
+                    <p class="brand-kicker topbar-kicker">Personal Twin OS</p>
+                    <h1 id="topbar-title" class="topbar-title">张书豪的分身办公室</h1>
+                    <p id="topbar-subtitle" class="topbar-subtitle">围绕张书豪本人的课程、研究和预约节奏整理的线上前台。</p>
+                </div>
+            </div>
+            <div class="topbar-actions">
+                <button type="button" id="open-drawer" class="icon-button">设置</button>
+                <a id="homepage-link" href="#" target="_blank" rel="noreferrer" hidden
+                    class="icon-button topbar-link">个人主页</a>
+            </div>
+        </header>
+
+        <main class="chat-layout">
+            <section class="chat-shell">
+                <div id="chat-stream" class="chat-stream">
+                    <article class="message message-assistant intro-card">
+                        <div id="assistant-name" class="message-role">张书豪的分身</div>
+                        <div class="message-body">
+                            把这里当成张书豪的线上预备会客厅。<br />
+                            先把姓名和邮箱填对，后面的记录和预约都会直接用到。<br />
+                            直接把问题说具体一点：问课程就带讲次或作业，问论文就说阶段和 blocker。<br />
+                            如果要预约，最好把 agenda、当前卡点和 draft 一起说明。
+                        </div>
+                        <p class="intro-footnote">发出第一条消息后，右侧会展开这次请求的处理轨迹，回答里也会附上依据和下一步建议。</p>
+                        <div class="intro-quick-actions" aria-label="快速开始">
+                            <button type="button" class="intro-chip-button"
+                                data-seed-question="Tutorial 7 主要讲了什么，我应该先看哪部分？"
+                                data-seed-context="课程答疑">先问课程重点</button>
+                            <button type="button" class="intro-chip-button"
+                                data-seed-question="帮我预约下周三下午讨论论文提纲，我会带 draft 和问题清单。"
+                                data-seed-context="科研指导">约讨论时间</button>
+                            <button type="button" class="intro-chip-button" data-seed-question="我之前提到过的研究主题是什么？"
+                                data-seed-context="科研指导">接着上次进展</button>
+                        </div>
+                    </article>
+                </div>
+
+                <form id="chat-form" class="composer-shell">
+                    <div class="composer-row">
+                        <textarea id="chat-question" name="question" rows="1" required
+                            placeholder="直接说问题；如果想约时间，请把 agenda、blocker 和 draft 也写上。">和老师约时间前，我应该先准备什么？</textarea>
+                        <button type="submit" class="send-button">发送</button>
+                    </div>
+                </form>
+            </section>
+
+            <aside id="workflow-shell" class="workflow-shell" aria-label="处理进度">
+                <div class="workflow-shell-head">
+                    <button type="button" id="workflow-mobile-handle" class="workflow-mobile-handle" aria-label="展开处理进度"
+                        aria-expanded="false">
+                        <span class="workflow-mobile-grabber" aria-hidden="true"></span>
+                        <span id="workflow-mobile-handle-text" class="workflow-mobile-handle-text">展开更多</span>
+                    </button>
+                    <div class="workflow-shell-heading">
+                        <div>
+                            <p class="brand-kicker">Status</p>
+                            <h2 class="workflow-shell-title">处理进度</h2>
+                        </div>
+                        <p class="workflow-shell-copy">像桌面便签一样，实时记录这次请求正在发生什么。</p>
+                        <div class="workflow-stats" aria-label="status stats">
+                            <article class="workflow-stat-card">
+                                <span class="workflow-stat-label">总耗时</span>
+                                <strong id="workflow-total-duration" class="workflow-stat-value">--</strong>
+                            </article>
+                            <article class="workflow-stat-card">
+                                <span class="workflow-stat-label">资料条目</span>
+                                <strong id="workflow-knowledge-count" class="workflow-stat-value">--</strong>
+                            </article>
+                            <article class="workflow-stat-card workflow-stat-card-wide">
+                                <span class="workflow-stat-label">当前状态</span>
+                                <strong id="workflow-current-action" class="workflow-stat-value">等待消息</strong>
+                            </article>
+                        </div>
+                    </div>
+                    <div class="workflow-shell-actions">
+                        <button type="button" id="workflow-scroll-latest"
+                            class="ghost-button workflow-shell-button">最新记录</button>
+                        <button type="button" id="workflow-mobile-close"
+                            class="icon-button workflow-shell-button workflow-mobile-close"
+                            aria-label="关闭处理进度">关闭</button>
+                        <button type="button" id="workflow-toggle" class="icon-button workflow-shell-button"
+                            aria-expanded="true">收起</button>
+                    </div>
+                </div>
+                <div id="workflow-trace-wrap" class="workflow-trace-wrap">
+                    <div id="workflow-trace" class="workflow-trace">
+                        <article class="workflow-step workflow-step-empty" data-expanded="false">
+                            <button type="button" class="workflow-step-toggle" aria-expanded="false">
+                                <div class="workflow-step-header">
+                                    <span class="workflow-step-index">-</span>
+                                    <div class="workflow-step-content">
+                                        <div class="workflow-step-meta">
+                                            <h3 class="workflow-step-title">等待新一轮会面</h3>
+                                            <span class="workflow-step-chevron">展开</span>
+                                        </div>
+                                        <p class="workflow-step-summary">发出第一条消息后，这里会像工作台记录一样逐步展开。</p>
+                                    </div>
+                                </div>
+                            </button>
+                            <div class="workflow-step-detail" hidden>发送消息后，这里会记录检索、整理、预约判断和回复生成这些关键阶段。</div>
+                        </article>
+                    </div>
+                </div>
+            </aside>
+        </main>
+    </div>
+
+    <button type="button" id="mobile-workflow-trigger" class="icon-button mobile-workflow-trigger"
+        aria-controls="workflow-shell" aria-expanded="false">打开处理进度</button>
+    <div id="workflow-mobile-backdrop" class="workflow-mobile-backdrop hidden"></div>
+
+    <div id="modal-overlay" class="modal-overlay hidden"></div>
+
+    <aside id="side-drawer" class="side-drawer hidden" aria-hidden="true">
+        <div class="modal-head">
+            <div>
+                <h2 id="drawer-mode-title">普通用户模式</h2>
+            </div>
+            <button type="button" data-close-drawer class="icon-button">关闭</button>
+        </div>
+        <div class="drawer-group drawer-status-group">
+            <span id="status-pill" class="pill">正在检查服务</span>
+            <span id="model-pill" class="pill">连接状态未知</span>
+            <span id="knowledge-pill" class="pill">知识库 0</span>
+            <span id="mode-pill" class="pill">普通用户模式</span>
+        </div>
+        <div class="drawer-separator"></div>
+        <div id="user-auth-panel" class="drawer-group drawer-card">
+            <div class="drawer-group-head">
+                <p class="brand-kicker">Account</p>
+                <h3 class="drawer-group-title">用户账号</h3>
+            </div>
+            <p class="drawer-copy">注册后可以固定姓名和邮箱，后续聊天记录与预约申请都会默认绑定到当前账号。</p>
+            <button type="button" id="open-user-register" class="primary-button drawer-button">注册账号</button>
+            <button type="button" id="open-user-login" class="ghost-button drawer-button">用户登录</button>
+        </div>
+        <div id="user-session-panel" class="drawer-group drawer-card hidden">
+            <div class="drawer-group-head">
+                <p class="brand-kicker">Account</p>
+                <h3 class="drawer-group-title">当前账号</h3>
+            </div>
+            <p id="user-session-copy" class="drawer-copy">当前未登录用户账号。</p>
+            <button type="button" id="user-logout" class="ghost-button drawer-button">退出当前账号</button>
+        </div>
+        <div class="drawer-separator"></div>
+        <div class="drawer-group drawer-card">
+            <div class="drawer-group-head">
+                <p class="brand-kicker">Profile</p>
+                <h3 class="drawer-group-title">来访设置</h3>
+            </div>
+            <label>
+                <span>学生姓名</span>
+                <input id="student-name" name="student_name" value="guest" placeholder="请输入你的名字" required />
+            </label>
+            <label>
+                <span>学生邮箱</span>
+                <input id="student-email" name="student_email" value="" placeholder="请输入你的邮箱" />
+            </label>
+            <label>
+                <span>课程/场景上下文</span>
+                <input id="course-context" name="course_context" value="科研指导" />
+            </label>
+            <p id="profile-drawer-copy" class="drawer-copy">先把姓名和邮箱填对。后面的问答记录、预约确认和跟进都会直接用这两个字段。</p>
+        </div>
+        <div class="drawer-group drawer-card">
+            <div class="drawer-group-head">
+                <p class="brand-kicker">Actions</p>
+                <h3 class="drawer-group-title">常用入口</h3>
+            </div>
+            <button type="button" id="load-demo-chat" class="ghost-button drawer-button">填入示例问题</button>
+            <button type="button" id="open-booking" class="ghost-button drawer-button">预约会议</button>
+            <button type="button" id="open-knowledge" class="ghost-button drawer-button hidden">知识库管理</button>
+            <button type="button" id="open-availability-editor"
+                class="ghost-button drawer-button hidden">编辑本周可预约时段</button>
+            <button type="button" id="open-booking-list" class="ghost-button drawer-button hidden">确认预约申请</button>
+            <button type="button" id="open-escalation-queue" class="ghost-button drawer-button hidden">人工处理队列</button>
+            <button type="button" id="open-memory-profiles" class="ghost-button drawer-button hidden">查看学生长期记录</button>
+            <button type="button" id="open-question-analytics" class="ghost-button drawer-button hidden">查看问答周报</button>
+        </div>
+        <div class="drawer-separator"></div>
+        <div id="admin-auth-panel" class="drawer-group drawer-card">
+            <div class="drawer-group-head">
+                <p class="brand-kicker">Admin</p>
+                <h3 class="drawer-group-title">管理入口</h3>
+            </div>
+            <p class="drawer-copy">这里是张书豪本人维护资料、时段和审核申请的入口，不对学生侧开放。</p>
+            <button type="button" id="open-admin-login" class="primary-button">管理员登录</button>
+        </div>
+        <div id="admin-session-panel" class="drawer-group drawer-card hidden">
+            <div class="drawer-group-head">
+                <p class="brand-kicker">Admin</p>
+                <h3 class="drawer-group-title">管理工作台</h3>
+            </div>
+            <p id="admin-session-copy" class="drawer-copy">当前已进入维护模式，可以更新资料、调整时段和处理申请。</p>
+            <details class="service-admin-disclosure">
+                <summary class="service-admin-toggle">服务维护操作默认收起，只有需要时再展开</summary>
+                <div class="drawer-group service-admin-panel">
+                    <div id="service-admin-summary" class="service-admin-summary">
+                        <div class="service-admin-summary-item">
+                            <span class="service-admin-summary-label">最近操作</span>
+                            <strong id="service-admin-last-action" class="service-admin-summary-value">尚未执行</strong>
+                        </div>
+                        <div class="service-admin-summary-item">
+                            <span class="service-admin-summary-label">最近时间</span>
+                            <strong id="service-admin-last-time" class="service-admin-summary-value">--</strong>
+                        </div>
+                        <div class="service-admin-summary-item service-admin-summary-item-wide">
+                            <span class="service-admin-summary-label">最近结果</span>
+                            <strong id="service-admin-last-result" class="service-admin-summary-value">等待管理员操作。</strong>
+                        </div>
+                    </div>
+                    <div class="actions-row service-admin-actions">
+                        <button type="button" id="refresh-managed-services" class="ghost-button">刷新服务状态</button>
+                        <button type="button" id="start-managed-services" class="ghost-button">启动服务</button>
+                        <button type="button" id="restart-managed-services" class="ghost-button">重启服务</button>
+                        <button type="button" id="stop-managed-services" class="ghost-button">关闭服务</button>
+                    </div>
+                    <div id="service-admin-response" class="inline-status inline-status-empty">需要维护时再操作，平时不用动服务。</div>
+                    <div id="service-status-list" class="list-stack"></div>
+                </div>
+            </details>
+            <button type="button" id="admin-logout" class="ghost-button drawer-button">退出管理员模式</button>
+        </div>
+    </aside>
+
+    <section id="admin-login-modal" class="modal-panel hidden" aria-hidden="true">
+        <div class="modal-head">
+            <div>
+                <p class="brand-kicker">身份验证</p>
+                <h2>管理员模式</h2>
+            </div>
+            <button type="button" data-close-modal class="icon-button">关闭</button>
+        </div>
+        <form id="admin-login-form" class="stack-form">
+            <label>
+                <span>管理员账号</span>
+                <input id="admin-username" name="username" value="admin" autocomplete="username" required />
+            </label>
+            <label>
+                <span>管理员密码</span>
+                <input id="admin-password" name="password" type="password" autocomplete="current-password" required />
+            </label>
+            <button type="submit" class="primary-button">进入管理员模式</button>
+        </form>
+        <div id="admin-login-response" class="inline-status inline-status-empty">这里只给张书豪本人或受信管理员维护系统使用。</div>
+    </section>
+
+    <section id="user-register-modal" class="modal-panel hidden" aria-hidden="true">
+        <div class="modal-head">
+            <div>
+                <p class="brand-kicker">Account</p>
+                <h2>注册用户账号</h2>
+                <p class="modal-copy">注册后会固定你的姓名和邮箱，聊天和预约默认使用当前账号信息。</p>
+            </div>
+            <button type="button" data-close-modal class="icon-button">关闭</button>
+        </div>
+        <form id="user-register-form" class="stack-form">
+            <label>
+                <span>姓名</span>
+                <input id="user-register-name" name="name" autocomplete="name" required />
+            </label>
+            <label>
+                <span>邮箱</span>
+                <input id="user-register-email" name="email" type="email" autocomplete="email" required />
+            </label>
+            <label>
+                <span>密码</span>
+                <input id="user-register-password" name="password" type="password" autocomplete="new-password"
+                    required />
+            </label>
+            <button type="submit" class="primary-button">完成注册</button>
+        </form>
+        <div id="user-register-response" class="inline-status inline-status-empty">注册后会自动登录当前账号。</div>
+    </section>
+
+    <section id="user-login-modal" class="modal-panel hidden" aria-hidden="true">
+        <div class="modal-head">
+            <div>
+                <p class="brand-kicker">Account</p>
+                <h2>用户登录</h2>
+                <p class="modal-copy">登录后，当前聊天和预约会自动绑定到你的账号姓名与邮箱。</p>
+            </div>
+            <button type="button" data-close-modal class="icon-button">关闭</button>
+        </div>
+        <form id="user-login-form" class="stack-form">
+            <label>
+                <span>邮箱</span>
+                <input id="user-login-email" name="email" type="email" autocomplete="email" required />
+            </label>
+            <label>
+                <span>密码</span>
+                <input id="user-login-password" name="password" type="password" autocomplete="current-password"
+                    required />
+            </label>
+            <button type="submit" class="primary-button">登录账号</button>
+        </form>
+        <div id="user-login-response" class="inline-status inline-status-empty">还没有账号的话，可以先返回注册。</div>
+    </section>
+
+    <section id="knowledge-modal" class="modal-panel hidden" aria-hidden="true">
+        <div class="modal-head">
+            <div>
+                <p class="brand-kicker">资料管理</p>
+                <h2>知识库</h2>
+            </div>
+            <button type="button" data-close-modal class="icon-button">关闭</button>
+        </div>
+        <form id="knowledge-form" class="stack-form">
+            <label>
+                <span>标题</span>
+                <input id="knowledge-title" name="title" value="会议预约偏好" required />
+            </label>
+            <label>
+                <span>来源</span>
+                <input id="knowledge-source" name="source_name" value="示例笔记" />
+            </label>
+            <label>
+                <span>标签</span>
+                <input id="knowledge-tags" name="tags" value="会议, 指导" />
+            </label>
+            <label>
+                <span>内容</span>
+                <textarea id="knowledge-content" name="content" rows="6"
+                    required>如果学生想预约会议，需要先发 agenda、当前 blocker 和相关材料。</textarea>
+            </label>
+            <div class="actions-row">
+                <button type="submit" class="primary-button">保存资料</button>
+                <button type="button" id="refresh-knowledge" class="ghost-button">刷新</button>
+            </div>
+        </form>
+        <div id="knowledge-response" class="inline-status inline-status-empty">暂无资料。</div>
+        <div id="knowledge-list" class="list-stack"></div>
+    </section>
+
+    <section id="booking-modal" class="modal-panel hidden" aria-hidden="true">
+        <div class="modal-head">
+            <div>
+                <p class="brand-kicker">预约</p>
+                <h2>会议预约</h2>
+                <p class="modal-copy">先把主题说清楚。最好同时写明 agenda、当前 blocker 和你准备带来的材料。</p>
+            </div>
+            <button type="button" data-close-modal class="icon-button">关闭</button>
+        </div>
+        <form id="booking-form" class="stack-form">
+            <label>
+                <span>学生姓名</span>
+                <input id="booking-student-name" name="student_name" value="guest" placeholder="请输入你的名字" required />
+            </label>
+            <label>
+                <span>邮箱</span>
+                <input id="booking-email" name="student_email" value="" placeholder="请输入你的邮箱" required />
+            </label>
+            <label>
+                <span>主题</span>
+                <input id="booking-topic" name="topic" value="论文进展讨论" required />
+            </label>
+            <label>
+                <span>期望开始时间</span>
+                <input id="booking-start" type="datetime-local" name="preferred_start" required />
+            </label>
+            <label>
+                <span>期望结束时间</span>
+                <input id="booking-end" type="datetime-local" name="preferred_end" required />
+            </label>
+            <button type="submit" class="primary-button">提交预约</button>
+        </form>
+        <div id="booking-response" class="inline-status inline-status-empty">还没提交。材料不全也可以先约，但写清楚会更高效。</div>
+    </section>
+
+    <section id="availability-modal" class="modal-panel modal-panel-wide hidden" aria-hidden="true">
+        <div class="modal-head">
+            <div>
+                <p class="brand-kicker">Availability</p>
+                <h2>本周可预约时段</h2>
+                <p id="availability-week-label" class="modal-copy">正在加载本周安排...</p>
+            </div>
+            <button type="button" data-close-modal class="icon-button">关闭</button>
+        </div>
+        <p class="modal-copy">点击格子即可填涂或取消。蓝色表示该时间段可预约。</p>
+        <div class="actions-row">
+            <button type="button" id="save-availability" class="primary-button">保存本周安排</button>
+            <button type="button" id="apply-workday-morning-template" class="ghost-button">工作日上午模板</button>
+            <button type="button" id="apply-workday-full-template" class="ghost-button">工作日全天模板</button>
+            <button type="button" id="apply-workday-afternoon-template" class="ghost-button">工作日下午模板</button>
+            <button type="button" id="copy-previous-week-template" class="ghost-button">复制上周安排</button>
+            <button type="button" id="clear-availability" class="ghost-button">全部清空</button>
+        </div>
+        <div id="availability-response" class="inline-status inline-status-empty">尚未修改。</div>
+        <div id="availability-grid" class="availability-grid"></div>
+    </section>
+
+    <section id="booking-admin-modal" class="modal-panel hidden" aria-hidden="true">
+        <div class="modal-head">
+            <div>
+                <p class="brand-kicker">Approvals</p>
+                <h2>待确认预约</h2>
+                <p class="modal-copy">这里只确认真正需要见面的申请。agenda、blocker 或材料不清楚的，先退回补充。</p>
+            </div>
+            <button type="button" data-close-modal class="icon-button">关闭</button>
+        </div>
+        <div class="actions-row">
+            <button type="button" id="refresh-booking-list" class="ghost-button">刷新列表</button>
+            <label class="booking-filter-field">
+                <span>状态筛选</span>
+                <select id="booking-status-filter" name="booking_status_filter">
+                    <option value="待确认">待确认</option>
+                    <option value="已确认">已确认</option>
+                    <option value="已拒绝">已拒绝</option>
+                    <option value="">全部状态</option>
+                </select>
+            </label>
+        </div>
+        <div id="booking-admin-response" class="inline-status inline-status-empty">先看申请里有没有 agenda、blocker
+            和必要材料；确认后会自动发邮件。
+        </div>
+        <div id="booking-list" class="list-stack"></div>
+    </section>
+
+    <section id="escalation-admin-modal" class="modal-panel hidden" aria-hidden="true">
+        <div class="modal-head">
+            <div>
+                <p class="brand-kicker">Escalations</p>
+                <h2>人工处理队列</h2>
+                <p class="modal-copy">这里集中处理必须转人工和需要审核后答复的请求。</p>
+            </div>
+            <button type="button" data-close-modal class="icon-button">关闭</button>
+        </div>
+        <div class="actions-row">
+            <button type="button" id="refresh-escalation-list" class="ghost-button">刷新列表</button>
+            <label class="booking-filter-field">
+                <span>状态筛选</span>
+                <select id="escalation-status-filter" name="escalation_status_filter">
+                    <option value="待处理">待处理</option>
+                    <option value="已处理">已处理</option>
+                    <option value="">全部状态</option>
+                </select>
+            </label>
+            <label class="booking-filter-field">
+                <span>路径筛选</span>
+                <select id="escalation-route-filter" name="escalation_route_filter">
+                    <option value="">全部路径</option>
+                    <option value="human_handoff">必须转人工</option>
+                    <option value="review_queue">待审核</option>
+                </select>
+            </label>
+        </div>
+        <div id="escalation-admin-response" class="inline-status inline-status-empty">正在等待管理员处理人工升级请求。</div>
+        <div id="escalation-list" class="list-stack"></div>
+    </section>
+
+    <section id="memory-profiles-modal" class="modal-panel modal-panel-wide hidden" aria-hidden="true">
+        <div class="modal-head">
+            <div>
+                <p class="brand-kicker">Student Records</p>
+                <h2>学生长期记录</h2>
+                <p class="modal-copy">这里展示学生的长期记录类别与最近摘要。</p>
+            </div>
+            <button type="button" data-close-modal class="icon-button">关闭</button>
+        </div>
+        <div class="memory-profile-toolbar">
+            <label class="memory-profile-filter">
+                <span>记录类别</span>
+                <select id="memory-profiles-category" name="memory_profiles_category">
+                    <option value="">全部类别</option>
+                </select>
+            </label>
+            <label class="memory-profile-filter">
+                <span>学生检索</span>
+                <input id="memory-profiles-student-query" name="memory_profiles_student_query"
+                    placeholder="姓名、邮箱或识别信息" />
+            </label>
+            <button type="button" id="refresh-memory-profiles" class="ghost-button">刷新记录</button>
+        </div>
+        <div id="memory-profiles-response" class="inline-status inline-status-empty">正在等待管理员操作。</div>
+        <div id="memory-profiles-summary" class="memory-profile-summary"></div>
+        <div id="memory-profiles-list" class="list-stack"></div>
+    </section>
+
+    <section id="question-analytics-modal" class="modal-panel modal-panel-wide hidden" aria-hidden="true">
+        <div class="modal-head">
+            <div>
+                <p class="brand-kicker">Weekly Insights</p>
+                <h2>问答周报</h2>
+                <p class="modal-copy">这里聚合点赞点踩、未解决问题、高频问题和知识缺口建议，方便每周补资料与调策略。</p>
+            </div>
+            <button type="button" data-close-modal class="icon-button">关闭</button>
+        </div>
+        <div class="memory-profile-toolbar analytics-toolbar">
+            <label class="memory-profile-filter">
+                <span>统计窗口</span>
+                <select id="question-analytics-window" name="question_analytics_window">
+                    <option value="7">最近 7 天</option>
+                    <option value="14">最近 14 天</option>
+                    <option value="30">最近 30 天</option>
+                </select>
+            </label>
+            <div id="question-analytics-summary" class="memory-profile-summary"></div>
+            <button type="button" id="refresh-question-analytics" class="ghost-button">刷新周报</button>
+        </div>
+        <div id="question-analytics-response" class="inline-status inline-status-empty">正在等待管理员操作。</div>
+        <div class="analytics-grid">
+            <section>
+                <h3 class="analytics-section-title">高频问题聚类</h3>
+                <div id="question-analytics-clusters" class="list-stack"></div>
+            </section>
+            <section>
+                <h3 class="analytics-section-title">知识缺口建议</h3>
+                <div id="question-analytics-gaps" class="list-stack"></div>
+            </section>
+            <section>
+                <h3 class="analytics-section-title">未解决问题</h3>
+                <div id="question-analytics-unresolved" class="list-stack"></div>
+            </section>
+            <section>
+                <h3 class="analytics-section-title">人工接管热点</h3>
+                <div id="question-analytics-handoffs" class="list-stack"></div>
+            </section>
+            <section>
+                <h3 class="analytics-section-title">待补知识草稿</h3>
+                <div id="question-analytics-drafts" class="list-stack"></div>
+            </section>
+        </div>
+    </section>
+
+    <script src="./app.js"></script>
+</body>
+
+</html>

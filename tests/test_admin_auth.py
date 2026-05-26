@@ -1,0 +1,683 @@
+import asyncio
+from pathlib import Path
+
+import pytest
+from fastapi.testclient import TestClient
+
+from sage_faculty_twin.analytics_store import ConversationAnalyticsStore
+from sage_faculty_twin.api import app, service
+from sage_faculty_twin.config import settings
+from sage_faculty_twin.escalation_store import EscalationQueueStore
+from sage_faculty_twin.follow_up_store import FollowUpQueueStore
+from sage_faculty_twin.knowledge_gap_draft_store import KnowledgeGapDraftStore
+from sage_faculty_twin.memory_store import NeuroMemConversationStore
+from sage_faculty_twin.models import ManagedServiceStatus
+from sage_faculty_twin.models import ServiceControlResponse
+from sage_faculty_twin.models import ChatRequest
+from sage_faculty_twin.meeting import MeetingService
+
+
+client = TestClient(app)
+
+
+class RecordingNotifier:
+    def __init__(self) -> None:
+        self.approved_bookings = []
+        self.rejected_bookings = []
+        self.follow_up_emails = []
+        self.runtime_manager = None
+
+    def send_booking_request_notification(self, booking) -> str:
+        return settings.booking_notification_email
+
+    def send_booking_approved_notification(self, booking) -> str:
+        self.approved_bookings.append(booking)
+        return booking.student_email
+
+    def send_booking_rejected_notification(self, booking) -> str:
+        self.rejected_bookings.append(booking)
+        return booking.student_email
+
+    def send_follow_up_email(self, recipient: str, subject: str, lines: list[str]) -> str:
+        self.follow_up_emails.append({"recipient": recipient, "subject": subject, "lines": list(lines)})
+        return recipient
+
+
+class FakeRuntimeManager:
+    def __init__(self) -> None:
+        self.calls: list[str] = []
+
+    def _response(self, action: str, active_state: str) -> ServiceControlResponse:
+        return ServiceControlResponse(
+            action=action,
+            success=True,
+            message=f"{action} ok",
+            services=[
+                ManagedServiceStatus(
+                    name="应用服务",
+                    unit="sage-faculty-twin-app.service",
+                    active_state=active_state,
+                    sub_state="running" if active_state == "active" else "dead",
+                    description="Sage Faculty Twin application server",
+                )
+            ],
+        )
+
+    def status(self) -> ServiceControlResponse:
+        self.calls.append("status")
+        return self._response("status", "active")
+
+    def start(self) -> ServiceControlResponse:
+        self.calls.append("start")
+        return self._response("start", "active")
+
+    def stop(self) -> ServiceControlResponse:
+        self.calls.append("stop")
+        return self._response("stop", "inactive")
+
+    def restart(self) -> ServiceControlResponse:
+        self.calls.append("restart")
+        return self._response("restart", "active")
+
+
+@pytest.fixture
+def isolated_availability_store(tmp_path: Path):
+    original_meeting_service = service._meeting_service
+    original_conversation_store = service._conversation_store
+    original_analytics_store = service._analytics_store
+    original_knowledge_gap_draft_store = service._knowledge_gap_draft_store
+    original_escalation_store = service._escalation_store
+    original_follow_up_store = service._follow_up_store
+    original_user_store = service._user_store
+    original_llm_client = service._llm_client
+    original_notifier = service._email_notifier
+    original_runtime_manager = service._runtime_manager
+    notifier = RecordingNotifier()
+    runtime_manager = FakeRuntimeManager()
+    isolated_settings = settings.model_copy(
+        update={
+            "conversation_memory_dir": tmp_path / "conversation-memory",
+            "knowledge_gap_draft_dir": tmp_path / "knowledge-gap-drafts",
+        }
+    )
+    service._meeting_service = MeetingService(
+        settings.model_copy(update={"availability_schedule_path": tmp_path / "availability" / "current_week.json"})
+    )
+    service._conversation_store = NeuroMemConversationStore(isolated_settings)
+    service._analytics_store = ConversationAnalyticsStore(isolated_settings, service._conversation_store)
+    service._knowledge_gap_draft_store = KnowledgeGapDraftStore(isolated_settings)
+    service._escalation_store = EscalationQueueStore(
+        settings.model_copy(update={"escalation_queue_dir": tmp_path / "escalations"})
+    )
+    service._follow_up_store = FollowUpQueueStore(
+        settings.model_copy(update={"follow_up_queue_dir": tmp_path / "follow-ups"})
+    )
+    service._user_store = service._user_store.__class__(
+        settings.model_copy(update={"user_account_store_dir": tmp_path / "user-accounts"})
+    )
+    service._email_notifier = notifier
+    service._runtime_manager = runtime_manager
+    notifier.runtime_manager = runtime_manager
+    try:
+        yield notifier
+    finally:
+        service._meeting_service = original_meeting_service
+        service._conversation_store = original_conversation_store
+        service._analytics_store = original_analytics_store
+        service._knowledge_gap_draft_store = original_knowledge_gap_draft_store
+        service._escalation_store = original_escalation_store
+        service._follow_up_store = original_follow_up_store
+        service._user_store = original_user_store
+        service._llm_client = original_llm_client
+        service._email_notifier = original_notifier
+        service._runtime_manager = original_runtime_manager
+
+
+class CollaborationMemoryLLMClient:
+    def classify_booking_intent_sync(self, question: str, course_context: str | None = None) -> bool:
+        return False
+
+    async def classify_booking_intent(self, question: str, course_context: str | None = None) -> bool:
+        return False
+
+    def answer_question_sync(self, system_prompt: str, user_prompt: str) -> str:
+        return "建议先准备 agenda、当前 blocker、相关 draft，再带上你最想讨论的问题。"
+
+    async def answer_question(self, system_prompt: str, user_prompt: str) -> str:
+        return self.answer_question_sync(system_prompt, user_prompt)
+
+
+def test_knowledge_requires_admin_authentication(isolated_availability_store) -> None:
+    client.cookies.clear()
+    response = client.get("/knowledge")
+
+    assert response.status_code == 403
+    assert response.json()["detail"] == "需要管理员身份验证。"
+
+    availability_read_response = client.get("/availability")
+    assert availability_read_response.status_code == 403
+    assert availability_read_response.json()["detail"] == "需要管理员身份验证。"
+
+    availability_response = client.put(
+        "/availability",
+        json={"week_of": "2026-05-25", "days": []},
+    )
+    assert availability_response.status_code == 403
+    assert availability_response.json()["detail"] == "需要管理员身份验证。"
+
+    memory_profiles_response = client.get("/memory/profiles")
+    assert memory_profiles_response.status_code == 403
+    assert memory_profiles_response.json()["detail"] == "需要管理员身份验证。"
+
+    analytics_response = client.get("/analytics/questions")
+    assert analytics_response.status_code == 403
+    assert analytics_response.json()["detail"] == "需要管理员身份验证。"
+
+    gap_drafts_response = client.get("/analytics/questions/gap-drafts")
+    assert gap_drafts_response.status_code == 403
+    assert gap_drafts_response.json()["detail"] == "需要管理员身份验证。"
+
+    escalations_response = client.get("/escalations")
+    assert escalations_response.status_code == 403
+    assert escalations_response.json()["detail"] == "需要管理员身份验证。"
+
+    follow_ups_response = client.get("/follow-ups")
+    assert follow_ups_response.status_code == 403
+    assert follow_ups_response.json()["detail"] == "需要管理员身份验证。"
+
+    services_response = client.get("/admin/services")
+    assert services_response.status_code == 403
+    assert services_response.json()["detail"] == "需要管理员身份验证。"
+
+    restart_response = client.post("/admin/services/restart")
+    assert restart_response.status_code == 403
+    assert restart_response.json()["detail"] == "需要管理员身份验证。"
+
+
+def test_auth_session_reflects_admin_login_state() -> None:
+    client.cookies.clear()
+
+    anonymous_response = client.get("/auth/session")
+    assert anonymous_response.status_code == 200
+    assert anonymous_response.json() == {"is_admin": False, "mode": "user", "username": None}
+
+    login_response = client.post(
+        "/auth/admin/login",
+        json={"username": settings.admin_username, "password": settings.admin_password},
+    )
+    assert login_response.status_code == 200
+
+    admin_response = client.get("/auth/session")
+    assert admin_response.status_code == 200
+    assert admin_response.json() == {
+        "is_admin": True,
+        "mode": "admin",
+        "username": settings.admin_username,
+    }
+
+
+def test_user_can_register_login_and_logout(isolated_availability_store) -> None:
+    client.cookies.clear()
+
+    anonymous_response = client.get("/auth/user/session")
+    assert anonymous_response.status_code == 200
+    assert anonymous_response.json() == {
+        "is_authenticated": False,
+        "mode": "guest",
+        "account": None,
+    }
+
+    register_response = client.post(
+        "/auth/user/register",
+        json={
+            "name": "Alice",
+            "email": "alice@example.com",
+            "password": "alice-password-123",
+        },
+    )
+    assert register_response.status_code == 200
+    register_payload = register_response.json()
+    assert register_payload["is_authenticated"] is True
+    assert register_payload["mode"] == "user"
+    assert register_payload["account"]["name"] == "Alice"
+    assert register_payload["account"]["email"] == "alice@example.com"
+
+    session_response = client.get("/auth/user/session")
+    assert session_response.status_code == 200
+    assert session_response.json()["account"]["email"] == "alice@example.com"
+
+    logout_response = client.post("/auth/user/logout")
+    assert logout_response.status_code == 200
+    assert logout_response.json() == {
+        "is_authenticated": False,
+        "mode": "guest",
+        "account": None,
+    }
+
+    login_response = client.post(
+        "/auth/user/login",
+        json={
+            "email": "alice@example.com",
+            "password": "alice-password-123",
+        },
+    )
+    assert login_response.status_code == 200
+    assert login_response.json()["account"]["name"] == "Alice"
+
+
+def test_user_registration_rejects_duplicate_email(isolated_availability_store) -> None:
+    client.cookies.clear()
+
+    first_response = client.post(
+        "/auth/user/register",
+        json={
+            "name": "Alice",
+            "email": "alice@example.com",
+            "password": "alice-password-123",
+        },
+    )
+    assert first_response.status_code == 200
+
+    client.post("/auth/user/logout")
+
+    duplicate_response = client.post(
+        "/auth/user/register",
+        json={
+            "name": "Alice 2",
+            "email": "Alice@example.com",
+            "password": "alice-password-456",
+        },
+    )
+    assert duplicate_response.status_code == 409
+    assert duplicate_response.json()["detail"] == "该邮箱已注册，请直接登录。"
+
+
+def test_admin_login_unlocks_admin_endpoints(isolated_availability_store) -> None:
+    client.cookies.clear()
+    login_response = client.post(
+        "/auth/admin/login",
+        json={"username": settings.admin_username, "password": settings.admin_password},
+    )
+    assert login_response.status_code == 200
+    assert login_response.json()["is_admin"] is True
+
+    knowledge_response = client.get("/knowledge")
+    assert knowledge_response.status_code == 200
+
+    availability_read_response = client.get("/availability")
+    assert availability_read_response.status_code == 200
+
+    availability_response = client.put(
+        "/availability",
+        json={
+            "week_of": "2026-05-25",
+            "days": [
+                {
+                    "date": "2026-05-26",
+                    "windows": [{"start": "14:00", "end": "16:00"}],
+                }
+            ],
+        },
+    )
+    assert availability_response.status_code == 200
+    assert availability_response.json()["days"][0]["date"] == "2026-05-26"
+
+    services_response = client.get("/admin/services")
+    assert services_response.status_code == 200
+    assert services_response.json()["action"] == "status"
+
+    logout_response = client.post("/auth/admin/logout")
+    assert logout_response.status_code == 200
+    assert logout_response.json()["is_admin"] is False
+
+
+def test_admin_can_control_managed_services(isolated_availability_store) -> None:
+    runtime_manager = isolated_availability_store.runtime_manager
+    client.cookies.clear()
+
+    login_response = client.post(
+        "/auth/admin/login",
+        json={"username": settings.admin_username, "password": settings.admin_password},
+    )
+    assert login_response.status_code == 200
+
+    status_response = client.get("/admin/services")
+    assert status_response.status_code == 200
+    assert status_response.json()["services"][0]["active_state"] == "active"
+
+    restart_response = client.post("/admin/services/restart")
+    assert restart_response.status_code == 200
+    assert restart_response.json()["action"] == "restart"
+    assert runtime_manager.calls == ["status", "restart"]
+
+
+def test_admin_can_confirm_pending_booking(isolated_availability_store: RecordingNotifier) -> None:
+    client.cookies.clear()
+
+    created_response = client.post(
+        "/bookings",
+        json={
+            "student_name": "Alice",
+            "student_email": "alice@example.com",
+            "topic": "论文讨论",
+            "preferred_start": "2026-05-26T14:00:00",
+            "preferred_end": "2026-05-26T14:45:00",
+        },
+    )
+    assert created_response.status_code == 200
+    created = created_response.json()
+    assert created["booking"]["status"] == "待确认"
+
+    login_response = client.post(
+        "/auth/admin/login",
+        json={"username": settings.admin_username, "password": settings.admin_password},
+    )
+    assert login_response.status_code == 200
+
+    pending_response = client.get("/bookings", params={"status": "待确认"})
+    assert pending_response.status_code == 200
+    assert len(pending_response.json()) == 1
+
+    confirm_response = client.post(f"/bookings/{created['booking']['booking_id']}/confirm")
+    assert confirm_response.status_code == 200
+    assert confirm_response.json()["booking"]["status"] == "已确认"
+    assert len(isolated_availability_store.approved_bookings) == 1
+
+
+def test_admin_can_reject_pending_booking(isolated_availability_store: RecordingNotifier) -> None:
+    client.cookies.clear()
+
+    created_response = client.post(
+        "/bookings",
+        json={
+            "student_name": "Bob",
+            "student_email": "bob@example.com",
+            "topic": "科研讨论",
+            "preferred_start": "2026-05-26T15:00:00",
+            "preferred_end": "2026-05-26T15:45:00",
+        },
+    )
+    assert created_response.status_code == 200
+    created = created_response.json()
+
+    login_response = client.post(
+        "/auth/admin/login",
+        json={"username": settings.admin_username, "password": settings.admin_password},
+    )
+    assert login_response.status_code == 200
+
+    reject_response = client.post(
+        f"/bookings/{created['booking']['booking_id']}/reject",
+        json={"rejection_reason": "这周安排已满，请改约下周。"},
+    )
+    assert reject_response.status_code == 200
+    assert reject_response.json()["booking"]["status"] == "已拒绝"
+    assert reject_response.json()["booking"]["rejection_reason"] == "这周安排已满，请改约下周。"
+    assert len(isolated_availability_store.rejected_bookings) == 1
+
+
+def test_admin_can_load_previous_week_availability_template(isolated_availability_store: RecordingNotifier) -> None:
+    client.cookies.clear()
+
+    login_response = client.post(
+        "/auth/admin/login",
+        json={"username": settings.admin_username, "password": settings.admin_password},
+    )
+    assert login_response.status_code == 200
+
+    previous_response = client.put(
+        "/availability",
+        json={
+            "week_of": "2026-05-18",
+            "days": [
+                {
+                    "date": "2026-05-18",
+                    "windows": [{"start": "09:00", "end": "11:00"}],
+                }
+            ],
+        },
+    )
+    assert previous_response.status_code == 200
+
+    current_response = client.put(
+        "/availability",
+        json={
+            "week_of": "2026-05-25",
+            "days": [],
+        },
+    )
+    assert current_response.status_code == 200
+
+    template_response = client.get("/availability/previous-week", params={"week_of": "2026-05-25"})
+    assert template_response.status_code == 200
+    assert template_response.json()["days"][0]["date"] == "2026-05-25"
+
+
+def test_admin_can_view_memory_profiles(isolated_availability_store: RecordingNotifier) -> None:
+    client.cookies.clear()
+    service._llm_client = CollaborationMemoryLLMClient()
+
+    asyncio.run(
+        service.answer(
+            ChatRequest(
+                student_name="Alice",
+                student_email="alice@example.com",
+                course_context="科研指导",
+                conversation_id="conv-admin-memory",
+                question="和老师约时间前，我应该先准备什么？",
+            )
+        )
+    )
+
+    login_response = client.post(
+        "/auth/admin/login",
+        json={"username": settings.admin_username, "password": settings.admin_password},
+    )
+    assert login_response.status_code == 200
+
+    response = client.get("/memory/profiles", params={"limit": 20})
+    assert response.status_code == 200
+    payload = response.json()
+    assert "collaboration_preference" in payload["available_categories"]
+    assert payload["category_counts"]["collaboration_preference"] >= 1
+    assert any(profile["category"] == "collaboration_preference" for profile in payload["profiles"])
+
+
+def test_admin_can_view_question_analytics_report(isolated_availability_store: RecordingNotifier) -> None:
+    client.cookies.clear()
+    service._llm_client = CollaborationMemoryLLMClient()
+
+    first = asyncio.run(
+        service.answer(
+            ChatRequest(
+                student_name="Alice",
+                student_email="alice@example.com",
+                course_context="科研指导",
+                conversation_id="conv-analytics-1",
+                question="和老师约时间前，我应该先准备什么？",
+            )
+        )
+    )
+    second = asyncio.run(
+        service.answer(
+            ChatRequest(
+                student_name="Bob",
+                student_email="bob@example.com",
+                course_context="科研指导",
+                conversation_id="conv-analytics-2",
+                question="和老师约时间前，我应该先准备什么？",
+            )
+        )
+    )
+    asyncio.run(
+        service.answer(
+            ChatRequest(
+                student_name="Carol",
+                student_email="carol@example.com",
+                course_context="科研指导",
+                conversation_id="conv-analytics-3",
+                question="FlowRAG 主要做什么？",
+            )
+        )
+    )
+
+    feedback_response = client.post(
+        "/chat/feedback",
+        json={
+            "exchange_id": first.exchange_id,
+            "rating": "down",
+            "resolved": False,
+            "needs_human_followup": True,
+            "issue_summary": "没有给出具体准备材料清单。",
+        },
+    )
+    assert feedback_response.status_code == 200
+    assert feedback_response.json()["needs_human_followup"] is True
+
+    positive_feedback_response = client.post(
+        "/chat/feedback",
+        json={
+            "exchange_id": second.exchange_id,
+            "rating": "up",
+        },
+    )
+    assert positive_feedback_response.status_code == 200
+    assert positive_feedback_response.json()["resolved"] is True
+
+    login_response = client.post(
+        "/auth/admin/login",
+        json={"username": settings.admin_username, "password": settings.admin_password},
+    )
+    assert login_response.status_code == 200
+
+    report_response = client.get("/analytics/questions", params={"days": 30})
+    assert report_response.status_code == 200
+    payload = report_response.json()
+    assert payload["overview"]["total_exchanges"] == 3
+    assert payload["overview"]["feedback_count"] == 2
+    assert payload["overview"]["unresolved_count"] == 1
+    assert payload["overview"]["human_handoff_count"] == 1
+    assert payload["top_clusters"][0]["count"] >= 2
+    assert payload["top_clusters"][0]["interaction_domain"] == "advising"
+    assert payload["knowledge_gap_suggestions"]
+    assert payload["knowledge_gap_suggestions"][0]["sample_questions"]
+    assert payload["unresolved_questions"][0]["issue_summary"] == "没有给出具体准备材料清单。"
+    assert payload["handoff_categories"][0]["category"] == "advising"
+
+
+def test_admin_can_generate_and_publish_gap_draft(isolated_availability_store: RecordingNotifier) -> None:
+    client.cookies.clear()
+    service._llm_client = CollaborationMemoryLLMClient()
+
+    exchange_ids: list[str] = []
+    for student_name in ("Alice", "Bob"):
+        response = asyncio.run(
+            service.answer(
+                ChatRequest(
+                    student_name=student_name,
+                    student_email=f"{student_name.lower()}@example.com",
+                    course_context="科研指导",
+                    conversation_id=f"conv-gap-{student_name}",
+                    question="和老师约时间前，我应该先准备什么？",
+                )
+            )
+        )
+        assert response.exchange_id is not None
+        exchange_ids.append(response.exchange_id)
+
+    feedback_response = client.post(
+        "/chat/feedback",
+        json={
+            "exchange_id": exchange_ids[0],
+            "rating": "down",
+            "resolved": False,
+            "issue_summary": "还缺少更标准的准备清单。",
+        },
+    )
+    assert feedback_response.status_code == 200
+
+    login_response = client.post(
+        "/auth/admin/login",
+        json={"username": settings.admin_username, "password": settings.admin_password},
+    )
+    assert login_response.status_code == 200
+
+    report_response = client.get("/analytics/questions", params={"days": 30})
+    assert report_response.status_code == 200
+    gap = report_response.json()["knowledge_gap_suggestions"][0]
+
+    create_response = client.post(
+        "/analytics/questions/gap-drafts",
+        json={"cluster_id": gap["cluster_id"], "days": 30},
+    )
+    assert create_response.status_code == 200
+    draft = create_response.json()
+    assert draft["cluster_id"] == gap["cluster_id"]
+    assert draft["status"] == "draft"
+    assert draft["title"].startswith("FAQ草稿｜")
+    assert "建议 FAQ/知识正文草稿" in draft["content"]
+
+    drafts_response = client.get("/analytics/questions/gap-drafts")
+    assert drafts_response.status_code == 200
+    drafts = drafts_response.json()
+    assert len(drafts) == 1
+    assert drafts[0]["draft_id"] == draft["draft_id"]
+
+    publish_response = client.post(f"/analytics/questions/gap-drafts/{draft['draft_id']}/publish")
+    assert publish_response.status_code == 200
+    published = publish_response.json()
+    assert published["status"] == "published"
+    assert published["published_document_id"]
+
+    knowledge_response = client.get("/knowledge")
+    assert knowledge_response.status_code == 200
+    documents = knowledge_response.json()
+    published_documents = [document for document in documents if document["document_id"] == published["published_document_id"]]
+    assert published_documents
+    assert published_documents[0]["source_name"].startswith("knowledge-gap:advising:")
+    assert published_documents[0]["title"].startswith("常见问题：")
+    assert "faq-draft" not in published_documents[0]["tags"]
+
+    refreshed_report_response = client.get("/analytics/questions", params={"days": 30})
+    assert refreshed_report_response.status_code == 200
+    refreshed_gap = refreshed_report_response.json()["knowledge_gap_suggestions"][0]
+    assert refreshed_gap["draft_id"] == draft["draft_id"]
+    assert refreshed_gap["draft_status"] == "published"
+
+
+def test_admin_can_view_and_resolve_escalations(isolated_availability_store: RecordingNotifier) -> None:
+    client.cookies.clear()
+
+    response = client.post(
+        "/chat",
+        json={
+            "student_name": "Alice",
+            "student_email": "alice@example.com",
+            "course_context": "科研指导",
+            "conversation_id": "conv-escalation-admin",
+            "question": "我想正式投诉这次成绩处理有误，请你马上联系老师。",
+        },
+    )
+    assert response.status_code == 200
+    escalation_record = response.json()["escalation_record"]
+    assert escalation_record["route"] == "human_handoff"
+
+    login_response = client.post(
+        "/auth/admin/login",
+        json={"username": settings.admin_username, "password": settings.admin_password},
+    )
+    assert login_response.status_code == 200
+
+    list_response = client.get("/escalations", params={"status": "待处理"})
+    assert list_response.status_code == 200
+    payload = list_response.json()
+    assert len(payload) == 1
+    assert payload[0]["route"] == "human_handoff"
+
+    resolve_response = client.post(
+        f"/escalations/{escalation_record['escalation_id']}/resolve",
+        json={"resolution_note": "已由老师本人接手处理。"},
+    )
+    assert resolve_response.status_code == 200
+    assert resolve_response.json()["status"] == "已处理"
+    assert resolve_response.json()["resolution_note"] == "已由老师本人接手处理。"

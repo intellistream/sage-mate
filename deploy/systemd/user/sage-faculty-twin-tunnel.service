@@ -1,0 +1,15 @@
+[Unit]
+Description=Sage Faculty Twin Cloudflare tunnel
+After=sage-faculty-twin-site.service
+Requires=sage-faculty-twin-site.service
+
+[Service]
+Type=simple
+WorkingDirectory=__REPO_ROOT__
+Environment=TUNNEL_PROTOCOL=http2
+ExecStart=__REPO_ROOT__/tools/run_named_tunnel.sh
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=default.target

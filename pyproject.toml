@@ -1,0 +1,69 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "sage-faculty-twin"
+version = "1.0.0"
+description = "24/7 faculty twin app built on SAGE and vllm-hust"
+readme = "README.md"
+license = {file = "LICENSE"}
+requires-python = ">=3.11"
+authors = [
+  {name = "IntelliStream"},
+]
+keywords = ["sage", "fastapi", "digital-twin", "academic-assistant", "neuromem"]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "License :: OSI Approved :: Apache Software License",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.11",
+  "Framework :: FastAPI",
+  "Intended Audience :: Education",
+]
+dependencies = [
+  "fastapi>=0.115.0,<1.0.0",
+  "httpx>=0.28.0,<1.0.0",
+  "pydantic>=2.9.0,<3.0.0",
+  "pydantic-settings>=2.5.0,<3.0.0",
+  "pypdf>=5.5.0,<6.0.0",
+  "uvicorn>=0.30.0,<1.0.0",
+  "isage>=0.1.0",
+  "isage-neuromem>=0.2.1.10",
+]
+
+[project.optional-dependencies]
+vdb = [
+  "isage-vdb>=0.2.0.9",
+  "numpy>=1.24.0",
+  "sentence-transformers>=3.0.0",
+]
+vdb-anns = [
+  "isage-vdb>=0.2.0.9",
+  "isage-anns>=0.1.3",
+  "numpy>=1.24.0",
+  "sentence-transformers>=3.0.0",
+]
+dev = [
+  "pytest>=8.3.0,<9.0.0",
+  "pytest-asyncio>=0.24.0,<1.0.0",
+  "ruff>=0.7.0,<1.0.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/intellistream/sage-faculty-twin"
+Repository = "https://github.com/intellistream/sage-faculty-twin"
+Issues = "https://github.com/intellistream/sage-faculty-twin/issues"
+Documentation = "https://github.com/intellistream/sage-faculty-twin/tree/main/docs"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+sage_faculty_twin = ["web/*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
