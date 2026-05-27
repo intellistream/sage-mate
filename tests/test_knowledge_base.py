@@ -1,8 +1,9 @@
 from pathlib import Path
+from datetime import UTC, datetime
 
 from sage_faculty_twin.config import AppSettings
 from sage_faculty_twin.knowledge_base import LocalKnowledgeStore
-from sage_faculty_twin.models import KnowledgeDocumentCreate, KnowledgeSearchHit
+from sage_faculty_twin.models import KnowledgeDocumentCreate, KnowledgeDocumentRecord, KnowledgeSearchHit
 from sage_faculty_twin.service import DigitalTwinService
 
 
@@ -25,6 +26,63 @@ def test_knowledge_store_adds_and_searches_documents(tmp_path: Path) -> None:
     assert len(store.list_documents()) == 1
     assert hits
     assert hits[0].title == "Lab onboarding policy"
+
+
+def test_knowledge_store_derives_and_returns_explicit_metadata(tmp_path: Path) -> None:
+    settings = AppSettings(knowledge_base_dir=tmp_path)
+    store = LocalKnowledgeStore(settings)
+
+    record = store.add_document(
+        KnowledgeDocumentCreate(
+            title="课件正文｜研究生论文写作课程材料｜第 7 讲 发表高水平论文",
+            content="第 7 讲讨论高水平论文选题、贡献表述与投稿准备。",
+            tags=[
+                "homepage",
+                "teaching",
+                "courseware",
+                "pdf",
+                "lecture",
+                "identity:teacher",
+                "domain:teaching",
+                "audience:graduate",
+                "course:paper-writing",
+                "material:lecture",
+                "lecture:7",
+            ],
+            source_name="homepage:contents/teaching/graduate-paper-writing-course.md#公开课件::lecture-7.pdf",
+        )
+    )
+
+    hits = store.search("研究生论文写作 第 7 讲讲什么？")
+
+    assert record.metadata["identity"] == "teacher"
+    assert record.metadata["domain"] == "teaching"
+    assert record.metadata["course_id"] == "paper-writing"
+    assert record.metadata["material_type"] == "lecture"
+    assert record.metadata["ordinal_type"] == "lecture"
+    assert record.metadata["ordinal"] == "7"
+    assert hits
+    assert hits[0].metadata["course_id"] == "paper-writing"
+
+
+def test_knowledge_store_backfills_metadata_for_legacy_records(tmp_path: Path) -> None:
+    legacy_record = KnowledgeDocumentRecord(
+        document_id="legacy-lecture",
+        title="课件正文｜大模型推理基础设施课程材料｜第 5 讲 KV 缓存",
+        content="第 5 讲重点解释 KV 缓存、分页管理与状态复用。",
+        tags=["homepage", "teaching", "courseware", "pdf", "lecture"],
+        source_name="homepage:contents/teaching/intro-to-llm-inference-engines.md#讲义与导论::lecture-5.pdf",
+        created_at=datetime.now(UTC),
+    )
+    (tmp_path / "legacy-lecture.json").write_text(legacy_record.model_dump_json(), encoding="utf-8")
+
+    store = LocalKnowledgeStore(AppSettings(knowledge_base_dir=tmp_path))
+    loaded_record = store.list_documents()[0]
+
+    assert loaded_record.metadata["identity"] == "teacher"
+    assert loaded_record.metadata["domain"] == "teaching"
+    assert loaded_record.metadata["course_id"] == "llm-inference"
+    assert loaded_record.metadata["material_type"] == "lecture"
 
 
 def test_knowledge_store_supports_neuromem_backend(tmp_path: Path) -> None:

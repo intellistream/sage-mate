@@ -48,6 +48,8 @@ from .models import (
     KnowledgeDocumentRecord,
     KnowledgeSearchResponse,
     MemoryProfileListResponse,
+    OperationsOverviewResponse,
+    OperationsWorkbenchResponse,
     QuestionAnalyticsReportResponse,
     ServiceControlResponse,
     UserLoginRequest,
@@ -380,6 +382,23 @@ async def get_question_analytics_report(
     _: dict = Depends(require_admin_session),
 ) -> QuestionAnalyticsReportResponse:
     return service.get_question_analytics_report(days=days)
+
+
+@llm_app.get("/operations/overview", response_model=OperationsOverviewResponse)
+async def get_operations_overview(
+    days: int = Query(default=7, ge=1, le=90),
+    _: dict = Depends(require_admin_session),
+) -> OperationsOverviewResponse:
+    return service.get_operations_overview(days=days)
+
+
+@llm_app.get("/operations/workbench", response_model=OperationsWorkbenchResponse)
+async def get_operations_workbench(
+    days: int = Query(default=7, ge=1, le=90),
+    limit: int = Query(default=10, ge=1, le=50),
+    _: dict = Depends(require_admin_session),
+) -> OperationsWorkbenchResponse:
+    return service.get_operations_workbench(days=days, limit=limit)
 
 
 @llm_app.get("/analytics/questions/gap-drafts", response_model=list[KnowledgeGapDraftRecordResponse])

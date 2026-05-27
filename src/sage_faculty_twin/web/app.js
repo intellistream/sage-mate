@@ -12,6 +12,7 @@ const availabilityModal = document.getElementById("availability-modal");
 const bookingAdminModal = document.getElementById("booking-admin-modal");
 const escalationAdminModal = document.getElementById("escalation-admin-modal");
 const memoryProfilesModal = document.getElementById("memory-profiles-modal");
+const operationsConsoleModal = document.getElementById("operations-console-modal");
 const questionAnalyticsModal = document.getElementById("question-analytics-modal");
 const adminLoginModal = document.getElementById("admin-login-modal");
 const userRegisterModal = document.getElementById("user-register-modal");
@@ -48,6 +49,7 @@ const openSuggestionsButton = document.getElementById("open-suggestions");
 const openBookingListButton = document.getElementById("open-booking-list");
 const openEscalationQueueButton = document.getElementById("open-escalation-queue");
 const openMemoryProfilesButton = document.getElementById("open-memory-profiles");
+const openOperationsConsoleButton = document.getElementById("open-operations-console");
 const openQuestionAnalyticsButton = document.getElementById("open-question-analytics");
 const openAvailabilityEditorButton = document.getElementById("open-availability-editor");
 const assistantName = document.getElementById("assistant-name");
@@ -109,6 +111,15 @@ const questionAnalyticsGaps = document.getElementById("question-analytics-gaps")
 const questionAnalyticsUnresolved = document.getElementById("question-analytics-unresolved");
 const questionAnalyticsHandoffs = document.getElementById("question-analytics-handoffs");
 const questionAnalyticsDrafts = document.getElementById("question-analytics-drafts");
+const operationsWindow = document.getElementById("operations-window");
+const operationsResponse = document.getElementById("operations-response");
+const operationsSummary = document.getElementById("operations-summary");
+const operationsQueues = document.getElementById("operations-queues");
+const operationsBookings = document.getElementById("operations-bookings");
+const operationsGaps = document.getElementById("operations-gaps");
+const operationsEscalations = document.getElementById("operations-escalations");
+const operationsFollowUps = document.getElementById("operations-follow-ups");
+const operationsSuggestions = document.getElementById("operations-suggestions");
 const AVAILABILITY_SLOT_MINUTES = 30;
 const AVAILABILITY_START_HOUR = 9;
 const AVAILABILITY_END_HOUR = 18;
@@ -206,6 +217,7 @@ const adminOnlyDrawerButtons = [
     openBookingListButton,
     openEscalationQueueButton,
     openMemoryProfilesButton,
+    openOperationsConsoleButton,
     openQuestionAnalyticsButton,
 ].filter(Boolean);
 const adminOnlyModals = [
@@ -214,6 +226,7 @@ const adminOnlyModals = [
     bookingAdminModal,
     escalationAdminModal,
     memoryProfilesModal,
+    operationsConsoleModal,
     questionAnalyticsModal,
 ].filter(Boolean);
 const managedServiceButtons = [
@@ -318,6 +331,14 @@ document.getElementById("open-memory-profiles").addEventListener("click", async 
     openModal(memoryProfilesModal);
     await loadMemoryProfiles();
 });
+document.getElementById("open-operations-console")?.addEventListener("click", async () => {
+    if (!ensureAdminOnlyAccess({ openLogin: true })) {
+        return;
+    }
+    closeDrawer();
+    openModal(operationsConsoleModal);
+    await loadOperationsWorkbench();
+});
 document.getElementById("open-question-analytics").addEventListener("click", async () => {
     if (!ensureAdminOnlyAccess({ openLogin: true })) {
         return;
@@ -364,11 +385,17 @@ document.getElementById("refresh-memory-profiles").addEventListener("click", asy
 document.getElementById("refresh-question-analytics").addEventListener("click", async () => {
     await loadQuestionAnalytics();
 });
+document.getElementById("refresh-operations-console")?.addEventListener("click", async () => {
+    await loadOperationsWorkbench();
+});
 memoryProfilesCategoryFilter?.addEventListener("change", async () => {
     await loadMemoryProfiles();
 });
 questionAnalyticsWindow?.addEventListener("change", async () => {
     await loadQuestionAnalytics();
+});
+operationsWindow?.addEventListener("change", async () => {
+    await loadOperationsWorkbench();
 });
 memoryProfilesStudentQuery?.addEventListener("keydown", async (event) => {
     if (event.key !== "Enter") {
@@ -400,6 +427,8 @@ escalationRouteFilter?.addEventListener("change", async () => {
 });
 questionAnalyticsGaps?.addEventListener("click", handleKnowledgeGapDraftAction);
 questionAnalyticsDrafts?.addEventListener("click", handleKnowledgeGapDraftAction);
+operationsGaps?.addEventListener("click", handleKnowledgeGapDraftAction);
+operationsQueues?.addEventListener("click", handleOperationsQueueAction);
 modalOverlay.addEventListener("click", closeModals);
 document.querySelectorAll("[data-close-modal]").forEach((button) => {
     button.addEventListener("click", closeModals);
@@ -756,6 +785,7 @@ async function refreshSession() {
         openBookingListButton.classList.toggle("hidden", !isAdmin);
         openEscalationQueueButton.classList.toggle("hidden", !isAdmin);
         openMemoryProfilesButton.classList.toggle("hidden", !isAdmin);
+        openOperationsConsoleButton?.classList.toggle("hidden", !isAdmin);
         openQuestionAnalyticsButton.classList.toggle("hidden", !isAdmin);
         openAvailabilityEditorButton.classList.toggle("hidden", !isAdmin);
         adminSessionCopy.textContent = isAdmin
@@ -778,6 +808,7 @@ async function refreshSession() {
         openBookingListButton.classList.add("hidden");
         openEscalationQueueButton.classList.add("hidden");
         openMemoryProfilesButton.classList.add("hidden");
+        openOperationsConsoleButton?.classList.add("hidden");
         openQuestionAnalyticsButton.classList.add("hidden");
         openAvailabilityEditorButton.classList.add("hidden");
         adminSessionCopy.textContent = "当前未登录管理员。";
@@ -946,6 +977,7 @@ function closeAdminOnlyModals() {
         bookingAdminModal.classList.contains("hidden") &&
         escalationAdminModal.classList.contains("hidden") &&
         memoryProfilesModal.classList.contains("hidden") &&
+        operationsConsoleModal.classList.contains("hidden") &&
         questionAnalyticsModal.classList.contains("hidden")
     ) {
         modalOverlay.classList.add("hidden");
@@ -1322,6 +1354,312 @@ async function loadQuestionAnalytics() {
     }
 }
 
+async function loadOperationsWorkbench() {
+    if (!ensureAdminOnlyAccess({ responseElement: operationsResponse })) {
+        return;
+    }
+    if (!operationsResponse) {
+        return;
+    }
+
+    const days = operationsWindow?.value || "7";
+    setInlineStatus(operationsResponse, `正在加载最近 ${days} 天运营后台...`, "empty");
+    renderOperationsLoadingState();
+
+    try {
+        const data = await apiRequest(`/operations/workbench?days=${encodeURIComponent(days)}&limit=6`);
+        renderOperationsSummary(data.overview || {});
+        renderOperationsQueues(data.overview?.queues || []);
+        renderOperationsBookings(data.pending_bookings || []);
+        renderOperationsKnowledgeGaps(
+            data.question_analytics?.knowledge_gap_suggestions || [],
+            data.knowledge_gap_drafts || []
+        );
+        renderOperationsEscalations(data.escalations || []);
+        renderOperationsFollowUps(data.follow_up_actions || []);
+        renderOperationsSuggestions(data.anonymous_suggestions || []);
+        setInlineStatus(operationsResponse, `已加载最近 ${days} 天运营后台。`, "success");
+    } catch (error) {
+        renderOperationsErrorState(error.message);
+        setInlineStatus(operationsResponse, error.message, "error");
+    }
+}
+
+function renderOperationsLoadingState() {
+    const loadingCard = '<div class="list-card"><p class="list-body">正在加载运营数据...</p></div>';
+    if (operationsSummary) {
+        operationsSummary.innerHTML = "";
+    }
+    if (operationsQueues) {
+        operationsQueues.innerHTML = loadingCard;
+    }
+    [operationsBookings, operationsGaps, operationsEscalations, operationsFollowUps, operationsSuggestions].forEach((element) => {
+        if (element) {
+            element.innerHTML = loadingCard;
+        }
+    });
+}
+
+function renderOperationsErrorState(message) {
+    const errorCard = `<div class="list-card"><p class="list-body">${escapeHtml(message)}</p></div>`;
+    [operationsQueues, operationsBookings, operationsGaps, operationsEscalations, operationsFollowUps, operationsSuggestions].forEach((element) => {
+        if (element) {
+            element.innerHTML = errorCard;
+        }
+    });
+}
+
+function renderOperationsSummary(overview) {
+    if (!operationsSummary) {
+        return;
+    }
+    const totals = overview.totals || {};
+    const analytics = overview.question_analytics || {};
+    const entries = [
+        ["知识条目", totals.knowledge_documents || 0],
+        ["学生记忆", totals.memory_profiles || 0],
+        ["反馈记录", totals.feedback_records || 0],
+        ["匿名留言", totals.suggestions || 0],
+        ["总问答", analytics.total_exchanges || 0],
+        ["人工接管", analytics.human_handoff_count || 0],
+    ];
+    operationsSummary.innerHTML = entries
+        .map(
+            ([label, value]) => `
+                <article class="operations-metric-card">
+                    <span>${escapeHtml(label)}</span>
+                    <strong>${escapeHtml(String(value))}</strong>
+                </article>
+            `
+        )
+        .join("");
+}
+
+function renderOperationsQueues(queues) {
+    if (!operationsQueues) {
+        return;
+    }
+    if (!Array.isArray(queues) || !queues.length) {
+        operationsQueues.innerHTML = '<div class="list-card"><p class="list-body">当前没有运营队列数据。</p></div>';
+        return;
+    }
+    operationsQueues.innerHTML = queues
+        .map(
+            (queue) => `
+                <article class="operations-queue-card">
+                    <div>
+                        <span class="operations-queue-label">${escapeHtml(formatOperationQueueLabel(queue.queue_key))}</span>
+                        <h3>${escapeHtml(queue.title)}</h3>
+                    </div>
+                    <strong>${escapeHtml(String(queue.open_count || 0))}</strong>
+                    <p>${escapeHtml(String(queue.total_count || 0))} 条总记录</p>
+                    <button type="button" class="ghost-button inline-action-button" data-operation-target="${escapeHtml(queue.queue_key)}">查看</button>
+                </article>
+            `
+        )
+        .join("");
+}
+
+function renderOperationsBookings(bookings) {
+    if (!operationsBookings) {
+        return;
+    }
+    if (!Array.isArray(bookings) || !bookings.length) {
+        renderOperationsEmpty(operationsBookings, "当前没有待审核预约。");
+        return;
+    }
+    operationsBookings.innerHTML = bookings
+        .map(
+            (booking) => `
+                <article class="list-card list-card-booking list-card-booking-pending">
+                    <h3>${escapeHtml(booking.topic)}</h3>
+                    <p class="list-meta">${escapeHtml(booking.student_name)} | ${escapeHtml(booking.student_email)}</p>
+                    <p class="list-body">${escapeHtml(formatBookingWindow(booking.start_at, booking.end_at))}</p>
+                    <div class="list-card-actions">
+                        <span class="status-badge status-badge-pending">${escapeHtml(booking.status)}</span>
+                    </div>
+                </article>
+            `
+        )
+        .join("");
+}
+
+function renderOperationsKnowledgeGaps(gaps, drafts) {
+    if (!operationsGaps) {
+        return;
+    }
+    const gapItems = Array.isArray(gaps) ? gaps : [];
+    const draftItems = Array.isArray(drafts) ? drafts : [];
+    if (!gapItems.length && !draftItems.length) {
+        renderOperationsEmpty(operationsGaps, "当前没有知识缺口建议或待补草稿。");
+        return;
+    }
+
+    const gapHtml = gapItems
+        .map(
+            (gap) => `
+                <article class="list-card list-card-analytics list-card-analytics-gap">
+                    <h3>${escapeHtml(gap.label)}</h3>
+                    <p class="list-meta">原因：${escapeHtml(gap.reason)}</p>
+                    <p class="list-body">建议动作：${escapeHtml(gap.suggested_action)}</p>
+                    <p class="list-body analytics-secondary-copy">样例：${escapeHtml((gap.sample_questions || []).join("；") || "暂无")}</p>
+                    <div class="list-card-actions">
+                        <div class="inline-action-group">
+                            <button type="button" class="ghost-button inline-action-button" data-gap-draft-create="${escapeHtml(gap.cluster_id)}">${gap.draft_id ? "刷新草稿" : "生成 FAQ 草稿"}</button>
+                            ${gap.draft_id && gap.draft_status !== "published"
+                    ? `<button type="button" class="primary-button inline-action-button" data-gap-draft-publish="${escapeHtml(gap.draft_id)}">发布到知识库</button>`
+                    : ""}
+                        </div>
+                        ${gap.draft_status ? `<span class="status-badge ${gap.draft_status === "published" ? "status-badge-confirmed" : "status-badge-pending"}">${gap.draft_status === "published" ? "已发布" : "已生成草稿"}</span>` : ""}
+                    </div>
+                </article>
+            `
+        )
+        .join("");
+
+    const draftHtml = draftItems
+        .map(
+            (draft) => `
+                <article class="list-card list-card-analytics list-card-analytics-draft">
+                    <h3>${escapeHtml(draft.title)}</h3>
+                    <p class="list-meta">${escapeHtml(draft.label)} | ${escapeHtml(formatDateTime(draft.updated_at))}</p>
+                    <p class="list-body">${escapeHtml(draft.suggested_action)}</p>
+                    <div class="list-card-actions">
+                        <div class="inline-action-group">
+                            <button type="button" class="ghost-button inline-action-button" data-gap-draft-create="${escapeHtml(draft.cluster_id)}">刷新草稿</button>
+                            ${draft.status !== "published"
+                    ? `<button type="button" class="primary-button inline-action-button" data-gap-draft-publish="${escapeHtml(draft.draft_id)}">发布到知识库</button>`
+                    : ""}
+                        </div>
+                        <span class="status-badge ${draft.status === "published" ? "status-badge-confirmed" : "status-badge-pending"}">${draft.status === "published" ? "已发布" : "草稿中"}</span>
+                    </div>
+                </article>
+            `
+        )
+        .join("");
+
+    operationsGaps.innerHTML = [
+        gapHtml,
+        draftHtml ? `<div class="operations-subsection-title">待补知识草稿</div>${draftHtml}` : "",
+    ].filter(Boolean).join("");
+}
+
+function renderOperationsEscalations(records) {
+    if (!operationsEscalations) {
+        return;
+    }
+    if (!Array.isArray(records) || !records.length) {
+        renderOperationsEmpty(operationsEscalations, "当前没有待处理人工请求。");
+        return;
+    }
+    operationsEscalations.innerHTML = records
+        .map(
+            (record) => `
+                <article class="list-card list-card-escalation list-card-escalation-pending">
+                    <h3>${escapeHtml(formatEscalationRouteLabel(record.route))}</h3>
+                    <p class="list-meta">${escapeHtml(record.student_name)} | ${escapeHtml(record.student_email || "未提供邮箱")}</p>
+                    <p class="list-body">${escapeHtml(record.question)}</p>
+                    <div class="list-card-actions">
+                        <span class="status-badge status-badge-handoff">${escapeHtml(record.status)}</span>
+                    </div>
+                </article>
+            `
+        )
+        .join("");
+}
+
+function renderOperationsFollowUps(actions) {
+    if (!operationsFollowUps) {
+        return;
+    }
+    if (!Array.isArray(actions) || !actions.length) {
+        renderOperationsEmpty(operationsFollowUps, "当前没有待发送后续动作。");
+        return;
+    }
+    operationsFollowUps.innerHTML = actions
+        .map(
+            (action) => `
+                <article class="list-card list-card-analytics list-card-analytics-handoff">
+                    <h3>${escapeHtml(action.title)}</h3>
+                    <p class="list-meta">${escapeHtml(action.student_name)} | ${escapeHtml(action.student_email)}</p>
+                    <p class="list-body">${escapeHtml(action.detail)}</p>
+                    <div class="list-card-actions">
+                        <span class="status-badge status-badge-info">${escapeHtml(formatFollowUpActionLabel(action.action_type))}</span>
+                        <span class="list-meta">${escapeHtml(action.due_at ? formatDateTime(action.due_at) : "无截止时间")}</span>
+                    </div>
+                </article>
+            `
+        )
+        .join("");
+}
+
+function renderOperationsSuggestions(records) {
+    if (!operationsSuggestions) {
+        return;
+    }
+    if (!Array.isArray(records) || !records.length) {
+        renderOperationsEmpty(operationsSuggestions, "当前没有匿名留言。");
+        return;
+    }
+    operationsSuggestions.innerHTML = records
+        .map(
+            (record) => `
+                <article class="list-card list-card-suggestion">
+                    <h3>${escapeHtml(record.category || "匿名留言")}</h3>
+                    <p class="list-meta">${escapeHtml(formatDateTime(record.created_at))}</p>
+                    <p class="list-body">${escapeHtml(record.message)}</p>
+                </article>
+            `
+        )
+        .join("");
+}
+
+function renderOperationsEmpty(element, message) {
+    element.innerHTML = `<div class="list-card"><p class="list-body">${escapeHtml(message)}</p></div>`;
+}
+
+async function handleOperationsQueueAction(event) {
+    const button = event.target.closest("[data-operation-target]");
+    if (!button) {
+        return;
+    }
+    const target = button.dataset.operationTarget;
+    closeModals();
+    if (target === "booking_review") {
+        openModal(bookingAdminModal);
+        await loadBookingList();
+    } else if (target === "knowledge_gap_drafts") {
+        openModal(questionAnalyticsModal);
+        await loadQuestionAnalytics();
+    } else if (target === "human_handoff") {
+        openModal(escalationAdminModal);
+        await loadEscalationList();
+    } else if (target === "follow_ups") {
+        openModal(questionAnalyticsModal);
+        await loadQuestionAnalytics();
+    } else if (target === "anonymous_suggestions") {
+        openModal(suggestionModal);
+        await loadSuggestionList();
+    }
+}
+
+function formatOperationQueueLabel(queueKey) {
+    switch (queueKey) {
+        case "booking_review":
+            return "Booking";
+        case "knowledge_gap_drafts":
+            return "Knowledge";
+        case "human_handoff":
+            return "Handoff";
+        case "follow_ups":
+            return "Follow-up";
+        case "anonymous_suggestions":
+            return "Feedback";
+        default:
+            return "Queue";
+    }
+}
+
 function renderQuestionAnalyticsSummary(overview) {
     if (!questionAnalyticsSummary) {
         return;
@@ -1471,7 +1809,10 @@ function renderQuestionAnalyticsDrafts(drafts) {
 }
 
 async function handleKnowledgeGapDraftAction(event) {
-    if (!ensureAdminOnlyAccess({ responseElement: questionAnalyticsResponse })) {
+    const isOperationsSource = Boolean(operationsGaps && operationsGaps.contains(event.target));
+    const responseElement = isOperationsSource ? operationsResponse : questionAnalyticsResponse;
+    const days = Number(isOperationsSource ? operationsWindow?.value || 7 : questionAnalyticsWindow?.value || 7);
+    if (!ensureAdminOnlyAccess({ responseElement })) {
         return;
     }
     const createButton = event.target.closest("[data-gap-draft-create]");
@@ -1484,29 +1825,29 @@ async function handleKnowledgeGapDraftAction(event) {
         if (createButton) {
             const clusterId = createButton.dataset.gapDraftCreate;
             createButton.disabled = true;
-            setInlineStatus(questionAnalyticsResponse, "正在生成知识草稿...", "empty");
+            setInlineStatus(responseElement, "正在生成知识草稿...", "empty");
             await apiRequest("/analytics/questions/gap-drafts", {
                 method: "POST",
-                body: JSON.stringify({ cluster_id: clusterId, days: Number(questionAnalyticsWindow?.value || 7) }),
+                body: JSON.stringify({ cluster_id: clusterId, days }),
             });
-            setInlineStatus(questionAnalyticsResponse, "知识草稿已生成，可继续发布到知识库。", "success");
-            await loadQuestionAnalytics();
+            setInlineStatus(responseElement, "知识草稿已生成，可继续发布到知识库。", "success");
+            await (isOperationsSource ? loadOperationsWorkbench() : loadQuestionAnalytics());
             return;
         }
 
         if (publishButton) {
             const draftId = publishButton.dataset.gapDraftPublish;
             publishButton.disabled = true;
-            setInlineStatus(questionAnalyticsResponse, "正在发布知识草稿到知识库...", "empty");
+            setInlineStatus(responseElement, "正在发布知识草稿到知识库...", "empty");
             await apiRequest(`/analytics/questions/gap-drafts/${encodeURIComponent(draftId)}/publish`, {
                 method: "POST",
             });
-            setInlineStatus(questionAnalyticsResponse, "知识草稿已发布到知识库。", "success");
+            setInlineStatus(responseElement, "知识草稿已发布到知识库。", "success");
             await refreshStatus();
-            await loadQuestionAnalytics();
+            await (isOperationsSource ? loadOperationsWorkbench() : loadQuestionAnalytics());
         }
     } catch (error) {
-        setInlineStatus(questionAnalyticsResponse, error.message, "error");
+        setInlineStatus(responseElement, error.message, "error");
     }
 }
 
@@ -3202,7 +3543,7 @@ function openModal(element) {
 
 function closeModals() {
     modalOverlay.classList.add("hidden");
-    [knowledgeModal, bookingModal, suggestionModal, adminLoginModal, userRegisterModal, userLoginModal, availabilityModal, bookingAdminModal, escalationAdminModal, memoryProfilesModal, questionAnalyticsModal].forEach((element) => {
+    [knowledgeModal, bookingModal, suggestionModal, adminLoginModal, userRegisterModal, userLoginModal, availabilityModal, bookingAdminModal, escalationAdminModal, memoryProfilesModal, operationsConsoleModal, questionAnalyticsModal].forEach((element) => {
         element.classList.add("hidden");
         element.setAttribute("aria-hidden", "true");
     });
@@ -3232,6 +3573,7 @@ function closeDrawer() {
         bookingAdminModal.classList.contains("hidden") &&
         escalationAdminModal.classList.contains("hidden") &&
         memoryProfilesModal.classList.contains("hidden") &&
+        operationsConsoleModal.classList.contains("hidden") &&
         questionAnalyticsModal.classList.contains("hidden")
     ) {
         modalOverlay.classList.add("hidden");
@@ -3251,6 +3593,13 @@ async function handleAdminLogout() {
         escalationList.innerHTML = "";
         memoryProfilesSummary.innerHTML = "";
         memoryProfilesList.innerHTML = "";
+        operationsSummary.innerHTML = "";
+        operationsQueues.innerHTML = "";
+        operationsBookings.innerHTML = "";
+        operationsGaps.innerHTML = "";
+        operationsEscalations.innerHTML = "";
+        operationsFollowUps.innerHTML = "";
+        operationsSuggestions.innerHTML = "";
         questionAnalyticsSummary.innerHTML = "";
         questionAnalyticsClusters.innerHTML = "";
         questionAnalyticsGaps.innerHTML = "";
@@ -3260,6 +3609,7 @@ async function handleAdminLogout() {
         resetManagedServicePanel();
         setInlineStatus(escalationAdminResponse, "这里放必须由你亲自接手的请求。", "empty");
         setInlineStatus(memoryProfilesResponse, "需要查学生长期记录时再打开这里。", "empty");
+        setInlineStatus(operationsResponse, "这里集中查看运营后台待处理事项。", "empty");
         setInlineStatus(questionAnalyticsResponse, "这里汇总近期问题和缺口，适合按周回看。", "empty");
         await refreshSession();
         closeDrawer();

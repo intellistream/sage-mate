@@ -38,10 +38,12 @@
                     <article class="message message-assistant intro-card">
                         <div id="assistant-name" class="message-role">张书豪的分身</div>
                         <div class="message-body">
-                            研究、资料、预约，都可以直接问。<br />
-                            预约请带 agenda 和当前问题。
+                            如果你是第一次来，可以先了解张书豪的研究方向、公开资料和预约方式。<br />
+                            先在右侧设置里选来访身份，系统会优先参考对应的知识库内容。<br />
+                            想继续深入交流的话，再把问题说具体一点：研究方向、合作兴趣或想约的时间段都可以直接写。<br />
+                            如果准备预约，最好把 agenda、当前问题和希望讨论的主题一起说明。
                         </div>
-                        <p class="intro-footnote">右侧显示进度，回答附依据。</p>
+                        <p class="intro-footnote">发出第一条消息后，桌面端右侧会持续显示处理轨迹；手机端可按底部入口查看进度，回答里也会附上依据和下一步建议。</p>
                         <div class="intro-quick-actions" aria-label="快速开始">
                             <button type="button" class="intro-chip-button" data-seed-question="张老师主要研究什么方向？"
                                 data-seed-context="初次来访">先了解研究方向</button>
@@ -56,7 +58,7 @@
                 <form id="chat-form" class="composer-shell">
                     <div class="composer-row">
                         <textarea id="chat-question" name="question" rows="1" required
-                            placeholder="先问研究、资料或预约。">张老师主要研究什么方向？</textarea>
+                            placeholder="如果是第一次来，可以先问研究方向、公开资料或预约方式。">张老师主要研究什么方向？</textarea>
                         <button type="submit" class="send-button">发送</button>
                     </div>
                 </form>
@@ -202,6 +204,7 @@
             <button type="button" id="open-booking-list" class="ghost-button drawer-button hidden">确认预约申请</button>
             <button type="button" id="open-escalation-queue" class="ghost-button drawer-button hidden">人工处理队列</button>
             <button type="button" id="open-memory-profiles" class="ghost-button drawer-button hidden">查看学生长期记录</button>
+            <button type="button" id="open-operations-console" class="ghost-button drawer-button hidden">运营后台</button>
             <button type="button" id="open-question-analytics" class="ghost-button drawer-button hidden">查看问答周报</button>
         </div>
         <div class="drawer-separator"></div>
@@ -534,6 +537,53 @@
         <div id="memory-profiles-response" class="inline-status inline-status-empty">正在等待管理员操作。</div>
         <div id="memory-profiles-summary" class="memory-profile-summary"></div>
         <div id="memory-profiles-list" class="list-stack"></div>
+    </section>
+
+    <section id="operations-console-modal" class="modal-panel modal-panel-wide hidden" aria-hidden="true">
+        <div class="modal-head">
+            <div>
+                <p class="brand-kicker">Operations</p>
+                <h2>运营后台</h2>
+                <p class="modal-copy">这里集中查看预约、知识缺口、人工接管、后续动作和匿名留言。</p>
+            </div>
+            <button type="button" data-close-modal class="icon-button">关闭</button>
+        </div>
+        <div class="operations-toolbar">
+            <label class="memory-profile-filter">
+                <span>统计窗口</span>
+                <select id="operations-window" name="operations_window">
+                    <option value="7">最近 7 天</option>
+                    <option value="14">最近 14 天</option>
+                    <option value="30">最近 30 天</option>
+                </select>
+            </label>
+            <button type="button" id="refresh-operations-console" class="ghost-button">刷新后台</button>
+        </div>
+        <div id="operations-response" class="inline-status inline-status-empty">正在等待管理员打开运营后台。</div>
+        <div id="operations-summary" class="operations-summary-grid"></div>
+        <div id="operations-queues" class="operations-queue-grid"></div>
+        <div class="operations-workbench-grid">
+            <section>
+                <h3 class="analytics-section-title">预约审核</h3>
+                <div id="operations-bookings" class="list-stack"></div>
+            </section>
+            <section>
+                <h3 class="analytics-section-title">知识缺口</h3>
+                <div id="operations-gaps" class="list-stack"></div>
+            </section>
+            <section>
+                <h3 class="analytics-section-title">人工处理</h3>
+                <div id="operations-escalations" class="list-stack"></div>
+            </section>
+            <section>
+                <h3 class="analytics-section-title">后续动作</h3>
+                <div id="operations-follow-ups" class="list-stack"></div>
+            </section>
+            <section>
+                <h3 class="analytics-section-title">匿名留言</h3>
+                <div id="operations-suggestions" class="list-stack"></div>
+            </section>
+        </div>
     </section>
 
     <section id="question-analytics-modal" class="modal-panel modal-panel-wide hidden" aria-hidden="true">

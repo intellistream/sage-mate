@@ -206,6 +206,11 @@ def test_import_homepage_materials_includes_teaching_material_indexes(tmp_path: 
     assert "domain:teaching" in tutorial_sections[0].tags
     assert "course:llm-inference" in tutorial_sections[0].tags
     assert "material:tutorial" in tutorial_sections[0].tags
+    assert tutorial_sections[0].metadata["identity"] == "teacher"
+    assert tutorial_sections[0].metadata["domain"] == "teaching"
+    assert tutorial_sections[0].metadata["audience"] == "graduate"
+    assert tutorial_sections[0].metadata["course_id"] == "llm-inference"
+    assert tutorial_sections[0].metadata["material_type"] == "tutorial"
     hits = store.search("KV 缓存是第几讲？")
     assert hits
     assert any(hit.title.startswith("课程资料｜大模型推理基础设施课程材料") for hit in hits)

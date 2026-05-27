@@ -105,6 +105,7 @@ class LocalKnowledgeStore:
             content=payload.content,
             tags=payload.tags,
             source_name=payload.source_name,
+            metadata=_normalize_knowledge_metadata(payload),
             created_at=datetime.now(UTC),
         )
         target_path = self._base_dir / f"{record.document_id}.json"
@@ -132,6 +133,7 @@ class LocalKnowledgeStore:
             content=payload.content,
             tags=payload.tags,
             source_name=payload.source_name,
+            metadata=_normalize_knowledge_metadata(payload),
             created_at=datetime.now(UTC),
         )
         target_path = self._base_dir / f"{updated_record.document_id}.json"
@@ -162,6 +164,7 @@ class LocalKnowledgeStore:
             content=payload.content,
             tags=payload.tags,
             source_name=payload.source_name,
+            metadata=_normalize_knowledge_metadata(payload),
             created_at=existing.created_at,
         )
         target_path = self._base_dir / f"{updated_record.document_id}.json"
@@ -233,6 +236,7 @@ class LocalKnowledgeStore:
                     score=score,
                     tags=document.tags,
                     source_name=document.source_name,
+                    metadata=document.metadata,
                 )
             )
 
@@ -249,6 +253,16 @@ class LocalKnowledgeStore:
     def _load_documents_from_disk(self) -> None:
         for path in sorted(self._base_dir.glob("*.json")):
             document = KnowledgeDocumentRecord.model_validate_json(path.read_text(encoding="utf-8"))
+            if not document.metadata:
+                document = document.model_copy(
+                    update={
+                        "metadata": _infer_knowledge_metadata(
+                            title=document.title,
+                            tags=document.tags,
+                            source_name=document.source_name,
+                        )
+                    }
+                )
             self._documents[document.document_id] = document
         self._deduplicate_loaded_documents()
 
@@ -446,6 +460,7 @@ class LocalKnowledgeStore:
                     score=1.0 / float(rank),
                     tags=document.tags,
                     source_name=document.source_name,
+                    metadata=document.metadata,
                 )
             )
         reranked = sorted(
@@ -548,6 +563,7 @@ class LocalKnowledgeStore:
                     score=1.0 / (1.0 + max(float(result.score), 0.0)),
                     tags=document.tags,
                     source_name=document.source_name,
+                    metadata=document.metadata,
                 )
             )
         return self._finalize_hits(hits, _build_query_profile(query, visitor_profile=visitor_profile), limit)
@@ -658,8 +674,9 @@ class LocalKnowledgeStore:
         title = ((document.title + " ") * 3).strip()
         tags = " ".join(document.tags + document.tags)
         tag_aliases = " ".join(_expand_document_aliases(document))
+        metadata_text = " ".join(document.metadata.values())
         source_tokens = _normalize_retrieval_text(document.source_name or "")
-        return f"{title} {tags} {tag_aliases} {source_tokens} {document.content}".strip()
+        return f"{title} {tags} {tag_aliases} {metadata_text} {source_tokens} {document.content}".strip()
 
     def _document_intent_boost(
         self,
@@ -980,12 +997,87 @@ def _infer_course_ids(text: str) -> tuple[str, ...]:
     return tuple(dict.fromkeys(course_ids))
 
 
+def _normalize_knowledge_metadata(payload: KnowledgeDocumentCreate) -> dict[str, str]:
+    inferred = _infer_knowledge_metadata(
+        title=payload.title,
+        tags=payload.tags,
+        source_name=payload.source_name,
+    )
+    explicit = {
+        str(key).strip(): str(value).strip()
+        for key, value in payload.metadata.items()
+        if str(key).strip() and str(value).strip()
+    }
+    return {**inferred, **explicit}
+
+
+def _infer_knowledge_metadata(
+    *,
+    title: str,
+    tags: list[str],
+    source_name: str | None,
+) -> dict[str, str]:
+    metadata: dict[str, str] = {}
+    normalized_tags = [tag.lower() for tag in tags]
+    tag_set = set(normalized_tags)
+
+    for tag in normalized_tags:
+        if ":" not in tag:
+            continue
+        key, value = tag.split(":", 1)
+        if key == "identity":
+            metadata["identity"] = value
+        elif key == "domain":
+            metadata["domain"] = value
+        elif key == "audience":
+            metadata["audience"] = value
+        elif key == "course":
+            metadata["course_id"] = value
+        elif key == "material":
+            metadata["material_type"] = value
+        elif key in {"lecture", "tutorial", "experiment"}:
+            metadata["ordinal_type"] = key
+            metadata["ordinal"] = value
+
+    if "domain" not in metadata:
+        if tag_set & _TEACHING_RELATED_TAGS:
+            metadata["domain"] = "teaching"
+        elif tag_set & _RESEARCH_DOCUMENT_TAGS:
+            metadata["domain"] = "research"
+        elif tag_set & _MEETING_DOCUMENT_TAGS:
+            metadata["domain"] = "meeting"
+
+    if "identity" not in metadata:
+        if metadata.get("domain") == "teaching":
+            metadata["identity"] = "teacher"
+        elif metadata.get("domain") == "research":
+            metadata["identity"] = "pi"
+        elif "profile" in tag_set:
+            metadata["identity"] = "public-profile"
+
+    if "material_type" not in metadata:
+        for candidate in ("tutorial", "lecture", "experiment", "pdf", "paper-digest", "overview", "profile"):
+            if candidate in tag_set:
+                metadata["material_type"] = candidate
+                break
+
+    for course_id in _infer_course_ids(f"{title} {source_name or ''}"):
+        metadata.setdefault("course_id", course_id)
+
+    if source_name:
+        metadata["source_kind"] = source_name.split(":", 1)[0] if ":" in source_name else "manual"
+
+    return metadata
+
+
 def _document_course_ids(document: KnowledgeDocumentRecord) -> frozenset[str]:
     course_ids = {
         tag.split(":", 1)[1].lower()
         for tag in document.tags
         if tag.lower().startswith("course:") and ":" in tag
     }
+    if document.metadata.get("course_id"):
+        course_ids.add(document.metadata["course_id"].lower())
     haystack = f"{document.title} {document.source_name or ''}".lower()
     for course_id, aliases in _COURSE_ALIAS_MAP.items():
         if any(alias.lower() in haystack for alias in aliases):

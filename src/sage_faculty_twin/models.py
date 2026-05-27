@@ -191,6 +191,7 @@ class KnowledgeDocumentCreate(BaseModel):
     content: str = Field(min_length=1, max_length=20000)
     tags: list[str] = Field(default_factory=list, max_length=16)
     source_name: str | None = Field(default=None, max_length=256)
+    metadata: dict[str, str] = Field(default_factory=dict)
 
 
 class KnowledgeDocumentRecord(BaseModel):
@@ -199,6 +200,7 @@ class KnowledgeDocumentRecord(BaseModel):
     content: str
     tags: list[str] = Field(default_factory=list)
     source_name: str | None = None
+    metadata: dict[str, str] = Field(default_factory=dict)
     created_at: datetime
 
 
@@ -209,6 +211,7 @@ class KnowledgeSearchHit(BaseModel):
     score: float
     tags: list[str] = Field(default_factory=list)
     source_name: str | None = None
+    metadata: dict[str, str] = Field(default_factory=dict)
 
 
 class KnowledgeSearchResponse(BaseModel):
@@ -323,6 +326,33 @@ class QuestionAnalyticsReportResponse(BaseModel):
     knowledge_gap_suggestions: list[KnowledgeGapSuggestion] = Field(default_factory=list)
     unresolved_questions: list[UnresolvedQuestionItem] = Field(default_factory=list)
     handoff_categories: list[HandoffCategorySummary] = Field(default_factory=list)
+
+
+class OperationsQueueSummary(BaseModel):
+    queue_key: str = Field(min_length=1, max_length=64)
+    title: str = Field(min_length=1, max_length=128)
+    open_count: int = Field(default=0, ge=0)
+    total_count: int = Field(default=0, ge=0)
+    action_url: str = Field(min_length=1, max_length=128)
+
+
+class OperationsOverviewResponse(BaseModel):
+    generated_at: datetime
+    window_days: int
+    health: dict[str, str] = Field(default_factory=dict)
+    totals: dict[str, int] = Field(default_factory=dict)
+    queues: list[OperationsQueueSummary] = Field(default_factory=list)
+    question_analytics: QuestionAnalyticsOverview
+
+
+class OperationsWorkbenchResponse(BaseModel):
+    overview: OperationsOverviewResponse
+    pending_bookings: list[BookingRecord] = Field(default_factory=list)
+    knowledge_gap_drafts: list[KnowledgeGapDraftRecordResponse] = Field(default_factory=list)
+    escalations: list[EscalationRecord] = Field(default_factory=list)
+    follow_up_actions: list[FollowUpQueueRecord] = Field(default_factory=list)
+    anonymous_suggestions: list[AnonymousSuggestionRecord] = Field(default_factory=list)
+    question_analytics: QuestionAnalyticsReportResponse
 
 
 class KnowledgeGapDraftCreateRequest(BaseModel):

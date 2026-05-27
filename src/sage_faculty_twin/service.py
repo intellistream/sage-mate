@@ -6,7 +6,7 @@ import re
 import threading
 from time import perf_counter
 from dataclasses import dataclass, field
-from datetime import date, datetime, time, timedelta
+from datetime import UTC, date, datetime, time, timedelta
 from collections.abc import Callable, Iterable
 from typing import Any
 from uuid import uuid4
@@ -58,6 +58,9 @@ from .models import (
     MemoryProfileListResponse,
     MemoryProfileRecordResponse,
     NotificationDeliveryStatus,
+    OperationsOverviewResponse,
+    OperationsQueueSummary,
+    OperationsWorkbenchResponse,
     QuestionAnalyticsOverview,
     QuestionAnalyticsReportResponse,
     QuestionClusterSummary,
@@ -2725,6 +2728,83 @@ class DigitalTwinService:
     def get_question_analytics_report(self, *, days: int = 7) -> QuestionAnalyticsReportResponse:
         return self._build_support().get_question_analytics_report(days=days)
 
+    def get_operations_overview(self, *, days: int = 7) -> OperationsOverviewResponse:
+        analytics = self.get_question_analytics_report(days=days)
+        bookings = self._meeting_service.list_bookings()
+        gap_drafts = self._knowledge_gap_draft_store.list_drafts()
+        escalations = self._escalation_store.list_requests()
+        follow_ups = self._follow_up_store.list_actions()
+        suggestion_count = self._suggestion_store.count_suggestions()
+        health = self.health()
+
+        pending_bookings = [booking for booking in bookings if booking.status == "待确认"]
+        open_gap_drafts = [draft for draft in gap_drafts if draft.status != "published"]
+        open_escalations = [item for item in escalations if item.status == "待处理"]
+        queued_follow_ups = [item for item in follow_ups if item.status == "queued"]
+
+        return OperationsOverviewResponse(
+            generated_at=datetime.now(UTC),
+            window_days=days,
+            health=health,
+            totals={
+                "bookings": len(bookings),
+                "knowledge_documents": _health_int(health, "knowledge_documents"),
+                "conversation_records": _health_int(health, "conversation_memory_records"),
+                "memory_profiles": _health_int(health, "conversation_memory_profiles"),
+                "feedback_records": _health_int(health, "conversation_feedback_records"),
+                "suggestions": suggestion_count,
+            },
+            queues=[
+                OperationsQueueSummary(
+                    queue_key="booking_review",
+                    title="预约审核",
+                    open_count=len(pending_bookings),
+                    total_count=len(bookings),
+                    action_url="/bookings",
+                ),
+                OperationsQueueSummary(
+                    queue_key="knowledge_gap_drafts",
+                    title="知识缺口草稿",
+                    open_count=len(open_gap_drafts),
+                    total_count=len(gap_drafts),
+                    action_url="/analytics/questions/gap-drafts",
+                ),
+                OperationsQueueSummary(
+                    queue_key="human_handoff",
+                    title="人工处理队列",
+                    open_count=len(open_escalations),
+                    total_count=len(escalations),
+                    action_url="/escalations",
+                ),
+                OperationsQueueSummary(
+                    queue_key="follow_ups",
+                    title="后续动作",
+                    open_count=len(queued_follow_ups),
+                    total_count=len(follow_ups),
+                    action_url="/follow-ups",
+                ),
+                OperationsQueueSummary(
+                    queue_key="anonymous_suggestions",
+                    title="匿名留言",
+                    open_count=suggestion_count,
+                    total_count=suggestion_count,
+                    action_url="/suggestions",
+                ),
+            ],
+            question_analytics=analytics.overview,
+        )
+
+    def get_operations_workbench(self, *, days: int = 7, limit: int = 10) -> OperationsWorkbenchResponse:
+        return OperationsWorkbenchResponse(
+            overview=self.get_operations_overview(days=days),
+            pending_bookings=self._meeting_service.list_bookings(status="待确认")[:limit],
+            knowledge_gap_drafts=self._knowledge_gap_draft_store.list_drafts()[:limit],
+            escalations=self._escalation_store.list_requests(status="待处理")[:limit],
+            follow_up_actions=self._follow_up_store.list_actions(status="queued")[:limit],
+            anonymous_suggestions=self._suggestion_store.list_suggestions(limit=limit),
+            question_analytics=self.get_question_analytics_report(days=days),
+        )
+
     def create_knowledge_gap_draft(
         self,
         request: KnowledgeGapDraftCreateRequest | dict[str, Any],
@@ -2940,6 +3020,13 @@ def _document_matches_payload(
         and document.tags == payload.tags
         and document.source_name == payload.source_name
     )
+
+
+def _health_int(health: dict[str, str], key: str) -> int:
+    try:
+        return int(health.get(key, "0"))
+    except ValueError:
+        return 0
 
 
 def _is_legacy_gap_document(source_name: str | None, tags: list[str]) -> bool:
