@@ -15,7 +15,7 @@ class ChatRequest(BaseModel):
 
 
 class InteractionIntent(BaseModel):
-    action: str = Field(default="answer", pattern="^(answer|book_meeting|ask_followup|review_queue|human_handoff)$")
+    action: str = Field(default="answer", pattern="^(answer|book_meeting|ask_followup|review_queue|human_handoff|admin_add_knowledge)$")
     domain: str = Field(default="general", pattern="^(general|research|teaching|advising|booking)$")
     retrieval_scopes: list[str] = Field(default_factory=list)
     exclude_scopes: list[str] = Field(default_factory=list)

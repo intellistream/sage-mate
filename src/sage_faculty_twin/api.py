@@ -11,6 +11,7 @@ from fastapi import HTTPException
 from fastapi import Request
 from fastapi import Query
 from fastapi import Response
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.responses import StreamingResponse
 from fastapi.staticfiles import StaticFiles
@@ -53,7 +54,20 @@ from .models import (
 )
 from .service import DigitalTwinService
 
+
+def configure_local_cors(target_app: FastAPI) -> None:
+    target_app.add_middleware(
+        CORSMiddleware,
+        allow_origins=[],
+        allow_origin_regex=r"https?://(localhost|127\.0\.0\.1)(:\d+)?$",
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+
+
 llm_app = FastAPI(title="SAGE Faculty Twin", version="0.1.0")
+configure_local_cors(llm_app)
 service = DigitalTwinService(settings)
 web_dir = Path(__file__).with_name("web")
 homepage_dir = settings.homepage_dir.resolve()
@@ -299,15 +313,20 @@ async def shutdown_event() -> None:
 
 @llm_app.post("/chat", response_model=ChatResponse)
 async def chat(
-    request: ChatRequest,
+    payload: ChatRequest,
+    raw_request: Request,
     request_id: str | None = Query(default=None, min_length=1, max_length=128),
 ) -> ChatResponse:
     if request_id is None:
-        return await service.answer(request)
+        return await service.answer(
+            payload,
+            admin_session_token=raw_request.cookies.get(ADMIN_COOKIE_NAME),
+        )
 
     try:
         response = await service.answer(
-            request,
+            payload,
+            admin_session_token=raw_request.cookies.get(ADMIN_COOKIE_NAME),
             trace_callback=lambda step: workflow_event_broker.publish_step(request_id, step),
         )
     except Exception as exc:
@@ -452,4 +471,5 @@ async def reject_booking(
 
 
 app = create_edge_app(mount_llm=True, llm_prefix="/", llm_app=llm_app)
+configure_local_cors(app)
 app.mount("/static", StaticFiles(directory=web_dir), name="static")

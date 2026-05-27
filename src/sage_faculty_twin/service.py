@@ -90,6 +90,8 @@ class ChatWorkflowContext:
     conversation_id: str
     owner_name: str
     used_model: str
+    is_admin_request: bool = False
+    admin_username: str | None = None
     route: str = "answer"
     workflow_action: str = "answer"
     decision_mode: str = "direct_answer"
@@ -104,6 +106,7 @@ class ChatWorkflowContext:
     booking_result: BookingResponse | None = None
     booking_notification: NotificationDeliveryStatus | None = None
     escalation_record: EscalationRecord | None = None
+    added_knowledge_record: KnowledgeDocumentRecord | None = None
     follow_up_actions: list[FollowUpAction] = field(default_factory=list)
     persisted_memory_record: ConversationMemoryRecord | None = None
     workflow_trace: list[WorkflowTraceStep] = field(default_factory=list)
@@ -149,6 +152,7 @@ class FacultyTwinWorkflowSupport:
         meeting_service: MeetingService,
         llm_client: VllmChatClient,
         email_notifier: BookingEmailNotifier,
+        admin_session_payload: dict[str, Any] | None = None,
         trace_callback: WorkflowTraceCallback | None = None,
     ) -> None:
         self._settings = settings
@@ -163,6 +167,7 @@ class FacultyTwinWorkflowSupport:
         self._meeting_service = meeting_service
         self._llm_client = llm_client
         self._email_notifier = email_notifier
+        self._admin_session_payload = admin_session_payload
         self._trace_callback = trace_callback
         self._action_planner = LightweightActionPlanner()
 
@@ -173,6 +178,12 @@ class FacultyTwinWorkflowSupport:
             conversation_id=request.conversation_id or str(uuid4()),
             owner_name=self._settings.owner_name,
             used_model=self._settings.model_name,
+            is_admin_request=self._admin_session_payload is not None,
+            admin_username=(
+                str(self._admin_session_payload.get("sub") or self._settings.admin_username)
+                if self._admin_session_payload is not None
+                else None
+            ),
         )
         self._append_trace(
             context,
@@ -220,6 +231,8 @@ class FacultyTwinWorkflowSupport:
                 f"置信度 {intent.confidence:.2f}。"
             )
         else:
+            if intent.action == "admin_add_knowledge":
+                context.workflow_action = intent.action
             if intent.decision_mode == "advise_only":
                 context.workflow_action = "advise_only"
             summary = f"已识别当前交互意图：{intent.action}/{intent.domain}。"
@@ -417,6 +430,33 @@ class FacultyTwinWorkflowSupport:
 
     def retrieve_knowledge(self, context: ChatWorkflowContext) -> ChatWorkflowContext:
         started_at = perf_counter()
+        if context.workflow_action == "admin_add_knowledge":
+            knowledge_request = self._build_admin_knowledge_request(context.request)
+            if knowledge_request is None:
+                context.answer = self._build_admin_knowledge_guidance_message()
+                summary = "识别到知识入库指令，但内容还不完整。"
+                detail = "管理员对话已进入知识入库模式，但还没有解析出可直接写入知识库的正文内容。"
+            else:
+                context.added_knowledge_record = self._knowledge_store.add_document(knowledge_request)
+                context.answer = self._build_admin_knowledge_success_message(context.added_knowledge_record)
+                summary = f"已写入知识库条目：{context.added_knowledge_record.title}。"
+                detail = (
+                    f"管理员对话已将“{context.added_knowledge_record.title}”写入知识库；"
+                    f"标签：{', '.join(context.added_knowledge_record.tags) or '未设置'}；"
+                    f"来源：{context.added_knowledge_record.source_name or '管理员手动录入'}。"
+                )
+
+            context.route = "done"
+            self._append_trace(
+                context,
+                key="knowledge_write",
+                title="知识入库",
+                summary=summary,
+                detail=detail,
+                duration_ms=self._elapsed_ms(started_at),
+            )
+            return context
+
         if context.route != "answer" or context.answer is not None:
             self._append_trace(
                 context,
@@ -454,6 +494,18 @@ class FacultyTwinWorkflowSupport:
 
     def retrieve_memory(self, context: ChatWorkflowContext) -> ChatWorkflowContext:
         started_at = perf_counter()
+        if context.workflow_action == "admin_add_knowledge":
+            self._append_trace(
+                context,
+                key="memory_retrieve",
+                title="对话记忆检索",
+                summary="管理员知识入库不检索学生记忆。",
+                detail="当前对话用于管理员知识维护，不读取学生画像或历史问答记忆。",
+                status="skipped",
+                duration_ms=self._elapsed_ms(started_at),
+            )
+            return context
+
         if context.route != "answer" or context.answer is not None:
             self._append_trace(
                 context,
@@ -518,6 +570,18 @@ class FacultyTwinWorkflowSupport:
 
     def persist_memory(self, context: ChatWorkflowContext) -> ChatWorkflowContext:
         started_at = perf_counter()
+        if context.workflow_action == "admin_add_knowledge":
+            self._append_trace(
+                context,
+                key="memory_persist",
+                title="写入对话记忆",
+                summary="管理员知识入库不写入学生记忆。",
+                detail="当前对话属于后台知识维护操作，不进入学生对话记忆库。",
+                status="skipped",
+                duration_ms=self._elapsed_ms(started_at),
+            )
+            return context
+
         if context.answer is None:
             self._append_trace(
                 context,
@@ -619,6 +683,18 @@ class FacultyTwinWorkflowSupport:
 
     def plan_follow_up_actions(self, context: ChatWorkflowContext) -> ChatWorkflowContext:
         started_at = perf_counter()
+        if context.workflow_action == "admin_add_knowledge":
+            self._append_trace(
+                context,
+                key="follow_up_plan",
+                title="规划后续动作",
+                summary="管理员知识入库不生成后续动作。",
+                detail="当前对话已经完成知识写入，不再生成学生侧后续建议。",
+                status="skipped",
+                duration_ms=self._elapsed_ms(started_at),
+            )
+            return context
+
         if context.answer is None:
             self._append_trace(
                 context,
@@ -1141,6 +1217,17 @@ class FacultyTwinWorkflowSupport:
         if context.conversation_id in self._booking_workflows:
             return self._build_booking_follow_up_intent(), "workflow_state"
 
+        if context.is_admin_request and self._looks_like_admin_knowledge_injection(context.request.question):
+            return (
+                InteractionIntent(
+                    action="admin_add_knowledge",
+                    domain="general",
+                    decision_mode="direct_answer",
+                    confidence=0.98,
+                ),
+                "admin_command",
+            )
+
         classify_sync = getattr(self._llm_client, "classify_interaction_intent_sync", None)
         if callable(classify_sync):
             try:
@@ -1375,6 +1462,9 @@ class FacultyTwinWorkflowSupport:
     def _build_answer_basis(self, context: ChatWorkflowContext) -> list[AnswerBasisItem]:
         basis_items: list[AnswerBasisItem] = []
 
+        if context.added_knowledge_record is not None:
+            basis_items.append(self._build_added_knowledge_basis_item(context.added_knowledge_record))
+
         for hit in context.knowledge_hits[:3]:
             basis_items.append(self._build_knowledge_basis_item(hit))
 
@@ -1425,6 +1515,18 @@ class FacultyTwinWorkflowSupport:
             title=self._clip_basis_text(self._format_basis_title(hit.title), 256),
             source_label=self._clip_basis_text(self._format_basis_source_label(hit.source_name), 256),
             detail=self._clip_basis_text(self._format_basis_detail(hit.excerpt), 1000),
+        )
+
+    def _build_added_knowledge_basis_item(self, record: KnowledgeDocumentRecord) -> AnswerBasisItem:
+        detail = (
+            f"已通过管理员对话写入知识库，标签：{', '.join(record.tags) or '未设置'}。"
+            "后续管理员检索和普通问答都可以立即复用这条资料。"
+        )
+        return AnswerBasisItem(
+            basis_label="知识入库结果",
+            title=self._clip_basis_text(self._format_basis_title(record.title), 256),
+            source_label=self._clip_basis_text(self._format_basis_source_label(record.source_name), 256),
+            detail=self._clip_basis_text(detail, 1000),
         )
 
     def _clip_basis_text(self, value: str | None, limit: int) -> str:
@@ -1743,6 +1845,158 @@ class FacultyTwinWorkflowSupport:
             request.question,
             request.course_context,
         )
+
+    def _looks_like_admin_knowledge_injection(self, question: str) -> bool:
+        normalized = _normalize_whitespace(question)
+        if not normalized:
+            return False
+
+        trigger_markers = (
+            "加入知识库",
+            "添加到知识库",
+            "写入知识库",
+            "录入知识库",
+            "保存到知识库",
+            "记到知识库",
+            "注入知识",
+            "补充知识库",
+            "更新知识库",
+        )
+        has_trigger = any(marker in normalized for marker in trigger_markers)
+        if not has_trigger:
+            return False
+
+        has_structured_fields = any(
+            marker in normalized
+            for marker in ("标题：", "标题:", "内容：", "内容:", "正文：", "正文:", "标签：", "标签:")
+        )
+        if has_structured_fields:
+            return True
+
+        command_body = self._strip_admin_knowledge_command(normalized)
+        return len(command_body) >= 16
+
+    def _build_admin_knowledge_request(self, request: ChatRequest) -> KnowledgeDocumentCreate | None:
+        command_body = self._strip_admin_knowledge_command(request.question)
+        if not command_body:
+            return None
+
+        parsed_fields = self._parse_admin_knowledge_fields(command_body)
+        content = parsed_fields.get("content") or command_body
+        content = content.strip()
+        if len(content) < 8:
+            return None
+
+        title = parsed_fields.get("title") or self._derive_admin_knowledge_title(content, request.course_context)
+        tags = self._parse_admin_knowledge_tags(parsed_fields.get("tags", ""))
+        source_name = parsed_fields.get("source") or None
+        return KnowledgeDocumentCreate(
+            title=title,
+            content=content,
+            tags=tags,
+            source_name=source_name,
+        )
+
+    def _build_admin_knowledge_guidance_message(self) -> str:
+        return (
+            "已识别为管理员知识入库指令，但当前内容还不够完整。\n"
+            "你可以直接这样发：\n"
+            "加入知识库：\n"
+            "标题：预约前准备清单\n"
+            "标签：advising, booking\n"
+            "内容：学生预约前需要先发送 agenda、当前 blocker 和相关 draft。"
+        )
+
+    def _build_admin_knowledge_success_message(self, record: KnowledgeDocumentRecord) -> str:
+        tags_text = "、".join(record.tags) if record.tags else "未设置"
+        source_text = record.source_name or "管理员手动录入"
+        return (
+            f"已写入知识库：{record.title}\n"
+            f"标签：{tags_text}\n"
+            f"来源：{source_text}\n"
+            "后续管理员检索和学生对话都可以立即使用这条资料。"
+        )
+
+    def _strip_admin_knowledge_command(self, question: str) -> str:
+        normalized = str(question or "").strip()
+        patterns = [
+            r"^(?:请|麻烦)?(?:帮我)?(?:把下面|将下面|把这段|将这段)?(?:内容|资料|信息)?(?:直接)?(?:加入|添加到|写入|录入|保存到|记到|补充到|更新到)(?:知识库|知识)(?:里|中)?[：:，,\s-]*",
+            r"^(?:请|麻烦)?(?:帮我)?(?:直接)?(?:注入|录入)(?:知识|知识库)[：:，,\s-]*",
+        ]
+        stripped = normalized
+        for pattern in patterns:
+            stripped = re.sub(pattern, "", stripped, count=1)
+        return stripped.strip()
+
+    def _parse_admin_knowledge_fields(self, body: str) -> dict[str, str]:
+        alias_map = {
+            "标题": "title",
+            "title": "title",
+            "标签": "tags",
+            "tag": "tags",
+            "tags": "tags",
+            "来源": "source",
+            "来源名": "source",
+            "source": "source",
+            "内容": "content",
+            "正文": "content",
+            "content": "content",
+        }
+        result: dict[str, list[str]] = {"title": [], "tags": [], "source": [], "content": []}
+        fallback_lines: list[str] = []
+        current_field: str | None = None
+
+        for raw_line in body.splitlines():
+            line = raw_line.strip()
+            if not line:
+                if current_field == "content":
+                    result[current_field].append("")
+                continue
+
+            matched = re.match(r"^(标题|title|标签|tag|tags|来源|来源名|source|内容|正文|content)\s*[:：]\s*(.*)$", line, re.IGNORECASE)
+            if matched:
+                current_field = alias_map[matched.group(1).lower()]
+                value = matched.group(2).strip()
+                if value:
+                    result[current_field].append(value)
+                continue
+
+            if current_field == "content":
+                result[current_field].append(raw_line.rstrip())
+                continue
+
+            fallback_lines.append(raw_line.rstrip())
+
+        parsed = {
+            key: "\n".join(value).strip() if key == "content" else " ".join(value).strip()
+            for key, value in result.items()
+            if any(part.strip() for part in value)
+        }
+        if "content" not in parsed:
+            fallback_content = "\n".join(line for line in fallback_lines if line.strip()).strip()
+            if fallback_content:
+                parsed["content"] = fallback_content
+        return parsed
+
+    def _parse_admin_knowledge_tags(self, raw_tags: str) -> list[str]:
+        if not raw_tags.strip():
+            return []
+        normalized: list[str] = []
+        for tag in re.split(r"[,，;；、\s]+", raw_tags):
+            cleaned = tag.strip().lower()
+            if cleaned and cleaned not in normalized:
+                normalized.append(cleaned)
+        return normalized
+
+    def _derive_admin_knowledge_title(self, content: str, course_context: str | None) -> str:
+        if course_context and course_context.strip():
+            return _summarize_text(course_context.strip(), limit=64)
+
+        for line in content.splitlines():
+            normalized = _normalize_whitespace(line).strip(" ：:|｜")
+            if normalized:
+                return _summarize_text(normalized, limit=64)
+        return "管理员对话录入知识"
 
     def _missing_booking_fields(self, state: BookingWorkflowState) -> list[str]:
         missing_fields: list[str] = []
@@ -2250,9 +2504,14 @@ class DigitalTwinService:
     async def answer(
         self,
         request: ChatRequest,
+        admin_session_token: str | None = None,
         trace_callback: WorkflowTraceCallback | None = None,
     ) -> ChatResponse:
-        support = self._build_support(trace_callback=trace_callback)
+        admin_session_payload = decode_admin_session_token(admin_session_token, self._settings)
+        support = self._build_support(
+            admin_session_payload=admin_session_payload,
+            trace_callback=trace_callback,
+        )
         stages = [
             (BootstrapChatContextStage, support),
             (InteractionUnderstandingStage, support),
@@ -2539,6 +2798,7 @@ class DigitalTwinService:
 
     def _build_support(
         self,
+        admin_session_payload: dict[str, Any] | None = None,
         trace_callback: WorkflowTraceCallback | None = None,
     ) -> FacultyTwinWorkflowSupport:
         return FacultyTwinWorkflowSupport(
@@ -2554,6 +2814,7 @@ class DigitalTwinService:
             self._meeting_service,
             self._llm_client,
             self._email_notifier,
+            admin_session_payload=admin_session_payload,
             trace_callback=trace_callback,
         )
 

@@ -217,6 +217,8 @@ class ConversationAnalyticsStore:
     def _build_samples(self, window_start: datetime) -> list[ExchangeAnalyticsSample]:
         samples: list[ExchangeAnalyticsSample] = []
         for record in self._conversation_store.list_records(since=window_start):
+            if self._should_exclude_from_question_report(record):
+                continue
             samples.append(
                 ExchangeAnalyticsSample(
                     record=record,
@@ -226,6 +228,11 @@ class ConversationAnalyticsStore:
             )
         samples.sort(key=lambda sample: sample.record.created_at, reverse=True)
         return samples
+
+    def _should_exclude_from_question_report(self, record: ConversationMemoryRecord) -> bool:
+        interaction_domain = (record.interaction_domain or "").strip().lower()
+        workflow_action = (record.workflow_action or "").strip().lower()
+        return interaction_domain == "booking" or workflow_action in {"book_meeting", "collect_booking_details"}
 
     def _build_clusters(self, samples: list[ExchangeAnalyticsSample]) -> list[ExchangeCluster]:
         clusters: list[ExchangeCluster] = []

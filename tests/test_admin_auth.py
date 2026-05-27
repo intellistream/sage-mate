@@ -83,6 +83,7 @@ class FakeRuntimeManager:
 @pytest.fixture
 def isolated_availability_store(tmp_path: Path):
     original_meeting_service = service._meeting_service
+    original_knowledge_store = service._knowledge_store
     original_conversation_store = service._conversation_store
     original_analytics_store = service._analytics_store
     original_knowledge_gap_draft_store = service._knowledge_gap_draft_store
@@ -96,10 +97,12 @@ def isolated_availability_store(tmp_path: Path):
     runtime_manager = FakeRuntimeManager()
     isolated_settings = settings.model_copy(
         update={
+            "knowledge_base_dir": tmp_path / "knowledge-base",
             "conversation_memory_dir": tmp_path / "conversation-memory",
             "knowledge_gap_draft_dir": tmp_path / "knowledge-gap-drafts",
         }
     )
+    service._knowledge_store = service._knowledge_store.__class__(isolated_settings)
     service._meeting_service = MeetingService(
         settings.model_copy(update={"availability_schedule_path": tmp_path / "availability" / "current_week.json"})
     )
@@ -122,6 +125,7 @@ def isolated_availability_store(tmp_path: Path):
         yield notifier
     finally:
         service._meeting_service = original_meeting_service
+        service._knowledge_store = original_knowledge_store
         service._conversation_store = original_conversation_store
         service._analytics_store = original_analytics_store
         service._knowledge_gap_draft_store = original_knowledge_gap_draft_store
@@ -214,6 +218,48 @@ def test_auth_session_reflects_admin_login_state() -> None:
         "mode": "admin",
         "username": settings.admin_username,
     }
+
+
+def test_admin_can_inject_knowledge_via_chat_after_login(isolated_availability_store) -> None:
+    client.cookies.clear()
+
+    login_response = client.post(
+        "/auth/admin/login",
+        json={"username": settings.admin_username, "password": settings.admin_password},
+    )
+    assert login_response.status_code == 200
+
+    chat_response = client.post(
+        "/chat",
+        json={
+            "student_name": "admin",
+            "student_email": None,
+            "course_context": "科研指导",
+            "conversation_id": "admin-knowledge-injection",
+            "question": (
+                "加入知识库：\n"
+                "标题：预约前准备清单\n"
+                "标签：advising, booking\n"
+                "内容：学生预约前需要先发送 agenda、当前 blocker 和相关 draft。"
+            ),
+        },
+    )
+
+    assert chat_response.status_code == 200
+    chat_payload = chat_response.json()
+    assert chat_payload["workflow_action"] == "admin_add_knowledge"
+    assert "已写入知识库：预约前准备清单" in chat_payload["answer"]
+    assert any(item["basis_label"] == "知识入库结果" for item in chat_payload["answer_basis"])
+
+    knowledge_response = client.get("/knowledge")
+    assert knowledge_response.status_code == 200
+    documents = knowledge_response.json()
+    assert any(
+        document["title"] == "预约前准备清单"
+        and "agenda" in document["content"]
+        and set(document["tags"]) == {"advising", "booking"}
+        for document in documents
+    )
 
 
 def test_user_can_register_login_and_logout(isolated_availability_store) -> None:
@@ -563,6 +609,80 @@ def test_admin_can_view_question_analytics_report(isolated_availability_store: R
     assert payload["knowledge_gap_suggestions"][0]["sample_questions"]
     assert payload["unresolved_questions"][0]["issue_summary"] == "没有给出具体准备材料清单。"
     assert payload["handoff_categories"][0]["category"] == "advising"
+
+
+def test_question_analytics_report_excludes_booking_interactions(
+    isolated_availability_store: RecordingNotifier,
+) -> None:
+    client.cookies.clear()
+
+    booking_record = service._conversation_store.add_exchange(
+        ChatRequest(
+            student_name="Alice",
+            student_email="alice@example.com",
+            course_context="科研指导",
+            conversation_id="conv-booking-report",
+            question="帮我预约下周三下午讨论论文提纲。",
+        ),
+        conversation_id="conv-booking-report",
+        answer="已记录预约请求，等待管理员确认。",
+        workflow_action="book_meeting",
+        interaction_domain="booking",
+        knowledge_hit_count=0,
+        booking_result=None,
+    )
+    advising_record = service._conversation_store.add_exchange(
+        ChatRequest(
+            student_name="Bob",
+            student_email="bob@example.com",
+            course_context="科研指导",
+            conversation_id="conv-advising-report",
+            question="见老师前论文提纲应该准备到什么程度？",
+        ),
+        conversation_id="conv-advising-report",
+        answer="建议先准备研究问题、提纲、当前 blocker 和想讨论的决策点。",
+        workflow_action="advise_only",
+        interaction_domain="advising",
+        knowledge_hit_count=1,
+        booking_result=None,
+    )
+
+    service._analytics_store.submit_feedback(
+        exchange_id=booking_record.memory_id,
+        rating="down",
+        resolved=False,
+        needs_human_followup=True,
+        issue_summary="这是预约申请，不该出现在问答周报里。",
+    )
+    service._analytics_store.submit_feedback(
+        exchange_id=advising_record.memory_id,
+        rating="up",
+        resolved=True,
+        needs_human_followup=False,
+        issue_summary=None,
+    )
+
+    login_response = client.post(
+        "/auth/admin/login",
+        json={"username": settings.admin_username, "password": settings.admin_password},
+    )
+    assert login_response.status_code == 200
+
+    report_response = client.get("/analytics/questions", params={"days": 30})
+    assert report_response.status_code == 200
+    payload = report_response.json()
+
+    assert payload["overview"]["total_exchanges"] == 1
+    assert payload["overview"]["feedback_count"] == 1
+    assert payload["overview"]["unresolved_count"] == 0
+    assert payload["overview"]["human_handoff_count"] == 0
+    assert payload["top_clusters"][0]["interaction_domain"] == "advising"
+    assert all(
+        "预约" not in " ".join(cluster["sample_questions"])
+        for cluster in payload["top_clusters"]
+    )
+    assert payload["unresolved_questions"] == []
+    assert payload["handoff_categories"] == []
 
 
 def test_admin_can_generate_and_publish_gap_draft(isolated_availability_store: RecordingNotifier) -> None:

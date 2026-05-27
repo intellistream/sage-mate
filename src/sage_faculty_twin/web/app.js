@@ -108,6 +108,7 @@ const AVAILABILITY_DAY_COUNT = 7;
 const PROFILE_PROMPT_KEY = "myTwinProfilePromptShown";
 const WORKFLOW_SHELL_COLLAPSED_KEY = "myTwinWorkflowShellCollapsed";
 const WORKFLOW_MOBILE_MODE_KEY = "myTwinWorkflowMobileMode";
+const LOCAL_API_PORT_CANDIDATES = ["55601", "8010", "8000"];
 let assistantLabel = "我的学术分身";
 let activeConversationId = createConversationId();
 let activeWorkflowStream = null;
@@ -125,6 +126,10 @@ let latestWorkflowMeta = {
 let latestManagedServiceEvent = null;
 let isAdminSession = false;
 let isUserAuthenticated = false;
+let resolvedApiOrigin = typeof globalThis.__SAGE_FACULTY_TWIN_API_ORIGIN__ === "string"
+    ? globalThis.__SAGE_FACULTY_TWIN_API_ORIGIN__.trim()
+    : "";
+let apiOriginResolutionPromise = null;
 const adminOnlyDrawerButtons = [
     openKnowledgeButton,
     openAvailabilityEditorButton,
@@ -1684,18 +1689,121 @@ function formatEscalationRouteLabel(route) {
     return route === "human_handoff" ? "必须转人工" : "待审核";
 }
 
+function isLocalHostname(hostname) {
+    return hostname === "localhost" || hostname === "127.0.0.1";
+}
+
+function normalizeOrigin(origin) {
+    return origin ? origin.replace(/\/$/, "") : "";
+}
+
+function buildApiUrl(path, origin = "") {
+    if (/^https?:\/\//.test(path)) {
+        return path;
+    }
+    if (!origin) {
+        return path;
+    }
+    return new URL(path, `${normalizeOrigin(origin)}/`).toString();
+}
+
+function getApiOriginCandidates() {
+    const candidates = [];
+    const pushCandidate = (value) => {
+        const normalized = normalizeOrigin(value);
+        if (!normalized || candidates.includes(normalized)) {
+            return;
+        }
+        candidates.push(normalized);
+    };
+
+    if (resolvedApiOrigin) {
+        pushCandidate(resolvedApiOrigin);
+    }
+
+    if (globalThis.location?.origin) {
+        pushCandidate(globalThis.location.origin);
+    }
+
+    const hostname = globalThis.location?.hostname || "";
+    const protocol = globalThis.location?.protocol || "http:";
+    const currentPort = globalThis.location?.port || "";
+    if (isLocalHostname(hostname)) {
+        const hostnames = hostname === "localhost" ? ["localhost", "127.0.0.1"] : ["127.0.0.1", "localhost"];
+        for (const localHostname of hostnames) {
+            if (currentPort) {
+                pushCandidate(`${protocol}//${localHostname}:${currentPort}`);
+            }
+            for (const port of LOCAL_API_PORT_CANDIDATES) {
+                pushCandidate(`${protocol}//${localHostname}:${port}`);
+            }
+        }
+    }
+
+    return candidates;
+}
+
+async function probeApiOrigin(origin) {
+    const url = buildApiUrl("/auth/user/session", origin);
+    try {
+        const response = await fetch(url, {
+            method: "GET",
+            credentials: "include",
+            headers: {
+                "Accept": "application/json",
+            },
+        });
+        if (!response.ok) {
+            return false;
+        }
+        const payload = await response.json();
+        return typeof payload?.is_authenticated === "boolean" && typeof payload?.mode === "string";
+    } catch {
+        return false;
+    }
+}
+
+async function resolveApiOrigin() {
+    if (resolvedApiOrigin) {
+        return resolvedApiOrigin;
+    }
+    if (apiOriginResolutionPromise) {
+        return apiOriginResolutionPromise;
+    }
+
+    apiOriginResolutionPromise = (async () => {
+        for (const candidate of getApiOriginCandidates()) {
+            if (await probeApiOrigin(candidate)) {
+                resolvedApiOrigin = candidate;
+                return resolvedApiOrigin;
+            }
+        }
+        resolvedApiOrigin = normalizeOrigin(globalThis.location?.origin || "");
+        return resolvedApiOrigin;
+    })();
+
+    try {
+        return await apiOriginResolutionPromise;
+    } finally {
+        apiOriginResolutionPromise = null;
+    }
+}
+
 async function apiRequest(path, options = {}) {
     const { timeoutMs = 15000, ...fetchOptions } = options;
     const controller = new AbortController();
     const timeoutId = globalThis.setTimeout(() => controller.abort(), timeoutMs);
+    const apiOrigin = await resolveApiOrigin();
+    const requestUrl = buildApiUrl(path, apiOrigin);
 
     let response;
     try {
-        response = await fetch(path, {
+        response = await fetch(requestUrl, {
             headers: {
                 "Content-Type": "application/json",
                 ...(fetchOptions.headers || {}),
             },
+            credentials: "include",
             ...fetchOptions,
             signal: controller.signal,
         });
