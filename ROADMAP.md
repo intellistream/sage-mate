@@ -3,6 +3,9 @@
 This document marks the first organized release baseline for `sage-faculty-twin` under the
 IntelliStream organization plan.
 
+For the parallel implementation order of the `v2` workstreams, see
+[`docs/agent-rollout-plan.md`](docs/agent-rollout-plan.md).
+
 ## V1 Baseline
 
 `v1.0.0` defines the first usable faculty twin baseline: a personal academic digital twin that can

@@ -67,6 +67,10 @@ Then open `http://127.0.0.1:8000/docs` for the API schema or the root page for t
 The extra `PYTHONPATH` entries are only needed when you want to import sibling source checkouts
 directly instead of installed wheels.
 
+If you change frontend assets, auth routes, or session logic while a local server is already
+running, restart the app process before testing again. Otherwise the browser may still be talking
+to an older process that does not include your latest endpoints or UI behavior.
+
 ## Try It Like This
 
 Once the app is up, a few prompts that show the product shape quickly are:
@@ -146,6 +150,10 @@ Useful entry points:
 ./tools/run_local_site.sh
 ./tools/run_named_tunnel.sh
 ```
+
+When you run the managed local services, use `./manage.sh restart` after changing frontend files,
+auth handlers, or other runtime-loaded app code. If you are running `uvicorn` directly instead,
+stop it and start it again before validating the change in the browser.
 
 Deployment and operations details are documented in [docs/deployment.md](docs/deployment.md).
 

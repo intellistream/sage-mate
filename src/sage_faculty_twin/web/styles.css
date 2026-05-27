@@ -1145,9 +1145,15 @@ label span {
     text-align: left;
 }
 
-.drawer-card .drawer-button {
+.drawer-card .ghost-button.drawer-button {
     border-color: rgba(22, 35, 56, 0.1);
     background: rgba(255, 255, 255, 0.6);
+}
+
+.drawer-card .primary-button.drawer-button {
+    color: white;
+    background: linear-gradient(135deg, var(--accent), var(--accent-deep));
+    box-shadow: 0 16px 28px rgba(23, 59, 112, 0.2);
 }
 
 .drawer-card .drawer-button::after {
