@@ -7,6 +7,7 @@ const modalOverlay = document.getElementById("modal-overlay");
 const sideDrawer = document.getElementById("side-drawer");
 const knowledgeModal = document.getElementById("knowledge-modal");
 const bookingModal = document.getElementById("booking-modal");
+const suggestionModal = document.getElementById("suggestion-modal");
 const availabilityModal = document.getElementById("availability-modal");
 const bookingAdminModal = document.getElementById("booking-admin-modal");
 const escalationAdminModal = document.getElementById("escalation-admin-modal");
@@ -43,6 +44,7 @@ const startManagedServicesButton = document.getElementById("start-managed-servic
 const restartManagedServicesButton = document.getElementById("restart-managed-services");
 const stopManagedServicesButton = document.getElementById("stop-managed-services");
 const openKnowledgeButton = document.getElementById("open-knowledge");
+const openSuggestionsButton = document.getElementById("open-suggestions");
 const openBookingListButton = document.getElementById("open-booking-list");
 const openEscalationQueueButton = document.getElementById("open-escalation-queue");
 const openMemoryProfilesButton = document.getElementById("open-memory-profiles");
@@ -54,12 +56,15 @@ const topbarSubtitle = document.getElementById("topbar-subtitle");
 const homepageLink = document.getElementById("homepage-link");
 const chatQuestion = document.getElementById("chat-question");
 const courseContextInput = document.getElementById("course-context");
+const visitorProfileInput = document.getElementById("visitor-profile");
 const studentNameInput = document.getElementById("student-name");
 const studentEmailInput = document.getElementById("student-email");
 const profileDrawerCopy = document.getElementById("profile-drawer-copy");
+const introCardBody = document.querySelector(".intro-card .message-body");
 const bookingStudentNameInput = document.getElementById("booking-student-name");
 const bookingEmailInput = document.getElementById("booking-email");
 const introQuickActions = document.querySelector(".intro-quick-actions");
+const introQuickActionButtons = Array.from(document.querySelectorAll(".intro-chip-button"));
 const availabilityWeekLabel = document.getElementById("availability-week-label");
 const availabilityResponse = document.getElementById("availability-response");
 const availabilityGrid = document.getElementById("availability-grid");
@@ -83,11 +88,14 @@ const userRegisterForm = document.getElementById("user-register-form");
 const userLoginForm = document.getElementById("user-login-form");
 const knowledgeForm = document.getElementById("knowledge-form");
 const bookingForm = document.getElementById("booking-form");
+const suggestionForm = document.getElementById("suggestion-form");
 const chatSubmitButton = chatForm.querySelector('button[type="submit"]');
 
 const knowledgeResponse = document.getElementById("knowledge-response");
 const bookingResponse = document.getElementById("booking-response");
+const suggestionResponse = document.getElementById("suggestion-response");
 const knowledgeList = document.getElementById("knowledge-list");
+const suggestionList = document.getElementById("suggestion-list");
 const memoryProfilesCategoryFilter = document.getElementById("memory-profiles-category");
 const memoryProfilesStudentQuery = document.getElementById("memory-profiles-student-query");
 const memoryProfilesResponse = document.getElementById("memory-profiles-response");
@@ -105,7 +113,6 @@ const AVAILABILITY_SLOT_MINUTES = 30;
 const AVAILABILITY_START_HOUR = 9;
 const AVAILABILITY_END_HOUR = 18;
 const AVAILABILITY_DAY_COUNT = 7;
-const PROFILE_PROMPT_KEY = "myTwinProfilePromptShown";
 const WORKFLOW_SHELL_COLLAPSED_KEY = "myTwinWorkflowShellCollapsed";
 const WORKFLOW_MOBILE_MODE_KEY = "myTwinWorkflowMobileMode";
 const LOCAL_API_PORT_CANDIDATES = ["55601", "8010", "8000"];
@@ -113,6 +120,7 @@ let assistantLabel = "我的学术分身";
 let activeConversationId = createConversationId();
 let activeWorkflowStream = null;
 let activeWorkflowRequestId = null;
+let lastAutoCourseContext = courseContextInput?.value?.trim() || "";
 let activeWorkflowSteps = [];
 let availabilityEditorState = null;
 let workflowMobileHandlePointerId = null;
@@ -130,6 +138,68 @@ let resolvedApiOrigin = typeof globalThis.__SAGE_FACULTY_TWIN_API_ORIGIN__ === "
     ? globalThis.__SAGE_FACULTY_TWIN_API_ORIGIN__.trim()
     : "";
 let apiOriginResolutionPromise = null;
+const VISITOR_PROFILE_CONFIGS = {
+    general_visitor: {
+        defaultContext: "初次来访",
+        defaultQuestion: "张老师主要研究什么方向？",
+        placeholder: "先问研究、资料或预约。",
+        drawerHint: "优先参考主页、研究和预约资料。",
+        introLines: [
+            "研究、资料、预约，都可以直接问。",
+            "预约请带 agenda 和当前问题。",
+        ],
+        quickActions: [
+            { label: "先了解研究方向", question: "张老师主要研究什么方向？", context: "初次来访" },
+            { label: "问预约准备", question: "如果想预约一次讨论，我需要先准备什么？", context: "初次来访" },
+            { label: "找公开资料", question: "有没有适合先看的公开资料？", context: "初次来访" },
+        ],
+    },
+    hust_undergraduate: {
+        defaultContext: "课程答疑",
+        defaultQuestion: "Tutorial 7 主要讲了什么，我应该先看哪部分？",
+        placeholder: "写清讲次、作业或卡点。",
+        drawerHint: "优先参考课程和答疑资料。",
+        introLines: [
+            "课程、实验、office hour，直接问。",
+            "带上编号和卡点会更准。",
+        ],
+        quickActions: [
+            { label: "先问课程重点", question: "Tutorial 7 主要讲了什么，我应该先看哪部分？", context: "课程答疑" },
+            { label: "问实验怎么准备", question: "这门课的实验开始前，我应该先准备哪些内容？", context: "课程答疑" },
+            { label: "约 office hour", question: "如果我想约 office hour，需要先带哪些材料？", context: "课程答疑" },
+        ],
+    },
+    paper_writing_student: {
+        defaultContext: "论文写作课",
+        defaultQuestion: "论文写作课第 7 讲主要讲什么？",
+        placeholder: "写清讲次、阶段和 blocker。",
+        drawerHint: "优先参考论文写作课资料。",
+        introLines: [
+            "写作阶段、稿件问题，直接问。",
+            "讨论 draft 时带上卡点。",
+        ],
+        quickActions: [
+            { label: "问课程讲次", question: "论文写作课第 7 讲主要讲什么？", context: "论文写作课" },
+            { label: "问写作卡点", question: "我在写 related work，通常应该先检查哪些问题？", context: "论文写作课" },
+            { label: "约论文讨论", question: "我想约时间讨论论文提纲，需要先准备哪些材料？", context: "论文写作课" },
+        ],
+    },
+    lab_member: {
+        defaultContext: "科研指导",
+        defaultQuestion: "我上次提到的研究主题和 blocker 是什么？",
+        placeholder: "写研究主题、blocker 或组会任务。",
+        drawerHint: "优先参考研究和组内记录。",
+        introLines: [
+            "研究进展、blocker、组会准备，直接问。",
+            "预约请带本周推进和 draft。",
+        ],
+        quickActions: [
+            { label: "接着上次进展", question: "我上次提到的研究主题和 blocker 是什么？", context: "科研指导" },
+            { label: "问组会准备", question: "下次组会前我应该准备哪些材料？", context: "组会准备" },
+            { label: "梳理研究重点", question: "帮我梳理一下这周的研究推进重点。", context: "科研指导" },
+        ],
+    },
+};
 const adminOnlyDrawerButtons = [
     openKnowledgeButton,
     openAvailabilityEditorButton,
@@ -192,6 +262,7 @@ mobileWorkflowTrigger?.addEventListener("click", toggleWorkflowMobileSheet);
 workflowMobileBackdrop?.addEventListener("click", closeWorkflowMobileSheet);
 globalThis.addEventListener("resize", syncWorkflowViewportState);
 introQuickActions?.addEventListener("click", handleIntroQuickActionClick);
+visitorProfileInput?.addEventListener("change", handleVisitorProfileChange);
 
 document.getElementById("open-drawer").addEventListener("click", openDrawer);
 document.querySelectorAll("[data-close-drawer]").forEach((button) => {
@@ -217,6 +288,11 @@ document.getElementById("open-booking").addEventListener("click", () => {
     bookingStudentNameInput.value = studentNameInput.value;
     bookingEmailInput.value = studentEmailInput.value;
     openModal(bookingModal);
+});
+openSuggestionsButton?.addEventListener("click", async () => {
+    closeDrawer();
+    openModal(suggestionModal);
+    await loadSuggestionList();
 });
 document.getElementById("open-booking-list").addEventListener("click", async () => {
     if (!ensureAdminOnlyAccess({ openLogin: true })) {
@@ -333,12 +409,16 @@ escalationList?.addEventListener("click", handleEscalationResolveClick);
 availabilityGrid.addEventListener("click", handleAvailabilityGridClick);
 
 document.getElementById("load-demo-chat").addEventListener("click", () => {
-    seedChatQuestion("和老师约时间前，我应该先准备什么？", "科研指导");
+    const profileConfig = getVisitorProfileConfig();
+    seedChatQuestion(profileConfig.defaultQuestion, profileConfig.defaultContext);
     closeDrawer();
 });
 
 document.getElementById("refresh-knowledge").addEventListener("click", async () => {
     await loadKnowledgeList();
+});
+document.getElementById("refresh-suggestions")?.addEventListener("click", async () => {
+    await loadSuggestionList();
 });
 
 adminLoginForm.addEventListener("submit", async (event) => {
@@ -413,6 +493,7 @@ chatForm.addEventListener("submit", async (event) => {
         student_name: document.getElementById("student-name").value,
         student_email: document.getElementById("student-email").value || null,
         course_context: document.getElementById("course-context").value || null,
+        visitor_profile: visitorProfileInput?.value || null,
         question,
         conversation_id: activeConversationId,
     };
@@ -427,9 +508,6 @@ chatForm.addEventListener("submit", async (event) => {
     chatSubmitButton.disabled = true;
     chatSubmitButton.textContent = "发送中";
     await openWorkflowTraceStream(workflowRequestId);
-    if (isMobileWorkflowViewport()) {
-        openWorkflowMobileSheet("full");
-    }
 
     try {
         const data = await apiRequest(`/chat?request_id=${encodeURIComponent(workflowRequestId)}`, {
@@ -524,7 +602,41 @@ bookingForm.addEventListener("submit", async (event) => {
     }
 });
 
-document.getElementById("chat-question").addEventListener("input", autoResizeTextarea);
+suggestionForm?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const messageInput = document.getElementById("suggestion-message");
+    const categoryInput = document.getElementById("suggestion-category");
+    const message = messageInput.value.trim();
+    if (!message) {
+        return;
+    }
+
+    setInlineStatus(suggestionResponse, "正在匿名提交留言...", "empty");
+    try {
+        await apiRequest("/suggestions", {
+            method: "POST",
+            body: JSON.stringify({
+                message,
+                category: categoryInput.value || null,
+            }),
+        });
+        messageInput.value = "";
+        setInlineStatus(suggestionResponse, "留言已提交，感谢你的建议。", "success");
+        await refreshStatus();
+        await loadSuggestionList();
+    } catch (error) {
+        setInlineStatus(suggestionResponse, error.message, "error");
+    }
+});
+
+chatQuestion.addEventListener("input", autoResizeTextarea);
+chatQuestion.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter" || event.shiftKey || event.isComposing) {
+        return;
+    }
+    event.preventDefault();
+    chatForm.requestSubmit(chatSubmitButton);
+});
 
 function handleIntroQuickActionClick(event) {
     const trigger = event.target.closest("[data-seed-question]");
@@ -538,10 +650,79 @@ function handleIntroQuickActionClick(event) {
     seedChatQuestion(question, trigger.dataset.seedContext || "");
 }
 
+function handleVisitorProfileChange() {
+    applyVisitorProfilePresentation({ syncCourseContext: true });
+}
+
+function getVisitorProfileConfig(profile = visitorProfileInput?.value) {
+    return VISITOR_PROFILE_CONFIGS[profile] || VISITOR_PROFILE_CONFIGS.general_visitor;
+}
+
+function setMultilineText(element, lines) {
+    if (!element) {
+        return;
+    }
+    element.replaceChildren();
+    lines.forEach((line, index) => {
+        if (index > 0) {
+            element.append(document.createElement("br"));
+        }
+        element.append(document.createTextNode(line));
+    });
+}
+
+function updateIntroQuickActions(config) {
+    introQuickActionButtons.forEach((button, index) => {
+        const action = config.quickActions[index];
+        if (!action) {
+            button.hidden = true;
+            return;
+        }
+        button.hidden = false;
+        button.textContent = action.label;
+        button.dataset.seedQuestion = action.question;
+        button.dataset.seedContext = action.context;
+    });
+}
+
+function updateProfileDrawerCopy(config) {
+    if (!profileDrawerCopy) {
+        return;
+    }
+    const accountLead = isUserAuthenticated
+        ? "当前已绑定登录账号。"
+        : "先把姓名和邮箱填对。";
+    profileDrawerCopy.textContent = `${accountLead}${config.drawerHint}`;
+}
+
+function applyVisitorProfilePresentation({ syncCourseContext = false } = {}) {
+    const config = getVisitorProfileConfig();
+    setMultilineText(introCardBody, config.introLines);
+    updateIntroQuickActions(config);
+    updateProfileDrawerCopy(config);
+
+    if (chatQuestion) {
+        chatQuestion.placeholder = config.placeholder;
+        if (!chatQuestion.value.trim()) {
+            chatQuestion.value = config.defaultQuestion;
+            autoResizeTextarea();
+        }
+    }
+
+    if (courseContextInput && (syncCourseContext || !courseContextInput.value.trim())) {
+        const currentContext = courseContextInput.value.trim();
+        if (!currentContext || currentContext === lastAutoCourseContext) {
+            courseContextInput.value = config.defaultContext;
+            lastAutoCourseContext = config.defaultContext;
+        }
+    }
+}
+
 function seedChatQuestion(question, courseContext = "") {
     chatQuestion.value = question;
     if (courseContextInput && courseContext) {
         courseContextInput.value = courseContext;
+        lastAutoCourseContext = courseContext;
     }
     autoResizeTextarea();
     chatQuestion.focus();
@@ -632,14 +813,13 @@ function applyUserSession(session) {
         bookingEmailInput.value = account.email;
         studentNameInput.readOnly = true;
         studentEmailInput.readOnly = true;
-        profileDrawerCopy.textContent = "当前已绑定登录账号。聊天记录和预约申请会默认使用该账号的姓名与邮箱。";
+        applyVisitorProfilePresentation();
         return;
     }
 
     userSessionCopy.textContent = "当前未登录用户账号。";
     studentNameInput.readOnly = false;
     studentEmailInput.readOnly = false;
-    profileDrawerCopy.textContent = "先把姓名和邮箱填对。后面的问答记录、预约确认和跟进都会直接用这两个字段。";
 
     if (wasAuthenticated) {
         studentNameInput.value = "guest";
@@ -647,6 +827,8 @@ function applyUserSession(session) {
         bookingStudentNameInput.value = "guest";
         bookingEmailInput.value = "";
     }
+
+    applyVisitorProfilePresentation();
 }
 
 async function loadManagedServices() {
@@ -758,6 +940,7 @@ function closeAdminOnlyModals() {
         sideDrawer.classList.contains("hidden") &&
         knowledgeModal.classList.contains("hidden") &&
         bookingModal.classList.contains("hidden") &&
+        suggestionModal.classList.contains("hidden") &&
         adminLoginModal.classList.contains("hidden") &&
         availabilityModal.classList.contains("hidden") &&
         bookingAdminModal.classList.contains("hidden") &&
@@ -1398,6 +1581,47 @@ async function loadEscalationList() {
     } catch (error) {
         escalationList.innerHTML = `<div class="list-card"><p class="list-body">${escapeHtml(error.message)}</p></div>`;
         setInlineStatus(escalationAdminResponse, error.message, "error");
+    }
+}
+
+async function loadSuggestionList() {
+    if (!suggestionList || !suggestionResponse) {
+        return;
+    }
+    setInlineStatus(suggestionResponse, "正在加载匿名留言...", "empty");
+    suggestionList.innerHTML = `<div class="list-card"><p class="list-body">正在加载匿名留言...</p></div>`;
+
+    try {
+        const records = await apiRequest("/suggestions?limit=50");
+        suggestionList.innerHTML = "";
+        if (!records.length) {
+            suggestionList.innerHTML = `<div class="list-card"><p class="list-body">目前还没有匿名留言。</p></div>`;
+            setInlineStatus(suggestionResponse, "目前还没有匿名留言。", "empty");
+            return;
+        }
+
+        records.forEach((record) => {
+            const card = document.createElement("article");
+            card.className = "list-card list-card-suggestion";
+            const categoryHtml = record.category
+                ? `<span class="status-badge status-badge-info">${escapeHtml(record.category)}</span>`
+                : "";
+            card.innerHTML = `
+                <h3>匿名留言</h3>
+                <p class="list-meta">${escapeHtml(formatDateTime(record.created_at))}</p>
+                <p class="list-body">${escapeHtml(record.message)}</p>
+                <div class="list-card-actions">
+                    <div class="inline-action-group">
+                        ${categoryHtml}
+                    </div>
+                </div>
+            `;
+            suggestionList.appendChild(card);
+        });
+        setInlineStatus(suggestionResponse, `共有 ${records.length} 条匿名留言。`, "success");
+    } catch (error) {
+        suggestionList.innerHTML = `<div class="list-card"><p class="list-body">${escapeHtml(error.message)}</p></div>`;
+        setInlineStatus(suggestionResponse, error.message, "error");
     }
 }
 
@@ -2932,7 +3156,7 @@ function applyBranding(ownerName, ownerRole, homepageUrl) {
         homepageLink.href = normalizedHomepageUrl || "#";
     }
     if (chatQuestion) {
-        chatQuestion.placeholder = "直接说问题；如果想约时间，请把 agenda、blocker 和 draft 也写上。";
+        chatQuestion.placeholder = "直接说问题；预约请写 agenda、blocker 和 draft。";
     }
 }
 
@@ -2960,38 +3184,12 @@ function formatWorkspaceSubtitle(ownerName, ownerRole) {
     const normalizedOwnerName = ownerName ? String(ownerName).trim() : "";
     const normalizedOwnerRole = ownerRole ? String(ownerRole).trim() : "";
     if (!normalizedOwnerName) {
-        return "这不是通用模板，而是围绕你自己的课程、研究和预约流程整理的线上前台。";
+        return "课程、研究、预约。";
     }
     if (normalizedOwnerRole) {
-        return `围绕${normalizedOwnerName}这位${normalizedOwnerRole}的课程、研究和预约节奏整理的线上前台。`;
+        return `${normalizedOwnerName} · ${normalizedOwnerRole}`;
     }
-    return `围绕${normalizedOwnerName}本人的课程、研究和预约节奏整理的线上前台。`;
-}
-
-function shouldPromptProfileSetup() {
-    if (!studentNameInput || !studentEmailInput) {
-        return false;
-    }
-    return studentNameInput.value.trim().toLowerCase() === "guest" && !studentEmailInput.value.trim();
-}
-
-function maybePromptProfileSetup() {
-    if (!shouldPromptProfileSetup()) {
-        return;
-    }
-
-    try {
-        if (sessionStorage.getItem(PROFILE_PROMPT_KEY) === "1") {
-            return;
-        }
-        sessionStorage.setItem(PROFILE_PROMPT_KEY, "1");
-    } catch {
-        // Ignore storage access issues and still show the prompt once for this load.
-    }
-
-    openDrawer();
-    studentNameInput.focus();
-    studentNameInput.select();
+    return `${normalizedOwnerName}的线上办公室。`;
 }
 
 function openModal(element) {
@@ -3004,7 +3202,7 @@ function openModal(element) {
 
 function closeModals() {
     modalOverlay.classList.add("hidden");
-    [knowledgeModal, bookingModal, adminLoginModal, userRegisterModal, userLoginModal, availabilityModal, bookingAdminModal, escalationAdminModal, memoryProfilesModal, questionAnalyticsModal].forEach((element) => {
+    [knowledgeModal, bookingModal, suggestionModal, adminLoginModal, userRegisterModal, userLoginModal, availabilityModal, bookingAdminModal, escalationAdminModal, memoryProfilesModal, questionAnalyticsModal].forEach((element) => {
         element.classList.add("hidden");
         element.setAttribute("aria-hidden", "true");
     });
@@ -3026,6 +3224,7 @@ function closeDrawer() {
     if (
         knowledgeModal.classList.contains("hidden") &&
         bookingModal.classList.contains("hidden") &&
+        suggestionModal.classList.contains("hidden") &&
         adminLoginModal.classList.contains("hidden") &&
         userRegisterModal.classList.contains("hidden") &&
         userLoginModal.classList.contains("hidden") &&
@@ -3327,7 +3526,7 @@ async function initializePage() {
     await refreshStatus();
     await refreshSession();
     await refreshUserSession();
-    maybePromptProfileSetup();
+    applyVisitorProfilePresentation({ syncCourseContext: true });
 }
 
 initializePage();

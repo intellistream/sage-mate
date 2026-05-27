@@ -25,6 +25,7 @@
                 </div>
             </div>
             <div class="topbar-actions">
+                <button type="button" id="open-suggestions" class="icon-button">匿名留言</button>
                 <button type="button" id="open-drawer" class="icon-button">设置</button>
                 <a id="homepage-link" href="#" target="_blank" rel="noreferrer" hidden
                     class="icon-button topbar-link">个人主页</a>
@@ -37,21 +38,17 @@
                     <article class="message message-assistant intro-card">
                         <div id="assistant-name" class="message-role">张书豪的分身</div>
                         <div class="message-body">
-                            把这里当成张书豪的线上预备会客厅。<br />
-                            先把姓名和邮箱填对，后面的记录和预约都会直接用到。<br />
-                            直接把问题说具体一点：问课程就带讲次或作业，问论文就说阶段和 blocker。<br />
-                            如果要预约，最好把 agenda、当前卡点和 draft 一起说明。
+                            研究、资料、预约，都可以直接问。<br />
+                            预约请带 agenda 和当前问题。
                         </div>
-                        <p class="intro-footnote">发出第一条消息后，右侧会展开这次请求的处理轨迹，回答里也会附上依据和下一步建议。</p>
+                        <p class="intro-footnote">右侧显示进度，回答附依据。</p>
                         <div class="intro-quick-actions" aria-label="快速开始">
-                            <button type="button" class="intro-chip-button"
-                                data-seed-question="Tutorial 7 主要讲了什么，我应该先看哪部分？"
-                                data-seed-context="课程答疑">先问课程重点</button>
-                            <button type="button" class="intro-chip-button"
-                                data-seed-question="帮我预约下周三下午讨论论文提纲，我会带 draft 和问题清单。"
-                                data-seed-context="科研指导">约讨论时间</button>
-                            <button type="button" class="intro-chip-button" data-seed-question="我之前提到过的研究主题是什么？"
-                                data-seed-context="科研指导">接着上次进展</button>
+                            <button type="button" class="intro-chip-button" data-seed-question="张老师主要研究什么方向？"
+                                data-seed-context="初次来访">先了解研究方向</button>
+                            <button type="button" class="intro-chip-button" data-seed-question="如果想预约一次讨论，我需要先准备什么？"
+                                data-seed-context="初次来访">问预约准备</button>
+                            <button type="button" class="intro-chip-button" data-seed-question="有没有适合先看的公开资料？"
+                                data-seed-context="初次来访">找公开资料</button>
                         </div>
                     </article>
                 </div>
@@ -59,7 +56,7 @@
                 <form id="chat-form" class="composer-shell">
                     <div class="composer-row">
                         <textarea id="chat-question" name="question" rows="1" required
-                            placeholder="直接说问题；如果想约时间，请把 agenda、blocker 和 draft 也写上。">和老师约时间前，我应该先准备什么？</textarea>
+                            placeholder="先问研究、资料或预约。">张老师主要研究什么方向？</textarea>
                         <button type="submit" class="send-button">发送</button>
                     </div>
                 </form>
@@ -77,7 +74,7 @@
                             <p class="brand-kicker">Status</p>
                             <h2 class="workflow-shell-title">处理进度</h2>
                         </div>
-                        <p class="workflow-shell-copy">像桌面便签一样，实时记录这次请求正在发生什么。</p>
+                        <p class="workflow-shell-copy">每一步都在这里。</p>
                         <div class="workflow-stats" aria-label="status stats">
                             <article class="workflow-stat-card">
                                 <span class="workflow-stat-label">总耗时</span>
@@ -114,11 +111,11 @@
                                             <h3 class="workflow-step-title">等待新一轮会面</h3>
                                             <span class="workflow-step-chevron">展开</span>
                                         </div>
-                                        <p class="workflow-step-summary">发出第一条消息后，这里会像工作台记录一样逐步展开。</p>
+                                        <p class="workflow-step-summary">发出消息后自动更新。</p>
                                     </div>
                                 </div>
                             </button>
-                            <div class="workflow-step-detail" hidden>发送消息后，这里会记录检索、整理、预约判断和回复生成这些关键阶段。</div>
+                            <div class="workflow-step-detail" hidden>这里会记录检索、判断和回复生成。</div>
                         </article>
                     </div>
                 </div>
@@ -178,10 +175,19 @@
                 <input id="student-email" name="student_email" value="" placeholder="请输入你的邮箱" />
             </label>
             <label>
-                <span>课程/场景上下文</span>
-                <input id="course-context" name="course_context" value="科研指导" />
+                <span>来访身份</span>
+                <select id="visitor-profile" name="visitor_profile">
+                    <option value="general_visitor" selected>一般访客</option>
+                    <option value="hust_undergraduate">华科本科生</option>
+                    <option value="paper_writing_student">论文写作课同学</option>
+                    <option value="lab_member">课题组研究生 / 博士生</option>
+                </select>
             </label>
-            <p id="profile-drawer-copy" class="drawer-copy">先把姓名和邮箱填对。后面的问答记录、预约确认和跟进都会直接用这两个字段。</p>
+            <label>
+                <span>课程/场景上下文</span>
+                <input id="course-context" name="course_context" value="初次来访" />
+            </label>
+            <p id="profile-drawer-copy" class="drawer-copy">先把姓名和邮箱填对。一般访客会优先看到主页简介、研究总览和预约说明。</p>
         </div>
         <div class="drawer-group drawer-card">
             <div class="drawer-group-head">
@@ -386,6 +392,39 @@
             <button type="submit" class="primary-button">提交预约</button>
         </form>
         <div id="booking-response" class="inline-status inline-status-empty">还没提交。材料不全也可以先约，但写清楚会更高效。</div>
+    </section>
+
+    <section id="suggestion-modal" class="modal-panel hidden" aria-hidden="true">
+        <div class="modal-head">
+            <div>
+                <p class="brand-kicker">Feedback</p>
+                <h2>匿名留言板</h2>
+                <p class="modal-copy">这里不会记录姓名和邮箱，适合留下对课程、系统或沟通方式的建议。</p>
+            </div>
+            <button type="button" data-close-modal class="icon-button">关闭</button>
+        </div>
+        <form id="suggestion-form" class="stack-form">
+            <label>
+                <span>建议类型</span>
+                <select id="suggestion-category" name="category">
+                    <option value="功能建议">功能建议</option>
+                    <option value="课程反馈">课程反馈</option>
+                    <option value="预约体验">预约体验</option>
+                    <option value="其他">其他</option>
+                </select>
+            </label>
+            <label>
+                <span>留言内容</span>
+                <textarea id="suggestion-message" name="message" rows="5" maxlength="1000"
+                    placeholder="可以直接写建议、困惑或希望改进的地方。" required></textarea>
+            </label>
+            <div class="actions-row">
+                <button type="submit" class="primary-button">匿名提交</button>
+                <button type="button" id="refresh-suggestions" class="ghost-button">刷新留言</button>
+            </div>
+        </form>
+        <div id="suggestion-response" class="inline-status inline-status-empty">还没有提交留言。</div>
+        <div id="suggestion-list" class="list-stack"></div>
     </section>
 
     <section id="availability-modal" class="modal-panel modal-panel-wide hidden" aria-hidden="true">

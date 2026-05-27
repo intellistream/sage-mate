@@ -27,6 +27,8 @@ from .config import settings
 from .models import (
     AdminLoginRequest,
     AdminSessionResponse,
+    AnonymousSuggestionCreate,
+    AnonymousSuggestionRecord,
     AvailabilitySchedule,
     BookingDecisionRequest,
     BookingRecord,
@@ -66,7 +68,7 @@ def configure_local_cors(target_app: FastAPI) -> None:
     )
 
 
-llm_app = FastAPI(title="SAGE Faculty Twin", version="0.1.0")
+llm_app = FastAPI(title="SAGE Faculty Twin", version="1.1")
 configure_local_cors(llm_app)
 service = DigitalTwinService(settings)
 web_dir = Path(__file__).with_name("web")
@@ -318,6 +320,25 @@ async def chat(
 @llm_app.post("/chat/feedback", response_model=ChatFeedbackResponse)
 async def submit_chat_feedback(request: ChatFeedbackRequest) -> ChatFeedbackResponse:
     return service.submit_chat_feedback(request)
+
+
+@llm_app.post("/suggestions", response_model=AnonymousSuggestionRecord)
+async def submit_anonymous_suggestion(request: AnonymousSuggestionCreate, raw_request: Request) -> AnonymousSuggestionRecord:
+    return service.submit_anonymous_suggestion(
+        request,
+        admin_session_token=raw_request.cookies.get(ADMIN_COOKIE_NAME),
+    )
+
+
+@llm_app.get("/suggestions", response_model=list[AnonymousSuggestionRecord])
+async def list_anonymous_suggestions(
+    raw_request: Request,
+    limit: int = Query(default=50, ge=1, le=100),
+) -> list[AnonymousSuggestionRecord]:
+    return service.list_anonymous_suggestions(
+        limit=limit,
+        admin_session_token=raw_request.cookies.get(ADMIN_COOKIE_NAME),
+    )
 
 
 @llm_app.post("/knowledge", response_model=KnowledgeDocumentRecord)

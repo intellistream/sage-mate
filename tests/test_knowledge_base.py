@@ -123,6 +123,62 @@ def test_neuromem_backend_prefers_matching_teaching_material_type(tmp_path: Path
     assert store.search("实验 3 调度与连续批处理实验讲什么？")[0].tags[-1] == "experiment"
 
 
+def test_knowledge_store_separates_same_lecture_number_across_courses(tmp_path: Path) -> None:
+    for backend_name in ("local", "neuromem"):
+        settings = AppSettings(
+            knowledge_base_dir=tmp_path / backend_name,
+            knowledge_backend="neuromem" if backend_name == "neuromem" else "local",
+        )
+        store = LocalKnowledgeStore(settings)
+
+        store.add_document(
+            KnowledgeDocumentCreate(
+                title="课件正文｜大模型推理基础设施课程材料｜第 7 讲 推理系统架构",
+                content="第 7 讲介绍推理系统架构、调度路径与服务化设计。",
+                tags=[
+                    "homepage",
+                    "teaching",
+                    "courseware",
+                    "pdf",
+                    "lecture",
+                    "identity:teacher",
+                    "domain:teaching",
+                    "course:llm-inference",
+                    "material:lecture",
+                    "lecture:7",
+                ],
+                source_name="homepage:contents/teaching/intro-to-llm-inference-engines.md#讲义与导论::lecture-7.pdf",
+            )
+        )
+        store.add_document(
+            KnowledgeDocumentCreate(
+                title="课件正文｜研究生论文写作课程材料｜第 7 讲 发表高水平论文",
+                content="第 7 讲讨论高水平论文选题、贡献表述与投稿准备。",
+                tags=[
+                    "homepage",
+                    "teaching",
+                    "courseware",
+                    "pdf",
+                    "lecture",
+                    "identity:teacher",
+                    "domain:teaching",
+                    "course:paper-writing",
+                    "material:lecture",
+                    "lecture:7",
+                ],
+                source_name="homepage:contents/teaching/graduate-paper-writing-course.md#公开课件::lecture-7.pdf",
+            )
+        )
+
+        llm_hits = store.search("大模型推理基础设施 第 7 讲讲什么？", top_k=2)
+        writing_hits = store.search("研究生论文写作 第 7 讲讲什么？", top_k=2)
+
+        assert llm_hits
+        assert "course:llm-inference" in llm_hits[0].tags
+        assert writing_hits
+        assert "course:paper-writing" in writing_hits[0].tags
+
+
 def test_knowledge_store_prioritizes_research_materials_over_courseware_noise(tmp_path: Path) -> None:
     settings = AppSettings(knowledge_base_dir=tmp_path)
     store = LocalKnowledgeStore(settings)
@@ -410,6 +466,51 @@ def test_neuromem_backend_prefers_research_materials_for_research_queries(tmp_pa
     assert hits
     assert hits[0].title == "研究总览｜研究主线"
     assert "research" in hits[0].tags
+
+
+def test_knowledge_store_reweights_paper_writing_results_by_visitor_profile(tmp_path: Path) -> None:
+    for backend_name in ("local", "neuromem"):
+        knowledge_dir = tmp_path / f"visitor-profile-{backend_name}"
+        settings = AppSettings(
+            knowledge_base_dir=knowledge_dir,
+            knowledge_backend="neuromem" if backend_name == "neuromem" else "local",
+        )
+        store = LocalKnowledgeStore(settings)
+
+        store.add_document(
+            KnowledgeDocumentCreate(
+                title="课程资料｜研究生论文写作课程材料",
+                content="课程重点覆盖论文结构、related work、投稿准备和毕业论文常见问题。",
+                tags=["homepage", "teaching", "courseware", "lecture"],
+                source_name="homepage:contents/teaching/graduate-paper-writing-course.md#intro",
+            )
+        )
+        store.add_document(
+            KnowledgeDocumentCreate(
+                title="研究总览｜论文写作智能体",
+                content="研究方向聚焦自动写作 agent、审稿反馈吸收和协同 drafting workflow。",
+                tags=["homepage", "research", "publication", "overview"],
+                source_name=f"{backend_name}:paper-writing-agent-overview",
+            )
+        )
+
+        paper_course_hits = store.search(
+            "论文写作相关内容我应该先看什么？",
+            top_k=2,
+            visitor_profile="paper_writing_student",
+        )
+        lab_hits = store.search(
+            "论文写作相关内容我应该先看什么？",
+            top_k=2,
+            visitor_profile="lab_member",
+        )
+
+        assert paper_course_hits
+        assert paper_course_hits[0].title == "课程资料｜研究生论文写作课程材料"
+        assert "teaching" in paper_course_hits[0].tags
+        assert lab_hits
+        assert lab_hits[0].title == "研究总览｜论文写作智能体"
+        assert "research" in lab_hits[0].tags
 
 
 def test_service_prompt_includes_retrieved_owner_materials(tmp_path: Path) -> None:

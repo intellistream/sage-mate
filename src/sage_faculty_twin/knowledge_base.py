@@ -203,16 +203,22 @@ class LocalKnowledgeStore:
     def rebuild_indexes(self) -> None:
         self._rebuild_backend_indexes()
 
-    def search(self, query: str, top_k: int | None = None) -> list[KnowledgeSearchHit]:
+    def search(
+        self,
+        query: str,
+        top_k: int | None = None,
+        *,
+        visitor_profile: str | None = None,
+    ) -> list[KnowledgeSearchHit]:
         if self._backend == "sagevdb":
-            return self._search_sagevdb(query, top_k)
+            return self._search_sagevdb(query, top_k, visitor_profile=visitor_profile)
         if self._backend == "neuromem":
-            return self._search_neuromem(query, top_k)
+            return self._search_neuromem(query, top_k, visitor_profile=visitor_profile)
 
         query_tokens = self._tokenize(query)
         if not query_tokens:
             return []
-        query_profile = _build_query_profile(query)
+        query_profile = _build_query_profile(query, visitor_profile=visitor_profile)
 
         scored_hits: list[KnowledgeSearchHit] = []
         for document in self.list_documents():
@@ -403,7 +409,13 @@ class LocalKnowledgeStore:
             index_names=["search"],
         )
 
-    def _search_neuromem(self, query: str, top_k: int | None = None) -> list[KnowledgeSearchHit]:
+    def _search_neuromem(
+        self,
+        query: str,
+        top_k: int | None = None,
+        *,
+        visitor_profile: str | None = None,
+    ) -> list[KnowledgeSearchHit]:
         if self._neuromem_collection is None or not self._documents:
             return []
 
@@ -411,7 +423,7 @@ class LocalKnowledgeStore:
         expanded_query = self._expand_retrieval_text(query)
         results = self._neuromem_collection.retrieve("search", expanded_query, top_k=max(limit * 5, limit + 8))
         query_tokens = self._tokenize(query)
-        query_profile = _build_query_profile(query)
+        query_profile = _build_query_profile(query, visitor_profile=visitor_profile)
 
         hits: list[KnowledgeSearchHit] = []
         seen_document_ids: set[str] = set()
@@ -489,7 +501,13 @@ class LocalKnowledgeStore:
         if rebuild_index:
             self._sagevdb.build_index()
 
-    def _search_sagevdb(self, query: str, top_k: int | None = None) -> list[KnowledgeSearchHit]:
+    def _search_sagevdb(
+        self,
+        query: str,
+        top_k: int | None = None,
+        *,
+        visitor_profile: str | None = None,
+    ) -> list[KnowledgeSearchHit]:
         if self._sagevdb is None or self._np is None or not self._documents:
             return []
 
@@ -532,7 +550,7 @@ class LocalKnowledgeStore:
                     source_name=document.source_name,
                 )
             )
-        return self._finalize_hits(hits, _build_query_profile(query), limit)
+        return self._finalize_hits(hits, _build_query_profile(query, visitor_profile=visitor_profile), limit)
 
     def _score_document(
         self,
@@ -549,7 +567,79 @@ class LocalKnowledgeStore:
         tag_overlap = len(query_tokens & tag_tokens)
 
         base_score = float((title_overlap * 3) + (tag_overlap * 2) + content_overlap)
-        return base_score + self._document_intent_boost(document, query_profile)
+        return (
+            base_score
+            + self._document_intent_boost(document, query_profile)
+            + self._document_visitor_profile_boost(document, query_profile)
+            + self._document_course_scope_boost(document, query_profile)
+        )
+
+    def _document_course_scope_boost(
+        self,
+        document: KnowledgeDocumentRecord,
+        query_profile: "QueryProfile",
+    ) -> float:
+        if not query_profile.course_ids:
+            return 0.0
+        document_course_ids = _document_course_ids(document)
+        if not document_course_ids:
+            return 0.0
+        if document_course_ids & query_profile.course_ids:
+            return 10.0
+        return -9.0
+
+    def _document_visitor_profile_boost(
+        self,
+        document: KnowledgeDocumentRecord,
+        query_profile: "QueryProfile",
+    ) -> float:
+        visitor_profile = query_profile.visitor_profile
+        if not visitor_profile:
+            return 0.0
+
+        document_tags = {tag.lower() for tag in document.tags}
+        prefers_teaching = bool(query_profile.document_types or "teaching" in query_profile.topic_domains)
+        prefers_research = bool(query_profile.research_focus or "research" in query_profile.topic_domains)
+        prefers_meeting = "meeting" in query_profile.topic_domains
+
+        if visitor_profile == "hust_undergraduate":
+            if document_tags & _TEACHING_RELATED_TAGS:
+                boost = 5.0
+                if document_tags & {"lecture", "tutorial", "experiment"}:
+                    boost += 2.0
+                return boost
+            if not prefers_research and document_tags & _RESEARCH_DOCUMENT_TAGS:
+                return -2.0
+            return 0.0
+
+        if visitor_profile == "paper_writing_student":
+            if _is_paper_writing_document(document):
+                return 8.0
+            if document_tags & _TEACHING_RELATED_TAGS:
+                return 3.0
+            if not prefers_research and document_tags & _RESEARCH_DOCUMENT_TAGS:
+                return -3.0
+            return 0.0
+
+        if visitor_profile == "lab_member":
+            boost = 0.0
+            if document_tags & (_RESEARCH_DOCUMENT_TAGS | _MEETING_DOCUMENT_TAGS):
+                boost += 4.5
+            if document_tags & {"profile", "overview"}:
+                boost += 1.5
+            if not prefers_teaching and not prefers_meeting and document_tags & _TEACHING_RELATED_TAGS:
+                boost -= 2.5
+            return boost
+
+        if visitor_profile == "general_visitor":
+            if document_tags & {"profile", "overview"}:
+                return 4.0
+            if not prefers_teaching and document_tags & _RESEARCH_DOCUMENT_TAGS:
+                return 2.0
+            if not prefers_teaching and not prefers_research and not prefers_meeting and document_tags & _TEACHING_RELATED_TAGS:
+                return -2.5
+
+        return 0.0
 
     def _build_excerpt(self, content: str, query_tokens: set[str]) -> str:
         compact = " ".join(content.split())
@@ -676,6 +766,14 @@ class LocalKnowledgeStore:
             ]
             if ordinal_hits:
                 aligned_hits = ordinal_hits
+        if query_profile.course_ids and "teaching" in query_profile.topic_domains:
+            course_hits = [
+                hit
+                for hit in aligned_hits
+                if _document_course_ids(self._documents[hit.document_id]) & query_profile.course_ids
+            ]
+            if course_hits:
+                aligned_hits = course_hits
         if query_profile.research_focus == "paper":
             paper_focused_hits = [
                 hit
@@ -730,15 +828,39 @@ class QueryProfile:
     document_types: frozenset[str]
     ordinal_numbers: frozenset[str]
     topic_domains: frozenset[str]
+    course_ids: frozenset[str] = frozenset()
     research_focus: str | None = None
     prefers_intro_parts: bool = False
     named_entities: frozenset[str] = frozenset()
+    visitor_profile: str | None = None
 
 
 _TEACHING_DOCUMENT_TYPES = {"tutorial", "lecture", "experiment"}
 _TEACHING_RELATED_TAGS = {"teaching", "courseware", "tutorial", "lecture", "experiment", "resources", "pdf"}
 _RESEARCH_DOCUMENT_TAGS = {"research", "publication", "paper-digest", "overview", "profile"}
 _MEETING_DOCUMENT_TAGS = {"meeting", "preparation", "policy", "qa", "course"}
+_COURSE_ALIAS_MAP = {
+    "llm-inference": (
+        "大模型推理基础设施",
+        "大模型推理",
+        "推理基础设施",
+        "推理系统",
+        "llm inference",
+        "inference engines",
+        "inference infrastructure",
+        "kv cache",
+        "prefill",
+        "decode",
+    ),
+    "paper-writing": (
+        "研究生论文写作",
+        "论文写作课程",
+        "毕业论文",
+        "发表高水平论文",
+        "paper writing",
+        "thesis writing",
+    ),
+}
 _TEACHING_ALIAS_MAP = {
     "tutorial": ("tutorial", "教程", "习题", "练习", "workshop"),
     "lecture": ("lecture", "slides", "讲义", "课程讲解", "课件"),
@@ -753,13 +875,24 @@ _TEACHING_ALIAS_MAP = {
     "preparation": ("preparation", "准备", "提前准备", "材料"),
     "policy": ("policy", "建议", "要求", "规范"),
     "qa": ("qa", "答疑", "提问", "问题"),
+    "course:llm-inference": ("大模型推理基础设施", "大模型推理", "推理系统", "kv cache", "prefill", "decode"),
+    "course:paper-writing": ("研究生论文写作", "论文写作", "毕业论文", "发表高水平论文"),
+    "identity:teacher": ("主课老师", "教师", "课程"),
+    "identity:pi": ("课题组", "负责人", "导师", "PI"),
+    "domain:teaching": ("教学", "课程", "研究生课程"),
+    "domain:research-group": ("课题组", "研究团队", "组内"),
+    "material:lecture": ("lecture", "讲义", "第几讲"),
+    "material:tutorial": ("tutorial", "教程", "习题"),
+    "material:experiment": ("experiment", "实验", "项目"),
+    "material:pdf": ("pdf", "课件正文"),
 }
 
 
-def _build_query_profile(query: str) -> QueryProfile:
+def _build_query_profile(query: str, visitor_profile: str | None = None) -> QueryProfile:
     lowered = query.lower()
     document_types: set[str] = set()
     topic_domains: set[str] = set()
+    course_ids = set(_infer_course_ids(query))
     research_focus: str | None = None
     named_entities = _extract_named_entities(query)
     if "tutorial" in lowered or "教程" in query or "习题" in query or "练习" in query:
@@ -770,6 +903,9 @@ def _build_query_profile(query: str) -> QueryProfile:
         topic_domains.add("teaching")
     if "experiment" in lowered or "lab" in lowered or "实验" in query or "project" in lowered or "项目" in query:
         document_types.add("experiment")
+        topic_domains.add("teaching")
+
+    if course_ids:
         topic_domains.add("teaching")
 
     research_markers = (
@@ -827,10 +963,47 @@ def _build_query_profile(query: str) -> QueryProfile:
         document_types=frozenset(document_types),
         ordinal_numbers=frozenset(re.findall(r"\d+", query)),
         topic_domains=frozenset(topic_domains),
+        course_ids=frozenset(course_ids),
         research_focus=research_focus,
         prefers_intro_parts=prefers_intro_parts,
         named_entities=frozenset(named_entities),
+        visitor_profile=visitor_profile,
     )
+
+
+def _infer_course_ids(text: str) -> tuple[str, ...]:
+    lowered = text.lower()
+    course_ids: list[str] = []
+    for course_id, aliases in _COURSE_ALIAS_MAP.items():
+        if any(alias.lower() in lowered for alias in aliases):
+            course_ids.append(course_id)
+    return tuple(dict.fromkeys(course_ids))
+
+
+def _document_course_ids(document: KnowledgeDocumentRecord) -> frozenset[str]:
+    course_ids = {
+        tag.split(":", 1)[1].lower()
+        for tag in document.tags
+        if tag.lower().startswith("course:") and ":" in tag
+    }
+    haystack = f"{document.title} {document.source_name or ''}".lower()
+    for course_id, aliases in _COURSE_ALIAS_MAP.items():
+        if any(alias.lower() in haystack for alias in aliases):
+            course_ids.add(course_id)
+    if "intro-to-llm-inference-engines" in haystack:
+        course_ids.add("llm-inference")
+    if "graduate-paper-writing-course" in haystack:
+        course_ids.add("paper-writing")
+    return frozenset(course_ids)
+
+
+def _is_paper_writing_document(document: KnowledgeDocumentRecord) -> bool:
+    document_tags = {tag.lower() for tag in document.tags}
+    haystacks = (document.title, document.source_name or "", document.content[:400])
+    matches_topic = any("论文写作" in haystack or "paper-writing" in haystack.lower() for haystack in haystacks)
+    if not matches_topic:
+        return False
+    return bool(document_tags & _TEACHING_RELATED_TAGS) or "graduate-paper-writing-course" in (document.source_name or "")
 
 
 def _has_named_research_entity(query: str) -> bool:

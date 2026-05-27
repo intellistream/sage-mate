@@ -365,15 +365,24 @@ def _build_teaching_payloads(teaching_dir: Path) -> list[KnowledgeDocumentCreate
         if not sections:
             continue
         source_prefix = f"homepage:{path.relative_to(teaching_dir.parent.parent).as_posix()}"
+        course_tags = _teaching_course_tags(path, course_title)
         for index, (section_title, body) in enumerate(sections):
             normalized_title = f"课程资料｜{course_title or '课程材料'}"
             if index > 0:
                 normalized_title = f"课程资料｜{course_title}｜{section_title}"
+            material_tags = _teaching_material_tags(section_title)
             payloads.extend(
                 _make_payloads(
                     title=normalized_title,
                     content=body,
-                    tags=["homepage", "teaching", "courseware", *_teaching_section_tags(section_title)],
+                    tags=_dedupe_tags([
+                        "homepage",
+                        "teaching",
+                        "courseware",
+                        *course_tags,
+                        *material_tags,
+                        *_teaching_section_tags(section_title),
+                    ]),
                     source_stub=f"{source_prefix}#{section_title or 'intro'}",
                 )
             )
@@ -383,6 +392,7 @@ def _build_teaching_payloads(teaching_dir: Path) -> list[KnowledgeDocumentCreate
                     course_title=course_title or "课程材料",
                     section_title=section_title,
                     section_body=body,
+                    course_tags=course_tags,
                     source_prefix=source_prefix,
                 )
             )
@@ -395,6 +405,7 @@ def _build_teaching_pdf_payloads(
     course_title: str,
     section_title: str,
     section_body: str,
+    course_tags: list[str],
     source_prefix: str,
 ) -> list[KnowledgeDocumentCreate]:
     payloads: list[KnowledgeDocumentCreate] = []
@@ -412,11 +423,21 @@ def _build_teaching_pdf_payloads(
         pdf_text = _extract_pdf_text(pdf_path)
         if not pdf_text:
             continue
+        material_tags = _teaching_material_tags(section_title, item_title)
         payloads.extend(
             _make_payloads(
                 title=f"课件正文｜{course_title}｜{item_title}",
                 content=pdf_text,
-                tags=["homepage", "teaching", "courseware", "pdf", *_teaching_section_tags(section_title)],
+                tags=_dedupe_tags([
+                    "homepage",
+                    "teaching",
+                    "courseware",
+                    "pdf",
+                    "material:pdf",
+                    *course_tags,
+                    *material_tags,
+                    *_teaching_section_tags(section_title),
+                ]),
                 source_stub=f"{source_prefix}#{section_title}::{pdf_path.relative_to(repo_root).as_posix()}",
                 max_chars=3200,
             )
@@ -540,6 +561,46 @@ def _teaching_section_tags(section_title: str) -> list[str]:
     if "讲义" in section_title or "课件" in section_title:
         return ["lecture"]
     return []
+
+
+def _teaching_course_tags(path: Path, course_title: str | None) -> list[str]:
+    normalized = f"{path.stem} {course_title or ''}".lower()
+    tags = ["identity:teacher", "domain:teaching", "audience:graduate"]
+    if "intro-to-llm-inference-engines" in normalized or "大模型推理" in normalized:
+        tags.append("course:llm-inference")
+    elif "graduate-paper-writing-course" in normalized or "论文写作" in normalized:
+        tags.append("course:paper-writing")
+    else:
+        tags.append(f"course:{path.stem}")
+    return tags
+
+
+def _teaching_material_tags(section_title: str, item_title: str = "") -> list[str]:
+    combined = f"{section_title} {item_title}".lower()
+    tags: list[str] = []
+    if "tutorial" in combined or "教程" in combined or "习题" in combined:
+        tags.append("material:tutorial")
+        match = re.search(r"tutorial\s*0?(\d+)", combined, re.IGNORECASE)
+        if match:
+            tags.append(f"tutorial:{int(match.group(1))}")
+    elif "实验" in section_title or "experiment" in combined or "project" in combined or "项目" in combined:
+        tags.append("material:experiment")
+        match = re.search(r"(?:实验|experiment)\s*0?(\d+)", combined, re.IGNORECASE)
+        if match:
+            tags.append(f"experiment:{int(match.group(1))}")
+    elif "讲义" in section_title or "课件" in section_title or "lecture" in combined or re.search(r"第\s*\d+\s*讲", item_title):
+        tags.append("material:lecture")
+        match = re.search(r"第\s*0?(\d+)\s*讲|lecture[-_\s]?0?(\d+)", combined, re.IGNORECASE)
+        if match:
+            number = next(group for group in match.groups() if group)
+            tags.append(f"lecture:{int(number)}")
+    else:
+        tags.append("material:course-overview")
+    return tags
+
+
+def _dedupe_tags(tags: list[str]) -> list[str]:
+    return list(dict.fromkeys(tag for tag in tags if tag))
 
 
 def _extract_pdf_text(pdf_path: Path) -> str:

@@ -11,6 +11,11 @@ class ChatRequest(BaseModel):
     student_email: str | None = Field(default=None, max_length=256)
     question: str = Field(min_length=1, max_length=4000)
     course_context: str | None = Field(default=None, max_length=512)
+    visitor_profile: str | None = Field(
+        default=None,
+        max_length=64,
+        pattern="^(hust_undergraduate|paper_writing_student|lab_member|general_visitor)$",
+    )
     conversation_id: str | None = Field(default=None, max_length=128)
 
 
@@ -243,6 +248,18 @@ class ChatFeedbackResponse(BaseModel):
     issue_summary: str | None = None
     created_at: datetime
     updated_at: datetime
+
+
+class AnonymousSuggestionCreate(BaseModel):
+    message: str = Field(min_length=1, max_length=1000)
+    category: str | None = Field(default=None, max_length=64)
+
+
+class AnonymousSuggestionRecord(BaseModel):
+    suggestion_id: str
+    message: str
+    category: str | None = None
+    created_at: datetime
 
 
 class QuestionAnalyticsOverview(BaseModel):

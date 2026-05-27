@@ -52,6 +52,7 @@ class AppSettings(BaseSettings):
     knowledge_gap_draft_dir: Path = Field(default=Path("data/knowledge_gap_drafts"))
     escalation_queue_dir: Path = Field(default=Path("data/escalations"))
     follow_up_queue_dir: Path = Field(default=Path("data/follow_up_actions"))
+    suggestion_board_dir: Path = Field(default=Path("data/suggestions"))
     user_account_store_dir: Path = Field(default=Path("data/user_accounts"))
     conversation_memory_top_k: int = Field(default=4, ge=1, le=10)
     sagevdb_embedding_backend: str = Field(default="sentence-transformers")

@@ -30,6 +30,8 @@ from .models import (
     AnswerBasisItem,
     AdminLoginRequest,
     AdminSessionResponse,
+    AnonymousSuggestionCreate,
+    AnonymousSuggestionRecord,
     AvailabilitySchedule,
     BookingDecisionRequest,
     BookingRecord,
@@ -69,6 +71,7 @@ from .models import (
 from .notifications import BookingEmailNotifier, BookingNotificationError
 from .persona import build_system_prompt
 from .service_runtime import ServiceRuntimeManager
+from .suggestion_store import SuggestionBoardStore
 from .user_store import UserAccountStore
 
 _FLOWNET_TICK = "__flownet_tick__"
@@ -148,6 +151,7 @@ class FacultyTwinWorkflowSupport:
         knowledge_gap_draft_store: KnowledgeGapDraftStore,
         escalation_store: EscalationQueueStore,
         follow_up_store: FollowUpQueueStore,
+        suggestion_store: SuggestionBoardStore,
         user_store: UserAccountStore,
         meeting_service: MeetingService,
         llm_client: VllmChatClient,
@@ -163,6 +167,7 @@ class FacultyTwinWorkflowSupport:
         self._knowledge_gap_draft_store = knowledge_gap_draft_store
         self._escalation_store = escalation_store
         self._follow_up_store = follow_up_store
+        self._suggestion_store = suggestion_store
         self._user_store = user_store
         self._meeting_service = meeting_service
         self._llm_client = llm_client
@@ -471,7 +476,10 @@ class FacultyTwinWorkflowSupport:
 
         interaction_intent = context.interaction_intent or self._build_fallback_interaction_intent(context.request)
         retrieval_query = self._build_knowledge_query(context.request, interaction_intent)
-        raw_hits = self._knowledge_store.search(retrieval_query)
+        raw_hits = self._knowledge_store.search(
+            retrieval_query,
+            visitor_profile=context.request.visitor_profile,
+        )
         context.knowledge_hits = self._filter_knowledge_hits_by_intent(raw_hits, interaction_intent)
         hit_count = len(context.knowledge_hits)
         self._append_trace(
@@ -845,6 +853,12 @@ class FacultyTwinWorkflowSupport:
             updated_at=feedback.updated_at,
         )
 
+    def submit_anonymous_suggestion(self, request: AnonymousSuggestionCreate) -> AnonymousSuggestionRecord:
+        return self._suggestion_store.create_suggestion(request)
+
+    def list_anonymous_suggestions(self, *, limit: int = 50) -> list[AnonymousSuggestionRecord]:
+        return self._suggestion_store.list_suggestions(limit=limit)
+
     def get_question_analytics_report(self, *, days: int = 7) -> QuestionAnalyticsReportResponse:
         report = self._analytics_store.build_weekly_report(days=days)
         enriched_gap_suggestions = []
@@ -1063,6 +1077,8 @@ class FacultyTwinWorkflowSupport:
         interaction_intent: InteractionIntent | None = None,
     ) -> str:
         course_hint = f"Course context: {request.course_context}.\n" if request.course_context else ""
+        visitor_profile = getattr(request, "visitor_profile", None)
+        visitor_hint = f"Visitor profile: {visitor_profile}.\n" if visitor_profile else ""
         memory_context = self._format_memory_context(memory_hits or [])
         prompt_hits = self._select_prompt_knowledge_hits(request.question, knowledge_hits, interaction_intent)
         knowledge_context = self._format_knowledge_context(prompt_hits)
@@ -1071,6 +1087,7 @@ class FacultyTwinWorkflowSupport:
         return (
             f"Student name: {request.student_name}\n"
             f"{course_hint}"
+            f"{visitor_hint}"
             f"{intent_guidance}"
             f"{availability_context}"
             f"{memory_context}"
@@ -2468,6 +2485,7 @@ class DigitalTwinService:
         self._knowledge_gap_draft_store = KnowledgeGapDraftStore(settings)
         self._escalation_store = EscalationQueueStore(settings)
         self._follow_up_store = FollowUpQueueStore(settings)
+        self._suggestion_store = SuggestionBoardStore(settings)
         self._user_store = UserAccountStore(settings)
         self._meeting_service = MeetingService(settings)
         self._email_notifier = BookingEmailNotifier(settings)
@@ -2671,6 +2689,39 @@ class DigitalTwinService:
         )
         return self._build_support().submit_chat_feedback(normalized_request)
 
+    def submit_anonymous_suggestion(
+        self,
+        request: AnonymousSuggestionCreate | dict[str, Any],
+        admin_session_token: str | None = None,
+    ) -> AnonymousSuggestionRecord:
+        normalized_request = (
+            request if isinstance(request, AnonymousSuggestionCreate) else AnonymousSuggestionCreate.model_validate(request)
+        )
+        record = self._build_support().submit_anonymous_suggestion(normalized_request)
+        return self._mask_suggestion_record(record, admin_session_token=admin_session_token)
+
+    def list_anonymous_suggestions(
+        self,
+        *,
+        limit: int = 50,
+        admin_session_token: str | None = None,
+    ) -> list[AnonymousSuggestionRecord]:
+        records = self._build_support().list_anonymous_suggestions(limit=limit)
+        return [
+            self._mask_suggestion_record(record, admin_session_token=admin_session_token)
+            for record in records
+        ]
+
+    def _mask_suggestion_record(
+        self,
+        record: AnonymousSuggestionRecord,
+        *,
+        admin_session_token: str | None = None,
+    ) -> AnonymousSuggestionRecord:
+        if admin_session_token and self.get_admin_session(admin_session_token).is_admin:
+            return record
+        return record.model_copy(update={"message": "***"})
+
     def get_question_analytics_report(self, *, days: int = 7) -> QuestionAnalyticsReportResponse:
         return self._build_support().get_question_analytics_report(days=days)
 
@@ -2775,6 +2826,7 @@ class DigitalTwinService:
             "knowledge_gap_drafts": str(self._knowledge_gap_draft_store.count_drafts()),
             "escalation_queue_records": str(self._escalation_store.count_records()),
             "follow_up_queue_records": str(self._follow_up_store.count_actions()),
+            "suggestion_board_records": str(self._suggestion_store.count_suggestions()),
             "follow_up_dispatch_sent": "0",
             "follow_up_dispatch_due": str(len(due_follow_ups)),
             "chat_pipeline_stages": str(_CHAT_PIPELINE_STAGE_COUNT),
@@ -2810,6 +2862,7 @@ class DigitalTwinService:
             self._knowledge_gap_draft_store,
             self._escalation_store,
             self._follow_up_store,
+            self._suggestion_store,
             self._user_store,
             self._meeting_service,
             self._llm_client,

@@ -202,6 +202,10 @@ def test_import_homepage_materials_includes_teaching_material_indexes(tmp_path: 
     ]
     assert tutorial_sections
     assert "tutorial" in tutorial_sections[0].tags
+    assert "identity:teacher" in tutorial_sections[0].tags
+    assert "domain:teaching" in tutorial_sections[0].tags
+    assert "course:llm-inference" in tutorial_sections[0].tags
+    assert "material:tutorial" in tutorial_sections[0].tags
     hits = store.search("KV 缓存是第几讲？")
     assert hits
     assert any(hit.title.startswith("课程资料｜大模型推理基础设施课程材料") for hit in hits)

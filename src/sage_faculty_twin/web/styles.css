@@ -1261,6 +1261,220 @@ label span {
 }
 
 @media (max-width: 720px) {
+    .topbar {
+        padding: 12px 14px;
+        gap: 12px;
+        border-radius: 18px;
+    }
+
+    .topbar-brand {
+        align-items: flex-start;
+        gap: 12px;
+    }
+
+    .topbar-brand-mark {
+        width: 40px;
+        height: 40px;
+        border-radius: 12px;
+        font-size: 1rem;
+    }
+
+    .topbar-title {
+        font-size: 1.08rem;
+        line-height: 1.25;
+    }
+
+    .topbar-subtitle {
+        font-size: 0.84rem;
+        line-height: 1.5;
+    }
+
+    .topbar-actions {
+        width: 100%;
+        justify-content: space-between;
+    }
+
+    .icon-button,
+    .ghost-button,
+    .primary-button,
+    .send-button {
+        min-height: 44px;
+    }
+
+    .message {
+        padding: 12px;
+        border-radius: 16px;
+    }
+
+    .message-main-copy,
+    .message-section,
+    .message-feedback,
+    .message-pending .message-frame,
+    .intro-footnote {
+        padding: 10px 12px;
+        border-radius: 14px;
+    }
+
+    .message-body {
+        line-height: 1.58;
+    }
+
+    .intro-card::before {
+        top: 12px;
+        right: 12px;
+        font-size: 0.68rem;
+        padding: 4px 8px;
+    }
+
+    .intro-footnote {
+        font-size: 0.88rem;
+    }
+
+    .intro-quick-actions {
+        gap: 8px;
+        margin-top: 12px;
+        padding-top: 12px;
+    }
+
+    .intro-quick-actions .intro-chip-button {
+        width: 100%;
+        justify-content: center;
+        padding: 11px 12px;
+        text-align: center;
+    }
+
+    .pill {
+        padding: 7px 10px;
+        font-size: 0.76rem;
+    }
+
+    .drawer-status-group .pill {
+        flex: 1 1 calc(50% - 6px);
+        justify-content: center;
+        text-align: center;
+    }
+
+    .drawer-card {
+        padding: 12px;
+        border-radius: 16px;
+    }
+
+    .drawer-copy {
+        font-size: 0.9rem;
+        line-height: 1.55;
+    }
+
+    .drawer-button,
+    .actions-row .ghost-button,
+    .actions-row .primary-button {
+        width: 100%;
+    }
+
+    .modal-panel,
+    .side-drawer {
+        padding: 14px;
+    }
+
+    .modal-head {
+        gap: 10px;
+        margin-bottom: 14px;
+        padding-bottom: 10px;
+    }
+
+    .modal-head .icon-button {
+        align-self: flex-end;
+    }
+
+    .modal-copy {
+        margin-top: 4px;
+        font-size: 0.86rem;
+        line-height: 1.48;
+    }
+
+    .stack-form {
+        gap: 11px;
+    }
+
+    label {
+        gap: 6px;
+    }
+
+    label span {
+        font-size: 0.82rem;
+    }
+
+    input,
+    textarea,
+    select {
+        min-height: 44px;
+        padding: 11px 12px;
+        border-radius: 14px;
+    }
+
+    textarea {
+        max-height: 132px;
+    }
+
+    .inline-status {
+        margin-top: 12px;
+        padding: 10px 12px;
+        border-radius: 13px;
+        font-size: 0.88rem;
+        line-height: 1.5;
+    }
+
+    .list-stack {
+        gap: 10px;
+    }
+
+    .list-card {
+        gap: 8px;
+        padding: 12px 12px 12px 14px;
+        border-radius: 14px;
+        box-shadow: 0 8px 18px rgba(33, 42, 56, 0.045);
+    }
+
+    .list-card::before {
+        width: 3px;
+    }
+
+    .list-card h3 {
+        font-size: 0.94rem;
+        padding-right: 0;
+    }
+
+    .list-meta {
+        font-size: 0.8rem;
+        line-height: 1.45;
+    }
+
+    .list-body {
+        font-size: 0.9rem;
+        line-height: 1.5;
+    }
+
+    .list-card-actions {
+        gap: 8px;
+        padding-top: 8px;
+    }
+
+    .inline-action-group,
+    .list-card-actions {
+        align-items: stretch;
+    }
+
+    .inline-action-group,
+    .inline-action-button {
+        width: 100%;
+    }
+
+    .modal-panel>.actions-row,
+    .modal-panel>.memory-profile-toolbar {
+        margin-top: 12px;
+        padding: 12px;
+        border-radius: 16px;
+    }
+
     .service-admin-summary {
         grid-template-columns: 1fr;
     }
@@ -1630,6 +1844,14 @@ body.workflow-shell-collapsed #workflow-toggle {
     background: linear-gradient(180deg, rgba(251, 248, 242, 0.96), rgba(243, 238, 230, 0.96));
 }
 
+.list-card-suggestion::before {
+    background: linear-gradient(180deg, #245aa6, #b86b38);
+}
+
+.list-card-suggestion {
+    background: linear-gradient(180deg, rgba(248, 252, 255, 0.98), rgba(246, 239, 231, 0.98));
+}
+
 .list-card-memory::before {
     background: linear-gradient(180deg, #7c3aed, #5b21b6);
 }
@@ -1779,6 +2001,12 @@ body.workflow-shell-collapsed #workflow-toggle {
     border-color: rgba(31, 122, 224, 0.16);
 }
 
+.status-badge-info {
+    background: var(--accent-soft);
+    color: var(--accent-deep);
+    border-color: rgba(36, 90, 166, 0.14);
+}
+
 .status-badge-handoff {
     background: #fff4db;
     color: #8a5a16;
@@ -1855,7 +2083,7 @@ body.workflow-shell-collapsed #workflow-toggle {
     }
 
     .app-shell {
-        padding: 12px 12px 24px;
+        padding: 12px 12px calc(108px + var(--safe-bottom));
     }
 
     .topbar {
@@ -1878,6 +2106,10 @@ body.workflow-shell-collapsed #workflow-toggle {
     .chat-shell {
         min-height: calc(100vh - 48px);
         height: auto;
+    }
+
+    .message {
+        max-width: 100%;
     }
 
     .workflow-shell {
@@ -1972,6 +2204,15 @@ body.workflow-shell-collapsed #workflow-toggle {
         display: block;
     }
 
+    .mobile-workflow-trigger {
+        left: 12px;
+        right: 12px;
+        bottom: calc(88px + var(--safe-bottom));
+        width: auto;
+        max-width: none;
+        text-align: center;
+    }
+
     .workflow-mobile-handle {
         display: flex;
     }
@@ -1991,36 +2232,45 @@ body.workflow-shell-collapsed #workflow-toggle {
     }
 
     .chat-stream {
-        padding: 12px 10px 6px;
+        padding: 12px 10px 76px;
     }
 
     .composer-shell {
-        padding: 10px;
+        padding: 10px 10px calc(10px + var(--safe-bottom));
     }
 
     .composer-row {
-        align-items: flex-end;
+        align-items: stretch;
+        flex-direction: column;
     }
 
     .composer-row textarea {
         flex: 1;
     }
 
+    .send-button {
+        width: 100%;
+        min-width: 0;
+    }
+
     .modal-panel {
         top: auto;
         right: 10px;
         left: 10px;
-        bottom: 10px;
+        bottom: calc(10px + var(--safe-bottom));
         width: auto;
+        max-height: calc(100dvh - 20px - var(--safe-bottom));
+        overscroll-behavior: contain;
     }
 
     .side-drawer {
         top: 10px;
         left: 10px;
         right: 10px;
-        bottom: 10px;
+        bottom: calc(10px + var(--safe-bottom));
         width: auto;
         max-height: none;
+        overscroll-behavior: contain;
     }
 
     .drawer-status-group {
