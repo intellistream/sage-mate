@@ -58,12 +58,44 @@ class VllmChatClient:
         )
         self._cache_lock = threading.Lock()
         self._response_cache: OrderedDict[str, tuple[float, str]] = OrderedDict()
+        self._metrics_lock = threading.Lock()
+        self._request_count = 0
+        self._success_count = 0
+        self._error_count = 0
+        self._cache_hit_count = 0
+        self._last_request_at: float | None = None
+        self._last_success_at: float | None = None
+        self._last_error_at: float | None = None
+        self._last_error_message: str | None = None
 
     def close(self) -> None:
         self._client.close()
 
     async def aclose(self) -> None:
         await asyncio.to_thread(self.close)
+
+    def runtime_snapshot(self) -> dict[str, str]:
+        cache_entries = self._active_cache_entries()
+        with self._metrics_lock:
+            last_status = "not_checked"
+            if self._last_success_at is not None and (
+                self._last_error_at is None or self._last_success_at >= self._last_error_at
+            ):
+                last_status = "ok"
+            elif self._last_error_at is not None:
+                last_status = "error"
+            return {
+                "llm_status": last_status,
+                "llm_request_count": str(self._request_count),
+                "llm_success_count": str(self._success_count),
+                "llm_error_count": str(self._error_count),
+                "llm_cache_hit_count": str(self._cache_hit_count),
+                "llm_cache_entries": str(cache_entries),
+                "llm_last_error": self._last_error_message or "",
+                "llm_last_request_at": self._format_timestamp(self._last_request_at),
+                "llm_last_success_at": self._format_timestamp(self._last_success_at),
+                "llm_last_error_at": self._format_timestamp(self._last_error_at),
+            }
 
     def classify_interaction_intent_sync(
         self,
@@ -158,20 +190,27 @@ class VllmChatClient:
         cache_key = self._cache_key(payload)
         cached = self._get_cached_response(cache_key)
         if cached is not None:
+            self._record_cache_hit()
             return cached
 
-        response = self._client.post("/chat/completions", json=payload)
-        response.raise_for_status()
+        self._record_request_start()
+        try:
+            response = self._client.post("/chat/completions", json=payload)
+            response.raise_for_status()
 
-        data = response.json()
-        choices = data.get("choices", [])
-        if not choices:
-            raise RuntimeError("vllm-hust returned no chat choices")
-        message = choices[0].get("message", {})
-        content = message.get("content")
-        if not content:
-            raise RuntimeError("vllm-hust returned an empty chat message")
-        answer = str(content)
+            data = response.json()
+            choices = data.get("choices", [])
+            if not choices:
+                raise RuntimeError("vllm-hust returned no chat choices")
+            message = choices[0].get("message", {})
+            content = message.get("content")
+            if not content:
+                raise RuntimeError("vllm-hust returned an empty chat message")
+            answer = str(content)
+        except Exception as exc:
+            self._record_request_error(exc)
+            raise
+        self._record_request_success()
         self._store_cached_response(cache_key, answer)
         return answer
 
@@ -433,6 +472,37 @@ class VllmChatClient:
         for key in expired_keys:
             self._response_cache.pop(key, None)
 
+    def _record_request_start(self) -> None:
+        with self._metrics_lock:
+            self._request_count += 1
+            self._last_request_at = time.time()
+
+    def _record_request_success(self) -> None:
+        with self._metrics_lock:
+            self._success_count += 1
+            self._last_success_at = time.time()
+            self._last_error_message = None
+
+    def _record_request_error(self, exc: Exception) -> None:
+        with self._metrics_lock:
+            self._error_count += 1
+            self._last_error_at = time.time()
+            self._last_error_message = str(exc)[:240]
+
+    def _record_cache_hit(self) -> None:
+        with self._metrics_lock:
+            self._cache_hit_count += 1
+
+    def _active_cache_entries(self) -> int:
+        with self._cache_lock:
+            self._evict_expired_locked(time.time())
+            return len(self._response_cache)
+
+    def _format_timestamp(self, timestamp: float | None) -> str:
+        if timestamp is None:
+            return ""
+        return time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(timestamp))
+
 
 def _looks_like_booking_request(lowered: str, question: str) -> bool:
     if _looks_like_booking_information_question(lowered, question):
@@ -449,6 +519,7 @@ def _looks_like_booking_request(lowered: str, question: str) -> bool:
         "book",
         "schedule a meeting",
         "meeting",
+        "预约",
     )
     return any(marker in lowered for marker in booking_markers) or any(marker in question for marker in booking_markers)
 

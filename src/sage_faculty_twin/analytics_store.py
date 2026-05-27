@@ -5,7 +5,7 @@ import math
 import re
 from collections import Counter
 from dataclasses import dataclass
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 
 from .config import AppSettings
 from .memory_store import ConversationMemoryRecord, NeuroMemConversationStore
@@ -172,6 +172,28 @@ class ConversationAnalyticsStore:
             ],
             "unresolved_questions": [self._serialize_unresolved(sample) for sample in unresolved_samples[:unresolved_limit]],
             "handoff_categories": self._build_handoff_categories(handoff_samples),
+        }
+
+    def build_satisfaction_report(self, *, days: int = 7) -> dict[str, object]:
+        window_end = datetime.now(UTC)
+        window_start = window_end - timedelta(days=days)
+        samples = self._build_samples(window_start)
+        feedback_samples = [sample for sample in samples if sample.feedback is not None]
+        feedback_count = len(feedback_samples)
+        positive_count = sum(1 for sample in feedback_samples if sample.feedback and sample.feedback.rating == "up")
+        negative_count = sum(1 for sample in feedback_samples if sample.feedback and sample.feedback.rating == "down")
+        unresolved_count = sum(1 for sample in feedback_samples if self._is_unresolved(sample))
+        handoff_count = sum(1 for sample in feedback_samples if sample.feedback and sample.feedback.needs_human_followup)
+        return {
+            "feedback_count": feedback_count,
+            "positive_count": positive_count,
+            "negative_count": negative_count,
+            "positive_rate": self._safe_ratio(positive_count, feedback_count),
+            "unresolved_rate": self._safe_ratio(unresolved_count, feedback_count),
+            "human_handoff_rate": self._safe_ratio(handoff_count, feedback_count),
+            "feedback_coverage_rate": self._safe_ratio(feedback_count, len(samples)),
+            "reason_summaries": self._build_satisfaction_reason_summaries(feedback_samples),
+            "trend": self._build_satisfaction_trend(feedback_samples),
         }
 
     def build_gap_draft_payload(self, *, cluster_id: str, days: int = 7) -> dict[str, object]:
@@ -359,6 +381,84 @@ class ConversationAnalyticsStore:
                 }
             )
         return categories
+
+    def _build_satisfaction_reason_summaries(self, feedback_samples: list[ExchangeAnalyticsSample]) -> list[dict[str, object]]:
+        problem_samples = [sample for sample in feedback_samples if self._is_problem_feedback(sample)]
+        total = len(problem_samples) or 1
+        grouped: dict[str, list[ExchangeAnalyticsSample]] = {}
+        for sample in problem_samples:
+            key = self._satisfaction_reason_key(sample)
+            grouped.setdefault(key, []).append(sample)
+        summaries = []
+        for key, samples in sorted(grouped.items(), key=lambda pair: len(pair[1]), reverse=True):
+            summaries.append(
+                {
+                    "reason_key": key,
+                    "reason_label": self._satisfaction_reason_label(key),
+                    "count": len(samples),
+                    "share": round(len(samples) / total, 3),
+                    "sample_issues": [
+                        sample.feedback.issue_summary or sample.record.question
+                        for sample in samples[:3]
+                        if sample.feedback is not None
+                    ],
+                }
+            )
+        return summaries
+
+    def _build_satisfaction_trend(self, feedback_samples: list[ExchangeAnalyticsSample]) -> list[dict[str, object]]:
+        grouped: dict[date, list[ExchangeAnalyticsSample]] = {}
+        for sample in feedback_samples:
+            grouped.setdefault(sample.record.created_at.astimezone(UTC).date(), []).append(sample)
+        trend = []
+        for day, samples in sorted(grouped.items()):
+            count = len(samples)
+            positive_count = sum(1 for sample in samples if sample.feedback and sample.feedback.rating == "up")
+            unresolved_count = sum(1 for sample in samples if self._is_unresolved(sample))
+            handoff_count = sum(1 for sample in samples if sample.feedback and sample.feedback.needs_human_followup)
+            trend.append(
+                {
+                    "date": day,
+                    "feedback_count": count,
+                    "positive_rate": self._safe_ratio(positive_count, count),
+                    "unresolved_rate": self._safe_ratio(unresolved_count, count),
+                    "human_handoff_rate": self._safe_ratio(handoff_count, count),
+                }
+            )
+        return trend
+
+    def _is_problem_feedback(self, sample: ExchangeAnalyticsSample) -> bool:
+        if sample.feedback is None:
+            return False
+        return sample.feedback.rating == "down" or not sample.feedback.resolved or sample.feedback.needs_human_followup
+
+    def _satisfaction_reason_key(self, sample: ExchangeAnalyticsSample) -> str:
+        feedback = sample.feedback
+        text = " ".join(part for part in (feedback.issue_summary if feedback else None, sample.record.question) if part).lower()
+        if feedback and feedback.needs_human_followup:
+            return "needs_human_followup"
+        if any(keyword in text for keyword in ("知识", "资料", "命中", "材料", "faq", "reference")):
+            return "knowledge_gap"
+        if any(keyword in text for keyword in ("预约", "时间", "会议", "calendar", "booking", "schedule")):
+            return "booking_flow"
+        if any(keyword in text for keyword in ("具体", "清单", "步骤", "不够", "缺少", "模糊", "detail")):
+            return "answer_specificity"
+        return "other"
+
+    def _satisfaction_reason_label(self, key: str) -> str:
+        labels = {
+            "needs_human_followup": "需要人工接管",
+            "knowledge_gap": "知识/资料不足",
+            "booking_flow": "预约流程问题",
+            "answer_specificity": "回答不够具体",
+            "other": "其他反馈",
+        }
+        return labels.get(key, key)
+
+    def _safe_ratio(self, numerator: int, denominator: int) -> float:
+        if denominator <= 0:
+            return 0.0
+        return round(numerator / denominator, 3)
 
     def _build_gap_draft_content(
         self,

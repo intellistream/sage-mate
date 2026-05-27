@@ -21,6 +21,7 @@ These directories are generated or mutated while the app runs and should not be 
 - `data/knowledge_gap_drafts/`
 - `data/escalations/`
 - `data/follow_up_actions/`
+- `data/operations_task_state/`
 - `data/user_accounts/`
 - `.runtime/`
 

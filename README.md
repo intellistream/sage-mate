@@ -46,6 +46,7 @@ still needs human approval, and what should happen next.
 - `src/sage_faculty_twin/knowledge_base.py`: local, NeuroMem, and SageVDB knowledge retrieval.
 - `src/sage_faculty_twin/memory_store.py`: conversation and profile memory handling.
 - `src/sage_faculty_twin/knowledge_import.py`: offline homepage and course-material ingestion.
+- `src/sage_faculty_twin/operations_store.py`: operations-console task status overlay.
 - `src/sage_faculty_twin/web/`: browser UI for students and admins.
 
 For the original product framing, see [docs/product-outline.md](docs/product-outline.md).
@@ -156,6 +157,7 @@ auth handlers, or other runtime-loaded app code. If you are running `uvicorn` di
 stop it and start it again before validating the change in the browser.
 
 Deployment and operations details are documented in [docs/deployment.md](docs/deployment.md).
+The admin operations-console flow is documented in [docs/ops-console.md](docs/ops-console.md).
 
 ## Runtime Data Boundaries
 

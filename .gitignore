@@ -14,7 +14,9 @@ data/escalations/
 data/follow_up_actions/
 data/homepage/
 data/knowledge_base/
+data/knowledge_base.backup-*/
 data/knowledge_gap_drafts/
+data/operations_task_state/
 data/user_accounts/
 dist/
 build/

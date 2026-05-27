@@ -104,6 +104,9 @@ class UserAccountStore:
         record = self._records_by_id.get(user_id)
         return record.to_response() if record else None
 
+    def count_users(self) -> int:
+        return len(self._records_by_id)
+
     def _persist_record(self, record: UserAccountRecord) -> None:
         (self._path / f"{record.user_id}.json").write_text(
             json.dumps(record.to_dict(), ensure_ascii=False, indent=2) + "\n",

@@ -18,6 +18,7 @@ from sage_faculty_twin.models import (
     ChatRequest,
     KnowledgeDocumentCreate,
 )
+from sage_faculty_twin.operations_store import OperationsTaskStateStore
 from sage_faculty_twin.suggestion_store import SuggestionBoardStore
 
 
@@ -32,6 +33,7 @@ def isolated_operations_stores(tmp_path: Path):
     original_knowledge_gap_draft_store = service._knowledge_gap_draft_store
     original_escalation_store = service._escalation_store
     original_follow_up_store = service._follow_up_store
+    original_operations_task_state_store = service._operations_task_state_store
     original_suggestion_store = service._suggestion_store
     original_meeting_service = service._meeting_service
 
@@ -42,6 +44,7 @@ def isolated_operations_stores(tmp_path: Path):
             "knowledge_gap_draft_dir": tmp_path / "knowledge-gap-drafts",
             "escalation_queue_dir": tmp_path / "escalations",
             "follow_up_queue_dir": tmp_path / "follow-ups",
+            "operations_task_state_dir": tmp_path / "operations-task-state",
             "suggestion_board_dir": tmp_path / "suggestions",
             "availability_schedule_path": tmp_path / "availability" / "current_week.json",
         }
@@ -52,6 +55,7 @@ def isolated_operations_stores(tmp_path: Path):
     service._knowledge_gap_draft_store = KnowledgeGapDraftStore(isolated_settings)
     service._escalation_store = EscalationQueueStore(isolated_settings)
     service._follow_up_store = FollowUpQueueStore(isolated_settings)
+    service._operations_task_state_store = OperationsTaskStateStore(isolated_settings)
     service._suggestion_store = SuggestionBoardStore(isolated_settings)
     service._meeting_service = MeetingService(isolated_settings)
     try:
@@ -63,6 +67,7 @@ def isolated_operations_stores(tmp_path: Path):
         service._knowledge_gap_draft_store = original_knowledge_gap_draft_store
         service._escalation_store = original_escalation_store
         service._follow_up_store = original_follow_up_store
+        service._operations_task_state_store = original_operations_task_state_store
         service._suggestion_store = original_suggestion_store
         service._meeting_service = original_meeting_service
 
@@ -164,6 +169,7 @@ def test_operations_workbench_returns_actionable_admin_records(isolated_operatio
         knowledge_hit_count=0,
         booking_result=None,
     )
+    service._conversation_store.consolidate_profiles(first_exchange)
     service._conversation_store.add_exchange(
         ChatRequest(
             student_name="Dave",
@@ -234,11 +240,51 @@ def test_operations_workbench_returns_actionable_admin_records(isolated_operatio
     assert response.status_code == 200
     payload = response.json()
     assert payload["overview"]["queues"]
+    task_keys = {item["task_key"]: item for item in payload["operational_tasks"]}
+    escalation_task_key = f"escalation:{escalation.escalation_id}"
+    assert escalation_task_key in task_keys
+    assert task_keys[escalation_task_key]["task_type"] == "human_handoff"
+    assert task_keys[escalation_task_key]["operations_status"] == "open"
+    assert f"follow_up:{follow_up.action_id}" in task_keys
+    assert payload["overview"]["totals"]["student_profiles"] == 1
+    assert payload["student_profiles"]
+    assert payload["student_profiles"][0]["student_email"] == "carol@example.com"
+    assert payload["student_profiles"][0]["segment"] in {"协作准备", "持续关注", "基础画像"}
+    assert payload["student_profiles"][0]["profile_count"] >= 1
+    assert payload["student_profiles"][0]["interaction_count"] == 1
+    assert payload["student_profiles"][0]["recent_questions"] == ["加入课题组前我应该准备什么材料？"]
+    assert payload["student_profiles"][0]["key_summaries"]
+    assert payload["student_profiles"][0]["suggested_next_action"]
     assert payload["knowledge_gap_drafts"][0]["draft_id"] == draft.draft_id
     assert payload["question_analytics"]["knowledge_gap_suggestions"]
     assert payload["question_analytics"]["knowledge_gap_suggestions"][0]["sample_questions"]
+    assert payload["satisfaction"]["feedback_count"] == 1
+    assert payload["satisfaction"]["negative_count"] == 1
+    assert payload["satisfaction"]["positive_rate"] == 0.0
+    assert payload["satisfaction"]["unresolved_rate"] == 1.0
+    assert payload["satisfaction"]["feedback_coverage_rate"] == 0.5
+    assert payload["satisfaction"]["reason_summaries"][0]["reason_key"] == "knowledge_gap"
+    assert payload["satisfaction"]["reason_summaries"][0]["sample_issues"] == ["缺少标准准备清单。"]
+    assert payload["satisfaction"]["trend"][0]["feedback_count"] == 1
     assert payload["escalations"][0]["escalation_id"] == escalation.escalation_id
     assert payload["follow_up_actions"][0]["action_id"] == follow_up.action_id
     assert payload["anonymous_suggestions"][0]["suggestion_id"] == suggestion.suggestion_id
     assert payload["anonymous_suggestions"][0]["message"] == "希望能看到待处理事项。"
     assert payload["question_analytics"]["overview"]["total_exchanges"] == 2
+
+    state_response = client.patch(
+        f"/operations/tasks/{escalation_task_key}",
+        json={"status": "in_progress", "assigned_to": "张老师", "note": "先看学生原始问题。"},
+    )
+    assert state_response.status_code == 200
+    state = state_response.json()
+    assert state["task_key"] == escalation_task_key
+    assert state["status"] == "in_progress"
+    assert state["assigned_to"] == "张老师"
+
+    refreshed_response = client.get("/operations/workbench?days=7&limit=5")
+    assert refreshed_response.status_code == 200
+    refreshed_tasks = {item["task_key"]: item for item in refreshed_response.json()["operational_tasks"]}
+    assert refreshed_tasks[escalation_task_key]["operations_status"] == "in_progress"
+    assert refreshed_tasks[escalation_task_key]["assigned_to"] == "张老师"
+    assert refreshed_tasks[escalation_task_key]["note"] == "先看学生原始问题。"

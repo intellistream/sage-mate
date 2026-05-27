@@ -56,8 +56,9 @@ The current chat workflow is intentionally explicit, but it is also still somewh
 request passes through the same fixed sequence of stages, and most branching happens inside stage
 methods through `route`, `workflow_action`, and skipped trace entries. That is acceptable for the
 v1 baseline because it keeps behavior understandable and testable. For v2, the better shape is a
-stable workflow backbone with dynamic stage selection, policy-driven routing, and pluggable domain
-skills.
+stable workflow backbone with predefined template selection, policy-driven routing, and pluggable
+domain skills. The more ambitious idea of dynamically generating a workflow graph should be a V3
+capability, after templates, traces, policies, and evaluation baselines are stable.
 
 ### SAGE Capability Expansion
 
@@ -72,9 +73,10 @@ The next roadmap step is to move from request-scoped FlowNet execution toward a 
 - **Stream-first workflows:** turn repeated background and operational flows into SAGE streams or
   jobs, including homepage sync, knowledge reindexing, follow-up dispatch, analytics rollups,
   stale-knowledge scans, and profile consolidation.
-- **Adaptive workflow templates:** replace the single fixed 12-stage chat path with templates such
-  as `answer_question`, `book_meeting`, `collect_booking_details`, `admin_add_knowledge`,
-  `human_handoff`, and `analytics_rollup`, selected by a planner before execution.
+- **Adaptive workflow templates:** replace the single fixed 12-stage chat path with predefined
+  templates such as `answer_question`, `book_meeting`, `collect_booking_details`,
+  `admin_add_knowledge`, `human_handoff`, and `analytics_rollup`, selected by a planner before
+  execution.
 - **Parallel retrieval and context assembly:** run knowledge retrieval, recent-memory retrieval,
   long-term profile retrieval, availability lookup, and policy lookup as parallel SAGE branches
   when the selected workflow needs them.
@@ -112,7 +114,9 @@ than purely linear:
 
 This would make the system less brittle without making it vague. The product should still expose
 clear workflow state, but the workflow graph should be chosen by the situation instead of always
-being the same 12-step path.
+being the same 12-step path. For V2, this means selecting from known templates. Generating new
+workflow graphs from a step library belongs to V3, where governance and replay tests can constrain
+the planner.
 
 ### SAGE Ecosystem Leverage Plan
 
@@ -224,8 +228,9 @@ component as an explicit capability layer rather than an incidental dependency.
   and publish them, then measure whether similar future questions are resolved better.
 - Improve student memory governance with explicit profile categories, retention controls, owner
   review, and the ability to edit or forget sensitive profile summaries.
-- Integrate real calendar providers for confirmed meetings while keeping the current local weekly
-  availability file as a development and offline mode.
+- Keep confirmed-meeting handling on local weekly availability plus admin approval for the current
+  school deployment; revisit real calendar-provider sync only if an approved provider API becomes
+  available.
 - Add follow-up automation policies, such as post-meeting summary drafts, todo reminders, reading
   nudges, and escalation aging alerts, with admin approval where needed.
 
@@ -257,7 +262,9 @@ and extend.
   tasks.
 - Add stronger operational data models so analytics, feedback, escalations, and follow-up actions
   form one closed loop.
-- Integrate real calendar providers instead of repo-only availability for confirmed meetings.
+- Keep local availability plus admin approval as the deployment default for confirmed meetings;
+  real calendar-provider sync is a future optional integration when the school environment exposes a
+  supported calendar API.
 - Add stronger identity and governance controls such as student verification, audit trails, and
   clearer human-takeover boundaries.
 - Improve deployment ergonomics for IntelliStream-owned rollout, environment setup, and branded
@@ -273,9 +280,266 @@ and extend.
   with less manual intervention.
 - Reusable persona and organization templates for deploying the same product shape to multiple
   faculty members.
+- Optional Google, Outlook, Exchange, or CalDAV synchronization for deployments that have approved
+  calendar-provider access.
+
+### Current V2 Checkpoint
+
+The current `v2` checkpoint has implemented the first operations-console slices: overview and
+workbench APIs, the admin console shell, knowledge-gap drafts, student operations profiles, a
+unified operational task queue, task state overlays, and satisfaction metrics.
+
+Remaining release-facing work should focus on documentation, deployment checks, governance polish,
+and observability. Real calendar-provider integration is explicitly not a blocker for the current
+school deployment.
+
+## V3 Plan
+
+`v3` should focus on governed dynamic workflow generation. By this point, `v2` should already have
+observable operations, predefined workflow templates, stable policy data, and enough evaluation
+cases to judge whether a generated plan is better than a fixed template.
+
+The important design choice is that V3 is not an unconstrained agent that invents code or freely
+calls tools. It is a planner that assembles an approved workflow graph from registered steps,
+validated policy, and bounded side-effect rules. The generated plan should be understandable before
+execution, replayable after execution, and replaceable by a known V2 template whenever planning is
+not clearly beneficial.
+
+### V3 Product Goals
+
+- Make the twin feel less rigid across the owner's multiple identities: course instructor,
+  research-group PI, collaborator, online front desk, and system operator.
+- Avoid running unnecessary stages for simple questions while adding the right extra stages for
+  complex interactions such as booking preparation, research collaboration, or knowledge-gap
+  remediation.
+- Preserve the product promise that every important answer has visible workflow evidence, retrieved
+  context, memory usage, and owner-review boundaries.
+- Let future faculty deployments add local capabilities through policy and step registration rather
+  than editing the main chat service for every role-specific workflow.
+
+### V3 Architecture Shape
+
+The V3 planner should sit between request understanding and workflow execution:
+
+1. Collect request context: user question, active profile mode, session/user identity, recent
+   memory, available knowledge collections, owner policy version, and runtime capability flags.
+2. Generate or select a candidate `PlanSpec` using a constrained planner. The first implementation
+   may combine deterministic rules with an LLM JSON planner, but the output must be schema-bound.
+3. Validate the candidate plan through a policy gate before any step runs.
+4. Execute the accepted plan through the existing SAGE/FlowNet trace surface, using registered
+   steps only.
+5. Persist plan, validation result, execution trace, fallback decision, and evaluation labels so the
+   same request can be replayed later.
+
+Suggested module boundaries:
+
+- `workflow_planner.py`: request-to-`PlanSpec` generation, deterministic planner, optional LLM JSON
+  planner, and fallback selection.
+- `workflow_steps.py`: step registry, step metadata, input/output contracts, side-effect class, and
+  execution adapter.
+- `workflow_policy.py`: allowed step graph rules, permissions, maximum cost/latency budgets,
+  owner-review requirements, and side-effect validation.
+- `workflow_trace.py`: plan trace serialization, rejected-plan reasons, stage timings, skipped
+  stages, evidence links, and replay identifiers.
+- `data/workflow_policies/`: versioned YAML policies for owner-specific planning constraints.
+- `tests/test_dynamic_workflow_planner.py`: schema, policy, fallback, and representative scenario
+  coverage.
+
+### PlanSpec Contract
+
+V3 should introduce a structured `PlanSpec` that can be stored, audited, and replayed. A candidate
+shape:
+
+```json
+{
+  "plan_id": "generated-or-template-id",
+  "planner_version": "v3.0.0",
+  "policy_version": "faculty-default-2026-05",
+  "goal": "answer_course_question",
+  "risk_level": "read_only",
+  "profile_context": "paper_writing_course",
+  "estimated_latency_budget_ms": 12000,
+  "requires_owner_review": false,
+  "steps": [
+    {
+      "step_id": "detect_profile_context",
+      "reason": "The user question mentions a course-specific assignment.",
+      "inputs": ["question", "session_profile"],
+      "outputs": ["profile_context"],
+      "side_effect": "none"
+    },
+    {
+      "step_id": "retrieve_knowledge",
+      "reason": "The answer should cite course material.",
+      "inputs": ["question", "profile_context"],
+      "outputs": ["knowledge_hits"],
+      "side_effect": "none"
+    },
+    {
+      "step_id": "answer_with_citations",
+      "reason": "The final response needs grounded advice and citations.",
+      "inputs": ["question", "knowledge_hits"],
+      "outputs": ["answer"],
+      "side_effect": "none"
+    }
+  ],
+  "fallback_template": "answer_question",
+  "explain_to_operator": "Course question with retrieval; no booking or admin side effect needed."
+}
+```
+
+Required validation rules:
+
+- `steps[*].step_id` must exist in the registry.
+- Step input dependencies must be satisfied by request context or previous step outputs.
+- The graph must be acyclic and below the configured maximum stage count.
+- Total estimated latency and token budget must stay under policy limits.
+- `risk_level` must match the strongest side effect in the plan.
+- Write-side-effect steps must declare whether owner review is required.
+- Admin-only steps must be rejected for normal user sessions.
+- Unknown fields from an LLM-generated plan should be rejected rather than ignored.
+
+### Step Registry
+
+Start with a small approved step library. Each step should expose: stable id, description, required
+inputs, produced outputs, side-effect class, timeout budget, retry policy, and trace renderer.
+
+Initial read-only steps:
+
+- `detect_profile_context`: identify whether the request is about general identity, a specific
+  course, paper writing, research collaboration, group operations, or booking preparation.
+- `classify_intent`: classify answer, booking, escalation, knowledge-gap, feedback, or admin intent.
+- `retrieve_knowledge`: search curated homepage/course/PDF knowledge and return source evidence.
+- `retrieve_recent_memory`: retrieve recent conversation context for the current user/session.
+- `retrieve_profile_memory`: retrieve long-term academic profile memory where permitted.
+- `assemble_prompt_context`: merge question, policy, evidence, and memory into model-ready context.
+- `answer_with_citations`: generate a grounded answer with visible evidence and next steps.
+- `detect_knowledge_gap`: decide whether the answer exposed missing or stale knowledge.
+- `render_user_response`: format the final response, citations, workflow trace, and suggested
+  follow-up actions.
+
+Guarded write or review steps for later V3 increments:
+
+- `record_conversation_memory`: write chat summary and profile signals after response generation.
+- `draft_booking_request`: prepare booking data for user confirmation, without confirming a meeting.
+- `create_escalation_draft`: create a human-handoff draft that waits for owner/admin processing.
+- `draft_follow_up_action`: draft reminders, reading suggestions, or post-meeting notes for review.
+- `draft_knowledge_gap`: create a reviewable knowledge-gap draft rather than directly publishing.
+
+Explicitly prohibited generated steps:
+
+- Direct shell execution.
+- Direct filesystem mutation outside registered stores.
+- Direct email sending without an approved send policy.
+- Direct calendar confirmation without owner approval.
+- Knowledge deletion or publication without admin session and review trace.
+
+### V3 Implementation Phases
+
+#### V3.0: Read-Only Planner Preview
+
+- Add `PlanSpec` models and validation tests.
+- Add a deterministic planner that maps common requests to generated-looking plans without using an
+  LLM planner yet.
+- Implement read-only step registry metadata for profile detection, intent classification,
+  retrieval, prompt assembly, answer generation, and response rendering.
+- Show the accepted plan in the existing workflow trace as "planned steps" before execution.
+- Keep execution equivalent to V2 templates where possible, so behavior changes are limited to
+  observability and plan selection.
+- Add fallback to V2 templates for invalid plans and record the fallback reason.
+
+#### V3.1: LLM-Assisted JSON Planner
+
+- Add an optional LLM planner that can propose a `PlanSpec` under strict JSON schema validation.
+- Compare deterministic and LLM-proposed plans in shadow mode before using the LLM plan for live
+  execution.
+- Record rejected plans with reasons such as unknown step, missing dependency, forbidden side
+  effect, excessive stage count, or malformed JSON.
+- Add operator-visible metrics: planner acceptance rate, fallback rate, plan latency, rejected-step
+  distribution, and plan-vs-template quality outcome.
+
+#### V3.2: Guarded Side-Effect Planning
+
+- Allow the planner to include reviewable write steps such as booking draft, escalation draft,
+  follow-up draft, memory writeback, and knowledge-gap draft.
+- Require policy gates and owner-review markers for every write-side-effect step.
+- Add tests proving normal users cannot generate admin-only plans.
+- Add trace UI that distinguishes read-only, draft-write, and owner-approved side effects.
+
+#### V3.3: Faculty-Specific Capability Plugins
+
+- Let a faculty deployment register optional step packs such as course advising, paper feedback,
+  project matching, lab onboarding, recommendation-letter triage, or group meeting preparation.
+- Require plugin steps to define the same metadata, policy hooks, tests, and trace renderer as core
+  steps.
+- Add a plugin compatibility report to the operations console so owners can see which capabilities
+  are enabled and which policies constrain them.
+
+### Evaluation and Acceptance Criteria
+
+V3 should not be considered ready just because plans can be generated. It should be accepted only
+when generated plans improve or preserve quality under replayable tests.
+
+Minimum scenario set:
+
+- Course question: should retrieve course material, answer with citations, and avoid booking steps.
+- Paper-writing course question: should prefer paper-writing course context over generic research
+  context.
+- Research collaboration question: should retrieve research/profile material and suggest a next
+  contact path without pretending to approve collaboration.
+- Booking preparation: should collect missing agenda/blocker fields and avoid confirming a meeting.
+- Knowledge-gap case: should answer cautiously and draft a reviewable knowledge-gap item.
+- Human-handoff case: should create or suggest escalation when confidence or policy requires it.
+- Simple greeting: should avoid expensive retrieval and long plan generation.
+- Admin-only action from normal user: should be rejected and routed to safe explanation.
+
+Metrics to track:
+
+- Plan validity rate.
+- Fallback rate and fallback reason distribution.
+- Average planning latency.
+- End-to-end response latency compared with V2 templates.
+- Retrieval precision for generated retrieval plans.
+- Booking/escalation false-positive rate.
+- User-visible answer helpfulness.
+- Owner correction rate for generated side-effect drafts.
+
+Release threshold suggestions:
+
+- At least 95% schema-valid plans on the replay suite.
+- Zero policy-bypass cases in tests.
+- No regression in simple-question latency when deterministic template selection is sufficient.
+- Generated plans must match or outperform V2 template selection on the canonical scenario suite.
+- Every rejected or fallback plan must produce an operator-readable reason.
+
+### V3 Handoff Checklist
+
+Before implementation starts, the next agent or maintainer should confirm:
+
+- V2 template selection and workflow traces are stable enough to use as fallback baselines.
+- Current chat traces include enough request context to replay planner decisions offline.
+- The first `PlanSpec` Pydantic models are added before planner prompts or LLM logic.
+- The first step registry is metadata-only until policy validation is covered by tests.
+- The deterministic planner lands before the LLM planner, so dynamic execution has a reliable
+  non-model baseline.
+- Planner output is first observed in trace/shadow mode before it changes live execution.
+- Every new side-effect step ships with a policy rule, owner-review rule, and rejection test.
+- The operations UI can show accepted plan, fallback template, rejected steps, and policy reason in
+  language understandable to the owner.
+
+### V3 Non-Goals
+
+- Do not allow the LLM to invent arbitrary executable code or call unregistered tools.
+- Do not let generated plans bypass admin approval or human-review boundaries.
+- Do not make dynamic planning mandatory for simple questions; cheap deterministic template
+  selection should remain available for latency-sensitive paths.
 
 ## Release Note
 
 `v1.0.0` should be treated as the first public repository baseline: stable enough to publish, demo,
 and use as the starting point for parallel agent work, while still leaving the operations console
 and organization-scale rollout to `v2`.
+
+`v2.0.0` is the first operations-console release. It includes the admin workbench, unified task
+queue, knowledge-gap drafts, student operations profiles, satisfaction metrics, and documentation
+needed to operate the current school deployment with local availability plus admin approval.

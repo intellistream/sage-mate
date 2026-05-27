@@ -2,6 +2,12 @@ const statusPill = document.getElementById("status-pill");
 const modelPill = document.getElementById("model-pill");
 const knowledgePill = document.getElementById("knowledge-pill");
 const modePill = document.getElementById("mode-pill");
+const onlineOverviewGrid = document.getElementById("online-overview-grid");
+const onlineOverviewCopy = document.getElementById("online-overview-copy");
+const topbarServiceStatus = document.getElementById("topbar-service-status");
+const topbarUserCount = document.getElementById("topbar-user-count");
+const topbarQuestionCount = document.getElementById("topbar-question-count");
+const topbarModelStatus = document.getElementById("topbar-model-status");
 const chatStream = document.getElementById("chat-stream");
 const modalOverlay = document.getElementById("modal-overlay");
 const sideDrawer = document.getElementById("side-drawer");
@@ -115,7 +121,10 @@ const operationsWindow = document.getElementById("operations-window");
 const operationsResponse = document.getElementById("operations-response");
 const operationsSummary = document.getElementById("operations-summary");
 const operationsQueues = document.getElementById("operations-queues");
+const operationsTasks = document.getElementById("operations-tasks");
 const operationsBookings = document.getElementById("operations-bookings");
+const operationsStudentProfiles = document.getElementById("operations-student-profiles");
+const operationsSatisfaction = document.getElementById("operations-satisfaction");
 const operationsGaps = document.getElementById("operations-gaps");
 const operationsEscalations = document.getElementById("operations-escalations");
 const operationsFollowUps = document.getElementById("operations-follow-ups");
@@ -429,6 +438,7 @@ questionAnalyticsGaps?.addEventListener("click", handleKnowledgeGapDraftAction);
 questionAnalyticsDrafts?.addEventListener("click", handleKnowledgeGapDraftAction);
 operationsGaps?.addEventListener("click", handleKnowledgeGapDraftAction);
 operationsQueues?.addEventListener("click", handleOperationsQueueAction);
+operationsTasks?.addEventListener("click", handleOperationsTaskAction);
 modalOverlay.addEventListener("click", closeModals);
 document.querySelectorAll("[data-close-modal]").forEach((button) => {
     button.addEventListener("click", closeModals);
@@ -764,12 +774,144 @@ async function refreshStatus() {
         statusPill.textContent = data.status === "ok" ? "服务正常" : `状态 ${data.status}`;
         modelPill.textContent = "连接已就绪";
         knowledgePill.textContent = `知识库 ${data.knowledge_documents}`;
+        renderTopbarLiveStatus(data);
+        renderOnlineOverview(data);
     } catch (error) {
         applyBranding(null, null, "");
         statusPill.textContent = "服务不可用";
         modelPill.textContent = "连接状态未知";
         knowledgePill.textContent = "知识库未知";
+        renderTopbarLiveStatus(null);
+        renderOnlineOverview(null, error.message);
     }
+}
+
+function renderTopbarLiveStatus(data) {
+    if (!topbarServiceStatus || !topbarUserCount || !topbarQuestionCount || !topbarModelStatus) {
+        return;
+    }
+    if (!data) {
+        renderTopbarLiveItem(topbarServiceStatus, "服务", "不可用", "请稍后刷新");
+        renderTopbarLiveItem(topbarUserCount, "注册用户", "--", "暂无统计");
+        renderTopbarLiveItem(topbarQuestionCount, "累计问答", "--", "暂无统计");
+        renderTopbarLiveItem(topbarModelStatus, "模型请求", "未知", "未读取到运行数据");
+        return;
+    }
+    const modelSummary = buildModelRuntimeSummary(data);
+    renderTopbarLiveItem(topbarServiceStatus, "服务", data.status === "ok" ? "在线" : data.status, data.sage_runtime || "SAGE runtime");
+    renderTopbarLiveItem(topbarUserCount, "注册用户", formatCount(data.registered_user_accounts), "已登记账号");
+    renderTopbarLiveItem(topbarQuestionCount, "累计问答", formatCount(data.conversation_memory_records), "聊天记忆记录");
+    renderTopbarLiveItem(topbarModelStatus, "模型请求", modelSummary.headline, modelSummary.detail);
+}
+
+function renderTopbarLiveItem(element, label, value, detail = "") {
+    element.innerHTML = `
+        <small>${escapeHtml(label)}</small>
+        <strong>${escapeHtml(String(value))}</strong>
+        ${detail ? `<em>${escapeHtml(detail)}</em>` : ""}
+    `;
+}
+
+function renderOnlineOverview(data, errorMessage = "") {
+    if (!onlineOverviewGrid || !onlineOverviewCopy) {
+        return;
+    }
+    if (!data) {
+        onlineOverviewGrid.innerHTML = [
+            ["注册用户", "--"],
+            ["累计询问", "--"],
+            ["模型状态", "未知"],
+            ["待跟进", "--"],
+        ].map(renderOnlineOverviewItem).join("");
+        onlineOverviewCopy.textContent = errorMessage || "暂时无法读取在线统计。";
+        return;
+    }
+
+    const modelSummary = buildModelRuntimeSummary(data);
+    const entries = [
+        ["注册用户", `${formatCount(data.registered_user_accounts)} 个账号`],
+        ["累计问答", `${formatCount(data.conversation_memory_records)} 条记录`],
+        ["知识库资料", `${formatCount(data.knowledge_documents)} 篇`],
+        ["待跟进事项", `${formatCount(data.follow_up_dispatch_due)} 个`],
+        ["模型名称", data.model_name || "未配置"],
+        ["模型请求", modelSummary.headline],
+        ["成功率", modelSummary.successRate],
+        ["最近成功", modelSummary.lastSuccess],
+    ];
+    onlineOverviewGrid.innerHTML = entries.map(renderOnlineOverviewItem).join("");
+    const runtime = data.sage_runtime || "SAGE runtime";
+    onlineOverviewCopy.textContent = `${runtime} · ${modelSummary.detail} · 缓存项 ${formatCount(data.llm_cache_entries)}，缓存命中 ${formatCount(data.llm_cache_hit_count)} 次。`;
+}
+
+function renderOnlineOverviewItem([label, value]) {
+    return `
+        <article class="online-overview-item">
+            <span>${escapeHtml(label)}</span>
+            <strong>${escapeHtml(String(value))}</strong>
+        </article>
+    `;
+}
+
+function formatLlmStatus(status, errorCount) {
+    if (status === "ok") {
+        return "可用";
+    }
+    if (status === "error") {
+        return `异常 ${formatCount(errorCount)}`;
+    }
+    return "未调用";
+}
+
+function buildModelRuntimeSummary(data) {
+    const requestCount = toCountNumber(data.llm_request_count);
+    const successCount = toCountNumber(data.llm_success_count);
+    const errorCount = toCountNumber(data.llm_error_count);
+    const statusLabel = formatLlmStatus(data.llm_status, errorCount);
+    const successRate = requestCount > 0 ? `${Math.round((successCount / requestCount) * 100)}%` : "暂无请求";
+    const headline = requestCount > 0
+        ? `${successCount}/${requestCount} 成功`
+        : statusLabel;
+    const detail = requestCount > 0
+        ? `${statusLabel} · 失败 ${formatCount(errorCount)} 次`
+        : "还没有新的模型请求";
+    return {
+        headline,
+        detail,
+        successRate,
+        lastSuccess: formatMetricTimestamp(data.llm_last_success_at),
+    };
+}
+
+function toCountNumber(value) {
+    const numeric = Number(value || 0);
+    if (!Number.isFinite(numeric) || numeric < 0) {
+        return 0;
+    }
+    return numeric;
+}
+
+function formatMetricTimestamp(value) {
+    if (!value) {
+        return "暂无记录";
+    }
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) {
+        return "暂无记录";
+    }
+    return new Intl.DateTimeFormat("zh-CN", {
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+    }).format(date);
+}
+
+function formatCount(value) {
+    const numeric = Number(value || 0);
+    if (!Number.isFinite(numeric)) {
+        return "0";
+    }
+    return new Intl.NumberFormat("zh-CN").format(numeric);
 }
 
 async function refreshSession() {
@@ -1370,7 +1512,10 @@ async function loadOperationsWorkbench() {
         const data = await apiRequest(`/operations/workbench?days=${encodeURIComponent(days)}&limit=6`);
         renderOperationsSummary(data.overview || {});
         renderOperationsQueues(data.overview?.queues || []);
+        renderOperationsTasks(data.operational_tasks || []);
         renderOperationsBookings(data.pending_bookings || []);
+        renderOperationsStudentProfiles(data.student_profiles || []);
+        renderOperationsSatisfaction(data.satisfaction || {});
         renderOperationsKnowledgeGaps(
             data.question_analytics?.knowledge_gap_suggestions || [],
             data.knowledge_gap_drafts || []
@@ -1393,7 +1538,7 @@ function renderOperationsLoadingState() {
     if (operationsQueues) {
         operationsQueues.innerHTML = loadingCard;
     }
-    [operationsBookings, operationsGaps, operationsEscalations, operationsFollowUps, operationsSuggestions].forEach((element) => {
+    [operationsTasks, operationsBookings, operationsStudentProfiles, operationsSatisfaction, operationsGaps, operationsEscalations, operationsFollowUps, operationsSuggestions].forEach((element) => {
         if (element) {
             element.innerHTML = loadingCard;
         }
@@ -1402,7 +1547,7 @@ function renderOperationsLoadingState() {
 
 function renderOperationsErrorState(message) {
     const errorCard = `<div class="list-card"><p class="list-body">${escapeHtml(message)}</p></div>`;
-    [operationsQueues, operationsBookings, operationsGaps, operationsEscalations, operationsFollowUps, operationsSuggestions].forEach((element) => {
+    [operationsQueues, operationsTasks, operationsBookings, operationsStudentProfiles, operationsSatisfaction, operationsGaps, operationsEscalations, operationsFollowUps, operationsSuggestions].forEach((element) => {
         if (element) {
             element.innerHTML = errorCard;
         }
@@ -1460,6 +1605,63 @@ function renderOperationsQueues(queues) {
         .join("");
 }
 
+function renderOperationsTasks(tasks) {
+    if (!operationsTasks) {
+        return;
+    }
+    if (!Array.isArray(tasks) || !tasks.length) {
+        renderOperationsEmpty(operationsTasks, "当前没有待处理运营任务。");
+        return;
+    }
+    operationsTasks.innerHTML = tasks
+        .map(
+            (task) => `
+                <article class="list-card list-card-operations-task operations-task-${escapeHtml(task.operations_status)}">
+                    <h3>${escapeHtml(task.title)}</h3>
+                    <p class="list-meta">${escapeHtml(formatOperationsTaskType(task.task_type))} | 优先级 ${escapeHtml(String(task.priority || 0))}</p>
+                    <p class="list-body">${escapeHtml(task.detail)}</p>
+                    <div class="operations-task-meta">
+                        ${task.student_name ? `<span>${escapeHtml(task.student_name)}${task.student_email ? ` | ${escapeHtml(task.student_email)}` : ""}</span>` : ""}
+                        ${task.assigned_to ? `<span>负责人：${escapeHtml(task.assigned_to)}</span>` : ""}
+                        ${task.note ? `<span>备注：${escapeHtml(task.note)}</span>` : ""}
+                        ${task.due_at ? `<span>截止：${escapeHtml(formatDateTime(task.due_at))}</span>` : ""}
+                    </div>
+                    <div class="list-card-actions">
+                        <span class="status-badge ${formatOperationsTaskStatusClass(task.operations_status)}">${escapeHtml(formatOperationsTaskStatus(task.operations_status))}</span>
+                        <div class="inline-action-group">
+                            <button type="button" class="ghost-button inline-action-button" data-operation-task-status="in_progress" data-operation-task-key="${escapeHtml(task.task_key)}">接手</button>
+                            <button type="button" class="ghost-button inline-action-button" data-operation-task-status="deferred" data-operation-task-key="${escapeHtml(task.task_key)}">暂缓</button>
+                            <button type="button" class="primary-button inline-action-button" data-operation-task-status="done" data-operation-task-key="${escapeHtml(task.task_key)}">完成</button>
+                        </div>
+                    </div>
+                </article>
+            `
+        )
+        .join("");
+}
+
+async function handleOperationsTaskAction(event) {
+    const button = event.target.closest("[data-operation-task-key]");
+    if (!button) {
+        return;
+    }
+    const taskKey = button.dataset.operationTaskKey;
+    const status = button.dataset.operationTaskStatus;
+    const note = status === "done" ? "已在运营后台标记完成。" : status === "deferred" ? "已暂缓处理。" : "已接手处理。";
+    button.disabled = true;
+    try {
+        await apiRequest(`/operations/tasks/${encodeURIComponent(taskKey)}`, {
+            method: "PATCH",
+            body: JSON.stringify({ status, assigned_to: "管理员", note }),
+        });
+        await loadOperationsWorkbench();
+    } catch (error) {
+        setInlineStatus(operationsResponse, error.message, "error");
+    } finally {
+        button.disabled = false;
+    }
+}
+
 function renderOperationsBookings(bookings) {
     if (!operationsBookings) {
         return;
@@ -1482,6 +1684,87 @@ function renderOperationsBookings(bookings) {
             `
         )
         .join("");
+}
+
+function renderOperationsStudentProfiles(profiles) {
+    if (!operationsStudentProfiles) {
+        return;
+    }
+    if (!Array.isArray(profiles) || !profiles.length) {
+        renderOperationsEmpty(operationsStudentProfiles, "当前没有可运营的学生画像。");
+        return;
+    }
+    operationsStudentProfiles.innerHTML = profiles
+        .map((profile) => {
+            const summaries = (profile.key_summaries || [])
+                .slice(0, 2)
+                .map((summary) => `<li>${escapeHtml(formatProfileCategoryLabel(summary.category))}：${escapeHtml(summary.summary)}</li>`)
+                .join("");
+            const recentQuestions = (profile.recent_questions || [])
+                .slice(0, 2)
+                .map((question) => `<li>${escapeHtml(question)}</li>`)
+                .join("");
+            return `
+                <article class="list-card list-card-memory list-card-operations-profile">
+                    <h3>${escapeHtml(profile.student_name)}</h3>
+                    <p class="list-meta">${escapeHtml(profile.student_email || profile.student_key)} | ${escapeHtml(profile.segment)}</p>
+                    ${summaries ? `<ul class="operations-profile-list">${summaries}</ul>` : ""}
+                    ${recentQuestions ? `<p class="list-meta">近期问题</p><ul class="operations-profile-list">${recentQuestions}</ul>` : ""}
+                    <p class="list-body analytics-secondary-copy">建议：${escapeHtml(profile.suggested_next_action)}</p>
+                    <div class="list-card-actions">
+                        <span class="status-badge status-badge-info">画像 ${escapeHtml(String(profile.profile_count || 0))}</span>
+                        <span class="status-badge">交互 ${escapeHtml(String(profile.interaction_count || 0))}</span>
+                    </div>
+                </article>
+            `;
+        })
+        .join("");
+}
+
+function renderOperationsSatisfaction(summary) {
+    if (!operationsSatisfaction) {
+        return;
+    }
+    const feedbackCount = summary.feedback_count || 0;
+    if (!feedbackCount) {
+        renderOperationsEmpty(operationsSatisfaction, "当前窗口内还没有反馈数据。");
+        return;
+    }
+    const reasonHtml = (summary.reason_summaries || [])
+        .slice(0, 3)
+        .map(
+            (reason) => `
+                <li>
+                    <strong>${escapeHtml(reason.reason_label)}</strong>
+                    <span>${escapeHtml(String(reason.count || 0))} 条 · ${escapeHtml(formatRate(reason.share || 0))}</span>
+                    ${(reason.sample_issues || []).length ? `<small>${escapeHtml(reason.sample_issues[0])}</small>` : ""}
+                </li>
+            `
+        )
+        .join("");
+    const trendHtml = (summary.trend || [])
+        .slice(-5)
+        .map(
+            (point) => `
+                <span class="operations-trend-chip">
+                    ${escapeHtml(point.date)} · 好评 ${escapeHtml(formatRate(point.positive_rate || 0))}
+                </span>
+            `
+        )
+        .join("");
+
+    operationsSatisfaction.innerHTML = `
+        <article class="list-card list-card-satisfaction">
+            <div class="operations-satisfaction-grid">
+                <span><strong>${escapeHtml(formatRate(summary.positive_rate || 0))}</strong><small>正向率</small></span>
+                <span><strong>${escapeHtml(formatRate(summary.unresolved_rate || 0))}</strong><small>未解决</small></span>
+                <span><strong>${escapeHtml(formatRate(summary.feedback_coverage_rate || 0))}</strong><small>覆盖率</small></span>
+            </div>
+            <p class="list-meta">反馈 ${escapeHtml(String(feedbackCount))} 条 | 点踩 ${escapeHtml(String(summary.negative_count || 0))} 条 | 转人工 ${escapeHtml(formatRate(summary.human_handoff_rate || 0))}</p>
+            ${reasonHtml ? `<ul class="operations-satisfaction-reasons">${reasonHtml}</ul>` : '<p class="list-body analytics-secondary-copy">暂时没有负面原因。</p>'}
+            ${trendHtml ? `<div class="operations-trend-row">${trendHtml}</div>` : ""}
+        </article>
+    `;
 }
 
 function renderOperationsKnowledgeGaps(gaps, drafts) {
@@ -1658,6 +1941,57 @@ function formatOperationQueueLabel(queueKey) {
         default:
             return "Queue";
     }
+}
+
+function formatOperationsTaskType(taskType) {
+    switch (taskType) {
+        case "booking_review":
+            return "预约审核";
+        case "knowledge_gap_draft":
+            return "知识缺口";
+        case "human_handoff":
+            return "人工接管";
+        case "follow_up":
+            return "后续动作";
+        case "anonymous_suggestion":
+            return "匿名留言";
+        default:
+            return "运营任务";
+    }
+}
+
+function formatOperationsTaskStatus(status) {
+    switch (status) {
+        case "in_progress":
+            return "处理中";
+        case "done":
+            return "已完成";
+        case "deferred":
+            return "已暂缓";
+        default:
+            return "待处理";
+    }
+}
+
+function formatOperationsTaskStatusClass(status) {
+    switch (status) {
+        case "in_progress":
+            return "status-badge-info";
+        case "done":
+            return "status-badge-confirmed";
+        case "deferred":
+            return "status-badge-pending";
+        default:
+            return "status-badge-handoff";
+    }
+}
+
+function formatRate(value) {
+    const numericValue = Number(value);
+    if (!Number.isFinite(numericValue)) {
+        return "0%";
+    }
+    return `${Math.round(numericValue * 100)}%`;
 }
 
 function renderQuestionAnalyticsSummary(overview) {
@@ -3595,7 +3929,10 @@ async function handleAdminLogout() {
         memoryProfilesList.innerHTML = "";
         operationsSummary.innerHTML = "";
         operationsQueues.innerHTML = "";
+        operationsTasks.innerHTML = "";
         operationsBookings.innerHTML = "";
+        operationsStudentProfiles.innerHTML = "";
+        operationsSatisfaction.innerHTML = "";
         operationsGaps.innerHTML = "";
         operationsEscalations.innerHTML = "";
         operationsFollowUps.innerHTML = "";
@@ -3873,6 +4210,7 @@ restoreWorkflowShellState();
 syncWorkflowViewportState();
 
 async function initializePage() {
+    applyVisitorProfilePresentation({ syncCourseContext: true });
     await refreshStatus();
     await refreshSession();
     await refreshUserSession();

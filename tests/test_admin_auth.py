@@ -320,6 +320,13 @@ def test_user_can_register_login_and_logout(isolated_availability_store) -> None
     assert register_payload["account"]["name"] == "Alice"
     assert register_payload["account"]["email"] == "alice@example.com"
 
+    health_response = client.get("/health")
+    assert health_response.status_code == 200
+    health_payload = health_response.json()
+    assert health_payload["registered_user_accounts"] == "1"
+    assert health_payload["llm_status"] in {"not_checked", "ok", "error"}
+    assert "llm_cache_entries" in health_payload
+
     session_response = client.get("/auth/user/session")
     assert session_response.status_code == 200
     assert session_response.json()["account"]["email"] == "alice@example.com"

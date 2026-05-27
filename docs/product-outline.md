@@ -28,6 +28,7 @@ without pretending to replace the human for sensitive decisions.
 ## Planned Integrations
 
 - SAGE retrieval pipelines for documents such as syllabi, FAQs, and lab onboarding notes.
-- Calendar provider sync.
+- Optional calendar provider sync for deployments with approved Google, Outlook, Exchange, or
+	CalDAV API access; the current default remains local availability plus admin approval.
 - Authentication and audit logging.
 - Human escalation path for requests the avatar should not decide alone.

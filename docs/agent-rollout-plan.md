@@ -39,6 +39,18 @@ for parallel agent execution.
 8. `WS8` Documentation and release-facing integration notes
    Scope: ops-console documentation, workflow explanation, repo-facing usage guidance.
 
+## Current Implementation Status
+
+`WS1` through `WS7` have first usable implementation slices in the main worktree: operations
+models, workbench APIs, admin console UI, knowledge-gap handling, student operations profiles,
+unified task status overlays, and satisfaction metrics. `WS8` should now keep documentation aligned
+with that landed behavior and call out any remaining release risks.
+
+Real calendar-provider sync is not part of the current school deployment path because the available
+mail/calendar environment does not expose a supported provider API. Keep the local availability plus
+admin approval flow as the documented default, and treat provider sync as a future optional
+extension.
+
 ## Recommended Agent Assignment
 
 When possible, assign these workstreams to agents with the following bias:

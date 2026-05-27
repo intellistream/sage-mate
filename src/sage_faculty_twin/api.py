@@ -49,6 +49,8 @@ from .models import (
     KnowledgeSearchResponse,
     MemoryProfileListResponse,
     OperationsOverviewResponse,
+    OperationsTaskStateRecord,
+    OperationsTaskStateUpdateRequest,
     OperationsWorkbenchResponse,
     QuestionAnalyticsReportResponse,
     ServiceControlResponse,
@@ -399,6 +401,15 @@ async def get_operations_workbench(
     _: dict = Depends(require_admin_session),
 ) -> OperationsWorkbenchResponse:
     return service.get_operations_workbench(days=days, limit=limit)
+
+
+@llm_app.patch("/operations/tasks/{task_key}", response_model=OperationsTaskStateRecord)
+async def update_operations_task_state(
+    task_key: str,
+    request: OperationsTaskStateUpdateRequest,
+    _: dict = Depends(require_admin_session),
+) -> OperationsTaskStateRecord:
+    return service.update_operations_task_state(task_key, request)
 
 
 @llm_app.get("/analytics/questions/gap-drafts", response_model=list[KnowledgeGapDraftRecordResponse])

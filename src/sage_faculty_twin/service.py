@@ -24,7 +24,7 @@ from .knowledge_gap_draft_store import KnowledgeGapDraftStore
 from .knowledge_base import LocalKnowledgeStore
 from .light_agent import LightweightActionPlanner
 from .llm_client import VllmChatClient
-from .memory_store import ConversationMemoryHit, ConversationMemoryRecord, NeuroMemConversationStore
+from .memory_store import ConversationMemoryHit, ConversationMemoryRecord, NeuroMemConversationStore, ProfileMemoryRecord
 from .meeting import MeetingService
 from .models import (
     AnswerBasisItem,
@@ -60,11 +60,16 @@ from .models import (
     NotificationDeliveryStatus,
     OperationsOverviewResponse,
     OperationsQueueSummary,
+    OperationsSatisfactionSummary,
+    OperationsTaskItem,
+    OperationsTaskStateRecord,
+    OperationsTaskStateUpdateRequest,
     OperationsWorkbenchResponse,
     QuestionAnalyticsOverview,
     QuestionAnalyticsReportResponse,
     QuestionClusterSummary,
     ServiceControlResponse,
+    StudentOperationsProfile,
     UserLoginRequest,
     UserRegisterRequest,
     UserSessionResponse,
@@ -72,6 +77,7 @@ from .models import (
     WorkflowTraceStep,
 )
 from .notifications import BookingEmailNotifier, BookingNotificationError
+from .operations_store import OperationsTaskStateStore
 from .persona import build_system_prompt
 from .service_runtime import ServiceRuntimeManager
 from .suggestion_store import SuggestionBoardStore
@@ -2488,6 +2494,7 @@ class DigitalTwinService:
         self._knowledge_gap_draft_store = KnowledgeGapDraftStore(settings)
         self._escalation_store = EscalationQueueStore(settings)
         self._follow_up_store = FollowUpQueueStore(settings)
+        self._operations_task_state_store = OperationsTaskStateStore(settings)
         self._suggestion_store = SuggestionBoardStore(settings)
         self._user_store = UserAccountStore(settings)
         self._meeting_service = MeetingService(settings)
@@ -2728,6 +2735,236 @@ class DigitalTwinService:
     def get_question_analytics_report(self, *, days: int = 7) -> QuestionAnalyticsReportResponse:
         return self._build_support().get_question_analytics_report(days=days)
 
+    def _build_student_operations_profiles(self, *, days: int, limit: int) -> list[StudentOperationsProfile]:
+        profiles = self._conversation_store.list_profiles(limit=1000)
+        if not profiles:
+            return []
+
+        window_start = datetime.now(UTC) - timedelta(days=days)
+        recent_records = self._conversation_store.list_records(since=window_start)
+        records_by_student: dict[str, list[ConversationMemoryRecord]] = {}
+        for record in recent_records:
+            student_key = self._student_operations_key(record.student_name, record.student_email)
+            if student_key is None:
+                continue
+            records_by_student.setdefault(student_key, []).append(record)
+
+        profiles_by_student: dict[str, list[ProfileMemoryRecord]] = {}
+        for profile in profiles:
+            profiles_by_student.setdefault(profile.student_key, []).append(profile)
+
+        student_profiles: list[StudentOperationsProfile] = []
+        for student_key, student_profile_records in profiles_by_student.items():
+            student_profile_records.sort(key=lambda item: item.updated_at, reverse=True)
+            records = sorted(records_by_student.get(student_key, []), key=lambda item: item.created_at, reverse=True)
+            categories = sorted({profile.category for profile in student_profile_records})
+            latest_profile_at = student_profile_records[0].updated_at
+            latest_interaction_at = records[0].created_at if records else None
+            representative = student_profile_records[0]
+            student_profiles.append(
+                StudentOperationsProfile(
+                    student_key=student_key,
+                    student_name=representative.student_name,
+                    student_email=representative.student_email,
+                    segment=self._student_operations_segment(
+                        categories=categories,
+                        interaction_count=len(records),
+                    ),
+                    profile_count=len(student_profile_records),
+                    interaction_count=len(records),
+                    categories=categories,
+                    recent_questions=[record.question for record in records[:3]],
+                    key_summaries=[
+                        MemoryProfileRecordResponse(
+                            profile_id=profile.profile_id,
+                            student_key=profile.student_key,
+                            student_name=profile.student_name,
+                            student_email=profile.student_email,
+                            category=profile.category,
+                            summary=profile.summary,
+                            evidence=profile.evidence,
+                            updated_at=profile.updated_at,
+                        )
+                        for profile in student_profile_records[:3]
+                    ],
+                    suggested_next_action=self._student_operations_next_action(
+                        categories=categories,
+                        interaction_count=len(records),
+                    ),
+                    latest_profile_at=latest_profile_at,
+                    latest_interaction_at=latest_interaction_at,
+                )
+            )
+
+        student_profiles.sort(
+            key=lambda item: item.latest_interaction_at or item.latest_profile_at,
+            reverse=True,
+        )
+        return student_profiles[: max(1, limit)]
+
+    def _student_operations_key(self, student_name: str, student_email: str | None) -> str | None:
+        if student_email:
+            return student_email.strip().lower()
+        normalized_name = student_name.strip().lower()
+        if not normalized_name or normalized_name == "guest":
+            return None
+        return normalized_name
+
+    def _student_operations_segment(self, *, categories: list[str], interaction_count: int) -> str:
+        if interaction_count >= 3:
+            return "高互动学生"
+        if "booking_preference" in categories:
+            return "预约跟进"
+        if "collaboration_preference" in categories:
+            return "协作准备"
+        if "recent_topic" in categories:
+            return "持续关注"
+        return "基础画像"
+
+    def _student_operations_next_action(self, *, categories: list[str], interaction_count: int) -> str:
+        if "booking_preference" in categories:
+            return "复核预约偏好，必要时主动补充会前准备说明。"
+        if "collaboration_preference" in categories:
+            return "下次回复优先给出 agenda、blocker 和材料清单。"
+        if interaction_count >= 3:
+            return "检查近期高频问题，判断是否需要补充知识库或人工跟进。"
+        if "recent_topic" in categories:
+            return "保留近期关注主题，后续回答时优先复用相关上下文。"
+        return "暂无额外动作，继续观察后续交互。"
+
+    def _build_operational_tasks(self, *, limit: int) -> list[OperationsTaskItem]:
+        now = datetime.now(UTC)
+        tasks: list[OperationsTaskItem] = []
+
+        for booking in self._meeting_service.list_bookings(status="待确认"):
+            tasks.append(
+                self._with_operations_task_state(
+                    OperationsTaskItem(
+                        task_key=f"booking:{booking.booking_id}",
+                        task_type="booking_review",
+                        title=f"预约审核｜{booking.topic}",
+                        detail=f"{booking.student_name} 申请 {booking.start_at.astimezone(UTC).strftime('%Y-%m-%d %H:%M UTC')} 的讨论。",
+                        source_status=booking.status,
+                        operations_status="open",
+                        priority=80,
+                        action_url="/bookings",
+                        student_name=booking.student_name,
+                        student_email=booking.student_email,
+                        due_at=booking.start_at,
+                    )
+                )
+            )
+
+        for draft in self._knowledge_gap_draft_store.list_drafts():
+            if draft.status == "published":
+                continue
+            tasks.append(
+                self._with_operations_task_state(
+                    OperationsTaskItem(
+                        task_key=f"gap_draft:{draft.draft_id}",
+                        task_type="knowledge_gap_draft",
+                        title=draft.title,
+                        detail=draft.suggested_action,
+                        source_status=draft.status,
+                        operations_status="open",
+                        priority=55,
+                        action_url="/analytics/questions/gap-drafts",
+                        created_at=draft.updated_at,
+                    )
+                )
+            )
+
+        for escalation in self._escalation_store.list_requests(status="待处理"):
+            tasks.append(
+                self._with_operations_task_state(
+                    OperationsTaskItem(
+                        task_key=f"escalation:{escalation.escalation_id}",
+                        task_type="human_handoff",
+                        title=f"人工处理｜{_format_escalation_route_label(escalation.route)}",
+                        detail=escalation.reason or escalation.question,
+                        source_status=escalation.status,
+                        operations_status="open",
+                        priority=95,
+                        action_url="/escalations",
+                        student_name=escalation.student_name,
+                        student_email=escalation.student_email,
+                        created_at=escalation.created_at,
+                    )
+                )
+            )
+
+        for follow_up in self._follow_up_store.list_actions(status="queued"):
+            is_due = follow_up.due_at is None or follow_up.due_at <= now
+            tasks.append(
+                self._with_operations_task_state(
+                    OperationsTaskItem(
+                        task_key=f"follow_up:{follow_up.action_id}",
+                        task_type="follow_up",
+                        title=follow_up.title,
+                        detail=follow_up.detail,
+                        source_status=follow_up.status,
+                        operations_status="open",
+                        priority=75 if is_due else 60,
+                        action_url="/follow-ups",
+                        student_name=follow_up.student_name,
+                        student_email=follow_up.student_email,
+                        created_at=follow_up.created_at,
+                        due_at=follow_up.due_at,
+                    )
+                )
+            )
+
+        for suggestion in self._suggestion_store.list_suggestions(limit=limit):
+            tasks.append(
+                self._with_operations_task_state(
+                    OperationsTaskItem(
+                        task_key=f"suggestion:{suggestion.suggestion_id}",
+                        task_type="anonymous_suggestion",
+                        title=suggestion.category or "匿名留言",
+                        detail=suggestion.message,
+                        source_status="new",
+                        operations_status="open",
+                        priority=35,
+                        action_url="/suggestions",
+                        created_at=suggestion.created_at,
+                    )
+                )
+            )
+
+        tasks.sort(
+            key=lambda task: (
+                1 if task.operations_status == "in_progress" else 0,
+                task.priority,
+                task.due_at or task.created_at or datetime.min.replace(tzinfo=UTC),
+            ),
+            reverse=True,
+        )
+        return tasks[: max(1, limit)]
+
+    def _with_operations_task_state(self, task: OperationsTaskItem) -> OperationsTaskItem:
+        state = self._operations_task_state_store.get_state(task.task_key)
+        if state is None:
+            return task
+        return task.model_copy(
+            update={
+                "operations_status": state.status,
+                "assigned_to": state.assigned_to,
+                "note": state.note,
+            }
+        )
+
+    def update_operations_task_state(
+        self,
+        task_key: str,
+        request: OperationsTaskStateUpdateRequest | dict[str, Any],
+    ) -> OperationsTaskStateRecord:
+        normalized = (
+            request
+            if isinstance(request, OperationsTaskStateUpdateRequest)
+            else OperationsTaskStateUpdateRequest.model_validate(request)
+        )
+        return self._operations_task_state_store.update_state(task_key, normalized)
+
     def get_operations_overview(self, *, days: int = 7) -> OperationsOverviewResponse:
         analytics = self.get_question_analytics_report(days=days)
         bookings = self._meeting_service.list_bookings()
@@ -2751,6 +2988,7 @@ class DigitalTwinService:
                 "knowledge_documents": _health_int(health, "knowledge_documents"),
                 "conversation_records": _health_int(health, "conversation_memory_records"),
                 "memory_profiles": _health_int(health, "conversation_memory_profiles"),
+                "student_profiles": len({profile.student_key for profile in self._conversation_store.list_profiles(limit=1000)}),
                 "feedback_records": _health_int(health, "conversation_feedback_records"),
                 "suggestions": suggestion_count,
             },
@@ -2797,7 +3035,10 @@ class DigitalTwinService:
     def get_operations_workbench(self, *, days: int = 7, limit: int = 10) -> OperationsWorkbenchResponse:
         return OperationsWorkbenchResponse(
             overview=self.get_operations_overview(days=days),
+            operational_tasks=self._build_operational_tasks(limit=limit),
+            satisfaction=OperationsSatisfactionSummary(**self._analytics_store.build_satisfaction_report(days=days)),
             pending_bookings=self._meeting_service.list_bookings(status="待确认")[:limit],
+            student_profiles=self._build_student_operations_profiles(days=days, limit=limit),
             knowledge_gap_drafts=self._knowledge_gap_draft_store.list_drafts()[:limit],
             escalations=self._escalation_store.list_requests(status="待处理")[:limit],
             follow_up_actions=self._follow_up_store.list_actions(status="queued")[:limit],
@@ -2889,7 +3130,7 @@ class DigitalTwinService:
 
     def health(self) -> dict[str, str]:
         due_follow_ups = self._follow_up_store.list_due_actions()
-        return {
+        payload = {
             "status": "ok",
             "owner_name": self._settings.owner_name,
             "owner_role": self._settings.owner_role,
@@ -2903,6 +3144,7 @@ class DigitalTwinService:
             "conversation_memory_records": str(self._conversation_store.count_records()),
             "conversation_memory_profiles": str(self._conversation_store.count_profiles()),
             "conversation_feedback_records": str(self._analytics_store.count_feedback()),
+            "registered_user_accounts": str(self._user_store.count_users()),
             "knowledge_gap_drafts": str(self._knowledge_gap_draft_store.count_drafts()),
             "escalation_queue_records": str(self._escalation_store.count_records()),
             "follow_up_queue_records": str(self._follow_up_store.count_actions()),
@@ -2912,6 +3154,25 @@ class DigitalTwinService:
             "chat_pipeline_stages": str(_CHAT_PIPELINE_STAGE_COUNT),
             "admin_pipeline_stages": "4",
         }
+        runtime_snapshot = getattr(self._llm_client, "runtime_snapshot", None)
+        if callable(runtime_snapshot):
+            payload.update(runtime_snapshot())
+        else:
+            payload.update(
+                {
+                    "llm_status": "not_checked",
+                    "llm_request_count": "0",
+                    "llm_success_count": "0",
+                    "llm_error_count": "0",
+                    "llm_cache_hit_count": "0",
+                    "llm_cache_entries": "0",
+                    "llm_last_error": "",
+                    "llm_last_request_at": "",
+                    "llm_last_success_at": "",
+                    "llm_last_error_at": "",
+                }
+            )
+        return payload
 
     async def aclose(self) -> None:
         await self._llm_client.aclose()
@@ -3027,6 +3288,14 @@ def _health_int(health: dict[str, str], key: str) -> int:
         return int(health.get(key, "0"))
     except ValueError:
         return 0
+
+
+def _format_escalation_route_label(route: str) -> str:
+    if route == "human_handoff":
+        return "人工接管"
+    if route == "review_queue":
+        return "复核队列"
+    return route
 
 
 def _is_legacy_gap_document(source_name: str | None, tags: list[str]) -> bool:

@@ -345,9 +345,86 @@ class OperationsOverviewResponse(BaseModel):
     question_analytics: QuestionAnalyticsOverview
 
 
+class StudentOperationsProfile(BaseModel):
+    student_key: str
+    student_name: str
+    student_email: str | None = None
+    segment: str
+    profile_count: int = Field(default=0, ge=0)
+    interaction_count: int = Field(default=0, ge=0)
+    categories: list[str] = Field(default_factory=list)
+    recent_questions: list[str] = Field(default_factory=list)
+    key_summaries: list[MemoryProfileRecordResponse] = Field(default_factory=list)
+    suggested_next_action: str
+    latest_profile_at: datetime
+    latest_interaction_at: datetime | None = None
+
+
+class OperationsTaskStateUpdateRequest(BaseModel):
+    status: str | None = Field(default=None, pattern="^(open|in_progress|done|deferred)$")
+    assigned_to: str | None = Field(default=None, max_length=128)
+    note: str | None = Field(default=None, max_length=1000)
+
+
+class OperationsTaskStateRecord(BaseModel):
+    task_key: str
+    status: str = Field(pattern="^(open|in_progress|done|deferred)$")
+    assigned_to: str | None = None
+    note: str | None = None
+    updated_at: datetime
+
+
+class OperationsTaskItem(BaseModel):
+    task_key: str
+    task_type: str
+    title: str
+    detail: str
+    source_status: str
+    operations_status: str = Field(pattern="^(open|in_progress|done|deferred)$")
+    priority: int = Field(default=0, ge=0, le=100)
+    action_url: str
+    student_name: str | None = None
+    student_email: str | None = None
+    assigned_to: str | None = None
+    note: str | None = None
+    created_at: datetime | None = None
+    due_at: datetime | None = None
+
+
+class SatisfactionReasonSummary(BaseModel):
+    reason_key: str
+    reason_label: str
+    count: int = Field(default=0, ge=0)
+    share: float = Field(default=0.0, ge=0.0, le=1.0)
+    sample_issues: list[str] = Field(default_factory=list)
+
+
+class SatisfactionTrendPoint(BaseModel):
+    date: date
+    feedback_count: int = Field(default=0, ge=0)
+    positive_rate: float = Field(default=0.0, ge=0.0, le=1.0)
+    unresolved_rate: float = Field(default=0.0, ge=0.0, le=1.0)
+    human_handoff_rate: float = Field(default=0.0, ge=0.0, le=1.0)
+
+
+class OperationsSatisfactionSummary(BaseModel):
+    feedback_count: int = Field(default=0, ge=0)
+    positive_count: int = Field(default=0, ge=0)
+    negative_count: int = Field(default=0, ge=0)
+    positive_rate: float = Field(default=0.0, ge=0.0, le=1.0)
+    unresolved_rate: float = Field(default=0.0, ge=0.0, le=1.0)
+    human_handoff_rate: float = Field(default=0.0, ge=0.0, le=1.0)
+    feedback_coverage_rate: float = Field(default=0.0, ge=0.0, le=1.0)
+    reason_summaries: list[SatisfactionReasonSummary] = Field(default_factory=list)
+    trend: list[SatisfactionTrendPoint] = Field(default_factory=list)
+
+
 class OperationsWorkbenchResponse(BaseModel):
     overview: OperationsOverviewResponse
+    operational_tasks: list[OperationsTaskItem] = Field(default_factory=list)
+    satisfaction: OperationsSatisfactionSummary
     pending_bookings: list[BookingRecord] = Field(default_factory=list)
+    student_profiles: list[StudentOperationsProfile] = Field(default_factory=list)
     knowledge_gap_drafts: list[KnowledgeGapDraftRecordResponse] = Field(default_factory=list)
     escalations: list[EscalationRecord] = Field(default_factory=list)
     follow_up_actions: list[FollowUpQueueRecord] = Field(default_factory=list)

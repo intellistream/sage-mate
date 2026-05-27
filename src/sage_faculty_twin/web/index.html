@@ -10,7 +10,7 @@
     <link
         href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@500;700&display=swap"
         rel="stylesheet" />
-    <link rel="stylesheet" href="./styles.css" />
+    <link rel="stylesheet" href="./styles.css?v=20260527-status-detail" />
 </head>
 
 <body>
@@ -24,9 +24,15 @@
                     <p id="topbar-subtitle" class="topbar-subtitle">围绕张书豪本人的课程、研究和预约节奏整理的线上前台。</p>
                 </div>
             </div>
+            <div id="topbar-live-status" class="topbar-live-status" aria-live="polite">
+                <span id="topbar-service-status" class="topbar-live-item"><small>服务</small><strong>检查中</strong></span>
+                <span id="topbar-user-count" class="topbar-live-item"><small>注册用户</small><strong>--</strong></span>
+                <span id="topbar-question-count" class="topbar-live-item"><small>累计问答</small><strong>--</strong></span>
+                <span id="topbar-model-status" class="topbar-live-item"><small>模型请求</small><strong>检查中</strong></span>
+            </div>
             <div class="topbar-actions">
                 <button type="button" id="open-suggestions" class="icon-button">匿名留言</button>
-                <button type="button" id="open-drawer" class="icon-button">设置</button>
+                <button type="button" id="open-drawer" class="icon-button">状态与设置</button>
                 <a id="homepage-link" href="#" target="_blank" rel="noreferrer" hidden
                     class="icon-button topbar-link">个人主页</a>
             </div>
@@ -38,12 +44,10 @@
                     <article class="message message-assistant intro-card">
                         <div id="assistant-name" class="message-role">张书豪的分身</div>
                         <div class="message-body">
-                            如果你是第一次来，可以先了解张书豪的研究方向、公开资料和预约方式。<br />
-                            先在右侧设置里选来访身份，系统会优先参考对应的知识库内容。<br />
-                            想继续深入交流的话，再把问题说具体一点：研究方向、合作兴趣或想约的时间段都可以直接写。<br />
-                            如果准备预约，最好把 agenda、当前问题和希望讨论的主题一起说明。
+                            研究、资料、预约，都可以直接问。<br />
+                            预约请带 agenda 和当前问题。
                         </div>
-                        <p class="intro-footnote">发出第一条消息后，桌面端右侧会持续显示处理轨迹；手机端可按底部入口查看进度，回答里也会附上依据和下一步建议。</p>
+                        <p class="intro-footnote">发出第一条消息后，桌面端右侧会持续显示处理轨迹；手机端可在输入区上方查看进度，回答里也会附上依据和下一步建议。</p>
                         <div class="intro-quick-actions" aria-label="快速开始">
                             <button type="button" class="intro-chip-button" data-seed-question="张老师主要研究什么方向？"
                                 data-seed-context="初次来访">先了解研究方向</button>
@@ -56,6 +60,8 @@
                 </div>
 
                 <form id="chat-form" class="composer-shell">
+                    <button type="button" id="mobile-workflow-trigger" class="icon-button mobile-workflow-trigger"
+                        aria-controls="workflow-shell" aria-expanded="false">打开处理进度</button>
                     <div class="composer-row">
                         <textarea id="chat-question" name="question" rows="1" required
                             placeholder="如果是第一次来，可以先问研究方向、公开资料或预约方式。">张老师主要研究什么方向？</textarea>
@@ -125,8 +131,6 @@
         </main>
     </div>
 
-    <button type="button" id="mobile-workflow-trigger" class="icon-button mobile-workflow-trigger"
-        aria-controls="workflow-shell" aria-expanded="false">打开处理进度</button>
     <div id="workflow-mobile-backdrop" class="workflow-mobile-backdrop hidden"></div>
 
     <div id="modal-overlay" class="modal-overlay hidden"></div>
@@ -143,6 +147,31 @@
             <span id="model-pill" class="pill">连接状态未知</span>
             <span id="knowledge-pill" class="pill">知识库 0</span>
             <span id="mode-pill" class="pill">普通用户模式</span>
+        </div>
+        <div class="drawer-group drawer-card online-overview-card">
+            <div class="drawer-group-head">
+                <p class="brand-kicker">Live</p>
+                <h3 class="drawer-group-title">在线概览</h3>
+            </div>
+            <div id="online-overview-grid" class="online-overview-grid" aria-live="polite">
+                <article class="online-overview-item">
+                    <span>注册用户</span>
+                    <strong>--</strong>
+                </article>
+                <article class="online-overview-item">
+                    <span>累计询问</span>
+                    <strong>--</strong>
+                </article>
+                <article class="online-overview-item">
+                    <span>模型状态</span>
+                    <strong>检查中</strong>
+                </article>
+                <article class="online-overview-item">
+                    <span>待跟进</span>
+                    <strong>--</strong>
+                </article>
+            </div>
+            <p id="online-overview-copy" class="drawer-copy online-overview-copy">正在读取当前服务统计。</p>
         </div>
         <div class="drawer-separator"></div>
         <div id="user-auth-panel" class="drawer-group drawer-card">
@@ -564,8 +593,20 @@
         <div id="operations-queues" class="operations-queue-grid"></div>
         <div class="operations-workbench-grid">
             <section>
+                <h3 class="analytics-section-title">统一任务队列</h3>
+                <div id="operations-tasks" class="list-stack"></div>
+            </section>
+            <section>
                 <h3 class="analytics-section-title">预约审核</h3>
                 <div id="operations-bookings" class="list-stack"></div>
+            </section>
+            <section>
+                <h3 class="analytics-section-title">学生画像</h3>
+                <div id="operations-student-profiles" class="list-stack"></div>
+            </section>
+            <section>
+                <h3 class="analytics-section-title">满意度</h3>
+                <div id="operations-satisfaction" class="list-stack"></div>
             </section>
             <section>
                 <h3 class="analytics-section-title">知识缺口</h3>
@@ -632,7 +673,7 @@
         </div>
     </section>
 
-    <script src="./app.js"></script>
+    <script src="./app.js?v=20260527-status-detail"></script>
 </body>
 
 </html>
