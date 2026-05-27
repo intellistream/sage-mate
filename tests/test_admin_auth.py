@@ -14,6 +14,7 @@ from sage_faculty_twin.memory_store import NeuroMemConversationStore
 from sage_faculty_twin.models import ManagedServiceStatus
 from sage_faculty_twin.models import ServiceControlResponse
 from sage_faculty_twin.models import ChatRequest
+from sage_faculty_twin.models import InteractionIntent
 from sage_faculty_twin.meeting import MeetingService
 
 
@@ -151,6 +152,15 @@ class CollaborationMemoryLLMClient:
         return self.answer_question_sync(system_prompt, user_prompt)
 
 
+class AdminKnowledgeIntentLLMClient(CollaborationMemoryLLMClient):
+    def classify_interaction_intent_sync(
+        self,
+        question: str,
+        course_context: str | None = None,
+    ) -> InteractionIntent:
+        return InteractionIntent(action="admin_add_knowledge", domain="general", confidence=0.99)
+
+
 def test_knowledge_requires_admin_authentication(isolated_availability_store) -> None:
     client.cookies.clear()
     response = client.get("/knowledge")
@@ -260,6 +270,28 @@ def test_admin_can_inject_knowledge_via_chat_after_login(isolated_availability_s
         and set(document["tags"]) == {"advising", "booking"}
         for document in documents
     )
+
+
+def test_non_admin_chat_cannot_inject_knowledge_even_if_intent_says_so(isolated_availability_store) -> None:
+    client.cookies.clear()
+    service._llm_client = AdminKnowledgeIntentLLMClient()
+
+    response = client.post(
+        "/chat",
+        json={
+            "student_name": "Alice",
+            "student_email": "alice@example.com",
+            "course_context": "科研指导",
+            "conversation_id": "non-admin-knowledge-injection",
+            "question": "加入知识库：标题：不应该写入 内容：这条内容不能由普通用户写入。",
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["workflow_action"] == "answer"
+    assert "建议先准备" in payload["answer"]
+    assert service._knowledge_store.count_documents() == 0
 
 
 def test_user_can_register_login_and_logout(isolated_availability_store) -> None:

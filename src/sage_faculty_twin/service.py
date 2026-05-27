@@ -231,7 +231,7 @@ class FacultyTwinWorkflowSupport:
                 f"置信度 {intent.confidence:.2f}。"
             )
         else:
-            if intent.action == "admin_add_knowledge":
+            if context.is_admin_request and intent.action == "admin_add_knowledge":
                 context.workflow_action = intent.action
             if intent.decision_mode == "advise_only":
                 context.workflow_action = "advise_only"
@@ -430,7 +430,7 @@ class FacultyTwinWorkflowSupport:
 
     def retrieve_knowledge(self, context: ChatWorkflowContext) -> ChatWorkflowContext:
         started_at = perf_counter()
-        if context.workflow_action == "admin_add_knowledge":
+        if context.is_admin_request and context.workflow_action == "admin_add_knowledge":
             knowledge_request = self._build_admin_knowledge_request(context.request)
             if knowledge_request is None:
                 context.answer = self._build_admin_knowledge_guidance_message()
@@ -494,7 +494,7 @@ class FacultyTwinWorkflowSupport:
 
     def retrieve_memory(self, context: ChatWorkflowContext) -> ChatWorkflowContext:
         started_at = perf_counter()
-        if context.workflow_action == "admin_add_knowledge":
+        if context.is_admin_request and context.workflow_action == "admin_add_knowledge":
             self._append_trace(
                 context,
                 key="memory_retrieve",
@@ -570,7 +570,7 @@ class FacultyTwinWorkflowSupport:
 
     def persist_memory(self, context: ChatWorkflowContext) -> ChatWorkflowContext:
         started_at = perf_counter()
-        if context.workflow_action == "admin_add_knowledge":
+        if context.is_admin_request and context.workflow_action == "admin_add_knowledge":
             self._append_trace(
                 context,
                 key="memory_persist",
@@ -683,7 +683,7 @@ class FacultyTwinWorkflowSupport:
 
     def plan_follow_up_actions(self, context: ChatWorkflowContext) -> ChatWorkflowContext:
         started_at = perf_counter()
-        if context.workflow_action == "admin_add_knowledge":
+        if context.is_admin_request and context.workflow_action == "admin_add_knowledge":
             self._append_trace(
                 context,
                 key="follow_up_plan",

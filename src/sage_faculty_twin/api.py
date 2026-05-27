@@ -243,29 +243,7 @@ async def user_logout(response: Response) -> UserSessionResponse:
 
 @llm_app.get("/health")
 async def health() -> dict[str, str]:
-    due_follow_ups = service._follow_up_store.list_due_actions()
-    return {
-        "status": "ok",
-        "owner_name": service._settings.owner_name,
-        "owner_role": service._settings.owner_role,
-        "homepage_public_url": service._settings.homepage_public_url,
-        "model_name": service._settings.model_name,
-        "sage_runtime": service._describe_sage_runtime(),
-        "knowledge_backend": service._knowledge_store.backend_name(),
-        "knowledge_embedding_backend": service._knowledge_store.embedding_backend_name(),
-        "knowledge_documents": str(service._knowledge_store.count_documents()),
-        "conversation_memory_backend": service._conversation_store.backend_name(),
-        "conversation_memory_records": str(service._conversation_store.count_records()),
-        "conversation_memory_profiles": str(service._conversation_store.count_profiles()),
-        "conversation_feedback_records": str(service._analytics_store.count_feedback()),
-        "knowledge_gap_drafts": str(service._knowledge_gap_draft_store.count_drafts()),
-        "escalation_queue_records": str(service._escalation_store.count_records()),
-        "follow_up_queue_records": str(service._follow_up_store.count_actions()),
-        "follow_up_dispatch_sent": "0",
-        "follow_up_dispatch_due": str(len(due_follow_ups)),
-        "chat_pipeline_stages": "12",
-        "admin_pipeline_stages": "4",
-    }
+    return service.health()
 
 
 @llm_app.get("/availability", response_model=AvailabilitySchedule)

@@ -426,7 +426,7 @@ chatForm.addEventListener("submit", async (event) => {
     autoResizeTextarea();
     chatSubmitButton.disabled = true;
     chatSubmitButton.textContent = "发送中";
-    openWorkflowTraceStream(workflowRequestId);
+    await openWorkflowTraceStream(workflowRequestId);
     if (isMobileWorkflowViewport()) {
         openWorkflowMobileSheet("full");
     }
@@ -2686,7 +2686,7 @@ function scrollWorkflowToLatest() {
     workflowTraceWrap.scrollTop = workflowTraceWrap.scrollHeight;
 }
 
-function openWorkflowTraceStream(requestId) {
+async function openWorkflowTraceStream(requestId) {
     stopWorkflowTraceStream();
     activeWorkflowRequestId = requestId;
     activeWorkflowSteps = [];
@@ -2707,7 +2707,9 @@ function openWorkflowTraceStream(requestId) {
         "连接建立后，这里会逐步显示当前请求的处理进度。"
     );
 
-    const source = new EventSource(`/chat/workflow-events?request_id=${encodeURIComponent(requestId)}`);
+    const apiOrigin = await resolveApiOrigin();
+    const streamUrl = buildApiUrl(`/chat/workflow-events?request_id=${encodeURIComponent(requestId)}`, apiOrigin);
+    const source = new EventSource(streamUrl, { withCredentials: true });
     activeWorkflowStream = source;
 
     globalThis.setTimeout(() => {
