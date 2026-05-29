@@ -5,7 +5,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>学术分身</title>
-    <link rel="stylesheet" href="./styles.css?v=20260529-safe-top" />
+    <link rel="stylesheet" href="./styles.css?v=20260529-inference-desk" />
 </head>
 
 <body class="presentation-booting">
@@ -19,22 +19,29 @@
                     <p id="topbar-subtitle" class="topbar-subtitle">围绕张书豪本人的课程、研究和预约节奏整理的线上前台。</p>
                 </div>
             </div>
-            <div id="topbar-live-status" class="topbar-live-status" aria-live="polite">
-                <span id="topbar-service-status"
-                    class="topbar-live-item"><small>服务</small><strong>检查中</strong><em>读取运行状态</em></span>
-                <span id="topbar-user-count"
-                    class="topbar-live-item"><small>注册用户</small><strong>--</strong><em>暂无统计</em></span>
-                <span id="topbar-question-count"
-                    class="topbar-live-item"><small>累计问答</small><strong>--</strong><em>暂无统计</em></span>
-                <span id="topbar-model-status"
-                    class="topbar-live-item"><small>模型请求</small><strong>检查中</strong><em>等待模型统计</em></span>
-            </div>
-            <div class="topbar-actions">
-                <button type="button" id="open-suggestions" class="icon-button">匿名留言</button>
-                <button type="button" id="open-drawer" class="icon-button">状态与设置</button>
-                <a id="homepage-link" href="#" target="_blank" rel="noreferrer" hidden
-                    class="icon-button topbar-link">个人主页</a>
-            </div>
+            <details id="topbar-status-disclosure" class="topbar-status-disclosure">
+                <summary class="topbar-status-toggle">
+                    <span id="topbar-status-summary">运行信息：检查中</span>
+                </summary>
+                <div class="topbar-status-panel">
+                    <div id="topbar-live-status" class="topbar-live-status" aria-live="polite">
+                        <span id="topbar-service-status"
+                            class="topbar-live-item"><small>服务</small><strong>检查中</strong><em>读取运行状态</em></span>
+                        <span id="topbar-user-count"
+                            class="topbar-live-item"><small>注册用户</small><strong>--</strong><em>暂无统计</em></span>
+                        <span id="topbar-question-count"
+                            class="topbar-live-item"><small>累计问答</small><strong>--</strong><em>暂无统计</em></span>
+                        <span id="topbar-model-status"
+                            class="topbar-live-item"><small>模型请求</small><strong>检查中</strong><em>等待模型统计</em></span>
+                    </div>
+                    <div class="topbar-actions">
+                        <button type="button" id="open-suggestions" class="icon-button">匿名留言</button>
+                        <button type="button" id="open-drawer" class="icon-button">状态与设置</button>
+                        <a id="homepage-link" href="#" target="_blank" rel="noreferrer" hidden
+                            class="icon-button topbar-link">个人主页</a>
+                    </div>
+                </div>
+            </details>
         </header>
 
         <main class="chat-layout">
@@ -45,11 +52,15 @@
                             <div id="assistant-name" class="message-role">张书豪的分身</div>
                             <span class="intro-card-label" aria-hidden="true">desk note</span>
                         </div>
-                        <div class="message-body">
+                        <div class="message-body intro-message-body">
                             研究、资料、预约，都可以直接问。<br />
                             预约请带 agenda 和当前问题。
                         </div>
-                        <p class="intro-footnote">发出第一条消息后，桌面端右侧会持续显示处理轨迹；手机端可在输入区上方查看进度，回答里也会附上依据和下一步建议。</p>
+                        <div class="intro-capability-row" aria-label="工作流能力">
+                            <span>意图识别</span>
+                            <span>知识检索</span>
+                            <span>预约执行</span>
+                        </div>
                         <div class="intro-quick-actions" aria-label="快速开始">
                             <button type="button" class="intro-chip-button" data-seed-question="张老师主要研究什么方向？"
                                 data-seed-context="初次来访">先了解研究方向</button>
@@ -64,6 +75,11 @@
                 <form id="chat-form" class="composer-shell">
                     <button type="button" id="mobile-workflow-trigger" class="icon-button mobile-workflow-trigger"
                         aria-controls="workflow-shell" aria-expanded="false">打开处理进度</button>
+                    <div class="composer-context-row" aria-label="当前问答上下文">
+                        <span id="composer-profile-chip" class="composer-context-chip">一般访客</span>
+                        <span id="composer-context-chip" class="composer-context-chip">初次来访</span>
+                        <span id="composer-workflow-chip" class="composer-context-chip composer-context-chip-strong">SAGE FlowNet</span>
+                    </div>
                     <div class="composer-row">
                         <textarea id="chat-question" name="question" rows="1" required
                             placeholder="如果是第一次来，可以先问研究方向、公开资料或预约方式。">张老师主要研究什么方向？</textarea>
@@ -741,7 +757,7 @@
         </div>
     </section>
 
-    <script src="./app.js?v=20260529-mobile-login"></script>
+    <script src="./app.js?v=20260529-inference-desk"></script>
 </body>
 
 </html>

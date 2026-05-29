@@ -8,6 +8,7 @@ const topbarServiceStatus = document.getElementById("topbar-service-status");
 const topbarUserCount = document.getElementById("topbar-user-count");
 const topbarQuestionCount = document.getElementById("topbar-question-count");
 const topbarModelStatus = document.getElementById("topbar-model-status");
+const topbarStatusSummary = document.getElementById("topbar-status-summary");
 const chatStream = document.getElementById("chat-stream");
 const modalOverlay = document.getElementById("modal-overlay");
 const sideDrawer = document.getElementById("side-drawer");
@@ -75,6 +76,9 @@ const bookingStudentNameInput = document.getElementById("booking-student-name");
 const bookingEmailInput = document.getElementById("booking-email");
 const introQuickActions = document.querySelector(".intro-quick-actions");
 const introQuickActionButtons = Array.from(document.querySelectorAll(".intro-chip-button"));
+const composerProfileChip = document.getElementById("composer-profile-chip");
+const composerContextChip = document.getElementById("composer-context-chip");
+const composerWorkflowChip = document.getElementById("composer-workflow-chip");
 const availabilityWeekLabel = document.getElementById("availability-week-label");
 const availabilityResponse = document.getElementById("availability-response");
 const availabilityGrid = document.getElementById("availability-grid");
@@ -165,6 +169,7 @@ let resolvedApiOrigin = typeof globalThis.__SAGE_FACULTY_TWIN_API_ORIGIN__ === "
 let apiOriginResolutionPromise = null;
 const VISITOR_PROFILE_CONFIGS = {
     general_visitor: {
+        label: "一般访客",
         defaultContext: "初次来访",
         defaultQuestion: "张老师主要研究什么方向？",
         placeholder: "先问研究、资料或预约。",
@@ -180,6 +185,7 @@ const VISITOR_PROFILE_CONFIGS = {
         ],
     },
     hust_undergraduate: {
+        label: "华科本科生",
         defaultContext: "大模型推理引擎课程答疑",
         defaultQuestion: "大模型推理引擎 Tutorial 7 主要讲了什么，我应该先看哪部分？",
         placeholder: "写清课程名、讲次、实验编号或卡点。",
@@ -195,6 +201,7 @@ const VISITOR_PROFILE_CONFIGS = {
         ],
     },
     paper_writing_student: {
+        label: "论文写作课同学",
         defaultContext: "论文写作课",
         defaultQuestion: "论文写作课第 7 讲主要讲什么？",
         placeholder: "写清讲次、阶段和 blocker。",
@@ -210,6 +217,7 @@ const VISITOR_PROFILE_CONFIGS = {
         ],
     },
     lab_member: {
+        label: "课题组学生",
         defaultContext: "科研指导",
         defaultQuestion: "我上次提到的研究主题和 blocker 是什么？",
         placeholder: "写研究主题、blocker 或组会任务。",
@@ -560,6 +568,7 @@ chatForm.addEventListener("submit", async (event) => {
     const pendingMessage = appendMessage("assistant", assistantLabel, "正在整理问题、检索资料并准备回复", {
         state: "pending",
     });
+    renderPendingAssistantMessage(pendingMessage, "理解问题");
     document.getElementById("chat-question").value = "";
     autoResizeTextarea();
     chatSubmitButton.disabled = true;
@@ -692,6 +701,7 @@ chatQuestion.addEventListener("input", () => {
     }
     autoResizeTextarea();
 });
+courseContextInput?.addEventListener("input", updateComposerContextChips);
 chatQuestion.addEventListener("keydown", (event) => {
     if (event.key !== "Enter" || event.shiftKey || event.isComposing) {
         return;
@@ -864,6 +874,21 @@ function updateProfileDrawerCopy(config) {
     profileDrawerCopy.textContent = `${accountLead}${config.drawerHint}`;
 }
 
+function updateComposerContextChips() {
+    const config = getVisitorProfileConfig();
+    if (composerProfileChip) {
+        composerProfileChip.textContent = config.label;
+    }
+    if (composerContextChip) {
+        composerContextChip.textContent = courseContextInput?.value?.trim() || config.defaultContext;
+    }
+    if (composerWorkflowChip) {
+        composerWorkflowChip.textContent = latestWorkflowMeta.isStreaming
+            ? `FlowNet · ${formatWorkflowActionLabel(latestWorkflowMeta, activeWorkflowSteps)}`
+            : "SAGE FlowNet";
+    }
+}
+
 function applyVisitorProfilePresentation({ syncCourseContext = false } = {}) {
     const config = getVisitorProfileConfig();
     setMultilineText(introCardBody, config.introLines);
@@ -887,6 +912,7 @@ function applyVisitorProfilePresentation({ syncCourseContext = false } = {}) {
             lastAutoCourseContext = config.defaultContext;
         }
     }
+    updateComposerContextChips();
 }
 
 function markPresentationReady() {
@@ -932,6 +958,7 @@ function renderTopbarLiveStatus(data) {
         renderTopbarLiveItem(topbarUserCount, "注册用户", "--", "暂无统计");
         renderTopbarLiveItem(topbarQuestionCount, "累计问答", "--", "暂无统计");
         renderTopbarLiveItem(topbarModelStatus, "模型请求", "未知", "未读取到运行数据");
+        renderTopbarStatusSummary("运行信息：暂时不可用");
         return;
     }
     const modelSummary = buildModelRuntimeSummary(data);
@@ -939,6 +966,13 @@ function renderTopbarLiveStatus(data) {
     renderTopbarLiveItem(topbarUserCount, "注册用户", formatCount(data.registered_user_accounts), "已登记账号");
     renderTopbarLiveItem(topbarQuestionCount, "累计问答", formatCount(data.conversation_memory_records), "聊天记忆记录");
     renderTopbarLiveItem(topbarModelStatus, "模型请求", modelSummary.headline, modelSummary.detail);
+    renderTopbarStatusSummary(`运行信息：${data.status === "ok" ? "服务在线" : `状态 ${data.status}`} · ${formatCount(data.registered_user_accounts)} 用户 · ${formatCount(data.conversation_memory_records)} 问答`);
+}
+
+function renderTopbarStatusSummary(text) {
+    if (topbarStatusSummary) {
+        topbarStatusSummary.textContent = text;
+    }
 }
 
 function renderTopbarLiveItem(element, label, value, detail = "") {
@@ -2905,6 +2939,48 @@ function appendMessage(role, label, text, options = {}) {
     return article;
 }
 
+function renderPendingAssistantMessage(container, currentStage = "理解问题") {
+    container.innerHTML = `
+        <div class="message-role">${escapeHtml(assistantLabel)}</div>
+        <div class="message-frame message-pending-frame">
+            <div class="thinking-panel">
+                <div class="thinking-panel-head">
+                    <span class="thinking-orb" aria-hidden="true"></span>
+                    <div>
+                        <strong>正在处理</strong>
+                        <p id="pending-stage-label" class="thinking-stage-label">${escapeHtml(currentStage)}</p>
+                    </div>
+                </div>
+                <div class="thinking-steps" aria-label="当前处理步骤">
+                    <span class="thinking-step thinking-step-active">理解</span>
+                    <span class="thinking-step">检索</span>
+                    <span class="thinking-step">生成</span>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+function updatePendingAssistantMessage(currentStage) {
+    const pendingLabel = chatStream?.querySelector(".message-pending #pending-stage-label");
+    if (pendingLabel) {
+        pendingLabel.textContent = currentStage;
+    }
+    const pendingSteps = Array.from(chatStream?.querySelectorAll(".message-pending .thinking-step") || []);
+    if (!pendingSteps.length) {
+        return;
+    }
+    const normalizedStage = String(currentStage || "");
+    const activeIndex = /检索|知识|memory|retrieve/i.test(normalizedStage)
+        ? 1
+        : /回复|生成|回答|render|answer|llm/i.test(normalizedStage)
+            ? 2
+            : 0;
+    pendingSteps.forEach((step, index) => {
+        step.classList.toggle("thinking-step-active", index === activeIndex);
+    });
+}
+
 function renderAssistantMessage(
     container,
     text,
@@ -3670,6 +3746,7 @@ function updateMobileWorkflowTrigger(meta = latestWorkflowMeta, steps = activeWo
     const currentLabel = formatWorkflowActionLabel(meta, steps);
     mobileWorkflowTrigger.textContent = meta.isStreaming ? `处理中：${currentLabel}` : steps.length ? "查看处理进度" : "打开处理进度";
     mobileWorkflowTrigger.setAttribute("aria-expanded", String(isOpen));
+    updateComposerContextChips();
 }
 
 function toggleWorkflowShell() {
@@ -3815,6 +3892,7 @@ function handleWorkflowStreamEvent(payload) {
 
     if (payload.type === "trace-step" && payload.step) {
         activeWorkflowSteps = [...activeWorkflowSteps, payload.step];
+        updatePendingAssistantMessage(payload.step.title || "处理中");
         renderWorkflowTrace(activeWorkflowSteps, {
             workflowAction: latestWorkflowMeta.workflowAction,
             knowledgeHits: latestWorkflowMeta.knowledgeHits,
@@ -4349,6 +4427,7 @@ function formatProfileCategoryLabel(category) {
 
 seedBookingDefaults();
 autoResizeTextarea();
+updateComposerContextChips();
 restoreWorkflowShellState();
 syncWorkflowViewportState();
 

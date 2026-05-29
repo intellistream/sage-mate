@@ -169,6 +169,67 @@ body {
     text-decoration: none;
 }
 
+.topbar-status-disclosure {
+    flex: 1 1 auto;
+    min-width: 320px;
+    max-width: 760px;
+    border: 1px solid rgba(22, 35, 56, 0.08);
+    border-radius: 16px;
+    background: rgba(255, 255, 255, 0.44);
+    overflow: hidden;
+}
+
+.topbar-status-toggle {
+    list-style: none;
+    cursor: pointer;
+    padding: 11px 14px;
+    color: var(--ink);
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+}
+
+.topbar-status-toggle::-webkit-details-marker {
+    display: none;
+}
+
+.topbar-status-toggle span {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.topbar-status-toggle::after {
+    content: "展开";
+    flex: 0 0 auto;
+    color: var(--warm-accent);
+    font-size: 0.82rem;
+}
+
+.topbar-status-disclosure[open] .topbar-status-toggle {
+    border-bottom: 1px solid rgba(22, 35, 56, 0.08);
+}
+
+.topbar-status-disclosure[open] .topbar-status-toggle::after {
+    content: "收起";
+}
+
+.topbar-status-panel {
+    display: none;
+    align-items: stretch;
+    justify-content: flex-end;
+    gap: 10px;
+    flex-wrap: wrap;
+    padding: 10px;
+}
+
+.topbar-status-disclosure[open] .topbar-status-panel {
+    display: flex;
+}
+
 .topbar-brand {
     min-width: 0;
     display: flex;
@@ -224,6 +285,8 @@ body {
 
 .topbar-live-item small,
 .topbar-live-item em {
+    max-width: 100%;
+    overflow-wrap: anywhere;
     color: var(--muted);
     font-size: 0.68rem;
     font-style: normal;
@@ -232,6 +295,8 @@ body {
 }
 
 .topbar-live-item strong {
+    max-width: 100%;
+    overflow-wrap: anywhere;
     margin-top: 2px;
     color: var(--accent-deep);
     font-family: var(--font-display);
@@ -514,6 +579,20 @@ h2 {
     }
 }
 
+@keyframes thinking-pulse {
+
+    0%,
+    100% {
+        transform: scale(0.92);
+        opacity: 0.72;
+    }
+
+    50% {
+        transform: scale(1.08);
+        opacity: 1;
+    }
+}
+
 .message {
     max-width: min(860px, 92%);
     padding: 14px 16px;
@@ -593,6 +672,67 @@ h2 {
     min-width: 1.2em;
     color: var(--accent-deep);
     animation: thinking-dots 1.4s steps(1, end) infinite;
+}
+
+.message-pending-frame {
+    padding: 12px 14px;
+    border-radius: 16px;
+    border: 1px dashed rgba(36, 90, 166, 0.22);
+    background: linear-gradient(180deg, rgba(239, 246, 255, 0.78), rgba(255, 252, 246, 0.86));
+    animation: subtle-float 1.8s ease-in-out infinite;
+}
+
+.thinking-panel {
+    display: grid;
+    gap: 12px;
+}
+
+.thinking-panel-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.thinking-panel-head strong,
+.thinking-stage-label {
+    margin: 0;
+}
+
+.thinking-stage-label {
+    margin-top: 2px;
+    color: var(--muted);
+    font-size: 0.84rem;
+}
+
+.thinking-orb {
+    width: 16px;
+    height: 16px;
+    flex: 0 0 auto;
+    border-radius: 999px;
+    background: var(--accent);
+    box-shadow: 0 0 0 8px rgba(36, 90, 166, 0.1);
+    animation: thinking-pulse 1.2s ease-in-out infinite;
+}
+
+.thinking-steps {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.thinking-step {
+    min-height: 26px;
+    padding: 5px 10px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.58);
+    color: var(--muted);
+    font-size: 0.76rem;
+    font-weight: 700;
+}
+
+.thinking-step-active {
+    color: var(--accent-deep);
+    background: var(--accent-soft);
 }
 
 .message-body {
@@ -942,6 +1082,31 @@ h2 {
     max-width: 42rem;
 }
 
+.intro-message-body {
+    font-size: clamp(1.05rem, 2vw, 1.32rem);
+    line-height: 1.55;
+}
+
+.intro-capability-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 14px;
+}
+
+.intro-capability-row span {
+    display: inline-flex;
+    align-items: center;
+    min-height: 30px;
+    padding: 6px 10px;
+    border-radius: 999px;
+    border: 1px solid rgba(36, 90, 166, 0.1);
+    background: rgba(217, 230, 247, 0.58);
+    color: var(--accent-deep);
+    font-size: 0.8rem;
+    font-weight: 700;
+}
+
 .intro-footnote {
     margin: 0;
     padding: 10px 12px;
@@ -995,9 +1160,40 @@ h2 {
 }
 
 .composer-shell {
+    display: grid;
+    gap: 10px;
     padding: 12px;
     border-top: 1px solid var(--line);
     background: linear-gradient(180deg, rgba(251, 248, 242, 0.9), rgba(244, 238, 229, 0.92));
+}
+
+.composer-context-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.composer-context-chip {
+    display: inline-flex;
+    align-items: center;
+    min-height: 28px;
+    max-width: min(100%, 260px);
+    padding: 5px 10px;
+    border-radius: 999px;
+    border: 1px solid rgba(22, 35, 56, 0.08);
+    background: rgba(255, 255, 255, 0.58);
+    color: var(--muted);
+    font-size: 0.78rem;
+    font-weight: 700;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.composer-context-chip-strong {
+    color: var(--accent-deep);
+    background: rgba(217, 230, 247, 0.7);
 }
 
 .composer-row {
@@ -1729,6 +1925,16 @@ label span {
         justify-content: space-between;
     }
 
+    .topbar-status-disclosure {
+        width: 100%;
+        min-width: 0;
+        max-width: none;
+    }
+
+    .topbar-status-panel {
+        justify-content: flex-start;
+    }
+
     .topbar-live-status {
         width: 100%;
         min-width: 0;
@@ -1756,6 +1962,7 @@ label span {
     .message-section,
     .message-feedback,
     .message-pending .message-frame,
+    .message-pending-frame,
     .intro-footnote {
         padding: 10px 12px;
         border-radius: 14px;
@@ -1774,6 +1981,15 @@ label span {
 
     .intro-footnote {
         font-size: 0.88rem;
+    }
+
+    .intro-capability-row {
+        gap: 6px;
+    }
+
+    .intro-capability-row span,
+    .composer-context-chip {
+        font-size: 0.74rem;
     }
 
     .intro-quick-actions {
@@ -2568,11 +2784,18 @@ body.workflow-shell-collapsed #workflow-toggle {
 
     .chat-layout {
         grid-template-columns: 1fr;
+        align-items: start;
+        min-height: 0;
     }
 
     .chat-shell {
-        min-height: calc(100vh - 48px);
+        min-height: 0;
         height: auto;
+    }
+
+    .chat-stream {
+        flex: 0 0 auto;
+        overflow: visible;
     }
 
     .message {
