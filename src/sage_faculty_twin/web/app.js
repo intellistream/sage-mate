@@ -787,8 +787,27 @@ function shouldPromptForVisitorIdentity() {
     }
 }
 
+function hasActiveOverlaySurface() {
+    return [
+        sideDrawer,
+        identityModal,
+        knowledgeModal,
+        bookingModal,
+        suggestionModal,
+        adminLoginModal,
+        userRegisterModal,
+        userLoginModal,
+        availabilityModal,
+        bookingAdminModal,
+        escalationAdminModal,
+        memoryProfilesModal,
+        operationsConsoleModal,
+        questionAnalyticsModal,
+    ].some((element) => element && !element.classList.contains("hidden"));
+}
+
 function maybeOpenVisitorIdentityPrompt() {
-    if (shouldPromptForVisitorIdentity()) {
+    if (shouldPromptForVisitorIdentity() && !hasActiveOverlaySurface()) {
         openModal(identityModal);
     }
 }
