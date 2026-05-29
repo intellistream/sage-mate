@@ -2741,6 +2741,16 @@ body.workflow-shell-collapsed #workflow-toggle {
         overscroll-behavior: contain;
     }
 
+    .identity-modal {
+        top: max(14px, var(--safe-top));
+        right: 10px;
+        bottom: auto;
+        left: 10px;
+        width: auto;
+        max-height: calc(100dvh - 28px - var(--safe-top) - var(--safe-bottom));
+        transform: none;
+    }
+
     #admin-login-modal,
     #user-register-modal,
     #user-login-modal {
