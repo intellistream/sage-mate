@@ -1,5 +1,33 @@
 # Changelog
 
+## v2.0.1 - 2026-05-29
+
+`v2.0.1` is the pre-v3 stabilization baseline. It keeps the `v2` operations-console scope but
+captures the production hardening that landed after the initial `v2.0.0` tag.
+
+### Fixed
+
+- Restored mobile first-open identity selection visibility and prevented first-login modal overlap.
+- Hardened critical chat workflows for local Qwen2.5-32B, including deterministic booking routing,
+  exact tutorial retrieval, and Chinese relative-time booking such as `明天下午三点`.
+- Corrected footer acknowledgements and public links for SAGE, vLLM-HUST, and NeuroMem.
+
+### Changed
+
+- Refined the chat frontend with clearer context labels, folded runtime status, compact workflow
+  capability chips, and a more explicit processing state.
+- Updated the default owner style profile so current research directions are answered consistently
+  before older historical database or stream-processing background.
+- Expanded the V3 roadmap with governed planning candidates, architecture shape, step-registry
+  constraints, and acceptance criteria.
+
+### Validation
+
+- `PYTHONPATH=src:../SAGE/src:../sageVDB:../neuromem pytest tests/test_agentic_workflow.py tests/test_llm_client.py tests/test_knowledge_base.py tests/test_persona.py -q`
+- `node --check src/sage_faculty_twin/web/app.js`
+- Live local smoke tests against `qwen32b` and `neuromem` for SAGE/ICML, research direction,
+  database lab, Tutorial 7, and Chinese-time booking scenarios.
+
 ## v2.0.0 - 2026-05-27
 
 `v2.0.0` is the operations-console release for `sage-faculty-twin`. It moves the app from a

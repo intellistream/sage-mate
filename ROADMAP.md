@@ -289,9 +289,27 @@ The current `v2` checkpoint has implemented the first operations-console slices:
 workbench APIs, the admin console shell, knowledge-gap drafts, student operations profiles, a
 unified operational task queue, task state overlays, and satisfaction metrics.
 
-Remaining release-facing work should focus on documentation, deployment checks, governance polish,
-and observability. Real calendar-provider integration is explicitly not a blocker for the current
-school deployment.
+The `v2.0.1` patch baseline freezes the post-release hardening that should be preserved before V3:
+mobile identity-prompt fixes, powered-by link cleanup, stronger local-model workflow routing,
+exact course-material retrieval, Chinese relative-time booking, owner-style clarification, and the
+refined inference-service frontend.
+
+Remaining release-facing work before V3 should be limited to regression fixes and operational
+evidence collection. New behavior should wait for the V3 planning layer unless it is needed to keep
+the current public service reliable. Real calendar-provider integration is explicitly not a blocker
+for the current school deployment.
+
+### Pre-V3 Stabilization Gate
+
+Before implementation starts on dynamic workflow planning, the repo should satisfy this short gate:
+
+- Current `main` has a patch release tag after all mobile, frontend, and answer-quality fixes.
+- The live local service reports healthy status for `qwen32b` and the configured knowledge backend.
+- The critical chat regression suite passes for booking, intent normalization, retrieval, persona,
+  and agentic workflow behavior.
+- The public frontend serves fresh cache-busted CSS and JS for the latest interaction model.
+- ROADMAP and CHANGELOG describe the V3 entry criteria clearly enough that V3 work can begin from a
+  stable baseline instead of re-litigating V2 scope.
 
 ## V3 Plan
 
@@ -316,6 +334,66 @@ not clearly beneficial.
   context, memory usage, and owner-review boundaries.
 - Let future faculty deployments add local capabilities through policy and step registration rather
   than editing the main chat service for every role-specific workflow.
+
+### Additional V3 Capability Candidates
+
+Dynamic workflow generation is the V3 spine, but several adjacent capabilities would make V3 feel
+like a real academic operating layer rather than only a smarter planner. These should be scoped
+carefully: the first group is worth treating as part of V3 core, while the second group can be
+optional if schedule or validation risk becomes too high.
+
+#### V3 Core Candidates
+
+- **Role-aware operating modes:** make the owner's identities explicit runtime modes, such as
+  `course_instructor`, `paper_writing_teacher`, `research_pi`, `collaboration_contact`, and
+  `front_desk`. Each mode should carry allowed workflow steps, preferred knowledge scopes,
+  memory-use rules, tone constraints, and escalation thresholds. This gives the planner a stable
+  policy surface instead of inferring everything from prompt text.
+- **Student and collaborator journey state:** move beyond isolated chat memory by tracking where a
+  user is in a journey: first-time visitor, course student, project advisee, meeting candidate,
+  recurring collaborator, or high-priority escalation. The planner can then choose different steps
+  for onboarding, repeated blockers, missed follow-ups, or meeting preparation.
+- **Owner attention budget:** add a queue-prioritization layer that estimates which items need the
+  owner's attention first: urgent bookings, unresolved escalations, stale knowledge gaps, repeated
+  student confusion, or follow-up drafts waiting too long. V3 should help protect owner time, not
+  only answer more flexibly.
+- **Evidence and provenance contracts:** require every generated plan that uses knowledge or memory
+  to record which source, memory, policy, or profile signal influenced the answer. The trace should
+  make it easy to answer: "Why did the twin say this?" and "What should be corrected if it was
+  wrong?"
+- **Planner quality lab:** add a small offline workbench for comparing deterministic templates,
+  LLM-generated plans, and fallback behavior on saved scenarios. This should include diff views for
+  selected steps, rejected steps, retrieved evidence, latency, and answer quality notes.
+- **Privacy and retention policy hooks:** make memory retention, redaction, consent, and sensitive
+  topic handling first-class planner constraints. The planner should know when not to retrieve or
+  write certain profile memories, especially for student records, recommendation requests, and
+  personal circumstances.
+
+#### V3 Optional Extensions
+
+- **Meeting preparation packets:** when a booking is pending or confirmed, generate a reviewable
+  packet containing agenda summary, relevant prior memory, blockers, recommended readings, and
+  suggested meeting goals. Keep final scheduling approval with the owner.
+- **Research-group coordination views:** add lightweight group-oriented summaries such as recurring
+  blockers, common paper-reading questions, active project themes, and follow-up commitments. This
+  is useful if the twin becomes more than a public-facing front desk.
+- **Knowledge maintenance autopilot:** let V3 suggest stale documents, duplicated course content,
+  missing FAQ entries, and weak retrieval sources, then create reviewable maintenance tasks rather
+  than directly editing the knowledge base.
+- **Response style profiles:** allow owner-approved response profiles for different audiences, such
+  as undergraduate students, graduate students, research collaborators, administrators, or public
+  visitors. This should be policy-backed, not free-form personality drift.
+- **Safe artifact drafting:** generate draft artifacts that are naturally useful in academia:
+  meeting briefs, reading plans, FAQ drafts, course-office-hour summaries, project onboarding notes,
+  or collaboration reply drafts. All external-send actions should remain review-gated.
+- **Capability marketplace for faculty plugins:** provide a small registry view that shows enabled
+  capability packs, their allowed steps, required policies, tests, and last validation result. This
+  turns plugin support into something operators can understand.
+
+Suggested priority for V3: implement role-aware modes, journey state, provenance contracts, privacy
+hooks, and the planner quality lab first. Meeting packets, research-group coordination, style
+profiles, safe artifact drafting, and capability marketplace can follow after the core planner is
+observable and policy-safe.
 
 ### V3 Architecture Shape
 
