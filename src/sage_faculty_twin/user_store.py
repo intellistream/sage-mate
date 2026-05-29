@@ -18,6 +18,7 @@ class UserAccountRecord:
     user_id: str
     name: str
     email: str
+    visitor_profile: str
     password_salt: str
     password_hash: str
     created_at: datetime
@@ -28,6 +29,7 @@ class UserAccountRecord:
             "user_id": self.user_id,
             "name": self.name,
             "email": self.email,
+            "visitor_profile": self.visitor_profile,
             "password_salt": self.password_salt,
             "password_hash": self.password_hash,
             "created_at": self.created_at.isoformat(),
@@ -40,6 +42,7 @@ class UserAccountRecord:
             user_id=str(payload["user_id"]),
             name=str(payload["name"]),
             email=str(payload["email"]),
+            visitor_profile=str(payload.get("visitor_profile") or "general_visitor"),
             password_salt=str(payload["password_salt"]),
             password_hash=str(payload["password_hash"]),
             created_at=datetime.fromisoformat(str(payload["created_at"])),
@@ -51,6 +54,7 @@ class UserAccountRecord:
             user_id=self.user_id,
             name=self.name,
             email=self.email,
+            visitor_profile=self.visitor_profile,
             created_at=self.created_at,
         )
 
@@ -63,13 +67,16 @@ class UserAccountStore:
         self._records_by_email: dict[str, UserAccountRecord] = {}
         self._load_from_disk()
 
-    def register_user(self, *, name: str, email: str, password: str) -> UserAccountResponse:
+    def register_user(self, *, name: str, email: str, visitor_profile: str, password: str) -> UserAccountResponse:
         normalized_name = name.strip()
         normalized_email = self._normalize_email(email)
+        normalized_visitor_profile = visitor_profile.strip()
         if not normalized_name:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="用户名不能为空。")
         if not self._looks_like_email(normalized_email):
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="请输入有效的邮箱地址。")
+        if normalized_visitor_profile not in _VISITOR_PROFILE_VALUES:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="请选择有效的访问身份。")
         if normalized_email in self._records_by_email:
             raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="该邮箱已注册，请直接登录。")
 
@@ -79,6 +86,7 @@ class UserAccountStore:
             user_id=str(uuid4()),
             name=normalized_name,
             email=normalized_email,
+            visitor_profile=normalized_visitor_profile,
             password_salt=salt,
             password_hash=self._hash_password(password=password, salt=salt),
             created_at=now,
@@ -135,3 +143,11 @@ class UserAccountStore:
 
     def _looks_like_email(self, email: str) -> bool:
         return "@" in email and "." in email.rsplit("@", 1)[-1]
+
+
+_VISITOR_PROFILE_VALUES = {
+    "hust_undergraduate",
+    "paper_writing_student",
+    "lab_member",
+    "general_visitor",
+}

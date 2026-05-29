@@ -1,6 +1,7 @@
 from pathlib import Path
 from datetime import UTC, datetime
 from uuid import uuid4
+import zipfile
 
 import sage_faculty_twin.knowledge_import as knowledge_import
 from sage_faculty_twin.config import AppSettings
@@ -214,6 +215,146 @@ def test_import_homepage_materials_includes_teaching_material_indexes(tmp_path: 
     hits = store.search("KV 缓存是第几讲？")
     assert hits
     assert any(hit.title.startswith("课程资料｜大模型推理基础设施课程材料") for hit in hits)
+
+
+def test_import_homepage_materials_includes_database_lab_office_attachments(tmp_path: Path) -> None:
+    homepage_dir = tmp_path / "homepage"
+    contents_dir = homepage_dir / "contents"
+    teaching_dir = contents_dir / "teaching"
+    database_dir = teaching_dir / "database"
+    research_dir = contents_dir / "research_papers"
+    database_dir.mkdir(parents=True)
+    research_dir.mkdir(parents=True)
+
+    (contents_dir / "home.md").write_text("# 张书豪\n\n简介。\n", encoding="utf-8")
+    (contents_dir / "news.md").write_text("- news\n", encoding="utf-8")
+    (contents_dir / "resources.md").write_text("教学材料。\n", encoding="utf-8")
+    (contents_dir / "publications.md").write_text("## 首页导读\n\n研究。\n", encoding="utf-8")
+    (research_dir / "publications_summary.md").write_text("### 0.1 Paper\n\nAbstract: 摘要。\n", encoding="utf-8")
+    _write_minimal_docx(database_dir / "数据库系统原理实践任务书.docx", "数据库实验课任务书 索引 查询优化")
+    _write_minimal_pptx(database_dir / "Clone头歌平台代码到本地.pptx", "头歌平台 clone 代码 数据库实验")
+
+    settings = AppSettings(knowledge_base_dir=tmp_path / "knowledge")
+    store = LocalKnowledgeStore(settings)
+
+    report = import_homepage_materials(store, homepage_dir)
+
+    assert any(title.startswith("课程附件正文｜数据库实验课") for title in report.created_titles)
+    database_documents = [
+        document
+        for document in store.list_documents()
+        if document.source_name and "contents/teaching/database" in document.source_name
+    ]
+    assert len(database_documents) == 2
+    assert all("course:database-lab" in document.tags for document in database_documents)
+    assert all(document.metadata["course_id"] == "database-lab" for document in database_documents)
+    assert all(document.metadata["audience"] == "undergraduate" for document in database_documents)
+    hits = store.search("数据库实验课 头歌平台 clone 代码怎么准备？", top_k=3)
+    assert hits
+    assert "course:database-lab" in hits[0].tags
+
+
+def test_import_homepage_materials_includes_awards_and_systems_pages(tmp_path: Path, monkeypatch) -> None:
+    homepage_dir = tmp_path / "homepage"
+    contents_dir = homepage_dir / "contents"
+    awards_dir = contents_dir / "awards"
+    research_dir = contents_dir / "research_papers"
+    awards_dir.mkdir(parents=True)
+    research_dir.mkdir(parents=True)
+
+    (contents_dir / "home.md").write_text("# 张书豪\n\n简介。\n", encoding="utf-8")
+    (contents_dir / "news.md").write_text("- news\n", encoding="utf-8")
+    (contents_dir / "resources.md").write_text("教学材料。\n", encoding="utf-8")
+    (contents_dir / "publications.md").write_text("## 首页导读\n\n研究。\n", encoding="utf-8")
+    (contents_dir / "awards.md").write_text(
+        "## 荣誉奖励\n\n| 年份 | 荣誉/奖励 | 授予机构 |\n| --- | --- | --- |\n| 2025 | 华中卓越青年学者 | 华中科技大学 |\n",
+        encoding="utf-8",
+    )
+    (contents_dir / "systems.md").write_text(
+        "## 当前系统建设\n\n- vLLM-HUST：面向国产算力的推理引擎生态。\n",
+        encoding="utf-8",
+    )
+    (research_dir / "publications_summary.md").write_text("### 0.1 Paper\n\nAbstract: 摘要。\n", encoding="utf-8")
+    (awards_dir / "NDBC2025.pdf").write_bytes(b"%PDF-1.4\n")
+
+    monkeypatch.setattr(knowledge_import, "_extract_pdf_text", lambda path: "NDBC 2025 数据库会议教学获奖证书")
+    settings = AppSettings(knowledge_base_dir=tmp_path / "knowledge")
+    store = LocalKnowledgeStore(settings)
+
+    report = import_homepage_materials(store, homepage_dir)
+
+    assert any(title.startswith("荣誉资料｜荣誉奖励") for title in report.created_titles)
+    assert any(title.startswith("系统资料｜当前系统建设") for title in report.created_titles)
+    assert any(title.startswith("荣誉附件正文｜NDBC2025") for title in report.created_titles)
+    award_hits = store.search("华中卓越青年学者")
+    assert award_hits
+    assert "awards" in award_hits[0].tags
+    system_hits = store.search("vLLM-HUST 推理引擎生态")
+    assert system_hits
+    assert "systems" in system_hits[0].tags
+
+
+def test_import_homepage_materials_includes_remaining_public_content(tmp_path: Path, monkeypatch) -> None:
+    homepage_dir = tmp_path / "homepage"
+    contents_dir = homepage_dir / "contents"
+    research_dir = contents_dir / "research_papers" / "2026"
+    summary_dir = contents_dir / "research_papers"
+    research_dir.mkdir(parents=True)
+
+    (contents_dir / "home.md").write_text("# 张书豪\n\n简介。\n", encoding="utf-8")
+    (contents_dir / "news.md").write_text("- news\n", encoding="utf-8")
+    (contents_dir / "resources.md").write_text("教学材料。\n", encoding="utf-8")
+    (contents_dir / "publications.md").write_text("## 首页导读\n\n研究。\n", encoding="utf-8")
+    (summary_dir / "publications_summary.md").write_text("### 0.1 Paper\n\nAbstract: 摘要。\n", encoding="utf-8")
+    (research_dir / "2026_new_system.md").write_text(
+        "# New System Paper\n\n## Abstract\n\n这篇公开论文页面讨论自适应推理系统。\n",
+        encoding="utf-8",
+    )
+    (contents_dir / "config.yml").write_text("title: 张书豪\nsubtitle: 数据系统与智能基础设施\n", encoding="utf-8")
+    (contents_dir / "cv_en.pdf").write_bytes(b"%PDF-1.4\n")
+
+    monkeypatch.setattr(knowledge_import, "_extract_pdf_text", lambda path: "CV: Shuhao Zhang, data systems and intelligent infrastructure")
+    settings = AppSettings(knowledge_base_dir=tmp_path / "knowledge")
+    store = LocalKnowledgeStore(settings)
+
+    report = import_homepage_materials(store, homepage_dir)
+
+    assert any(title.startswith("论文页面｜New System Paper") for title in report.created_titles)
+    assert any(title.startswith("主页配置｜config") for title in report.created_titles)
+    assert any(title.startswith("主页附件正文｜cv en") for title in report.created_titles)
+    paper_documents = [
+        document
+        for document in store.list_documents()
+        if document.source_name == "homepage:contents/research_papers/2026/2026_new_system.md#Abstract"
+    ]
+    assert paper_documents
+    assert "paper-page" in paper_documents[0].tags
+    cv_hits = store.search("Shuhao Zhang data systems")
+    assert cv_hits
+    assert any("attachment" in hit.tags for hit in cv_hits)
+
+
+def _write_minimal_docx(path: Path, text: str) -> None:
+    xml = (
+        "<?xml version='1.0' encoding='UTF-8' standalone='yes'?>"
+        "<w:document xmlns:w='http://schemas.openxmlformats.org/wordprocessingml/2006/main'>"
+        f"<w:body><w:p><w:r><w:t>{text}</w:t></w:r></w:p></w:body>"
+        "</w:document>"
+    )
+    with zipfile.ZipFile(path, "w") as archive:
+        archive.writestr("word/document.xml", xml)
+
+
+def _write_minimal_pptx(path: Path, text: str) -> None:
+    xml = (
+        "<?xml version='1.0' encoding='UTF-8' standalone='yes'?>"
+        "<p:sld xmlns:a='http://schemas.openxmlformats.org/drawingml/2006/main' "
+        "xmlns:p='http://schemas.openxmlformats.org/presentationml/2006/main'>"
+        f"<p:cSld><p:spTree><p:sp><p:txBody><a:p><a:r><a:t>{text}</a:t></a:r></a:p>"
+        "</p:txBody></p:sp></p:spTree></p:cSld></p:sld>"
+    )
+    with zipfile.ZipFile(path, "w") as archive:
+        archive.writestr("ppt/slides/slide1.xml", xml)
 
 
 def test_chunk_text_prefers_sentence_boundaries_for_long_paragraphs() -> None:

@@ -11,6 +11,7 @@ const topbarModelStatus = document.getElementById("topbar-model-status");
 const chatStream = document.getElementById("chat-stream");
 const modalOverlay = document.getElementById("modal-overlay");
 const sideDrawer = document.getElementById("side-drawer");
+const identityModal = document.getElementById("identity-modal");
 const knowledgeModal = document.getElementById("knowledge-modal");
 const bookingModal = document.getElementById("booking-modal");
 const suggestionModal = document.getElementById("suggestion-modal");
@@ -26,6 +27,7 @@ const userLoginModal = document.getElementById("user-login-modal");
 const adminLoginResponse = document.getElementById("admin-login-response");
 const userRegisterResponse = document.getElementById("user-register-response");
 const userLoginResponse = document.getElementById("user-login-response");
+const userRegisterProfileInput = document.getElementById("user-register-profile");
 const bookingList = document.getElementById("booking-list");
 const bookingAdminResponse = document.getElementById("booking-admin-response");
 const bookingStatusFilter = document.getElementById("booking-status-filter");
@@ -135,11 +137,14 @@ const AVAILABILITY_END_HOUR = 18;
 const AVAILABILITY_DAY_COUNT = 7;
 const WORKFLOW_SHELL_COLLAPSED_KEY = "myTwinWorkflowShellCollapsed";
 const WORKFLOW_MOBILE_MODE_KEY = "myTwinWorkflowMobileMode";
+const VISITOR_IDENTITY_SELECTED_KEY = "myTwinVisitorIdentitySelected";
+const VISITOR_PROFILE_STORAGE_KEY = "myTwinVisitorProfile";
 const LOCAL_API_PORT_CANDIDATES = ["55601", "8010", "8000"];
 let assistantLabel = "我的学术分身";
 let activeConversationId = createConversationId();
 let activeWorkflowStream = null;
 let activeWorkflowRequestId = null;
+let lastAutoChatQuestion = chatQuestion?.value?.trim() || "";
 let lastAutoCourseContext = courseContextInput?.value?.trim() || "";
 let activeWorkflowSteps = [];
 let availabilityEditorState = null;
@@ -175,18 +180,18 @@ const VISITOR_PROFILE_CONFIGS = {
         ],
     },
     hust_undergraduate: {
-        defaultContext: "课程答疑",
-        defaultQuestion: "Tutorial 7 主要讲了什么，我应该先看哪部分？",
-        placeholder: "写清讲次、作业或卡点。",
-        drawerHint: "优先参考课程和答疑资料。",
+        defaultContext: "大模型推理引擎课程答疑",
+        defaultQuestion: "大模型推理引擎 Tutorial 7 主要讲了什么，我应该先看哪部分？",
+        placeholder: "写清课程名、讲次、实验编号或卡点。",
+        drawerHint: "优先参考大模型推理引擎、数据库实验课和答疑资料。",
         introLines: [
-            "课程、实验、office hour，直接问。",
-            "带上编号和卡点会更准。",
+            "大模型推理引擎、数据库实验课、office hour，直接问。",
+            "带上课程名、编号和卡点会更准。",
         ],
         quickActions: [
-            { label: "先问课程重点", question: "Tutorial 7 主要讲了什么，我应该先看哪部分？", context: "课程答疑" },
-            { label: "问实验怎么准备", question: "这门课的实验开始前，我应该先准备哪些内容？", context: "课程答疑" },
-            { label: "约 office hour", question: "如果我想约 office hour，需要先带哪些材料？", context: "课程答疑" },
+            { label: "问推理引擎 Tutorial", question: "大模型推理引擎 Tutorial 7 主要讲了什么，我应该先看哪部分？", context: "大模型推理引擎课程答疑" },
+            { label: "问数据库实验", question: "数据库实验课开始前，我应该先准备哪些环境和材料？", context: "数据库实验课答疑" },
+            { label: "约 office hour", question: "如果我想约 office hour 讨论课程或实验问题，需要先带哪些材料？", context: "本科课程答疑" },
         ],
     },
     paper_writing_student: {
@@ -285,12 +290,24 @@ workflowMobileBackdrop?.addEventListener("click", closeWorkflowMobileSheet);
 globalThis.addEventListener("resize", syncWorkflowViewportState);
 introQuickActions?.addEventListener("click", handleIntroQuickActionClick);
 visitorProfileInput?.addEventListener("change", handleVisitorProfileChange);
+identityModal?.addEventListener("click", handleIdentityChoiceClick);
+document.getElementById("identity-user-login")?.addEventListener("click", () => {
+    markVisitorIdentitySelected();
+    closeModals();
+    openModal(userLoginModal);
+});
+document.getElementById("identity-admin-login")?.addEventListener("click", () => {
+    markVisitorIdentitySelected();
+    closeModals();
+    openModal(adminLoginModal);
+});
 
 document.getElementById("open-drawer").addEventListener("click", openDrawer);
 document.querySelectorAll("[data-close-drawer]").forEach((button) => {
     button.addEventListener("click", closeDrawer);
 });
 document.getElementById("open-user-register")?.addEventListener("click", () => {
+    prepareUserRegistrationForm();
     closeDrawer();
     openModal(userRegisterModal);
 });
@@ -439,7 +456,7 @@ questionAnalyticsDrafts?.addEventListener("click", handleKnowledgeGapDraftAction
 operationsGaps?.addEventListener("click", handleKnowledgeGapDraftAction);
 operationsQueues?.addEventListener("click", handleOperationsQueueAction);
 operationsTasks?.addEventListener("click", handleOperationsTaskAction);
-modalOverlay.addEventListener("click", closeModals);
+modalOverlay.addEventListener("click", handleModalOverlayClick);
 document.querySelectorAll("[data-close-modal]").forEach((button) => {
     button.addEventListener("click", closeModals);
 });
@@ -489,6 +506,7 @@ userRegisterForm?.addEventListener("submit", async (event) => {
             body: JSON.stringify({
                 name: document.getElementById("user-register-name").value,
                 email: document.getElementById("user-register-email").value,
+                visitor_profile: userRegisterProfileInput?.value || "",
                 password: document.getElementById("user-register-password").value,
             }),
         });
@@ -668,7 +686,12 @@ suggestionForm?.addEventListener("submit", async (event) => {
     }
 });
 
-chatQuestion.addEventListener("input", autoResizeTextarea);
+chatQuestion.addEventListener("input", () => {
+    if (chatQuestion.value.trim() !== lastAutoChatQuestion) {
+        lastAutoChatQuestion = "";
+    }
+    autoResizeTextarea();
+});
 chatQuestion.addEventListener("keydown", (event) => {
     if (event.key !== "Enter" || event.shiftKey || event.isComposing) {
         return;
@@ -690,7 +713,95 @@ function handleIntroQuickActionClick(event) {
 }
 
 function handleVisitorProfileChange() {
+    markVisitorIdentitySelected(visitorProfileInput?.value);
+    syncUserRegisterProfileFromVisitorProfile();
     applyVisitorProfilePresentation({ syncCourseContext: true });
+}
+
+function syncUserRegisterProfileFromVisitorProfile() {
+    if (!userRegisterProfileInput || !visitorProfileInput) {
+        return;
+    }
+    userRegisterProfileInput.value = visitorProfileInput.value;
+}
+
+function prepareUserRegistrationForm() {
+    syncUserRegisterProfileFromVisitorProfile();
+    userRegisterResponse.textContent = "注册后会自动登录当前账号，并固定你的访问身份。";
+    userRegisterResponse.className = "inline-status inline-status-empty";
+}
+
+function handleIdentityChoiceClick(event) {
+    const trigger = event.target.closest("[data-identity-profile]");
+    if (!(trigger instanceof HTMLElement)) {
+        return;
+    }
+    const profile = trigger.dataset.identityProfile;
+    if (!profile || !VISITOR_PROFILE_CONFIGS[profile] || !visitorProfileInput) {
+        return;
+    }
+    visitorProfileInput.value = profile;
+    markVisitorIdentitySelected(profile);
+    syncUserRegisterProfileFromVisitorProfile();
+    applyVisitorProfilePresentation({ syncCourseContext: true });
+    closeModals();
+    chatQuestion?.focus();
+}
+
+function markVisitorIdentitySelected(profile = visitorProfileInput?.value) {
+    try {
+        globalThis.localStorage?.setItem(VISITOR_IDENTITY_SELECTED_KEY, "true");
+        if (profile && VISITOR_PROFILE_CONFIGS[profile]) {
+            globalThis.localStorage?.setItem(VISITOR_PROFILE_STORAGE_KEY, profile);
+        }
+    } catch (error) {
+        // Browser privacy modes may block localStorage; the selected profile still applies in memory.
+    }
+}
+
+function getStoredVisitorProfile() {
+    try {
+        const profile = globalThis.localStorage?.getItem(VISITOR_PROFILE_STORAGE_KEY) || "";
+        return VISITOR_PROFILE_CONFIGS[profile] ? profile : "";
+    } catch (error) {
+        return "";
+    }
+}
+
+function applyStoredVisitorProfile() {
+    const profile = getStoredVisitorProfile();
+    if (profile && visitorProfileInput) {
+        visitorProfileInput.value = profile;
+        syncUserRegisterProfileFromVisitorProfile();
+    }
+}
+
+function shouldPromptForVisitorIdentity() {
+    if (isAdminSession || isUserAuthenticated || !identityModal) {
+        return false;
+    }
+    try {
+        return globalThis.localStorage?.getItem(VISITOR_IDENTITY_SELECTED_KEY) !== "true";
+    } catch (error) {
+        return true;
+    }
+}
+
+function maybeOpenVisitorIdentityPrompt() {
+    if (shouldPromptForVisitorIdentity()) {
+        openModal(identityModal);
+    }
+}
+
+function isVisitorIdentityPromptOpen() {
+    return Boolean(identityModal && !identityModal.classList.contains("hidden"));
+}
+
+function handleModalOverlayClick() {
+    if (isVisitorIdentityPromptOpen()) {
+        return;
+    }
+    closeModals();
 }
 
 function getVisitorProfileConfig(profile = visitorProfileInput?.value) {
@@ -742,8 +853,10 @@ function applyVisitorProfilePresentation({ syncCourseContext = false } = {}) {
 
     if (chatQuestion) {
         chatQuestion.placeholder = config.placeholder;
-        if (!chatQuestion.value.trim()) {
+        const currentQuestion = chatQuestion.value.trim();
+        if (!currentQuestion || currentQuestion === lastAutoChatQuestion) {
             chatQuestion.value = config.defaultQuestion;
+            lastAutoChatQuestion = config.defaultQuestion;
             autoResizeTextarea();
         }
     }
@@ -757,8 +870,13 @@ function applyVisitorProfilePresentation({ syncCourseContext = false } = {}) {
     }
 }
 
+function markPresentationReady() {
+    document.body?.classList.remove("presentation-booting");
+}
+
 function seedChatQuestion(question, courseContext = "") {
     chatQuestion.value = question;
+    lastAutoChatQuestion = "";
     if (courseContextInput && courseContext) {
         courseContextInput.value = courseContext;
         lastAutoCourseContext = courseContext;
@@ -984,6 +1102,11 @@ function applyUserSession(session) {
         studentEmailInput.value = account.email;
         bookingStudentNameInput.value = account.name;
         bookingEmailInput.value = account.email;
+        if (account.visitor_profile && VISITOR_PROFILE_CONFIGS[account.visitor_profile] && visitorProfileInput) {
+            visitorProfileInput.value = account.visitor_profile;
+            syncUserRegisterProfileFromVisitorProfile();
+            markVisitorIdentitySelected(account.visitor_profile);
+        }
         studentNameInput.readOnly = true;
         studentEmailInput.readOnly = true;
         applyVisitorProfilePresentation();
@@ -3877,7 +4000,7 @@ function openModal(element) {
 
 function closeModals() {
     modalOverlay.classList.add("hidden");
-    [knowledgeModal, bookingModal, suggestionModal, adminLoginModal, userRegisterModal, userLoginModal, availabilityModal, bookingAdminModal, escalationAdminModal, memoryProfilesModal, operationsConsoleModal, questionAnalyticsModal].forEach((element) => {
+    [identityModal, knowledgeModal, bookingModal, suggestionModal, adminLoginModal, userRegisterModal, userLoginModal, availabilityModal, bookingAdminModal, escalationAdminModal, memoryProfilesModal, operationsConsoleModal, questionAnalyticsModal].forEach((element) => {
         element.classList.add("hidden");
         element.setAttribute("aria-hidden", "true");
     });
@@ -3900,6 +4023,7 @@ function closeDrawer() {
         knowledgeModal.classList.contains("hidden") &&
         bookingModal.classList.contains("hidden") &&
         suggestionModal.classList.contains("hidden") &&
+        identityModal.classList.contains("hidden") &&
         adminLoginModal.classList.contains("hidden") &&
         userRegisterModal.classList.contains("hidden") &&
         userLoginModal.classList.contains("hidden") &&
@@ -4210,11 +4334,14 @@ restoreWorkflowShellState();
 syncWorkflowViewportState();
 
 async function initializePage() {
+    applyStoredVisitorProfile();
     applyVisitorProfilePresentation({ syncCourseContext: true });
+    markPresentationReady();
     await refreshStatus();
     await refreshSession();
     await refreshUserSession();
     applyVisitorProfilePresentation({ syncCourseContext: true });
+    maybeOpenVisitorIdentityPrompt();
 }
 
 initializePage();

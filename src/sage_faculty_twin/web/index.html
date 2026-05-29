@@ -5,15 +5,10 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>学术分身</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-        href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@500;700&display=swap"
-        rel="stylesheet" />
-    <link rel="stylesheet" href="./styles.css?v=20260527-status-detail" />
+    <link rel="stylesheet" href="./styles.css?v=20260529-powered-by" />
 </head>
 
-<body>
+<body class="presentation-booting">
     <div class="app-shell">
         <header class="topbar">
             <div class="topbar-brand" aria-label="学术分身介绍">
@@ -25,10 +20,14 @@
                 </div>
             </div>
             <div id="topbar-live-status" class="topbar-live-status" aria-live="polite">
-                <span id="topbar-service-status" class="topbar-live-item"><small>服务</small><strong>检查中</strong></span>
-                <span id="topbar-user-count" class="topbar-live-item"><small>注册用户</small><strong>--</strong></span>
-                <span id="topbar-question-count" class="topbar-live-item"><small>累计问答</small><strong>--</strong></span>
-                <span id="topbar-model-status" class="topbar-live-item"><small>模型请求</small><strong>检查中</strong></span>
+                <span id="topbar-service-status"
+                    class="topbar-live-item"><small>服务</small><strong>检查中</strong><em>读取运行状态</em></span>
+                <span id="topbar-user-count"
+                    class="topbar-live-item"><small>注册用户</small><strong>--</strong><em>暂无统计</em></span>
+                <span id="topbar-question-count"
+                    class="topbar-live-item"><small>累计问答</small><strong>--</strong><em>暂无统计</em></span>
+                <span id="topbar-model-status"
+                    class="topbar-live-item"><small>模型请求</small><strong>检查中</strong><em>等待模型统计</em></span>
             </div>
             <div class="topbar-actions">
                 <button type="button" id="open-suggestions" class="icon-button">匿名留言</button>
@@ -42,7 +41,10 @@
             <section class="chat-shell">
                 <div id="chat-stream" class="chat-stream">
                     <article class="message message-assistant intro-card">
-                        <div id="assistant-name" class="message-role">张书豪的分身</div>
+                        <div class="intro-card-head">
+                            <div id="assistant-name" class="message-role">张书豪的分身</div>
+                            <span class="intro-card-label" aria-hidden="true">desk note</span>
+                        </div>
                         <div class="message-body">
                             研究、资料、预约，都可以直接问。<br />
                             预约请带 agenda 和当前问题。
@@ -129,11 +131,50 @@
                 </div>
             </aside>
         </main>
+        <footer class="powered-by-bar" aria-label="Powered by">
+            <span class="powered-by-copy">Powered by</span>
+            <a href="https://github.com/intellistream/SAGE" target="_blank" rel="noreferrer">SAGE</a>
+            <span class="powered-by-divider" aria-hidden="true"></span>
+            <a href="https://github.com/vLLM-HUST/vllm-hust" target="_blank" rel="noreferrer">vLLM-HUST</a>
+            <span class="powered-by-note">FlowNet workflow · NeuroMem knowledge</span>
+        </footer>
     </div>
 
     <div id="workflow-mobile-backdrop" class="workflow-mobile-backdrop hidden"></div>
 
     <div id="modal-overlay" class="modal-overlay hidden"></div>
+
+    <section id="identity-modal" class="modal-panel identity-modal hidden" aria-hidden="true">
+        <div class="modal-head">
+            <div>
+                <p class="brand-kicker">开始之前</p>
+                <h2>选择你的访问身份</h2>
+                <p class="modal-copy">选择后，我会按你的场景调整默认问题、提示和预约上下文。</p>
+            </div>
+        </div>
+        <div class="identity-choice-grid" aria-label="访问身份">
+            <button type="button" class="identity-choice-card" data-identity-profile="general_visitor">
+                <strong>一般访客</strong>
+                <span>先了解研究方向、公开资料和预约方式。</span>
+            </button>
+            <button type="button" class="identity-choice-card" data-identity-profile="hust_undergraduate">
+                <strong>华科本科生</strong>
+                <span>大模型推理引擎、数据库实验课和 office hour。</span>
+            </button>
+            <button type="button" class="identity-choice-card" data-identity-profile="paper_writing_student">
+                <strong>论文写作课同学</strong>
+                <span>讲次、draft、related work 和写作卡点。</span>
+            </button>
+            <button type="button" class="identity-choice-card" data-identity-profile="lab_member">
+                <strong>课题组学生</strong>
+                <span>研究进展、组会准备、blocker 和长期跟进。</span>
+            </button>
+        </div>
+        <div class="identity-choice-actions">
+            <button type="button" id="identity-user-login" class="ghost-button">已有账号登录</button>
+            <button type="button" id="identity-admin-login" class="ghost-button">我是管理员</button>
+        </div>
+    </section>
 
     <aside id="side-drawer" class="side-drawer hidden" aria-hidden="true">
         <div class="modal-head">
@@ -159,16 +200,32 @@
                     <strong>--</strong>
                 </article>
                 <article class="online-overview-item">
-                    <span>累计询问</span>
+                    <span>累计问答</span>
                     <strong>--</strong>
                 </article>
                 <article class="online-overview-item">
-                    <span>模型状态</span>
+                    <span>知识库资料</span>
+                    <strong>--</strong>
+                </article>
+                <article class="online-overview-item">
+                    <span>待跟进事项</span>
+                    <strong>--</strong>
+                </article>
+                <article class="online-overview-item">
+                    <span>模型名称</span>
                     <strong>检查中</strong>
                 </article>
                 <article class="online-overview-item">
-                    <span>待跟进</span>
-                    <strong>--</strong>
+                    <span>模型请求</span>
+                    <strong>检查中</strong>
+                </article>
+                <article class="online-overview-item">
+                    <span>成功率</span>
+                    <strong>暂无请求</strong>
+                </article>
+                <article class="online-overview-item">
+                    <span>最近成功</span>
+                    <strong>暂无记录</strong>
                 </article>
             </div>
             <p id="online-overview-copy" class="drawer-copy online-overview-copy">正在读取当前服务统计。</p>
@@ -321,6 +378,16 @@
             <label>
                 <span>邮箱</span>
                 <input id="user-register-email" name="email" type="email" autocomplete="email" required />
+            </label>
+            <label>
+                <span>访问身份</span>
+                <select id="user-register-profile" name="visitor_profile" required>
+                    <option value="" disabled selected>请选择你的身份</option>
+                    <option value="general_visitor">一般访客</option>
+                    <option value="hust_undergraduate">华科本科生</option>
+                    <option value="paper_writing_student">论文写作课同学</option>
+                    <option value="lab_member">课题组研究生 / 博士生</option>
+                </select>
             </label>
             <label>
                 <span>密码</span>
@@ -673,7 +740,7 @@
         </div>
     </section>
 
-    <script src="./app.js?v=20260527-status-detail"></script>
+    <script src="./app.js?v=20260528-font-stable-2"></script>
 </body>
 
 </html>

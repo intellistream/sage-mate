@@ -23,10 +23,16 @@
     --radius-md: 14px;
     --panel-height: calc(100vh - 72px);
     --safe-bottom: env(safe-area-inset-bottom, 0px);
+    --font-body: "Noto Sans CJK SC", "Source Han Sans SC", "Microsoft YaHei", "PingFang SC", "Segoe UI", sans-serif;
+    --font-display: "Noto Sans CJK SC", "Source Han Sans SC", "Microsoft YaHei", "PingFang SC", "Segoe UI", sans-serif;
 }
 
 body.workflow-shell-collapsed .chat-layout {
     grid-template-columns: minmax(0, 1fr) 88px;
+}
+
+body.presentation-booting .intro-card {
+    visibility: hidden;
 }
 
 * {
@@ -36,7 +42,7 @@ body.workflow-shell-collapsed .chat-layout {
 body {
     margin: 0;
     min-height: 100vh;
-    font-family: "IBM Plex Sans", "Segoe UI", sans-serif;
+    font-family: var(--font-body);
     color: var(--ink);
     background:
         radial-gradient(circle at top left, rgba(184, 107, 56, 0.14), transparent 24%),
@@ -76,6 +82,53 @@ body {
     left: -80px;
     bottom: 50px;
     background: radial-gradient(circle, rgba(36, 90, 166, 0.12) 0%, rgba(36, 90, 166, 0) 74%);
+}
+
+.powered-by-bar {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 10px;
+    min-height: 42px;
+    margin-top: 10px;
+    padding: 9px 14px;
+    border: 1px solid rgba(22, 35, 56, 0.08);
+    border-radius: 16px;
+    background: rgba(255, 252, 246, 0.68);
+    box-shadow: 0 12px 24px rgba(33, 42, 56, 0.06);
+    color: var(--muted);
+    font-size: 0.82rem;
+    line-height: 1.35;
+    text-align: center;
+    backdrop-filter: blur(12px);
+}
+
+.powered-by-bar a {
+    color: var(--accent-deep);
+    font-weight: 700;
+    text-decoration: none;
+}
+
+.powered-by-bar a:hover,
+.powered-by-bar a:focus-visible {
+    color: var(--accent);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+}
+
+.powered-by-copy,
+.powered-by-note {
+    font-weight: 600;
+}
+
+.powered-by-divider {
+    width: 4px;
+    height: 4px;
+    border-radius: 999px;
+    background: rgba(22, 35, 56, 0.28);
 }
 
 .chat-shell,
@@ -129,7 +182,7 @@ body {
     border-radius: 14px;
     display: grid;
     place-items: center;
-    font-family: "Space Grotesk", "IBM Plex Sans", sans-serif;
+    font-family: var(--font-display);
     font-size: 1.2rem;
     font-weight: 700;
     color: white;
@@ -180,7 +233,7 @@ body {
 .topbar-live-item strong {
     margin-top: 2px;
     color: var(--accent-deep);
-    font-family: "Space Grotesk", "IBM Plex Sans", sans-serif;
+    font-family: var(--font-display);
     font-size: 0.94rem;
     line-height: 1.1;
 }
@@ -188,6 +241,7 @@ body {
 .topbar-live-item em {
     margin-top: 3px;
     font-weight: 600;
+    min-height: 0.82rem;
 }
 
 .topbar-kicker {
@@ -197,7 +251,7 @@ body {
 
 .topbar-title {
     margin: 0;
-    font-family: "Space Grotesk", "IBM Plex Sans", sans-serif;
+    font-family: var(--font-display);
     font-size: clamp(1.05rem, 1.9vw, 1.35rem);
 }
 
@@ -281,7 +335,7 @@ body.workflow-trigger-suppressed .mobile-workflow-trigger {
 
 h2 {
     margin: 0;
-    font-family: "Space Grotesk", "IBM Plex Sans", sans-serif;
+    font-family: var(--font-display);
 }
 
 .pill {
@@ -843,17 +897,34 @@ h2 {
 .intro-card {
     position: relative;
     overflow: hidden;
+    min-height: 218px;
+    animation: none;
     background:
         linear-gradient(140deg, rgba(255, 255, 255, 0.96), rgba(247, 241, 231, 0.98)),
         linear-gradient(180deg, #ffffff, #f8fbff);
     border-color: rgba(184, 107, 56, 0.16);
 }
 
-.intro-card::before {
-    content: "desk note";
-    position: absolute;
-    top: 14px;
-    right: 16px;
+.intro-card-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 8px;
+}
+
+.intro-card .message-role {
+    min-width: 0;
+    margin-bottom: 0;
+}
+
+.intro-card-label {
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 86px;
+    min-height: 24px;
     padding: 4px 10px;
     border-radius: 999px;
     background: rgba(184, 107, 56, 0.12);
@@ -861,7 +932,9 @@ h2 {
     font-size: 0.74rem;
     font-weight: 700;
     letter-spacing: 0.08em;
+    line-height: 1;
     text-transform: uppercase;
+    white-space: nowrap;
 }
 
 .intro-card .message-body {
@@ -889,6 +962,7 @@ h2 {
 
 .intro-chip-button {
     appearance: none;
+    min-height: 42px;
     border: 1px solid rgba(22, 35, 56, 0.1);
     background: rgba(255, 250, 242, 0.94);
     color: var(--ink);
@@ -908,18 +982,15 @@ h2 {
 }
 
 .intro-quick-actions .intro-chip-button:nth-child(1) {
-    animation: message-enter 260ms ease both;
-    animation-delay: 40ms;
+    animation: none;
 }
 
 .intro-quick-actions .intro-chip-button:nth-child(2) {
-    animation: message-enter 260ms ease both;
-    animation-delay: 90ms;
+    animation: none;
 }
 
 .intro-quick-actions .intro-chip-button:nth-child(3) {
-    animation: message-enter 260ms ease both;
-    animation-delay: 140ms;
+    animation: none;
 }
 
 .composer-shell {
@@ -1034,6 +1105,62 @@ select {
 
 .modal-panel-wide {
     width: min(980px, calc(100vw - 28px));
+}
+
+.identity-modal {
+    left: 50%;
+    right: auto;
+    bottom: auto;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    width: min(620px, calc(100vw - 28px));
+    max-height: calc(100vh - 40px);
+}
+
+.identity-choice-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+}
+
+.identity-choice-card {
+    appearance: none;
+    display: grid;
+    gap: 8px;
+    min-height: 118px;
+    padding: 16px;
+    text-align: left;
+    color: var(--ink);
+    background: linear-gradient(180deg, rgba(255, 252, 246, 0.96), rgba(244, 238, 229, 0.92));
+    border: 1px solid var(--line-strong);
+    border-radius: 16px;
+    cursor: pointer;
+}
+
+.identity-choice-card:hover,
+.identity-choice-card:focus-visible {
+    border-color: rgba(36, 90, 166, 0.42);
+    box-shadow: 0 14px 28px rgba(23, 59, 112, 0.12);
+    outline: none;
+}
+
+.identity-choice-card strong {
+    font-family: var(--font-display);
+    font-size: 1rem;
+}
+
+.identity-choice-card span {
+    color: var(--muted);
+    font-size: 0.9rem;
+    line-height: 1.45;
+}
+
+.identity-choice-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 14px;
+    flex-wrap: wrap;
 }
 
 .side-drawer {
@@ -1165,7 +1292,7 @@ label span {
 .operations-metric-card strong,
 .operations-queue-card strong {
     color: var(--accent-deep);
-    font-family: "Space Grotesk", "IBM Plex Sans", sans-serif;
+    font-family: var(--font-display);
     line-height: 1;
 }
 
@@ -1337,7 +1464,7 @@ label span {
 .analytics-section-title {
     margin: 0;
     font-size: 1rem;
-    font-family: "Space Grotesk", "IBM Plex Sans", sans-serif;
+    font-family: var(--font-display);
 }
 
 .analytics-secondary-copy {
@@ -1388,7 +1515,7 @@ label span {
 .drawer-group-title {
     margin: 0;
     font-size: 1rem;
-    font-family: "Space Grotesk", "IBM Plex Sans", sans-serif;
+    font-family: var(--font-display);
 }
 
 .drawer-status-group {
@@ -1452,6 +1579,7 @@ label span {
 
 .online-overview-item {
     min-width: 0;
+    min-height: 74px;
     padding: 10px;
     border: 1px solid rgba(22, 35, 56, 0.08);
     border-radius: 14px;
@@ -1470,7 +1598,7 @@ label span {
     display: block;
     margin-top: 6px;
     color: var(--accent-deep);
-    font-family: "Space Grotesk", "IBM Plex Sans", sans-serif;
+    font-family: var(--font-display);
     font-size: 1.05rem;
     line-height: 1.1;
     overflow-wrap: anywhere;
@@ -1635,9 +1763,9 @@ label span {
         line-height: 1.58;
     }
 
-    .intro-card::before {
-        top: 12px;
-        right: 12px;
+    .intro-card-label {
+        min-width: 78px;
+        min-height: 22px;
         font-size: 0.68rem;
         padding: 4px 8px;
     }
@@ -2405,6 +2533,16 @@ body.workflow-shell-collapsed #workflow-toggle {
 }
 
 @media (max-width: 920px) {
+    .powered-by-bar {
+        gap: 6px 8px;
+        padding: 10px 12px;
+        font-size: 0.78rem;
+    }
+
+    .powered-by-note {
+        flex-basis: 100%;
+    }
+
     body.workflow-shell-collapsed .chat-layout {
         grid-template-columns: 1fr;
     }

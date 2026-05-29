@@ -149,6 +149,12 @@ class UserAuthWorkflowResult:
     session_token: str
 
 
+@dataclass
+class KnowledgeSearchInput:
+    query: str
+    visitor_profile: str | None = None
+
+
 class FacultyTwinWorkflowSupport:
     def __init__(
         self,
@@ -791,8 +797,8 @@ class FacultyTwinWorkflowSupport:
     def list_knowledge(self) -> list[KnowledgeDocumentRecord]:
         return self._knowledge_store.list_documents()
 
-    def search_knowledge(self, query: str) -> KnowledgeSearchResponse:
-        return KnowledgeSearchResponse(hits=self._knowledge_store.search(query))
+    def search_knowledge(self, query: str, visitor_profile: str | None = None) -> KnowledgeSearchResponse:
+        return KnowledgeSearchResponse(hits=self._knowledge_store.search(query, visitor_profile=visitor_profile))
 
     def book_meeting(self, request: BookingRequest) -> BookingResponse:
         response = self._meeting_service.book(request)
@@ -1059,6 +1065,7 @@ class FacultyTwinWorkflowSupport:
         account = self._user_store.register_user(
             name=request.name,
             email=request.email,
+            visitor_profile=request.visitor_profile,
             password=request.password,
         )
         token = build_user_session_token(user_id=account.user_id, email=account.email, settings=self._settings)
@@ -2462,8 +2469,8 @@ class SearchKnowledgeStage(MapFunction):
         super().__init__()
         self._support = support
 
-    def execute(self, query: str) -> KnowledgeSearchResponse:
-        return self._support.search_knowledge(query)
+    def execute(self, data: KnowledgeSearchInput) -> KnowledgeSearchResponse:
+        return self._support.search_knowledge(data.query, visitor_profile=data.visitor_profile)
 
 
 class CreateBookingStage(MapFunction):
@@ -2652,11 +2659,11 @@ class DigitalTwinService:
             "SAGE runtime completed without producing a knowledge document list.",
         )
 
-    def search_knowledge(self, query: str) -> KnowledgeSearchResponse:
+    def search_knowledge(self, query: str, visitor_profile: str | None = None) -> KnowledgeSearchResponse:
         support = self._build_support()
         return self._run_pipeline_blocking(
             "faculty-twin-knowledge-search",
-            [query],
+            [KnowledgeSearchInput(query=query, visitor_profile=visitor_profile)],
             [(SearchKnowledgeStage, support)],
             "SAGE runtime completed without producing a knowledge search response.",
         )

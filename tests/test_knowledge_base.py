@@ -227,14 +227,36 @@ def test_knowledge_store_separates_same_lecture_number_across_courses(tmp_path: 
                 source_name="homepage:contents/teaching/graduate-paper-writing-course.md#公开课件::lecture-7.pdf",
             )
         )
+        store.add_document(
+            KnowledgeDocumentCreate(
+                title="课件正文｜数据库实验课课程材料｜第 7 讲 索引与查询优化实验",
+                content="第 7 讲围绕数据库索引、执行计划和查询优化实验展开。",
+                tags=[
+                    "homepage",
+                    "teaching",
+                    "courseware",
+                    "pdf",
+                    "lecture",
+                    "identity:teacher",
+                    "domain:teaching",
+                    "course:database-lab",
+                    "material:lecture",
+                    "lecture:7",
+                ],
+                source_name="homepage:contents/teaching/database-lab.md#公开课件::lecture-7.pdf",
+            )
+        )
 
         llm_hits = store.search("大模型推理基础设施 第 7 讲讲什么？", top_k=2)
         writing_hits = store.search("研究生论文写作 第 7 讲讲什么？", top_k=2)
+        database_hits = store.search("数据库实验课 第 7 讲讲什么？", top_k=2)
 
         assert llm_hits
         assert "course:llm-inference" in llm_hits[0].tags
         assert writing_hits
         assert "course:paper-writing" in writing_hits[0].tags
+        assert database_hits
+        assert "course:database-lab" in database_hits[0].tags
 
 
 def test_knowledge_store_prioritizes_research_materials_over_courseware_noise(tmp_path: Path) -> None:

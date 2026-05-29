@@ -15,6 +15,7 @@ from sage_faculty_twin.models import ManagedServiceStatus
 from sage_faculty_twin.models import ServiceControlResponse
 from sage_faculty_twin.models import ChatRequest
 from sage_faculty_twin.models import InteractionIntent
+from sage_faculty_twin.models import KnowledgeDocumentCreate
 from sage_faculty_twin.meeting import MeetingService
 
 
@@ -310,6 +311,7 @@ def test_user_can_register_login_and_logout(isolated_availability_store) -> None
         json={
             "name": "Alice",
             "email": "alice@example.com",
+            "visitor_profile": "lab_member",
             "password": "alice-password-123",
         },
     )
@@ -319,6 +321,7 @@ def test_user_can_register_login_and_logout(isolated_availability_store) -> None
     assert register_payload["mode"] == "user"
     assert register_payload["account"]["name"] == "Alice"
     assert register_payload["account"]["email"] == "alice@example.com"
+    assert register_payload["account"]["visitor_profile"] == "lab_member"
 
     health_response = client.get("/health")
     assert health_response.status_code == 200
@@ -330,6 +333,7 @@ def test_user_can_register_login_and_logout(isolated_availability_store) -> None
     session_response = client.get("/auth/user/session")
     assert session_response.status_code == 200
     assert session_response.json()["account"]["email"] == "alice@example.com"
+    assert session_response.json()["account"]["visitor_profile"] == "lab_member"
 
     logout_response = client.post("/auth/user/logout")
     assert logout_response.status_code == 200
@@ -348,6 +352,7 @@ def test_user_can_register_login_and_logout(isolated_availability_store) -> None
     )
     assert login_response.status_code == 200
     assert login_response.json()["account"]["name"] == "Alice"
+    assert login_response.json()["account"]["visitor_profile"] == "lab_member"
 
 
 def test_user_registration_rejects_duplicate_email(isolated_availability_store) -> None:
@@ -358,6 +363,7 @@ def test_user_registration_rejects_duplicate_email(isolated_availability_store) 
         json={
             "name": "Alice",
             "email": "alice@example.com",
+            "visitor_profile": "general_visitor",
             "password": "alice-password-123",
         },
     )
@@ -370,11 +376,67 @@ def test_user_registration_rejects_duplicate_email(isolated_availability_store) 
         json={
             "name": "Alice 2",
             "email": "Alice@example.com",
+            "visitor_profile": "hust_undergraduate",
             "password": "alice-password-456",
         },
     )
     assert duplicate_response.status_code == 409
     assert duplicate_response.json()["detail"] == "该邮箱已注册，请直接登录。"
+
+
+def test_user_registration_requires_visitor_profile(isolated_availability_store) -> None:
+    client.cookies.clear()
+
+    response = client.post(
+        "/auth/user/register",
+        json={
+            "name": "Alice",
+            "email": "alice@example.com",
+            "password": "alice-password-123",
+        },
+    )
+
+    assert response.status_code == 422
+
+
+def test_admin_knowledge_search_accepts_visitor_profile(isolated_availability_store) -> None:
+    client.cookies.clear()
+    service._knowledge_store.add_document(
+        KnowledgeDocumentCreate(
+            title="课程资料｜研究生论文写作课程材料",
+            content="课程重点覆盖论文结构、related work、投稿准备和毕业论文常见问题。",
+            tags=["homepage", "teaching", "courseware", "lecture"],
+            source_name="homepage:contents/teaching/graduate-paper-writing-course.md#intro",
+        )
+    )
+    service._knowledge_store.add_document(
+        KnowledgeDocumentCreate(
+            title="研究总览｜论文写作智能体",
+            content="研究方向聚焦自动写作 agent、审稿反馈吸收和协同 drafting workflow。",
+            tags=["homepage", "research", "publication", "overview"],
+            source_name="homepage:research-overview",
+        )
+    )
+
+    login_response = client.post(
+        "/auth/admin/login",
+        json={"username": settings.admin_username, "password": settings.admin_password},
+    )
+    assert login_response.status_code == 200
+
+    paper_response = client.get(
+        "/knowledge/search",
+        params={"query": "论文写作相关内容我应该先看什么？", "visitor_profile": "paper_writing_student"},
+    )
+    lab_response = client.get(
+        "/knowledge/search",
+        params={"query": "论文写作相关内容我应该先看什么？", "visitor_profile": "lab_member"},
+    )
+
+    assert paper_response.status_code == 200
+    assert paper_response.json()["hits"][0]["title"] == "课程资料｜研究生论文写作课程材料"
+    assert lab_response.status_code == 200
+    assert lab_response.json()["hits"][0]["title"] == "研究总览｜论文写作智能体"
 
 
 def test_admin_login_unlocks_admin_endpoints(isolated_availability_store) -> None:

@@ -4,8 +4,10 @@ import argparse
 import re
 import shutil
 import subprocess
+import zipfile
 from dataclasses import dataclass
 from pathlib import Path
+from xml.etree import ElementTree
 
 from .config import AppSettings
 from .knowledge_base import LocalKnowledgeStore
@@ -38,11 +40,25 @@ def import_homepage_materials(
     payloads = [
         *_build_homepage_profile_payloads(contents_dir / "home.md"),
         *_build_news_payloads(contents_dir / "news.md"),
+        *_build_markdown_section_payloads(
+            contents_dir / "awards.md",
+            title_prefix="荣誉资料",
+            tags=["homepage", "profile", "awards", "achievement"],
+            source_label="awards",
+        ),
+        *_build_awards_attachment_payloads(contents_dir / "awards", contents_dir.parent),
         *_build_resources_payloads(contents_dir / "resources.md"),
+        *_build_markdown_section_payloads(
+            contents_dir / "systems.md",
+            title_prefix="系统资料",
+            tags=["homepage", "systems", "project", "research"],
+            source_label="systems",
+        ),
         *_build_teaching_payloads(contents_dir / "teaching"),
         *_build_publication_overview_payloads(contents_dir / "publications.md"),
         *_build_publication_digest_payloads(contents_dir / "research_papers" / "publications_summary.md"),
     ]
+    payloads.extend(_build_remaining_homepage_payloads(contents_dir, payloads))
 
     desired_sources = {payload.source_name for payload in payloads if payload.source_name}
     stale_document_ids = _find_stale_homepage_document_ids(store.list_documents(), desired_sources)
@@ -118,6 +134,157 @@ def _build_news_payloads(path: Path) -> list[KnowledgeDocumentCreate]:
         tags=["homepage", "news"],
         source_stub="homepage:contents/news.md#recent-updates",
     )
+
+
+def _build_markdown_section_payloads(
+    path: Path,
+    *,
+    title_prefix: str,
+    tags: list[str],
+    source_label: str,
+) -> list[KnowledgeDocumentCreate]:
+    if not path.exists():
+        return []
+
+    title, sections = _split_markdown_by_heading(path.read_text(encoding="utf-8"), heading_level=2)
+    payloads: list[KnowledgeDocumentCreate] = []
+    for index, (section_title, body) in enumerate(sections):
+        normalized_title = section_title or title or path.stem
+        if index == 0 and section_title == title:
+            normalized_title = title or path.stem
+        payloads.extend(
+            _make_payloads(
+                title=f"{title_prefix}｜{normalized_title}",
+                content=body,
+                tags=tags,
+                source_stub=f"homepage:contents/{path.name}#{normalized_title or source_label}",
+            )
+        )
+    return payloads
+
+
+def _build_awards_attachment_payloads(awards_dir: Path, repo_root: Path) -> list[KnowledgeDocumentCreate]:
+    if not awards_dir.exists():
+        return []
+
+    payloads: list[KnowledgeDocumentCreate] = []
+    for path in sorted(awards_dir.rglob("*.pdf")):
+        if not path.is_file() or path.name.startswith("~$"):
+            continue
+        title = _clean_attachment_title(path.stem)
+        relative_path = path.relative_to(repo_root).as_posix()
+        content = _extract_pdf_text(path) or f"荣誉奖励附件：{title}\n来源文件：{relative_path}"
+        payloads.extend(
+            _make_payloads(
+                title=f"荣誉附件正文｜{title}",
+                content=content,
+                tags=["homepage", "profile", "awards", "achievement", "attachment", "pdf"],
+                source_stub=f"homepage:{relative_path}",
+                max_chars=3200,
+            )
+        )
+    return payloads
+
+
+def _build_remaining_homepage_payloads(
+    contents_dir: Path,
+    existing_payloads: list[KnowledgeDocumentCreate],
+) -> list[KnowledgeDocumentCreate]:
+    covered_files = _covered_homepage_files(existing_payloads)
+    payloads: list[KnowledgeDocumentCreate] = []
+    for path in sorted(contents_dir.rglob("*")):
+        if not path.is_file() or path.name.startswith("~$"):
+            continue
+        relative_path = path.relative_to(contents_dir).as_posix()
+        if relative_path in covered_files:
+            continue
+        if path.parts and any(part in {"teaching", "awards"} for part in path.relative_to(contents_dir).parts[:-1]):
+            continue
+        suffix = path.suffix.lower()
+        if suffix == ".md":
+            payloads.extend(_build_generic_markdown_payloads(path, contents_dir))
+            continue
+        if suffix in {".yml", ".yaml"}:
+            payloads.extend(_build_generic_text_payloads(path, contents_dir, title_prefix="主页配置", tags=["homepage", "profile", "config"]))
+            continue
+        if suffix == ".pdf" and not path.with_suffix(".md").exists():
+            payloads.extend(_build_generic_pdf_payloads(path, contents_dir))
+    return payloads
+
+
+def _covered_homepage_files(payloads: list[KnowledgeDocumentCreate]) -> set[str]:
+    covered: set[str] = set()
+    for payload in payloads:
+        source_name = payload.source_name or ""
+        if not source_name.startswith("homepage:contents/"):
+            continue
+        source_body = source_name.removeprefix("homepage:contents/")
+        primary_path = re.split(r"[#:]", source_body, maxsplit=1)[0]
+        if primary_path:
+            covered.add(primary_path)
+        for embedded_path in re.findall(r"contents/([^:#]+)", source_body):
+            covered.add(embedded_path)
+    return covered
+
+
+def _build_generic_markdown_payloads(path: Path, contents_dir: Path) -> list[KnowledgeDocumentCreate]:
+    text = path.read_text(encoding="utf-8")
+    title, sections = _split_markdown_by_heading(text, heading_level=2)
+    relative_path = path.relative_to(contents_dir).as_posix()
+    tags = _generic_homepage_tags(relative_path)
+    title_prefix = "论文页面" if relative_path.startswith("research_papers/") else "主页全文"
+    payloads: list[KnowledgeDocumentCreate] = []
+    for index, (section_title, body) in enumerate(sections):
+        section_label = section_title or title or path.stem
+        normalized_title = _strip_numeric_prefix(section_label)
+        title_suffix = normalized_title if index > 0 or not title else title
+        payloads.extend(
+            _make_payloads(
+                title=f"{title_prefix}｜{title_suffix}",
+                content=body,
+                tags=tags,
+                source_stub=f"homepage:contents/{relative_path}#{section_label or 'full'}",
+                max_chars=18000,
+            )
+        )
+    return payloads
+
+
+def _build_generic_text_payloads(
+    path: Path,
+    contents_dir: Path,
+    *,
+    title_prefix: str,
+    tags: list[str],
+) -> list[KnowledgeDocumentCreate]:
+    relative_path = path.relative_to(contents_dir).as_posix()
+    content = path.read_text(encoding="utf-8")
+    return _make_payloads(
+        title=f"{title_prefix}｜{_clean_attachment_title(path.stem)}",
+        content=content,
+        tags=tags,
+        source_stub=f"homepage:contents/{relative_path}#full",
+        max_chars=18000,
+    )
+
+
+def _build_generic_pdf_payloads(path: Path, contents_dir: Path) -> list[KnowledgeDocumentCreate]:
+    relative_path = path.relative_to(contents_dir).as_posix()
+    title = _clean_attachment_title(path.stem)
+    content = _extract_pdf_text(path) or f"主页 PDF 附件：{title}\n来源文件：contents/{relative_path}"
+    return _make_payloads(
+        title=f"主页附件正文｜{title}",
+        content=content,
+        tags=["homepage", "profile", "attachment", "pdf"],
+        source_stub=f"homepage:contents/{relative_path}",
+        max_chars=18000,
+    )
+
+
+def _generic_homepage_tags(relative_path: str) -> list[str]:
+    if relative_path.startswith("research_papers/"):
+        return ["homepage", "research", "publication", "paper-page"]
+    return ["homepage", "profile", "page"]
 
 
 def _build_publication_overview_payloads(path: Path) -> list[KnowledgeDocumentCreate]:
@@ -396,7 +563,56 @@ def _build_teaching_payloads(teaching_dir: Path) -> list[KnowledgeDocumentCreate
                     source_prefix=source_prefix,
                 )
             )
+    payloads.extend(_build_teaching_attachment_payloads(teaching_dir))
     return payloads
+
+
+def _build_teaching_attachment_payloads(teaching_dir: Path) -> list[KnowledgeDocumentCreate]:
+    payloads: list[KnowledgeDocumentCreate] = []
+    repo_root = teaching_dir.parent.parent
+    for path in sorted(teaching_dir.rglob("*")):
+        if not path.is_file() or path.name.startswith("~$"):
+            continue
+        if path.suffix.lower() not in {".docx", ".pptx"}:
+            continue
+        relative_path = path.relative_to(repo_root).as_posix()
+        course_title = _course_title_from_attachment_path(path, teaching_dir)
+        extracted_text = _extract_office_text(path)
+        if not extracted_text:
+            continue
+        material_tags = _teaching_material_tags(course_title, path.stem)
+        payloads.extend(
+            _make_payloads(
+                title=f"课程附件正文｜{course_title}｜{path.stem}",
+                content=extracted_text,
+                tags=_dedupe_tags([
+                    "homepage",
+                    "teaching",
+                    "courseware",
+                    "attachment",
+                    path.suffix.lower().lstrip("."),
+                    *(_teaching_course_tags(path.parent, course_title)),
+                    *material_tags,
+                    *_teaching_section_tags(course_title),
+                ]),
+                source_stub=f"homepage:{relative_path}",
+                max_chars=3200,
+            )
+        )
+    return payloads
+
+
+def _course_title_from_attachment_path(path: Path, teaching_dir: Path) -> str:
+    try:
+        relative_parts = path.relative_to(teaching_dir).parts
+    except ValueError:
+        relative_parts = path.parts
+    if len(relative_parts) > 1:
+        folder_name = relative_parts[0]
+        if folder_name == "database":
+            return "数据库实验课"
+        return folder_name.replace("-", " ").replace("_", " ")
+    return "课程材料"
 
 
 def _build_teaching_pdf_payloads(
@@ -552,6 +768,12 @@ def _title_from_pdf_line(line: str) -> str:
     return cleaned or "课件正文"
 
 
+def _clean_attachment_title(title: str) -> str:
+    cleaned = title.replace("_", " ").replace("-", " ")
+    cleaned = re.sub(r"\s+", " ", cleaned)
+    return cleaned.strip() or "附件"
+
+
 def _teaching_section_tags(section_title: str) -> list[str]:
     normalized = section_title.lower()
     if "tutorial" in normalized:
@@ -565,11 +787,14 @@ def _teaching_section_tags(section_title: str) -> list[str]:
 
 def _teaching_course_tags(path: Path, course_title: str | None) -> list[str]:
     normalized = f"{path.stem} {course_title or ''}".lower()
-    tags = ["identity:teacher", "domain:teaching", "audience:graduate"]
+    audience = "undergraduate" if "database" in normalized or "数据库" in normalized else "graduate"
+    tags = ["identity:teacher", "domain:teaching", f"audience:{audience}"]
     if "intro-to-llm-inference-engines" in normalized or "大模型推理" in normalized:
         tags.append("course:llm-inference")
     elif "graduate-paper-writing-course" in normalized or "论文写作" in normalized:
         tags.append("course:paper-writing")
+    elif "database" in normalized or "数据库" in normalized:
+        tags.append("course:database-lab")
     else:
         tags.append(f"course:{path.stem}")
     return tags
@@ -611,6 +836,50 @@ def _extract_pdf_text(pdf_path: Path) -> str:
             return extracted
 
     return _extract_pdf_text_with_pypdf(pdf_path)
+
+
+def _extract_office_text(path: Path) -> str:
+    suffix = path.suffix.lower()
+    if suffix == ".docx":
+        return _extract_docx_text(path)
+    if suffix == ".pptx":
+        return _extract_pptx_text(path)
+    return ""
+
+
+def _extract_docx_text(path: Path) -> str:
+    try:
+        with zipfile.ZipFile(path) as archive:
+            document_xml = archive.read("word/document.xml")
+    except (KeyError, zipfile.BadZipFile):
+        return ""
+    return _extract_text_from_ooxml(document_xml)
+
+
+def _extract_pptx_text(path: Path) -> str:
+    try:
+        with zipfile.ZipFile(path) as archive:
+            slide_names = sorted(
+                name
+                for name in archive.namelist()
+                if re.fullmatch(r"ppt/slides/slide\d+\.xml", name)
+            )
+            slide_chunks = [
+                _extract_text_from_ooxml(archive.read(name))
+                for name in slide_names
+            ]
+    except zipfile.BadZipFile:
+        return ""
+    return "\n\n".join(chunk for chunk in slide_chunks if chunk).strip()
+
+
+def _extract_text_from_ooxml(xml_bytes: bytes) -> str:
+    try:
+        root = ElementTree.fromstring(xml_bytes)
+    except ElementTree.ParseError:
+        return ""
+    text_nodes = [node.text.strip() for node in root.iter() if node.tag.endswith("}t") and node.text and node.text.strip()]
+    return _normalize_pdf_text("\n".join(text_nodes))
 
 
 def _extract_pdf_text_with_pdftotext(binary: str, pdf_path: Path) -> str:

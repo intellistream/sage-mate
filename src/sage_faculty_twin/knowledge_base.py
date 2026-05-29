@@ -113,7 +113,7 @@ class LocalKnowledgeStore:
         self._documents[record.document_id] = record
         if self._backend == "sagevdb":
             self._add_to_sagevdb(record, rebuild_index=rebuild_indexes)
-        elif self._backend == "neuromem":
+        elif self._backend == "neuromem" and rebuild_indexes:
             self._add_to_neuromem(record)
         return record
 
@@ -405,8 +405,41 @@ class LocalKnowledgeStore:
         collection_name = f"{self._base_dir.name}-owner-materials"
         self._neuromem_collection = UnifiedCollection(collection_name)
         self._neuromem_collection.add_index("search", "bm25", {})
+        if self._build_neuromem_search_index_batch():
+            return
         for document in self.list_documents():
             self._add_to_neuromem(document)
+
+    def _build_neuromem_search_index_batch(self) -> bool:
+        if self._neuromem_collection is None:
+            return False
+
+        search_index = self._neuromem_collection.indexes.get("search")
+        if search_index is None or not hasattr(search_index, "_rebuild_index"):
+            return False
+
+        texts: list[str] = []
+        data_ids: list[str] = []
+        for document in self.list_documents():
+            text = self._expand_retrieval_text(self._compose_retrieval_text(document))
+            data_id = self._neuromem_collection.insert(
+                text,
+                {
+                    "document_id": document.document_id,
+                    "title": document.title,
+                    "tags": document.tags,
+                    "source_name": document.source_name or "",
+                },
+                index_names=[],
+            )
+            texts.append(text)
+            data_ids.append(data_id)
+
+        search_index.texts = texts
+        search_index.id_to_idx = {data_id: index for index, data_id in enumerate(data_ids)}
+        search_index.idx_to_id = {index: data_id for index, data_id in enumerate(data_ids)}
+        search_index._rebuild_index()
+        return True
 
     def _add_to_neuromem(self, document: KnowledgeDocumentRecord) -> None:
         if self._neuromem_collection is None:
@@ -877,6 +910,14 @@ _COURSE_ALIAS_MAP = {
         "paper writing",
         "thesis writing",
     ),
+    "database-lab": (
+        "数据库实验课",
+        "数据库实验",
+        "数据库 lab",
+        "database lab",
+        "database experiment",
+        "db lab",
+    ),
 }
 _TEACHING_ALIAS_MAP = {
     "tutorial": ("tutorial", "教程", "习题", "练习", "workshop"),
@@ -894,6 +935,7 @@ _TEACHING_ALIAS_MAP = {
     "qa": ("qa", "答疑", "提问", "问题"),
     "course:llm-inference": ("大模型推理基础设施", "大模型推理", "推理系统", "kv cache", "prefill", "decode"),
     "course:paper-writing": ("研究生论文写作", "论文写作", "毕业论文", "发表高水平论文"),
+    "course:database-lab": ("数据库实验课", "数据库实验", "database lab", "database experiment", "db lab"),
     "identity:teacher": ("主课老师", "教师", "课程"),
     "identity:pi": ("课题组", "负责人", "导师", "PI"),
     "domain:teaching": ("教学", "课程", "研究生课程"),
@@ -1086,6 +1128,8 @@ def _document_course_ids(document: KnowledgeDocumentRecord) -> frozenset[str]:
         course_ids.add("llm-inference")
     if "graduate-paper-writing-course" in haystack:
         course_ids.add("paper-writing")
+    if "database-lab" in haystack or "database-experiment" in haystack:
+        course_ids.add("database-lab")
     return frozenset(course_ids)
 
 

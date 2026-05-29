@@ -363,9 +363,13 @@ async def list_knowledge_documents(
 @llm_app.get("/knowledge/search", response_model=KnowledgeSearchResponse)
 async def search_knowledge_documents(
     query: str = Query(min_length=1, max_length=256),
+    visitor_profile: str | None = Query(
+        default=None,
+        pattern="^(hust_undergraduate|paper_writing_student|lab_member|general_visitor)$",
+    ),
     _: dict = Depends(require_admin_session),
 ) -> KnowledgeSearchResponse:
-    return service.search_knowledge(query)
+    return service.search_knowledge(query, visitor_profile=visitor_profile)
 
 
 @llm_app.get("/memory/profiles", response_model=MemoryProfileListResponse)

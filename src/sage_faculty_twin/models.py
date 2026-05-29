@@ -464,6 +464,7 @@ class AdminLoginRequest(BaseModel):
 class UserRegisterRequest(BaseModel):
     name: str = Field(min_length=1, max_length=128)
     email: str = Field(min_length=3, max_length=256)
+    visitor_profile: str = Field(pattern="^(hust_undergraduate|paper_writing_student|lab_member|general_visitor)$")
     password: str = Field(min_length=8, max_length=256)
 
 
@@ -476,6 +477,7 @@ class UserAccountResponse(BaseModel):
     user_id: str
     name: str
     email: str
+    visitor_profile: str = Field(pattern="^(hust_undergraduate|paper_writing_student|lab_member|general_visitor)$")
     created_at: datetime
 
 

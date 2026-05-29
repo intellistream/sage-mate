@@ -79,7 +79,8 @@ Once the app is up, a few prompts that show the product shape quickly are:
 - `和老师约时间前，我应该先准备什么？`
 - `帮我预约下周三下午讨论论文提纲，我会带 draft 和问题清单。`
 - `我之前提到过的研究主题是什么？`
-- `Tutorial 7 主要讲了什么，我应该先看哪部分？`
+- `大模型推理引擎 Tutorial 7 主要讲了什么，我应该先看哪部分？`
+- `数据库实验课开始前，我应该先准备哪些环境和材料？`
 
 These tend to exercise the answer-basis panel, recent-memory reuse, follow-up actions, and the
 booking or review routing logic in one pass.
