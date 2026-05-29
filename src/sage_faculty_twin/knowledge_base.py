@@ -496,6 +496,27 @@ class LocalKnowledgeStore:
                     metadata=document.metadata,
                 )
             )
+
+        lexical_hits: list[KnowledgeSearchHit] = []
+        for document in self.list_documents():
+            if document.document_id in seen_document_ids:
+                continue
+            lexical_score = self._score_document(document, query_tokens, query_profile)
+            if lexical_score <= 0:
+                continue
+            lexical_hits.append(
+                KnowledgeSearchHit(
+                    document_id=document.document_id,
+                    title=document.title,
+                    excerpt=self._build_excerpt(document.content, query_tokens),
+                    score=lexical_score,
+                    tags=document.tags,
+                    source_name=document.source_name,
+                    metadata=document.metadata,
+                )
+            )
+        hits.extend(sorted(lexical_hits, key=lambda item: item.score, reverse=True)[: max(limit * 3, limit + 5)])
+
         reranked = sorted(
             hits,
             key=lambda item: (

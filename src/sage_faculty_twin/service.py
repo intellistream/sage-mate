@@ -1109,7 +1109,8 @@ class FacultyTwinWorkflowSupport:
             f"{memory_context}"
             f"{knowledge_context}"
             f"Question: {request.question}\n"
-            "Respond as the digital twin of the faculty owner. Keep the answer grounded and concise."
+            "Respond as the digital twin of the faculty owner. Keep the answer grounded and concise. "
+            "Use retrieved knowledge only when it directly answers this question; ignore adjacent topics and do not add unasked facts just because they appear in context."
         )
 
     def _build_admin_session_response(
@@ -1219,6 +1220,10 @@ class FacultyTwinWorkflowSupport:
             return (
                 "Intent guidance: The student is asking about the owner's research. "
                 "Prioritize research overview, publications, and paper digests. "
+                "For questions about the owner's main or current research direction, answer with the current focus first: "
+                "LLM inference engines, LLM inference serving systems, and memory-agent middleware. "
+                "If older database-management, stream-processing, or parallel/distributed-systems materials appear, "
+                "frame them as historical foundations or method background rather than the current primary direction. "
                 "Do not treat courseware as the owner's main identity unless the student explicitly asks about teaching.\n"
             )
         if interaction_intent.domain == "teaching":
@@ -2153,7 +2158,7 @@ class FacultyTwinWorkflowSupport:
 
         time_matches = list(
             re.finditer(
-                r"(?:(上午|中午|下午|晚上))?\s*(\d{1,2})(?:[:：](\d{2})|点(?:(半)|(\d{1,2})分?)?)",
+                r"(?:(上午|中午|下午|晚上))?\s*(\d{1,2}|[零〇一二两三四五六七八九十]{1,3})(?:[:：](\d{2})|点(?:(半)|(\d{1,2})分?)?)",
                 text,
             )
         )
@@ -2210,7 +2215,7 @@ class FacultyTwinWorkflowSupport:
     ) -> tuple[str | None, int, int]:
         prefix, hour_text, minute_text, half_text, cn_minute_text = match.groups()
         resolved_prefix = prefix or inherited_prefix
-        hour = int(hour_text)
+        hour = self._parse_time_number(hour_text)
         if minute_text:
             minute = int(minute_text)
         elif half_text:
@@ -2225,6 +2230,21 @@ class FacultyTwinWorkflowSupport:
         if resolved_prefix == "中午" and hour < 11:
             hour += 12
         return resolved_prefix, hour, minute
+
+    def _parse_time_number(self, text: str) -> int:
+        if text.isdigit():
+            return int(text)
+        digits = {"零": 0, "〇": 0, "一": 1, "二": 2, "两": 2, "三": 3, "四": 4, "五": 5, "六": 6, "七": 7, "八": 8, "九": 9}
+        if text == "十":
+            return 10
+        if text.startswith("十"):
+            return 10 + digits.get(text[-1], 0)
+        if text.endswith("十"):
+            return digits.get(text[0], 0) * 10
+        if "十" in text:
+            tens_text, ones_text = text.split("十", 1)
+            return digits.get(tens_text, 1) * 10 + digits.get(ones_text, 0)
+        return digits.get(text, 0)
 
     def _extract_topic(self, question: str, course_context: str | None) -> str | None:
         explicit_patterns = (

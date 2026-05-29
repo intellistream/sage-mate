@@ -308,6 +308,20 @@ class VllmChatClient:
         lowered = question.lower()
         course_context_text = (course_context or "").lower()
 
+        if _looks_like_booking_request(lowered, question):
+            return intent.model_copy(
+                update={
+                    "action": "book_meeting",
+                    "domain": "booking",
+                    "retrieval_scopes": ["meeting_policy"],
+                    "exclude_scopes": ["courseware", "publications"],
+                    "decision_mode": "review_queue",
+                    "needs_clarification": False,
+                    "clarification_message": None,
+                    "confidence": max(intent.confidence, 0.99),
+                }
+            )
+
         if _looks_like_human_handoff_request(lowered, question):
             return intent.model_copy(
                 update={
@@ -390,20 +404,6 @@ class VllmChatClient:
                     "needs_clarification": False,
                     "clarification_message": None,
                     "confidence": max(intent.confidence, 0.85),
-                }
-            )
-
-        if _looks_like_booking_request(lowered, question):
-            return intent.model_copy(
-                update={
-                    "action": "book_meeting",
-                    "domain": "booking",
-                    "retrieval_scopes": ["meeting_policy"],
-                    "exclude_scopes": ["courseware", "publications"],
-                    "decision_mode": "review_queue",
-                    "needs_clarification": False,
-                    "clarification_message": None,
-                    "confidence": max(intent.confidence, 0.99),
                 }
             )
 
@@ -550,6 +550,11 @@ def _looks_like_booking_information_question(lowered: str, question: str) -> boo
         "告诉我",
         "能否告诉我",
         "可以告诉我",
+        "准备什么",
+        "先准备",
+        "提前准备",
+        "约时间前",
+        "预约前",
         "什么时候",
         "什么时间",
         "这周",

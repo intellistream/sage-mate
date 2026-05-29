@@ -1,4 +1,5 @@
 import asyncio
+from datetime import datetime, timedelta
 from pathlib import Path
 
 from sage_faculty_twin.config import AppSettings
@@ -211,6 +212,37 @@ def test_chat_books_meeting_when_details_are_complete(tmp_path: Path) -> None:
     assert len(notifier.request_bookings) == 1
     assert settings.booking_notification_email in response.answer
     assert "待确认" in response.answer
+
+
+def test_chat_books_meeting_with_chinese_relative_time(tmp_path: Path) -> None:
+    settings = AppSettings(knowledge_base_dir=tmp_path)
+    service = DigitalTwinService(settings)
+    service._llm_client = FailingLLMClient()
+    service._email_notifier = RecordingNotifier()
+
+    response = asyncio.run(
+        service.answer(
+            ChatRequest(
+                student_name="Alice",
+                student_email="alice@example.com",
+                course_context="数据库实验课",
+                conversation_id="conv-cn-time",
+                question="请帮我预约明天下午三点讨论数据库实验课报告。",
+            )
+        )
+    )
+
+    assert response.workflow_action == "book_meeting"
+    assert response.pending_fields == []
+    assert response.booking_result is not None
+    assert response.booking_result.booking is not None
+    booking = response.booking_result.booking
+    assert booking.topic == "数据库实验课报告"
+    assert booking.start_at.date() == (datetime.now() + timedelta(days=1)).date()
+    assert booking.start_at.hour == 15
+    assert booking.start_at.minute == 0
+    assert booking.end_at.hour == 15
+    assert booking.end_at.minute == 30
 
 
 def test_admin_confirmation_sends_student_email(tmp_path: Path) -> None:

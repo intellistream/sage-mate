@@ -3,7 +3,7 @@ from datetime import UTC, datetime
 
 from sage_faculty_twin.config import AppSettings
 from sage_faculty_twin.knowledge_base import LocalKnowledgeStore
-from sage_faculty_twin.models import KnowledgeDocumentCreate, KnowledgeDocumentRecord, KnowledgeSearchHit
+from sage_faculty_twin.models import InteractionIntent, KnowledgeDocumentCreate, KnowledgeDocumentRecord, KnowledgeSearchHit
 from sage_faculty_twin.service import DigitalTwinService
 
 
@@ -179,6 +179,41 @@ def test_neuromem_backend_prefers_matching_teaching_material_type(tmp_path: Path
     assert store.search("Tutorial 12 讲什么？")[0].tags[-1] == "tutorial"
     assert store.search("第 5 讲 KV 缓存讲什么？")[0].tags[-1] == "lecture"
     assert store.search("实验 3 调度与连续批处理实验讲什么？")[0].tags[-1] == "experiment"
+
+
+def test_neuromem_backend_finds_exact_tutorial_ordinal(tmp_path: Path) -> None:
+    settings = AppSettings(knowledge_base_dir=tmp_path, knowledge_backend="neuromem")
+    store = LocalKnowledgeStore(settings)
+
+    store.add_document(
+        KnowledgeDocumentCreate(
+            title="课件正文｜大模型推理基础设施课程材料｜Tutorial 7 执行优化与异构路径",
+            content="Tutorial 7 解释执行优化、异构路径，以及 kernel 加速不一定改善端到端性能的原因。",
+            tags=["homepage", "teaching", "courseware", "pdf", "tutorial", "course:llm-inference", "material:tutorial", "tutorial:7"],
+            source_name="homepage:contents/teaching/intro-to-llm-inference-engines.md#tutorial-7.pdf",
+        )
+    )
+    store.add_document(
+        KnowledgeDocumentCreate(
+            title="课件正文｜大模型推理基础设施课程材料｜第 7 讲 推理系统架构",
+            content="第 7 讲介绍推理系统架构、调度路径与服务化设计。",
+            tags=["homepage", "teaching", "courseware", "pdf", "lecture", "course:llm-inference", "material:lecture", "lecture:7"],
+            source_name="homepage:contents/teaching/intro-to-llm-inference-engines.md#lecture-7.pdf",
+        )
+    )
+    store.add_document(
+        KnowledgeDocumentCreate(
+            title="课件正文｜大模型推理基础设施课程材料｜Tutorial 12 课程项目工作坊",
+            content="Tutorial 12 介绍课程项目工作坊、里程碑与协作方式。",
+            tags=["homepage", "teaching", "courseware", "pdf", "tutorial", "course:llm-inference", "material:tutorial", "tutorial:12"],
+            source_name="homepage:contents/teaching/intro-to-llm-inference-engines.md#tutorial-12.pdf",
+        )
+    )
+
+    hits = store.search("大模型推理引擎这门课 tutorial 7 主要讲什么？", top_k=3)
+
+    assert hits
+    assert hits[0].title == "课件正文｜大模型推理基础设施课程材料｜Tutorial 7 执行优化与异构路径"
 
 
 def test_knowledge_store_separates_same_lecture_number_across_courses(tmp_path: Path) -> None:
@@ -657,7 +692,17 @@ def test_service_prompt_filters_teaching_materials_for_research_queries(tmp_path
                 source_name="homepage:contents/teaching/graduate-paper-writing-course.md#intro",
             ),
         ],
+        interaction_intent=InteractionIntent(
+            action="answer",
+            domain="research",
+            retrieval_scopes=["publications", "profile"],
+            exclude_scopes=["courseware"],
+            confidence=0.9,
+        ),
     )
 
+    assert "current focus first" in prompt
+    assert "LLM inference engines" in prompt
+    assert "historical foundations or method background" in prompt
     assert "研究总览｜研究主线" in prompt
     assert "研究生论文写作课程材料" not in prompt
