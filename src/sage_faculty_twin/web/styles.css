@@ -22,6 +22,7 @@
     --radius-lg: 18px;
     --radius-md: 14px;
     --panel-height: calc(100vh - 72px);
+    --safe-top: env(safe-area-inset-top, 0px);
     --safe-bottom: env(safe-area-inset-bottom, 0px);
     --font-body: "Noto Sans CJK SC", "Source Han Sans SC", "Microsoft YaHei", "PingFang SC", "Segoe UI", sans-serif;
     --font-display: "Noto Sans CJK SC", "Source Han Sans SC", "Microsoft YaHei", "PingFang SC", "Segoe UI", sans-serif;
@@ -1090,6 +1091,7 @@ select {
     inset: 0;
     background: rgba(15, 23, 42, 0.38);
     backdrop-filter: blur(6px);
+    z-index: 9;
 }
 
 .modal-panel {
@@ -2742,11 +2744,12 @@ body.workflow-shell-collapsed #workflow-toggle {
     }
 
     .identity-modal {
-        top: max(14px, var(--safe-top));
+        top: calc(14px + var(--safe-top));
         right: 10px;
         bottom: auto;
         left: 10px;
         width: auto;
+        max-height: calc(100vh - 28px - var(--safe-top) - var(--safe-bottom));
         max-height: calc(100dvh - 28px - var(--safe-top) - var(--safe-bottom));
         transform: none;
     }
@@ -2754,8 +2757,9 @@ body.workflow-shell-collapsed #workflow-toggle {
     #admin-login-modal,
     #user-register-modal,
     #user-login-modal {
-        top: max(14px, var(--safe-top));
+        top: calc(14px + var(--safe-top));
         bottom: auto;
+        max-height: calc(100vh - 28px - var(--safe-top) - var(--safe-bottom));
         max-height: calc(100dvh - 28px - var(--safe-top) - var(--safe-bottom));
     }
 
