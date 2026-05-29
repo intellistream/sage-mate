@@ -5,7 +5,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>学术分身</title>
-    <link rel="stylesheet" href="./styles.css?v=20260529-inference-desk" />
+    <link rel="stylesheet" href="./styles.css?v=20260529-context-strip" />
 </head>
 
 <body class="presentation-booting">
@@ -75,10 +75,11 @@
                 <form id="chat-form" class="composer-shell">
                     <button type="button" id="mobile-workflow-trigger" class="icon-button mobile-workflow-trigger"
                         aria-controls="workflow-shell" aria-expanded="false">打开处理进度</button>
-                    <div class="composer-context-row" aria-label="当前问答上下文">
-                        <span id="composer-profile-chip" class="composer-context-chip">一般访客</span>
-                        <span id="composer-context-chip" class="composer-context-chip">初次来访</span>
-                        <span id="composer-workflow-chip" class="composer-context-chip composer-context-chip-strong">SAGE FlowNet</span>
+                    <div class="composer-context-row" aria-label="当前对话设置">
+                        <span id="composer-profile-chip" class="composer-context-chip">身份：一般访客</span>
+                        <span id="composer-context-chip" class="composer-context-chip">场景：初次来访</span>
+                        <span id="composer-workflow-chip"
+                            class="composer-context-chip composer-context-chip-strong">处理：检索与整理</span>
                     </div>
                     <div class="composer-row">
                         <textarea id="chat-question" name="question" rows="1" required
@@ -757,7 +758,7 @@
         </div>
     </section>
 
-    <script src="./app.js?v=20260529-inference-desk"></script>
+    <script src="./app.js?v=20260529-context-strip"></script>
 </body>
 
 </html>

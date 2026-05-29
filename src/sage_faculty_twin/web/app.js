@@ -877,15 +877,15 @@ function updateProfileDrawerCopy(config) {
 function updateComposerContextChips() {
     const config = getVisitorProfileConfig();
     if (composerProfileChip) {
-        composerProfileChip.textContent = config.label;
+        composerProfileChip.textContent = `身份：${config.label}`;
     }
     if (composerContextChip) {
-        composerContextChip.textContent = courseContextInput?.value?.trim() || config.defaultContext;
+        composerContextChip.textContent = `场景：${courseContextInput?.value?.trim() || config.defaultContext}`;
     }
     if (composerWorkflowChip) {
         composerWorkflowChip.textContent = latestWorkflowMeta.isStreaming
-            ? `FlowNet · ${formatWorkflowActionLabel(latestWorkflowMeta, activeWorkflowSteps)}`
-            : "SAGE FlowNet";
+            ? `处理：${formatWorkflowActionLabel(latestWorkflowMeta, activeWorkflowSteps)}`
+            : "处理：检索与整理";
     }
 }
 
