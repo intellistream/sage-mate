@@ -15,6 +15,9 @@ from pydantic import ValidationError
 
 from .config import AppSettings
 from .models import InteractionIntent
+from .workflow_context import WorkflowRequestContext
+from .workflow_planner import PlanSpec, ShadowPlanCandidate
+from .workflow_steps import get_default_step_registry
 
 
 _DEFAULT_RETRIEVAL_SCOPES: dict[str, list[str]] = {
@@ -33,12 +36,19 @@ _DEFAULT_EXCLUDE_SCOPES: dict[str, list[str]] = {
     "booking": ["courseware", "publications"],
 }
 
+
 class _InteractionIntentPayload(BaseModel):
-    action: Literal["answer", "book_meeting", "ask_followup", "review_queue", "human_handoff"] = "answer"
-    domain: Literal["general", "research", "teaching", "advising", "booking"] = "general"
+    action: Literal[
+        "answer", "book_meeting", "ask_followup", "review_queue", "human_handoff"
+    ] = "answer"
+    domain: Literal["general", "research", "teaching", "advising", "booking"] = (
+        "general"
+    )
     retrieval_scopes: list[str] = Field(default_factory=list)
     exclude_scopes: list[str] = Field(default_factory=list)
-    decision_mode: Literal["direct_answer", "advise_only", "review_queue", "human_handoff"] | None = None
+    decision_mode: (
+        Literal["direct_answer", "advise_only", "review_queue", "human_handoff"] | None
+    ) = None
     needs_clarification: bool = False
     clarification_message: str | None = None
     escalation_reason: str | None = None
@@ -53,7 +63,7 @@ class VllmChatClient:
                 "Authorization": f"Bearer {self._settings.api_key}",
                 "Content-Type": "application/json",
             },
-            timeout=30.0,
+            timeout=float(self._settings.llm_timeout_seconds),
             limits=httpx.Limits(max_connections=20, max_keepalive_connections=10),
         )
         self._cache_lock = threading.Lock()
@@ -79,7 +89,8 @@ class VllmChatClient:
         with self._metrics_lock:
             last_status = "not_checked"
             if self._last_success_at is not None and (
-                self._last_error_at is None or self._last_success_at >= self._last_error_at
+                self._last_error_at is None
+                or self._last_success_at >= self._last_error_at
             ):
                 last_status = "ok"
             elif self._last_error_at is not None:
@@ -149,7 +160,10 @@ class VllmChatClient:
         course_context: str | None = None,
     ) -> bool:
         try:
-            return self.classify_interaction_intent_sync(question, course_context).action == "book_meeting"
+            return (
+                self.classify_interaction_intent_sync(question, course_context).action
+                == "book_meeting"
+            )
         except Exception:
             return False
 
@@ -162,6 +176,60 @@ class VllmChatClient:
             self.classify_booking_intent_sync,
             question,
             course_context,
+        )
+
+    def propose_shadow_plan_candidate_sync(
+        self,
+        context: WorkflowRequestContext,
+        deterministic_plan: PlanSpec,
+    ) -> ShadowPlanCandidate:
+        step_registry = get_default_step_registry()
+        allowed_step_ids = ", ".join(sorted(step_registry))
+        allowed_sources = (
+            ", ".join(sorted(context.available_evidence_sources)) or "none"
+        )
+        deterministic_steps = ", ".join(
+            step.step_id for step in deterministic_plan.steps
+        )
+        system_prompt = (
+            "You are a shadow workflow planner for an academic digital twin. "
+            "Return JSON only. Do not execute anything. Do not invent unregistered steps. "
+            "Propose a conservative comparison plan for analysis only."
+        )
+        user_prompt = (
+            "Return a JSON object with exactly these keys: goal, fallback_template, step_ids, allowed_sources, "
+            "requires_citations, explain_to_operator.\n"
+            f"Allowed step_ids: {allowed_step_ids}.\n"
+            f"Allowed evidence sources for this request: {allowed_sources}.\n"
+            f"Question: {context.question}\n"
+            f"Course context: {context.course_context or 'none'}\n"
+            f"Visitor profile: {context.visitor_profile or 'none'}\n"
+            f"Role mode: {context.role_mode}\n"
+            f"Journey state: {context.journey_state}\n"
+            f"Session identity: {context.session_identity}\n"
+            f"Deterministic goal: {deterministic_plan.goal}\n"
+            f"Deterministic fallback template: {deterministic_plan.fallback_template}\n"
+            f"Deterministic steps: {deterministic_steps}\n"
+            "Rules: keep the proposal read-only unless a draft step is clearly justified, do not use admin-only steps for "
+            "normal users, and do not add any text outside the JSON object."
+        )
+        content = self.answer_question_sync(
+            system_prompt,
+            user_prompt,
+            temperature=self._settings.shadow_planner_temperature,
+            max_tokens=self._settings.shadow_planner_max_tokens,
+        )
+        return self._parse_shadow_plan_candidate(content)
+
+    async def propose_shadow_plan_candidate(
+        self,
+        context: WorkflowRequestContext,
+        deterministic_plan: PlanSpec,
+    ) -> ShadowPlanCandidate:
+        return await asyncio.to_thread(
+            self.propose_shadow_plan_candidate_sync,
+            context,
+            deterministic_plan,
         )
 
     def answer_question_sync(
@@ -194,28 +262,38 @@ class VllmChatClient:
             return cached
 
         self._record_request_start()
-        try:
-            response = self._client.post("/chat/completions", json=payload)
-            response.raise_for_status()
+        max_retries = self._settings.llm_retry_attempts
+        for attempt in range(max_retries + 1):
+            try:
+                response = self._client.post("/chat/completions", json=payload)
+                response.raise_for_status()
 
-            data = response.json()
-            choices = data.get("choices", [])
-            if not choices:
-                raise RuntimeError("vllm-hust returned no chat choices")
-            message = choices[0].get("message", {})
-            content = message.get("content")
-            if not content:
-                raise RuntimeError("vllm-hust returned an empty chat message")
-            answer = str(content)
-        except Exception as exc:
-            self._record_request_error(exc)
-            raise
+                data = response.json()
+                choices = data.get("choices", [])
+                if not choices:
+                    raise RuntimeError("vllm-hust returned no chat choices")
+                message = choices[0].get("message", {})
+                content = message.get("content")
+                if not content:
+                    raise RuntimeError("vllm-hust returned an empty chat message")
+                answer = str(content)
+                break
+            except httpx.TimeoutException as exc:
+                if attempt >= max_retries:
+                    self._record_request_error(exc)
+                    raise
+                self._sleep_before_retry(attempt + 1)
+            except Exception as exc:
+                self._record_request_error(exc)
+                raise
         self._record_request_success()
         self._store_cached_response(cache_key, answer)
         return answer
 
     async def answer_question(self, system_prompt: str, user_prompt: str) -> str:
-        return await asyncio.to_thread(self.answer_question_sync, system_prompt, user_prompt)
+        return await asyncio.to_thread(
+            self.answer_question_sync, system_prompt, user_prompt
+        )
 
     def _extract_json_object(self, text: str) -> dict[str, Any]:
         cleaned = text.strip()
@@ -224,23 +302,42 @@ class VllmChatClient:
         except json.JSONDecodeError:
             match = re.search(r"\{.*\}", cleaned, re.DOTALL)
             if match is None:
-                raise RuntimeError("vllm-hust did not return JSON for booking intent classification") from None
+                raise RuntimeError(
+                    "vllm-hust did not return JSON for booking intent classification"
+                ) from None
             payload = json.loads(match.group(0))
 
         if not isinstance(payload, dict):
-            raise RuntimeError("vllm-hust returned a non-object JSON payload for booking intent classification")
+            raise RuntimeError(
+                "vllm-hust returned a non-object JSON payload for booking intent classification"
+            )
         return payload
 
-    def _parse_interaction_intent_payload(self, content: str) -> _InteractionIntentPayload:
+    def _parse_interaction_intent_payload(
+        self, content: str
+    ) -> _InteractionIntentPayload:
         try:
             payload = self._extract_json_object(content)
             return _InteractionIntentPayload.model_validate(payload)
         except (RuntimeError, ValidationError) as exc:
-            repaired_content = self._repair_interaction_intent_payload(content, str(exc))
+            repaired_content = self._repair_interaction_intent_payload(
+                content, str(exc)
+            )
             repaired_payload = self._extract_json_object(repaired_content)
             return _InteractionIntentPayload.model_validate(repaired_payload)
 
-    def _repair_interaction_intent_payload(self, content: str, validation_error: str) -> str:
+    def _parse_shadow_plan_candidate(self, content: str) -> ShadowPlanCandidate:
+        try:
+            payload = self._extract_json_object(content)
+            return ShadowPlanCandidate.model_validate(payload)
+        except (RuntimeError, ValidationError) as exc:
+            repaired_content = self._repair_shadow_plan_candidate(content, str(exc))
+            repaired_payload = self._extract_json_object(repaired_content)
+            return ShadowPlanCandidate.model_validate(repaired_payload)
+
+    def _repair_interaction_intent_payload(
+        self, content: str, validation_error: str
+    ) -> str:
         system_prompt = (
             "You repair JSON emitted by an interaction-intent classifier. "
             "Preserve the original intent meaning, but return valid JSON only. "
@@ -261,14 +358,47 @@ class VllmChatClient:
             max_tokens=220,
         )
 
-    def _coerce_interaction_intent(self, payload: _InteractionIntentPayload) -> InteractionIntent:
+    def _repair_shadow_plan_candidate(self, content: str, validation_error: str) -> str:
+        step_registry = get_default_step_registry()
+        allowed_step_ids = ", ".join(sorted(step_registry))
+        system_prompt = (
+            "You repair JSON emitted by a shadow workflow planner. Return valid JSON only. "
+            "The JSON object must include exactly these keys: goal, fallback_template, step_ids, allowed_sources, "
+            "requires_citations, explain_to_operator. step_ids and allowed_sources must be JSON arrays of strings."
+        )
+        user_prompt = (
+            "Original shadow planner output:\n"
+            f"{content}\n\n"
+            "Validation error:\n"
+            f"{validation_error}\n\n"
+            f"Allowed step_ids: {allowed_step_ids}\n"
+            "Rewrite the JSON so it is valid without adding explanations."
+        )
+        return self.answer_question_sync(
+            system_prompt,
+            user_prompt,
+            temperature=0.0,
+            max_tokens=220,
+        )
+
+    def _coerce_interaction_intent(
+        self, payload: _InteractionIntentPayload
+    ) -> InteractionIntent:
         action = payload.action
         domain = payload.domain
         decision_mode = payload.decision_mode
-        retrieval_scopes = payload.retrieval_scopes or _DEFAULT_RETRIEVAL_SCOPES.get(domain, [])
-        exclude_scopes = payload.exclude_scopes or _DEFAULT_EXCLUDE_SCOPES.get(domain, [])
+        retrieval_scopes = payload.retrieval_scopes or _DEFAULT_RETRIEVAL_SCOPES.get(
+            domain, []
+        )
+        exclude_scopes = payload.exclude_scopes or _DEFAULT_EXCLUDE_SCOPES.get(
+            domain, []
+        )
         if decision_mode is None:
-            decision_mode = action if action in {"review_queue", "human_handoff"} else "direct_answer"
+            decision_mode = (
+                action
+                if action in {"review_queue", "human_handoff"}
+                else "direct_answer"
+            )
         normalized_payload = {
             "action": action,
             "domain": domain,
@@ -286,7 +416,9 @@ class VllmChatClient:
         }
         return InteractionIntent.model_validate(normalized_payload)
 
-    def _derive_confidence(self, *, action: str, decision_mode: str, needs_clarification: bool) -> float:
+    def _derive_confidence(
+        self, *, action: str, decision_mode: str, needs_clarification: bool
+    ) -> float:
         if needs_clarification or action == "ask_followup":
             return 0.45
         if action == "human_handoff" or decision_mode == "human_handoff":
@@ -349,6 +481,36 @@ class VllmChatClient:
                     "clarification_message": None,
                     "escalation_reason": "这是需要老师审核后才能正式答复的请求。",
                     "confidence": max(intent.confidence, 0.95),
+                }
+            )
+
+        if _looks_like_mixed_course_research_boundary_question(lowered, question):
+            return intent.model_copy(
+                update={
+                    "action": "answer",
+                    "domain": "advising",
+                    "retrieval_scopes": ["preparation", "meeting_policy", "profile"],
+                    "exclude_scopes": ["courseware"],
+                    "decision_mode": "advise_only",
+                    "needs_clarification": False,
+                    "clarification_message": None,
+                    "confidence": max(intent.confidence, 0.92),
+                }
+            )
+
+        if _looks_like_progress_followup_advising_question(
+            lowered, question, course_context_text
+        ):
+            return intent.model_copy(
+                update={
+                    "action": "answer",
+                    "domain": "advising",
+                    "retrieval_scopes": ["preparation", "meeting_policy", "profile"],
+                    "exclude_scopes": ["courseware"],
+                    "decision_mode": "advise_only",
+                    "needs_clarification": False,
+                    "clarification_message": None,
+                    "confidence": max(intent.confidence, 0.92),
                 }
             )
 
@@ -432,7 +594,9 @@ class VllmChatClient:
         return intent
 
     def _cache_key(self, payload: dict[str, Any]) -> str:
-        return json.dumps(payload, sort_keys=True, ensure_ascii=False, separators=(",", ":"))
+        return json.dumps(
+            payload, sort_keys=True, ensure_ascii=False, separators=(",", ":")
+        )
 
     def _get_cached_response(self, cache_key: str) -> str | None:
         ttl_seconds = self._settings.llm_cache_ttl_seconds
@@ -468,7 +632,11 @@ class VllmChatClient:
                 self._response_cache.popitem(last=False)
 
     def _evict_expired_locked(self, now: float) -> None:
-        expired_keys = [key for key, (expires_at, _) in self._response_cache.items() if expires_at <= now]
+        expired_keys = [
+            key
+            for key, (expires_at, _) in self._response_cache.items()
+            if expires_at <= now
+        ]
         for key in expired_keys:
             self._response_cache.pop(key, None)
 
@@ -503,6 +671,13 @@ class VllmChatClient:
             return ""
         return time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(timestamp))
 
+    def _sleep_before_retry(self, retry_number: int) -> None:
+        delay_seconds = self._settings.llm_retry_backoff_seconds * (
+            2 ** max(0, retry_number - 1)
+        )
+        if delay_seconds > 0:
+            time.sleep(delay_seconds)
+
 
 def _looks_like_booking_request(lowered: str, question: str) -> bool:
     if _looks_like_booking_information_question(lowered, question):
@@ -518,10 +693,11 @@ def _looks_like_booking_request(lowered: str, question: str) -> bool:
         "约个会",
         "book",
         "schedule a meeting",
-        "meeting",
         "预约",
     )
-    return any(marker in lowered for marker in booking_markers) or any(marker in question for marker in booking_markers)
+    return any(marker in lowered for marker in booking_markers) or any(
+        marker in question for marker in booking_markers
+    )
 
 
 def _looks_like_booking_information_question(lowered: str, question: str) -> bool:
@@ -538,7 +714,9 @@ def _looks_like_booking_information_question(lowered: str, question: str) -> boo
         "book me",
         "schedule a meeting",
     )
-    if any(marker in lowered for marker in explicit_booking_markers) or any(marker in question for marker in explicit_booking_markers):
+    if any(marker in lowered for marker in explicit_booking_markers) or any(
+        marker in question for marker in explicit_booking_markers
+    ):
         return False
 
     info_markers = (
@@ -557,6 +735,9 @@ def _looks_like_booking_information_question(lowered: str, question: str) -> boo
         "预约前",
         "什么时候",
         "什么时间",
+        "哪几天",
+        "什么时候方便",
+        "哪些时候方便",
         "这周",
         "本周",
         "开放时段",
@@ -566,6 +747,15 @@ def _looks_like_booking_information_question(lowered: str, question: str) -> boo
         "怎么预约",
         "以便预约",
         "方便预约",
+        "先发邮件",
+        "直接发邮件",
+        "发邮件",
+        "线下聊",
+        "当面聊",
+        "更合适",
+        "什么类型的问题",
+        "适合先邮件",
+        "等有更多内容再约",
     )
     booking_context_markers = (
         "office hour",
@@ -575,27 +765,147 @@ def _looks_like_booking_information_question(lowered: str, question: str) -> boo
         "约老师",
         "时间安排",
         "开放时段",
+        "找您",
+        "发邮件",
+        "线下聊",
+        "当面聊",
     )
-    has_info_marker = any(marker in lowered for marker in info_markers) or any(marker in question for marker in info_markers)
-    has_booking_context = any(marker in lowered for marker in booking_context_markers) or any(marker in question for marker in booking_context_markers)
+    has_info_marker = any(marker in lowered for marker in info_markers) or any(
+        marker in question for marker in info_markers
+    )
+    has_booking_context = any(
+        marker in lowered for marker in booking_context_markers
+    ) or any(marker in question for marker in booking_context_markers)
     return has_info_marker and has_booking_context
 
 
 def _looks_like_teaching_question(lowered: str, question: str) -> bool:
+    if _looks_like_mixed_course_research_boundary_question(lowered, question):
+        return False
     if bool(re.search(r"第\s*\d+\s*讲", question)):
         return True
-    teaching_markers = ("tutorial", "lecture", "experiment")
+    teaching_markers = ("tutorial", "lecture", "experiment", "assignment", "course")
     if any(marker in lowered for marker in teaching_markers):
         return True
-    return any(marker in question for marker in ("讲义", "课件", "实验", "教程", "习题"))
+    return any(
+        marker in question
+        for marker in (
+            "讲义",
+            "课件",
+            "实验",
+            "教程",
+            "习题",
+            "课上问题",
+            "作业",
+            "端到端",
+            "kernel",
+            "性能分析",
+        )
+    )
 
 
-def _looks_like_advising_question(lowered: str, question: str, course_context_text: str) -> bool:
-    advising_markers = ("准备什么", "提前准备", "怎么准备", "agenda", "blocker")
-    role_markers = ("老师", "导师", "meeting", "预约", "约时间")
-    if any(marker in question for marker in advising_markers) and any(marker in question for marker in role_markers):
+def _looks_like_mixed_course_research_boundary_question(
+    lowered: str, question: str
+) -> bool:
+    has_course = any(marker in lowered for marker in ("course", "assignment")) or any(
+        marker in question for marker in ("课程", "作业", "课上问题")
+    )
+    has_research = any(
+        marker in lowered for marker in ("research", "paper", "project")
+    ) or any(marker in question for marker in ("研究", "科研", "论文", "项目"))
+    has_boundary = any(
+        marker in lowered for marker in ("separately", "split", "together")
+    ) or any(
+        marker in question
+        for marker in ("分开准备", "分开", "分别", "一次都问完", "一起问", "一起聊")
+    )
+    return has_course and has_research and has_boundary
+
+
+def _looks_like_advising_question(
+    lowered: str, question: str, course_context_text: str
+) -> bool:
+    advising_markers = (
+        "准备什么",
+        "提前准备",
+        "怎么准备",
+        "先准备",
+        "先整理",
+        "怎么组织",
+        "agenda",
+        "blocker",
+        "更看重哪些准备",
+        "反馈更集中",
+        "带 draft",
+        "初稿",
+        "合作前",
+        "合作空间",
+        "先补什么",
+        "安排阅读顺序",
+        "下一步",
+        "继续补实验",
+    )
+    scope_markers = (
+        "怎么收窄",
+        "收窄",
+        "收拢结构",
+        "题目太大",
+        "砍掉哪些",
+        "最先会删什么",
+    )
+    contact_markers = (
+        "发邮件",
+        "线下聊",
+        "当面聊",
+        "分开准备",
+        "更合适",
+        "哪几天",
+        "什么时候方便",
+    )
+    role_markers = ("老师", "导师", "meeting", "预约", "约时间", "找您", "邮件", "线下")
+    if any(marker in question for marker in advising_markers) and any(
+        marker in question for marker in role_markers
+    ):
         return True
-    return "科研指导" in course_context_text and "准备" in question
+    if any(marker in question for marker in scope_markers) and any(
+        marker in question
+        for marker in ("老师", "研究", "项目", "题目", "论文", "摘要")
+    ):
+        return True
+    if any(marker in question for marker in contact_markers) and any(
+        marker in question for marker in role_markers
+    ):
+        return True
+    if "科研指导" in course_context_text and any(
+        marker in question
+        for marker in ("准备", "收窄", "整理", "下一步", "发邮件", "线下", "合作")
+    ):
+        return True
+    return False
+
+
+def _looks_like_progress_followup_advising_question(
+    lowered: str,
+    question: str,
+    course_context_text: str,
+) -> bool:
+    progress_markers = (
+        "上次已被建议",
+        "整理成三类",
+        "下一步",
+        "先发邮件还是继续补实验",
+        "减少来回修改",
+    )
+    contact_markers = ("老师", "请教老师", "邮件", "补实验", "继续补实验", "当前进展")
+    has_progress = any(marker in question for marker in progress_markers) or any(
+        marker in lowered for marker in progress_markers
+    )
+    has_contact_context = any(marker in question for marker in contact_markers) or any(
+        marker in lowered for marker in contact_markers
+    )
+    if has_progress and has_contact_context:
+        return True
+    return "lamp personalization benchmark" in course_context_text and has_progress
 
 
 def _looks_like_decision_request(lowered: str, question: str) -> bool:
@@ -608,7 +918,9 @@ def _looks_like_decision_request(lowered: str, question: str) -> bool:
         "选哪个",
         "应该选",
     )
-    return any(marker in lowered for marker in markers) or any(marker in question for marker in markers)
+    return any(marker in lowered for marker in markers) or any(
+        marker in question for marker in markers
+    )
 
 
 def _looks_like_review_queue_request(lowered: str, question: str) -> bool:
@@ -627,7 +939,9 @@ def _looks_like_review_queue_request(lowered: str, question: str) -> bool:
         "能收我吗",
         "能不能给我",
     )
-    return any(marker in lowered for marker in markers) or any(marker in question for marker in markers)
+    return any(marker in lowered for marker in markers) or any(
+        marker in question for marker in markers
+    )
 
 
 def _looks_like_human_handoff_request(lowered: str, question: str) -> bool:
@@ -647,7 +961,9 @@ def _looks_like_human_handoff_request(lowered: str, question: str) -> bool:
         "冲突",
         "误会",
     )
-    return any(marker in lowered for marker in markers) or any(marker in question for marker in markers)
+    return any(marker in lowered for marker in markers) or any(
+        marker in question for marker in markers
+    )
 
 
 def _looks_like_research_question(lowered: str, question: str) -> bool:
@@ -664,4 +980,6 @@ def _looks_like_research_question(lowered: str, question: str) -> bool:
         "publications",
         "research",
     )
-    return any(marker in lowered for marker in research_markers) or any(marker in question for marker in research_markers)
+    return any(marker in lowered for marker in research_markers) or any(
+        marker in question for marker in research_markers
+    )

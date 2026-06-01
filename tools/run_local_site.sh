@@ -11,8 +11,6 @@ default_app_port=55601
 default_site_port=8088
 app_port="${APP_PORT:-$default_app_port}"
 site_port="${SITE_PORT:-$default_site_port}"
-homepage_upstream_host="${HOMEPAGE_UPSTREAM_HOST:-example.invalid}"
-homepage_upstream_scheme="${HOMEPAGE_UPSTREAM_SCHEME:-https}"
 pythonpath_entries=("$repo_root/src")
 for candidate in "$repo_root/../SAGE/src" "$repo_root/../sageVDB" "$repo_root/../neuromem"; do
     if [[ -e "$candidate" ]]; then
@@ -108,8 +106,6 @@ fi
 sed \
     -e "s|__SITE_PORT__|$site_port|g" \
     -e "s|__APP_PORT__|$app_port|g" \
-    -e "s|__HOMEPAGE_UPSTREAM_HOST__|$homepage_upstream_host|g" \
-    -e "s|__HOMEPAGE_UPSTREAM_SCHEME__|$homepage_upstream_scheme|g" \
     "$nginx_template" >"$nginx_conf"
 
 if [[ "$app_ready" -eq 0 ]]; then

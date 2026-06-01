@@ -1,0 +1,146 @@
+[
+    {
+        "id": "lamp-007",
+        "scenario_id": "course-question-logistics",
+        "title": "课程问题先问什么更高效",
+        "task_name": "LaMP-Local",
+        "focus": "teaching-personalization",
+        "input": "结合我的情况，我下次问课上问题时应该先整理哪几类信息？",
+        "profile": [
+            {
+                "id": "p1",
+                "course": "大模型推理基础设施",
+                "issue": "作业里端到端性能分析不清楚"
+            },
+            {
+                "id": "p2",
+                "constraint": "问题比较碎",
+                "goal": "减少来回沟通"
+            }
+        ],
+        "expected_traits": [
+            "结合课程问题性质",
+            "帮助减少碎片化沟通"
+        ],
+        "rubric": {
+            "must_include_all": [
+                "整理"
+            ],
+            "must_include_any": [
+                "问题",
+                "现象",
+                "尝试",
+                "性能"
+            ],
+            "must_not_include": [
+                "直接给答案"
+            ],
+            "preferred_keywords": [
+                "建议"
+            ],
+            "profile_grounding_terms": [
+                "端到端性能",
+                "问题比较碎"
+            ],
+            "min_chars": 18,
+            "max_chars": 180,
+            "pass_threshold": 70
+        }
+    },
+    {
+        "id": "lamp-008",
+        "scenario_id": "publication-starting-point",
+        "title": "按兴趣选第一批论文主题",
+        "task_name": "LaMP-Local",
+        "focus": "publication-personalization",
+        "input": "如果我想从您的研究里先挑一个主题开始读，哪类会更适合我？",
+        "profile": [
+            {
+                "id": "p1",
+                "interest": "服务系统和推理效率",
+                "background": "做过一些系统课程项目"
+            },
+            {
+                "id": "p2",
+                "goal": "先建立主线理解",
+                "constraint": "不想一开始看太细"
+            }
+        ],
+        "expected_traits": [
+            "结合兴趣和背景",
+            "不直接捏造论文名"
+        ],
+        "rubric": {
+            "must_include_all": [
+                "主题"
+            ],
+            "must_include_any": [
+                "服务系统",
+                "推理效率",
+                "主线"
+            ],
+            "must_not_include": [
+                "具体不存在论文题目"
+            ],
+            "preferred_keywords": [
+                "可以"
+            ],
+            "profile_grounding_terms": [
+                "服务系统",
+                "系统课程项目"
+            ],
+            "min_chars": 18,
+            "max_chars": 170,
+            "pass_threshold": 70
+        }
+    },
+    {
+        "id": "lamp-016",
+        "scenario_id": "memory-followup-personalization",
+        "title": "承接上次建议后的下一步",
+        "task_name": "LaMP-Local",
+        "focus": "memory-conditioned-generation",
+        "input": "按我现在的进展，下一步更适合先发邮件还是继续补实验？",
+        "profile": [
+            {
+                "id": "p1",
+                "history": "上次已被建议按主题整理问题",
+                "status": "现在已经整理成三类"
+            },
+            {
+                "id": "p2",
+                "choice": "发邮件或继续补实验",
+                "goal": "减少来回修改"
+            }
+        ],
+        "expected_traits": [
+            "承接上次建议",
+            "结合当前已整理进展"
+        ],
+        "rubric": {
+            "must_include_all": [
+                "下一步"
+            ],
+            "must_include_any": [
+                "邮件",
+                "实验",
+                "整理",
+                "问题"
+            ],
+            "must_not_include": [
+                "我是张书豪",
+                "很高兴认识你"
+            ],
+            "preferred_keywords": [
+                "可以先"
+            ],
+            "profile_grounding_terms": [
+                "整理成三类",
+                "上次已被建议"
+            ],
+            "min_chars": 18,
+            "max_chars": 180,
+            "pass_threshold": 72
+        }
+    }
+]

@@ -21,12 +21,10 @@ Or use the provided wrapper:
 
 ## 2. Local Reverse Proxy
 
-The repository includes a repo-local Nginx launcher so you can serve the app and an optional
-homepage route without writing into system-wide `/etc/nginx`.
+The repository includes a repo-local Nginx launcher so you can serve the app and keep a local
+homepage compatibility route without writing into system-wide `/etc/nginx`.
 
 ```bash
-HOMEPAGE_UPSTREAM_HOST=homepage.example.edu \
-HOMEPAGE_UPSTREAM_SCHEME=https \
 ./tools/run_local_site.sh
 ```
 
@@ -34,11 +32,11 @@ Relevant variables:
 
 - `APP_PORT`: upstream app port, default `55601`
 - `SITE_PORT`: local proxy port, default `8088`
-- `HOMEPAGE_UPSTREAM_HOST`: hostname used for `/home/` proxying
-- `HOMEPAGE_UPSTREAM_SCHEME`: upstream scheme for `/home/`, default `https`
+- `HOMEPAGE_REDIRECT_ORIGIN`: canonical public homepage origin, default `https://home.shuhao.sage.org.ai`
 
-If you do not want to proxy a homepage route yet, leave the homepage link hidden by keeping
-`DIGITAL_TWIN_HOMEPAGE_PUBLIC_URL` empty.
+`/home` and `/home/` are compatibility paths at the site-proxy layer. They now redirect to the
+canonical public homepage origin, while local direct app access can still use the built-in FastAPI
+homepage endpoint on `APP_PORT`.
 
 ## 3. User Services
 
@@ -80,10 +78,14 @@ Replace the placeholder tunnel id and hostname in that file, then run:
 
 ## 5. Public Branding
 
-To show a public homepage button in the web UI, set:
+Set the canonical public homepage URL for the web UI top-bar button with:
 
 ```bash
 export DIGITAL_TWIN_HOMEPAGE_PUBLIC_URL=https://faculty.example.edu/
 ```
 
-If the variable is empty, the top-bar homepage link stays hidden.
+For this deployment, the canonical public homepage is `https://home.shuhao.sage.org.ai/`.
+
+If the variable is empty, the top-bar homepage link falls back to the app-local `/home/` route.
+That fallback is useful for local development, but it should not be treated as the public-facing
+homepage URL.

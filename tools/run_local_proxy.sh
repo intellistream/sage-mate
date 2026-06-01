@@ -9,8 +9,6 @@ nginx_template="$repo_root/tools/nginx-local.conf"
 nginx_conf="$nginx_prefix/nginx.conf"
 app_port="${APP_PORT:-55601}"
 site_port="${SITE_PORT:-8088}"
-homepage_upstream_host="${HOMEPAGE_UPSTREAM_HOST:-example.invalid}"
-homepage_upstream_scheme="${HOMEPAGE_UPSTREAM_SCHEME:-https}"
 startup_timeout_seconds="${APP_STARTUP_TIMEOUT_SECONDS:-30}"
 
 mkdir -p "$runtime_dir" "$nginx_prefix/logs" "$nginx_prefix/client_body_temp" "$nginx_prefix/proxy_temp" "$nginx_prefix/cache/home_proxy"
@@ -27,8 +25,6 @@ done
 sed \
     -e "s|__SITE_PORT__|$site_port|g" \
     -e "s|__APP_PORT__|$app_port|g" \
-    -e "s|__HOMEPAGE_UPSTREAM_HOST__|$homepage_upstream_host|g" \
-    -e "s|__HOMEPAGE_UPSTREAM_SCHEME__|$homepage_upstream_scheme|g" \
     "$nginx_template" >"$nginx_conf"
 
 exec nginx \

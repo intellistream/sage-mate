@@ -108,7 +108,7 @@ The most important values are:
 - `DIGITAL_TWIN_API_KEY`: optional API key for the LLM endpoint.
 - `DIGITAL_TWIN_KNOWLEDGE_BACKEND`: `neuromem`, `local`, or `sagevdb`.
 - `DIGITAL_TWIN_HOMEPAGE_DIR`: local homepage export used for offline sync or `/home/` serving.
-- `DIGITAL_TWIN_HOMEPAGE_PUBLIC_URL`: optional public homepage URL shown in the top bar.
+- `DIGITAL_TWIN_HOMEPAGE_PUBLIC_URL`: canonical public homepage URL shown in the top bar.
 - `DIGITAL_TWIN_AVAILABILITY_SCHEDULE_PATH`: weekly availability JSON file.
 - `DIGITAL_TWIN_BOOKING_NOTIFICATION_EMAIL`: mailbox that receives booking notifications.
 - `DIGITAL_TWIN_ADMIN_USERNAME`, `DIGITAL_TWIN_ADMIN_PASSWORD`,

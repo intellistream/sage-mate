@@ -3,7 +3,12 @@ from datetime import UTC, datetime
 
 from sage_faculty_twin.config import AppSettings
 from sage_faculty_twin.knowledge_base import LocalKnowledgeStore
-from sage_faculty_twin.models import InteractionIntent, KnowledgeDocumentCreate, KnowledgeDocumentRecord, KnowledgeSearchHit
+from sage_faculty_twin.models import (
+    InteractionIntent,
+    KnowledgeDocumentCreate,
+    KnowledgeDocumentRecord,
+    KnowledgeSearchHit,
+)
 from sage_faculty_twin.service import DigitalTwinService
 
 
@@ -74,7 +79,9 @@ def test_knowledge_store_backfills_metadata_for_legacy_records(tmp_path: Path) -
         source_name="homepage:contents/teaching/intro-to-llm-inference-engines.md#讲义与导论::lecture-5.pdf",
         created_at=datetime.now(UTC),
     )
-    (tmp_path / "legacy-lecture.json").write_text(legacy_record.model_dump_json(), encoding="utf-8")
+    (tmp_path / "legacy-lecture.json").write_text(
+        legacy_record.model_dump_json(), encoding="utf-8"
+    )
 
     store = LocalKnowledgeStore(AppSettings(knowledge_base_dir=tmp_path))
     loaded_record = store.list_documents()[0]
@@ -106,7 +113,9 @@ def test_knowledge_store_supports_neuromem_backend(tmp_path: Path) -> None:
     assert hits[0].title == "Neuromem meeting note"
 
 
-def test_knowledge_store_prefers_matching_teaching_material_type(tmp_path: Path) -> None:
+def test_knowledge_store_prefers_matching_teaching_material_type(
+    tmp_path: Path,
+) -> None:
     settings = AppSettings(knowledge_base_dir=tmp_path)
     store = LocalKnowledgeStore(settings)
 
@@ -147,7 +156,9 @@ def test_knowledge_store_prefers_matching_teaching_material_type(tmp_path: Path)
     assert experiment_hits[0].tags[-1] == "experiment"
 
 
-def test_neuromem_backend_prefers_matching_teaching_material_type(tmp_path: Path) -> None:
+def test_neuromem_backend_prefers_matching_teaching_material_type(
+    tmp_path: Path,
+) -> None:
     settings = AppSettings(knowledge_base_dir=tmp_path, knowledge_backend="neuromem")
     store = LocalKnowledgeStore(settings)
 
@@ -178,7 +189,9 @@ def test_neuromem_backend_prefers_matching_teaching_material_type(tmp_path: Path
 
     assert store.search("Tutorial 12 讲什么？")[0].tags[-1] == "tutorial"
     assert store.search("第 5 讲 KV 缓存讲什么？")[0].tags[-1] == "lecture"
-    assert store.search("实验 3 调度与连续批处理实验讲什么？")[0].tags[-1] == "experiment"
+    assert (
+        store.search("实验 3 调度与连续批处理实验讲什么？")[0].tags[-1] == "experiment"
+    )
 
 
 def test_neuromem_backend_finds_exact_tutorial_ordinal(tmp_path: Path) -> None:
@@ -189,7 +202,16 @@ def test_neuromem_backend_finds_exact_tutorial_ordinal(tmp_path: Path) -> None:
         KnowledgeDocumentCreate(
             title="课件正文｜大模型推理基础设施课程材料｜Tutorial 7 执行优化与异构路径",
             content="Tutorial 7 解释执行优化、异构路径，以及 kernel 加速不一定改善端到端性能的原因。",
-            tags=["homepage", "teaching", "courseware", "pdf", "tutorial", "course:llm-inference", "material:tutorial", "tutorial:7"],
+            tags=[
+                "homepage",
+                "teaching",
+                "courseware",
+                "pdf",
+                "tutorial",
+                "course:llm-inference",
+                "material:tutorial",
+                "tutorial:7",
+            ],
             source_name="homepage:contents/teaching/intro-to-llm-inference-engines.md#tutorial-7.pdf",
         )
     )
@@ -197,7 +219,16 @@ def test_neuromem_backend_finds_exact_tutorial_ordinal(tmp_path: Path) -> None:
         KnowledgeDocumentCreate(
             title="课件正文｜大模型推理基础设施课程材料｜第 7 讲 推理系统架构",
             content="第 7 讲介绍推理系统架构、调度路径与服务化设计。",
-            tags=["homepage", "teaching", "courseware", "pdf", "lecture", "course:llm-inference", "material:lecture", "lecture:7"],
+            tags=[
+                "homepage",
+                "teaching",
+                "courseware",
+                "pdf",
+                "lecture",
+                "course:llm-inference",
+                "material:lecture",
+                "lecture:7",
+            ],
             source_name="homepage:contents/teaching/intro-to-llm-inference-engines.md#lecture-7.pdf",
         )
     )
@@ -205,7 +236,16 @@ def test_neuromem_backend_finds_exact_tutorial_ordinal(tmp_path: Path) -> None:
         KnowledgeDocumentCreate(
             title="课件正文｜大模型推理基础设施课程材料｜Tutorial 12 课程项目工作坊",
             content="Tutorial 12 介绍课程项目工作坊、里程碑与协作方式。",
-            tags=["homepage", "teaching", "courseware", "pdf", "tutorial", "course:llm-inference", "material:tutorial", "tutorial:12"],
+            tags=[
+                "homepage",
+                "teaching",
+                "courseware",
+                "pdf",
+                "tutorial",
+                "course:llm-inference",
+                "material:tutorial",
+                "tutorial:12",
+            ],
             source_name="homepage:contents/teaching/intro-to-llm-inference-engines.md#tutorial-12.pdf",
         )
     )
@@ -213,10 +253,15 @@ def test_neuromem_backend_finds_exact_tutorial_ordinal(tmp_path: Path) -> None:
     hits = store.search("大模型推理引擎这门课 tutorial 7 主要讲什么？", top_k=3)
 
     assert hits
-    assert hits[0].title == "课件正文｜大模型推理基础设施课程材料｜Tutorial 7 执行优化与异构路径"
+    assert (
+        hits[0].title
+        == "课件正文｜大模型推理基础设施课程材料｜Tutorial 7 执行优化与异构路径"
+    )
 
 
-def test_knowledge_store_separates_same_lecture_number_across_courses(tmp_path: Path) -> None:
+def test_knowledge_store_separates_same_lecture_number_across_courses(
+    tmp_path: Path,
+) -> None:
     for backend_name in ("local", "neuromem"):
         settings = AppSettings(
             knowledge_base_dir=tmp_path / backend_name,
@@ -294,7 +339,9 @@ def test_knowledge_store_separates_same_lecture_number_across_courses(tmp_path: 
         assert "course:database-lab" in database_hits[0].tags
 
 
-def test_knowledge_store_prioritizes_research_materials_over_courseware_noise(tmp_path: Path) -> None:
+def test_knowledge_store_prioritizes_research_materials_over_courseware_noise(
+    tmp_path: Path,
+) -> None:
     settings = AppSettings(knowledge_base_dir=tmp_path)
     store = LocalKnowledgeStore(settings)
 
@@ -330,7 +377,9 @@ def test_knowledge_store_prioritizes_research_materials_over_courseware_noise(tm
     assert all("teaching" not in hit.tags for hit in hits[:2])
 
 
-def test_neuromem_backend_prioritizes_research_materials_over_courseware_noise(tmp_path: Path) -> None:
+def test_neuromem_backend_prioritizes_research_materials_over_courseware_noise(
+    tmp_path: Path,
+) -> None:
     settings = AppSettings(knowledge_base_dir=tmp_path, knowledge_backend="neuromem")
     store = LocalKnowledgeStore(settings)
 
@@ -366,7 +415,9 @@ def test_neuromem_backend_prioritizes_research_materials_over_courseware_noise(t
     assert all("teaching" not in hit.tags for hit in hits[:2])
 
 
-def test_neuromem_backend_prioritizes_named_paper_queries_over_courseware_noise(tmp_path: Path) -> None:
+def test_neuromem_backend_prioritizes_named_paper_queries_over_courseware_noise(
+    tmp_path: Path,
+) -> None:
     settings = AppSettings(knowledge_base_dir=tmp_path, knowledge_backend="neuromem")
     store = LocalKnowledgeStore(settings)
 
@@ -374,7 +425,14 @@ def test_neuromem_backend_prioritizes_named_paper_queries_over_courseware_noise(
         KnowledgeDocumentCreate(
             title="论文提炼｜FlowRAG: Continual Learning for Dynamic Retriever in Retrieval-Augmented Generation",
             content="FlowRAG 主要解决动态语料下检索器持续学习与检索质量退化问题。",
-            tags=["homepage", "research", "publication", "paper-digest", "rag", "continual-learning"],
+            tags=[
+                "homepage",
+                "research",
+                "publication",
+                "paper-digest",
+                "rag",
+                "continual-learning",
+            ],
             source_name="homepage:contents/research_papers/publications_summary.md#0.1 FlowRAG",
         )
     )
@@ -401,7 +459,10 @@ def test_neuromem_backend_prioritizes_named_paper_queries_over_courseware_noise(
     assert hits[0].title.startswith("论文提炼｜FlowRAG")
     assert all("teaching" not in hit.tags for hit in hits[:2])
     assert all("profile" not in hit.tags for hit in hits[:2])
-    assert all("flowrag" in hit.title.lower() or "flowrag" in (hit.source_name or "").lower() for hit in hits)
+    assert all(
+        "flowrag" in hit.title.lower() or "flowrag" in (hit.source_name or "").lower()
+        for hit in hits
+    )
 
 
 def test_search_dedupes_adjacent_chunks_from_same_courseware(tmp_path: Path) -> None:
@@ -474,13 +535,16 @@ def test_search_dedupes_adjacent_chunks_from_same_courseware(tmp_path: Path) -> 
         assert "第1部分" in same_courseware_hits[0].title
         assert all(
             (hit.source_name or "").startswith(common_source)
-            or hit.source_name == "homepage:contents/teaching/graduate-paper-writing-course.md#公开课件"
+            or hit.source_name
+            == "homepage:contents/teaching/graduate-paper-writing-course.md#公开课件"
             for hit in hits
         )
         assert all("paper-digest" not in hit.tags for hit in hits)
 
 
-def test_knowledge_store_prefers_research_and_preparation_materials_over_courseware(tmp_path: Path) -> None:
+def test_knowledge_store_prefers_research_and_preparation_materials_over_courseware(
+    tmp_path: Path,
+) -> None:
     for backend_name in ("local", "neuromem"):
         knowledge_dir = tmp_path / backend_name
         settings = AppSettings(
@@ -555,7 +619,9 @@ def test_knowledge_store_prefers_research_and_preparation_materials_over_coursew
         assert all("teaching" not in hit.tags for hit in preparation_hits)
 
 
-def test_neuromem_backend_prefers_research_materials_for_research_queries(tmp_path: Path) -> None:
+def test_neuromem_backend_prefers_research_materials_for_research_queries(
+    tmp_path: Path,
+) -> None:
     settings = AppSettings(knowledge_base_dir=tmp_path, knowledge_backend="neuromem")
     store = LocalKnowledgeStore(settings)
 
@@ -583,7 +649,9 @@ def test_neuromem_backend_prefers_research_materials_for_research_queries(tmp_pa
     assert "research" in hits[0].tags
 
 
-def test_knowledge_store_reweights_paper_writing_results_by_visitor_profile(tmp_path: Path) -> None:
+def test_knowledge_store_reweights_paper_writing_results_by_visitor_profile(
+    tmp_path: Path,
+) -> None:
     for backend_name in ("local", "neuromem"):
         knowledge_dir = tmp_path / f"visitor-profile-{backend_name}"
         settings = AppSettings(
@@ -660,7 +728,9 @@ def test_service_prompt_includes_retrieved_owner_materials(tmp_path: Path) -> No
     assert "agenda" in prompt
 
 
-def test_service_prompt_filters_teaching_materials_for_research_queries(tmp_path: Path) -> None:
+def test_service_prompt_filters_teaching_materials_for_research_queries(
+    tmp_path: Path,
+) -> None:
     settings = AppSettings(knowledge_base_dir=tmp_path)
     service = DigitalTwinService(settings)
 
@@ -706,3 +776,262 @@ def test_service_prompt_filters_teaching_materials_for_research_queries(tmp_path
     assert "historical foundations or method background" in prompt
     assert "研究总览｜研究主线" in prompt
     assert "研究生论文写作课程材料" not in prompt
+
+
+def test_service_filters_generic_profile_hits_for_preparation_guidance_queries(
+    tmp_path: Path,
+) -> None:
+    settings = AppSettings(knowledge_base_dir=tmp_path)
+    service = DigitalTwinService(settings)
+    support = service._build_support()
+
+    filtered = support._filter_knowledge_hits_by_intent(
+        [
+            KnowledgeSearchHit(
+                document_id="profile-hit",
+                title="主页资料｜研究板块",
+                excerpt="当前研究大致分为三个相互衔接的板块。",
+                score=1.0,
+                tags=["homepage", "profile"],
+                source_name="homepage:contents/home.md#研究板块",
+            ),
+            KnowledgeSearchHit(
+                document_id="meeting-hit",
+                title="Meeting preference",
+                excerpt="Before asking for a meeting, send your agenda, current blocker, and latest draft.",
+                score=0.8,
+                tags=["meeting", "policy", "preparation"],
+                source_name="advisor-note",
+            ),
+        ],
+        InteractionIntent(
+            action="answer",
+            domain="advising",
+            retrieval_scopes=["preparation", "meeting_policy", "profile"],
+            exclude_scopes=["courseware"],
+            decision_mode="advise_only",
+            confidence=0.95,
+        ),
+    )
+
+    assert [hit.document_id for hit in filtered] == ["meeting-hit"]
+
+
+def test_service_prompt_adds_meeting_preparation_checklist_guidance(
+    tmp_path: Path,
+) -> None:
+    settings = AppSettings(knowledge_base_dir=tmp_path)
+    service = DigitalTwinService(settings)
+
+    prompt = service._build_student_prompt(
+        request=type(
+            "Request",
+            (),
+            {
+                "student_name": "Alice",
+                "course_context": "科研指导",
+                "question": "和老师约时间前，我应该先准备什么？",
+            },
+        )(),
+        knowledge_hits=[],
+        interaction_intent=InteractionIntent(
+            action="answer",
+            domain="advising",
+            retrieval_scopes=["preparation", "meeting_policy", "profile"],
+            exclude_scopes=["courseware"],
+            decision_mode="advise_only",
+            confidence=0.95,
+        ),
+    )
+
+    assert (
+        "agenda, current blocker, draft or progress summary, and 2-3 concrete questions"
+        in prompt
+    )
+    assert (
+        "Do not ask for time slots unless the student explicitly asks to book a meeting."
+        in prompt
+    )
+
+
+def test_service_prompt_adds_project_scoping_guidance(tmp_path: Path) -> None:
+    settings = AppSettings(knowledge_base_dir=tmp_path)
+    service = DigitalTwinService(settings)
+
+    prompt = service._build_student_prompt(
+        request=type(
+            "Request",
+            (),
+            {
+                "student_name": "Alice",
+                "course_context": "科研指导",
+                "question": "老师，我现在想做一个跟推理系统有关的项目。如果题目太大，您一般会建议怎么收窄？",
+            },
+        )(),
+        knowledge_hits=[],
+        interaction_intent=InteractionIntent(
+            action="answer",
+            domain="advising",
+            retrieval_scopes=["preparation", "meeting_policy", "profile"],
+            exclude_scopes=["courseware"],
+            decision_mode="advise_only",
+            confidence=0.95,
+        ),
+    )
+
+    assert "first pin down one core problem" in prompt
+    assert "choose one setting or artifact" in prompt
+
+
+def test_service_prompt_adds_draft_feedback_guidance(tmp_path: Path) -> None:
+    settings = AppSettings(knowledge_base_dir=tmp_path)
+    service = DigitalTwinService(settings)
+
+    prompt = service._build_student_prompt(
+        request=type(
+            "Request",
+            (),
+            {
+                "student_name": "Alice",
+                "course_context": "科研指导",
+                "question": "老师，我下周想带一个初稿来请您看。在您看之前，我自己最好先整理哪些信息，能让反馈更集中？",
+            },
+        )(),
+        knowledge_hits=[],
+        interaction_intent=InteractionIntent(
+            action="answer",
+            domain="advising",
+            retrieval_scopes=["preparation", "meeting_policy", "profile"],
+            exclude_scopes=["courseware"],
+            decision_mode="advise_only",
+            confidence=0.95,
+        ),
+    )
+
+    assert "current goal, current version or evidence, main blocker" in prompt
+    assert "Do not turn this into scheduling." in prompt
+
+
+def test_service_prompt_adds_teaching_question_logistics_guidance(
+    tmp_path: Path,
+) -> None:
+    settings = AppSettings(knowledge_base_dir=tmp_path)
+    service = DigitalTwinService(settings)
+
+    prompt = service._build_student_prompt(
+        request=type(
+            "Request",
+            (),
+            {
+                "student_name": "Alice",
+                "course_context": "LaMP personalization benchmark",
+                "question": "结合我的情况，我下次问课上问题时应该先整理哪几类信息？作业里端到端性能分析不清楚，而且问题比较碎。",
+            },
+        )(),
+        knowledge_hits=[],
+        interaction_intent=InteractionIntent(
+            action="answer",
+            domain="teaching",
+            retrieval_scopes=["courseware"],
+            exclude_scopes=["publications"],
+            confidence=0.95,
+        ),
+    )
+
+    assert "the exact problem, the observed phenomenon or performance result" in prompt
+    assert "Do not answer with another clarification question" in prompt
+    assert "end-to-end performance issue" in prompt
+    assert "questions feel fragmented" in prompt
+    assert "must explicitly reflect the student's stated pain points" in prompt
+    assert "Reuse the student's own wording" in prompt
+
+
+def test_service_prompt_adds_publication_entry_guidance(tmp_path: Path) -> None:
+    settings = AppSettings(knowledge_base_dir=tmp_path)
+    service = DigitalTwinService(settings)
+
+    prompt = service._build_student_prompt(
+        request=type(
+            "Request",
+            (),
+            {
+                "student_name": "Alice",
+                "course_context": "科研指导",
+                "question": "如果我想从您的研究里先挑一个主题开始读，哪类会更适合我？我想先建立主线理解。",
+            },
+        )(),
+        knowledge_hits=[],
+        interaction_intent=InteractionIntent(
+            action="answer",
+            domain="research",
+            retrieval_scopes=["publications", "profile"],
+            exclude_scopes=["courseware"],
+            confidence=0.95,
+        ),
+    )
+
+    assert "recommend one clear topic or research main line to start from" in prompt
+    assert "use wording such as '主题', '主线', or '切入'" in prompt
+
+
+def test_service_prompt_adds_follow_up_next_step_guidance(tmp_path: Path) -> None:
+    settings = AppSettings(knowledge_base_dir=tmp_path)
+    service = DigitalTwinService(settings)
+
+    prompt = service._build_student_prompt(
+        request=type(
+            "Request",
+            (),
+            {
+                "student_name": "Alice",
+                "course_context": "科研指导",
+                "question": "上次已被建议按主题整理问题，我现在已经整理成三类。按我现在的进展，下一步更适合先发邮件还是继续补实验？",
+            },
+        )(),
+        knowledge_hits=[],
+        interaction_intent=InteractionIntent(
+            action="answer",
+            domain="advising",
+            retrieval_scopes=["preparation", "meeting_policy", "profile"],
+            exclude_scopes=["courseware"],
+            decision_mode="advise_only",
+            confidence=0.95,
+        ),
+    )
+
+    assert (
+        "State the recommendation explicitly with wording like '下一步可以先...'"
+        in prompt
+    )
+    assert "connect it to the student's current progress" in prompt
+    assert "既然你已经整理成三类" in prompt
+
+
+def test_service_prompt_adds_course_research_boundary_guidance(tmp_path: Path) -> None:
+    settings = AppSettings(knowledge_base_dir=tmp_path)
+    service = DigitalTwinService(settings)
+
+    prompt = service._build_student_prompt(
+        request=type(
+            "Request",
+            (),
+            {
+                "student_name": "Alice",
+                "course_context": "科研指导",
+                "question": "老师，我既想问课程作业，也想顺便聊下研究。这种情况您一般建议一次都问完，还是分开准备？",
+            },
+        )(),
+        knowledge_hits=[],
+        interaction_intent=InteractionIntent(
+            action="answer",
+            domain="advising",
+            retrieval_scopes=["preparation", "meeting_policy", "profile"],
+            exclude_scopes=["courseware"],
+            decision_mode="advise_only",
+            confidence=0.95,
+        ),
+    )
+
+    assert "mixed course-and-research questions" in prompt
+    assert "should be prepared separately" in prompt
+    assert "Use wording such as '分开', '分别', '课程', '研究', and '准备'." in prompt

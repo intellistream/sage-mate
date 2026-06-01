@@ -1,0 +1,768 @@
+[
+    {
+        "id": "lamp-001",
+        "scenario_id": "undergrad-systems-onboarding",
+        "title": "本科生系统方向入门计划",
+        "task_name": "LaMP-Local",
+        "focus": "profile-grounding",
+        "input": "基于我的背景，接下来两周先学什么更合适？",
+        "profile": [
+            {
+                "id": "p1",
+                "identity": "华科计院本科二年级",
+                "skill": "Python 熟悉，系统基础一般"
+            },
+            {
+                "id": "p2",
+                "interest": "大模型推理系统",
+                "constraint": "每周只有6小时"
+            }
+        ],
+        "expected_traits": [
+            "体现本科生起点",
+            "体现时间约束",
+            "聚焦推理系统基础"
+        ],
+        "rubric": {
+            "must_include_all": [
+                "建议"
+            ],
+            "must_include_any": [
+                "两周",
+                "基础",
+                "先学"
+            ],
+            "must_not_include": [
+                "每天十小时",
+                "直接做完整项目"
+            ],
+            "preferred_keywords": [
+                "可以",
+                "先"
+            ],
+            "profile_grounding_terms": [
+                "推理系统",
+                "6小时"
+            ],
+            "min_chars": 18,
+            "max_chars": 180,
+            "pass_threshold": 70
+        }
+    },
+    {
+        "id": "lamp-002",
+        "scenario_id": "paper-writing-related-work",
+        "title": "按论文写作薄弱点给下一步建议",
+        "task_name": "LaMP-Local",
+        "focus": "writing-personalization",
+        "input": "结合我的情况，下一步最值得补哪一块？",
+        "profile": [
+            {
+                "id": "p1",
+                "course": "研究生论文写作",
+                "weakness": "related work 很散"
+            },
+            {
+                "id": "p2",
+                "deadline": "两周后交摘要",
+                "goal": "先把结构收拢"
+            }
+        ],
+        "expected_traits": [
+            "连到 related work 或摘要",
+            "结合时间压力"
+        ],
+        "rubric": {
+            "must_include_all": [
+                "建议"
+            ],
+            "must_include_any": [
+                "related work",
+                "摘要",
+                "结构"
+            ],
+            "must_not_include": [
+                "推理系统"
+            ],
+            "preferred_keywords": [
+                "先"
+            ],
+            "profile_grounding_terms": [
+                "related work",
+                "两周"
+            ],
+            "min_chars": 18,
+            "max_chars": 180,
+            "pass_threshold": 70
+        }
+    },
+    {
+        "id": "lamp-003",
+        "scenario_id": "lab-member-update-format",
+        "title": "组内成员 update 组织方式",
+        "task_name": "LaMP-Local",
+        "focus": "memory-conditioned-generation",
+        "input": "下次和老师同步时，我的 update 最好怎么组织？",
+        "profile": [
+            {
+                "id": "p1",
+                "identity": "组内学生",
+                "status": "这周跑出第一版实验结果"
+            },
+            {
+                "id": "p2",
+                "need": "下周汇报",
+                "pain_point": "不知道如何组织同步"
+            }
+        ],
+        "expected_traits": [
+            "要按目标结果问题组织",
+            "体现已有实验结果"
+        ],
+        "rubric": {
+            "must_include_all": [
+                "结果"
+            ],
+            "must_include_any": [
+                "目标",
+                "问题",
+                "下一步"
+            ],
+            "must_not_include": [
+                "重新自我介绍"
+            ],
+            "preferred_keywords": [
+                "按",
+                "可以"
+            ],
+            "profile_grounding_terms": [
+                "实验结果",
+                "下周汇报"
+            ],
+            "min_chars": 18,
+            "max_chars": 170,
+            "pass_threshold": 72
+        }
+    },
+    {
+        "id": "lamp-004",
+        "scenario_id": "limited-time-reading-plan",
+        "title": "时间受限时的论文阅读排序",
+        "task_name": "LaMP-Local",
+        "focus": "profile-grounding",
+        "input": "如果我这周只能投入 6 到 8 小时，您建议我怎么安排阅读顺序？",
+        "profile": [
+            {
+                "id": "p1",
+                "interest": "推理服务系统",
+                "constraint": "每周 6 到 8 小时"
+            },
+            {
+                "id": "p2",
+                "current_stage": "刚开始接触相关论文",
+                "goal": "下周准备第一次讨论"
+            }
+        ],
+        "expected_traits": [
+            "分阶段阅读",
+            "体现时间限制"
+        ],
+        "rubric": {
+            "must_include_all": [
+                "阅读"
+            ],
+            "must_include_any": [
+                "顺序",
+                "先",
+                "再"
+            ],
+            "must_not_include": [
+                "全部细看"
+            ],
+            "preferred_keywords": [
+                "建议"
+            ],
+            "profile_grounding_terms": [
+                "6到8小时",
+                "下周"
+            ],
+            "min_chars": 20,
+            "max_chars": 180,
+            "pass_threshold": 68
+        }
+    },
+    {
+        "id": "lamp-005",
+        "scenario_id": "career-research-vs-engineering",
+        "title": "研究与工程路径选择",
+        "task_name": "LaMP-Local",
+        "focus": "career-personalization",
+        "input": "按我的目标，您会更建议我偏研究还是偏工程？",
+        "profile": [
+            {
+                "id": "p1",
+                "goal": "以后做大模型系统方向",
+                "experience": "做过一些工程实现"
+            },
+            {
+                "id": "p2",
+                "preference": "也想保留研究可能性",
+                "constraint": "当前论文积累不多"
+            }
+        ],
+        "expected_traits": [
+            "体现目标导向",
+            "不做绝对结论"
+        ],
+        "rubric": {
+            "must_include_all": [
+                "建议"
+            ],
+            "must_include_any": [
+                "研究",
+                "工程",
+                "目标"
+            ],
+            "must_not_include": [
+                "只能选一个"
+            ],
+            "preferred_keywords": [
+                "取决于"
+            ],
+            "profile_grounding_terms": [
+                "工程实现",
+                "论文积累"
+            ],
+            "min_chars": 20,
+            "max_chars": 180,
+            "pass_threshold": 70
+        }
+    },
+    {
+        "id": "lamp-006",
+        "scenario_id": "meeting-prep-draft-feedback",
+        "title": "带 draft 约谈前的准备",
+        "task_name": "LaMP-Local",
+        "focus": "preparation-personalization",
+        "input": "如果我准备下周带 draft 来讨论，现在最该先整理什么？",
+        "profile": [
+            {
+                "id": "p1",
+                "status": "已有论文初稿",
+                "pain_point": "反馈点太分散"
+            },
+            {
+                "id": "p2",
+                "meeting_plan": "下周想讨论",
+                "goal": "让反馈更集中"
+            }
+        ],
+        "expected_traits": [
+            "指向反馈问题整理",
+            "结合下周讨论场景"
+        ],
+        "rubric": {
+            "must_include_all": [
+                "反馈"
+            ],
+            "must_include_any": [
+                "问题",
+                "整理",
+                "目标"
+            ],
+            "must_not_include": [
+                "直接给具体时间"
+            ],
+            "preferred_keywords": [
+                "先"
+            ],
+            "profile_grounding_terms": [
+                "初稿",
+                "下周"
+            ],
+            "min_chars": 20,
+            "max_chars": 180,
+            "pass_threshold": 72
+        }
+    },
+    {
+        "id": "lamp-007",
+        "scenario_id": "course-question-logistics",
+        "title": "课程问题先问什么更高效",
+        "task_name": "LaMP-Local",
+        "focus": "teaching-personalization",
+        "input": "结合我的情况，我下次问课上问题时应该先整理哪几类信息？",
+        "profile": [
+            {
+                "id": "p1",
+                "course": "大模型推理基础设施",
+                "issue": "作业里端到端性能分析不清楚"
+            },
+            {
+                "id": "p2",
+                "constraint": "问题比较碎",
+                "goal": "减少来回沟通"
+            }
+        ],
+        "expected_traits": [
+            "结合课程问题性质",
+            "帮助减少碎片化沟通"
+        ],
+        "rubric": {
+            "must_include_all": [
+                "整理"
+            ],
+            "must_include_any": [
+                "问题",
+                "现象",
+                "尝试",
+                "性能"
+            ],
+            "must_not_include": [
+                "直接给答案"
+            ],
+            "preferred_keywords": [
+                "建议"
+            ],
+            "profile_grounding_terms": [
+                "端到端性能",
+                "问题比较碎"
+            ],
+            "min_chars": 18,
+            "max_chars": 180,
+            "pass_threshold": 70
+        }
+    },
+    {
+        "id": "lamp-008",
+        "scenario_id": "publication-starting-point",
+        "title": "按兴趣选第一批论文主题",
+        "task_name": "LaMP-Local",
+        "focus": "publication-personalization",
+        "input": "如果我想从您的研究里先挑一个主题开始读，哪类会更适合我？",
+        "profile": [
+            {
+                "id": "p1",
+                "interest": "服务系统和推理效率",
+                "background": "做过一些系统课程项目"
+            },
+            {
+                "id": "p2",
+                "goal": "先建立主线理解",
+                "constraint": "不想一开始看太细"
+            }
+        ],
+        "expected_traits": [
+            "结合兴趣和背景",
+            "不直接捏造论文名"
+        ],
+        "rubric": {
+            "must_include_all": [
+                "主题"
+            ],
+            "must_include_any": [
+                "服务系统",
+                "推理效率",
+                "主线"
+            ],
+            "must_not_include": [
+                "具体不存在论文题目"
+            ],
+            "preferred_keywords": [
+                "可以"
+            ],
+            "profile_grounding_terms": [
+                "服务系统",
+                "系统课程项目"
+            ],
+            "min_chars": 18,
+            "max_chars": 170,
+            "pass_threshold": 70
+        }
+    },
+    {
+        "id": "lamp-009",
+        "scenario_id": "undergrad-project-fit",
+        "title": "本科项目参与前的能力准备",
+        "task_name": "LaMP-Local",
+        "focus": "fit-personalization",
+        "input": "按我现在的情况，如果想参与项目，最先应该补哪块？",
+        "profile": [
+            {
+                "id": "p1",
+                "identity": "本科三年级",
+                "strength": "编码还可以"
+            },
+            {
+                "id": "p2",
+                "weakness": "阅读论文慢",
+                "goal": "想尽快参与项目"
+            }
+        ],
+        "expected_traits": [
+            "结合编码强和阅读弱",
+            "不要直接许诺参与"
+        ],
+        "rubric": {
+            "must_include_all": [
+                "建议"
+            ],
+            "must_include_any": [
+                "阅读",
+                "基础",
+                "编码",
+                "项目"
+            ],
+            "must_not_include": [
+                "现在就能直接进组"
+            ],
+            "preferred_keywords": [
+                "先"
+            ],
+            "profile_grounding_terms": [
+                "编码",
+                "阅读论文慢"
+            ],
+            "min_chars": 20,
+            "max_chars": 180,
+            "pass_threshold": 70
+        }
+    },
+    {
+        "id": "lamp-010",
+        "scenario_id": "research-small-scope",
+        "title": "研究题目太大时的收窄方式",
+        "task_name": "LaMP-Local",
+        "focus": "project-scoping",
+        "input": "按我当前进度，如果题目太大，下一步您会建议我怎么收窄？",
+        "profile": [
+            {
+                "id": "p1",
+                "topic": "推理服务系统",
+                "status": "已经列了四五个想做的问题"
+            },
+            {
+                "id": "p2",
+                "pain_point": "边界太散",
+                "goal": "一个月内形成可执行方向"
+            }
+        ],
+        "expected_traits": [
+            "结合一个月期限",
+            "建议从边界和指标收窄"
+        ],
+        "rubric": {
+            "must_include_all": [
+                "收窄"
+            ],
+            "must_include_any": [
+                "边界",
+                "指标",
+                "一个月",
+                "问题"
+            ],
+            "must_not_include": [
+                "都做"
+            ],
+            "preferred_keywords": [
+                "建议"
+            ],
+            "profile_grounding_terms": [
+                "推理服务系统",
+                "一个月"
+            ],
+            "min_chars": 20,
+            "max_chars": 180,
+            "pass_threshold": 72
+        }
+    },
+    {
+        "id": "lamp-011",
+        "scenario_id": "student-email-first",
+        "title": "问题较小时优先邮件沟通",
+        "task_name": "LaMP-Local",
+        "focus": "meeting-policy",
+        "input": "结合我现在的问题规模，您更建议我发邮件还是再攒一攒问题？",
+        "profile": [
+            {
+                "id": "p1",
+                "question_size": "现在只有两个比较具体的小问题",
+                "style": "希望少占用老师时间"
+            },
+            {
+                "id": "p2",
+                "goal": "先确认方向没有跑偏"
+            }
+        ],
+        "expected_traits": [
+            "结合小问题和少打扰目标",
+            "优先邮件"
+        ],
+        "rubric": {
+            "must_include_all": [
+                "邮件"
+            ],
+            "must_include_any": [
+                "小问题",
+                "具体",
+                "方向"
+            ],
+            "must_not_include": [
+                "明天下午见"
+            ],
+            "preferred_keywords": [
+                "更适合"
+            ],
+            "profile_grounding_terms": [
+                "两个比较具体的小问题",
+                "少占用老师时间"
+            ],
+            "min_chars": 18,
+            "max_chars": 170,
+            "pass_threshold": 72
+        }
+    },
+    {
+        "id": "lamp-012",
+        "scenario_id": "writing-abstract-priority",
+        "title": "摘要过满时优先删什么",
+        "task_name": "LaMP-Local",
+        "focus": "writing-personalization",
+        "input": "结合我的阶段，摘要里最先该删哪类内容？",
+        "profile": [
+            {
+                "id": "p1",
+                "document": "毕业论文摘要",
+                "pain_point": "什么都想塞进去"
+            },
+            {
+                "id": "p2",
+                "goal": "突出核心问题和贡献",
+                "deadline": "本周末交初版"
+            }
+        ],
+        "expected_traits": [
+            "优先删次要背景或细节",
+            "结合摘要目标"
+        ],
+        "rubric": {
+            "must_include_all": [
+                "摘要"
+            ],
+            "must_include_any": [
+                "核心",
+                "贡献",
+                "背景",
+                "细节"
+            ],
+            "must_not_include": [
+                "全部保留"
+            ],
+            "preferred_keywords": [
+                "先"
+            ],
+            "profile_grounding_terms": [
+                "本周末",
+                "核心问题和贡献"
+            ],
+            "min_chars": 18,
+            "max_chars": 170,
+            "pass_threshold": 72
+        }
+    },
+    {
+        "id": "lamp-013",
+        "scenario_id": "collaboration-prep",
+        "title": "合作前需要先准备什么信息",
+        "task_name": "LaMP-Local",
+        "focus": "collaboration-personalization",
+        "input": "如果我想先和老师讨论有没有合作空间，最应该先准备哪几类信息？",
+        "profile": [
+            {
+                "id": "p1",
+                "identity": "外部合作方",
+                "topic": "也在做推理服务"
+            },
+            {
+                "id": "p2",
+                "goal": "判断目标是否对齐",
+                "constraint": "暂时还没完全收敛需求"
+            }
+        ],
+        "expected_traits": [
+            "强调目标问题资源边界",
+            "不直接承诺合作"
+        ],
+        "rubric": {
+            "must_include_all": [
+                "合作"
+            ],
+            "must_include_any": [
+                "目标",
+                "问题",
+                "边界",
+                "资源"
+            ],
+            "must_not_include": [
+                "一定可以合作"
+            ],
+            "preferred_keywords": [
+                "先"
+            ],
+            "profile_grounding_terms": [
+                "推理服务",
+                "目标是否对齐"
+            ],
+            "min_chars": 20,
+            "max_chars": 180,
+            "pass_threshold": 72
+        }
+    },
+    {
+        "id": "lamp-014",
+        "scenario_id": "cold-start-reader",
+        "title": "零基础读论文的第一步",
+        "task_name": "LaMP-Local",
+        "focus": "onboarding-personalization",
+        "input": "按我现在的基础，如果第一次认真读这方向的论文，第一步更该做什么？",
+        "profile": [
+            {
+                "id": "p1",
+                "background": "几乎没有论文阅读经验",
+                "interest": "大模型系统"
+            },
+            {
+                "id": "p2",
+                "constraint": "本周只能用晚上时间",
+                "goal": "先建立基本框架"
+            }
+        ],
+        "expected_traits": [
+            "体现零基础和有限时间",
+            "先建立框架"
+        ],
+        "rubric": {
+            "must_include_all": [
+                "建议"
+            ],
+            "must_include_any": [
+                "框架",
+                "先",
+                "阅读",
+                "问题"
+            ],
+            "must_not_include": [
+                "直接深挖所有细节"
+            ],
+            "preferred_keywords": [
+                "可以"
+            ],
+            "profile_grounding_terms": [
+                "没有论文阅读经验",
+                "晚上时间"
+            ],
+            "min_chars": 18,
+            "max_chars": 180,
+            "pass_threshold": 68
+        }
+    },
+    {
+        "id": "lamp-015",
+        "scenario_id": "teaching-research-disambiguation",
+        "title": "课程问题不要转成科研招募",
+        "task_name": "LaMP-Local",
+        "focus": "teaching-grounding",
+        "input": "按我的问题类型，您会建议我先理解哪一层？",
+        "profile": [
+            {
+                "id": "p1",
+                "course": "推理引擎课程",
+                "question": "为什么局部 kernel 优化不一定带来端到端收益"
+            },
+            {
+                "id": "p2",
+                "goal": "先把课上概念理解清楚",
+                "constraint": "不是来问选题"
+            }
+        ],
+        "expected_traits": [
+            "从教学角度回答",
+            "不切到科研招募"
+        ],
+        "rubric": {
+            "must_include_all": [
+                "端到端"
+            ],
+            "must_include_any": [
+                "系统",
+                "瓶颈",
+                "局部",
+                "整体"
+            ],
+            "must_not_include": [
+                "项目",
+                "选题",
+                "进组"
+            ],
+            "preferred_keywords": [
+                "先"
+            ],
+            "profile_grounding_terms": [
+                "kernel 优化",
+                "不是来问选题"
+            ],
+            "min_chars": 20,
+            "max_chars": 180,
+            "pass_threshold": 72
+        }
+    },
+    {
+        "id": "lamp-016",
+        "scenario_id": "memory-followup-personalization",
+        "title": "承接上次建议后的下一步",
+        "task_name": "LaMP-Local",
+        "focus": "memory-conditioned-generation",
+        "input": "按我现在的进展，下一步更适合先发邮件还是继续补实验？",
+        "profile": [
+            {
+                "id": "p1",
+                "history": "上次已被建议按主题整理问题",
+                "status": "现在已经整理成三类"
+            },
+            {
+                "id": "p2",
+                "choice": "发邮件或继续补实验",
+                "goal": "减少来回修改"
+            }
+        ],
+        "expected_traits": [
+            "承接上次建议",
+            "结合当前已整理进展"
+        ],
+        "rubric": {
+            "must_include_all": [
+                "下一步"
+            ],
+            "must_include_any": [
+                "邮件",
+                "实验",
+                "整理",
+                "问题"
+            ],
+            "must_not_include": [
+                "我是张书豪",
+                "很高兴认识你"
+            ],
+            "preferred_keywords": [
+                "可以先"
+            ],
+            "profile_grounding_terms": [
+                "整理成三类",
+                "上次已被建议"
+            ],
+            "min_chars": 18,
+            "max_chars": 180,
+            "pass_threshold": 72
+        }
+    }
+]

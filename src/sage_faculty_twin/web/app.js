@@ -9,6 +9,9 @@ const topbarUserCount = document.getElementById("topbar-user-count");
 const topbarQuestionCount = document.getElementById("topbar-question-count");
 const topbarModelStatus = document.getElementById("topbar-model-status");
 const topbarStatusSummary = document.getElementById("topbar-status-summary");
+const historyList = document.getElementById("history-list");
+const historyRailToggleButton = document.getElementById("history-rail-toggle");
+const historyNewChatButton = document.getElementById("history-new-chat");
 const chatStream = document.getElementById("chat-stream");
 const modalOverlay = document.getElementById("modal-overlay");
 const sideDrawer = document.getElementById("side-drawer");
@@ -66,16 +69,17 @@ const topbarTitle = document.getElementById("topbar-title");
 const topbarSubtitle = document.getElementById("topbar-subtitle");
 const homepageLink = document.getElementById("homepage-link");
 const chatQuestion = document.getElementById("chat-question");
+const chatFileInput = document.getElementById("chat-file-input");
+const composerUploadButton = document.getElementById("composer-upload-button");
+const composerAttachmentList = document.getElementById("composer-attachment-list");
+const composerUploadHint = document.getElementById("composer-upload-hint");
 const courseContextInput = document.getElementById("course-context");
 const visitorProfileInput = document.getElementById("visitor-profile");
 const studentNameInput = document.getElementById("student-name");
 const studentEmailInput = document.getElementById("student-email");
 const profileDrawerCopy = document.getElementById("profile-drawer-copy");
-const introCardBody = document.querySelector(".intro-card .message-body");
 const bookingStudentNameInput = document.getElementById("booking-student-name");
 const bookingEmailInput = document.getElementById("booking-email");
-const introQuickActions = document.querySelector(".intro-quick-actions");
-const introQuickActionButtons = Array.from(document.querySelectorAll(".intro-chip-button"));
 const composerProfileChip = document.getElementById("composer-profile-chip");
 const composerContextChip = document.getElementById("composer-context-chip");
 const composerWorkflowChip = document.getElementById("composer-workflow-chip");
@@ -93,8 +97,31 @@ const workflowMobileCloseButton = document.getElementById("workflow-mobile-close
 const workflowTotalDuration = document.getElementById("workflow-total-duration");
 const workflowCurrentAction = document.getElementById("workflow-current-action");
 const workflowKnowledgeCount = document.getElementById("workflow-knowledge-count");
+const workflowPlanCard = document.getElementById("workflow-plan-card");
+const workflowPlanHeading = document.getElementById("workflow-plan-heading");
+const workflowPlanBadge = document.getElementById("workflow-plan-badge");
+const workflowPlanCopy = document.getElementById("workflow-plan-copy");
+const workflowPlanNote = document.getElementById("workflow-plan-note");
+const workflowPlanDetails = document.getElementById("workflow-plan-details");
+const workflowPlanToggle = document.getElementById("workflow-plan-toggle");
+const workflowPlanSteps = document.getElementById("workflow-plan-steps");
+const workflowShadowPlanPanel = document.getElementById("workflow-shadow-plan-panel");
+const workflowShadowPlanHeading = document.getElementById("workflow-shadow-plan-heading");
+const workflowShadowPlanBadge = document.getElementById("workflow-shadow-plan-badge");
+const workflowShadowPlanCopy = document.getElementById("workflow-shadow-plan-copy");
+const workflowShadowPlanDetails = document.getElementById("workflow-shadow-plan-details");
+const workflowShadowPlanToggle = document.getElementById("workflow-shadow-plan-toggle");
+const workflowShadowPlanSteps = document.getElementById("workflow-shadow-plan-steps");
+const workflowPlanComparePanel = document.getElementById("workflow-plan-compare-panel");
+const workflowPlanCompareHeading = document.getElementById("workflow-plan-compare-heading");
+const workflowPlanCompareBadge = document.getElementById("workflow-plan-compare-badge");
+const workflowPlanCompareCopy = document.getElementById("workflow-plan-compare-copy");
+const workflowPlanCompareDetails = document.getElementById("workflow-plan-compare-details");
+const workflowPlanCompareToggle = document.getElementById("workflow-plan-compare-toggle");
+const workflowPlanCompareSteps = document.getElementById("workflow-plan-compare-steps");
 const mobileWorkflowTrigger = document.getElementById("mobile-workflow-trigger");
 const workflowMobileBackdrop = document.getElementById("workflow-mobile-backdrop");
+const initialChatStreamMarkup = chatStream?.innerHTML || "";
 
 const chatForm = document.getElementById("chat-form");
 const adminLoginForm = document.getElementById("admin-login-form");
@@ -132,6 +159,7 @@ const operationsBookings = document.getElementById("operations-bookings");
 const operationsStudentProfiles = document.getElementById("operations-student-profiles");
 const operationsSatisfaction = document.getElementById("operations-satisfaction");
 const operationsGaps = document.getElementById("operations-gaps");
+const operationsArtifactDrafts = document.getElementById("operations-artifact-drafts");
 const operationsEscalations = document.getElementById("operations-escalations");
 const operationsFollowUps = document.getElementById("operations-follow-ups");
 const operationsSuggestions = document.getElementById("operations-suggestions");
@@ -143,7 +171,44 @@ const WORKFLOW_SHELL_COLLAPSED_KEY = "myTwinWorkflowShellCollapsed";
 const WORKFLOW_MOBILE_MODE_KEY = "myTwinWorkflowMobileMode";
 const VISITOR_IDENTITY_SELECTED_KEY = "myTwinVisitorIdentitySelected";
 const VISITOR_PROFILE_STORAGE_KEY = "myTwinVisitorProfile";
+const CHAT_HISTORY_STORAGE_KEY = "myTwinConversationHistory";
+const CHAT_HISTORY_META_STORAGE_KEY = "myTwinConversationHistoryMeta";
+const HISTORY_RAIL_COLLAPSED_KEY = "myTwinHistoryRailCollapsed";
+const MAX_CHAT_HISTORY_ITEMS = 18;
+const DEFAULT_CONVERSATION_TITLE = "新对话";
 const LOCAL_API_PORT_CANDIDATES = ["55601", "8010", "8000"];
+const MAX_WORKFLOW_STEP_TITLE_LENGTH = 10;
+const MAX_CHAT_UPLOAD_FILES = 4;
+const MAX_CHAT_UPLOAD_BYTES = 5 * 1024 * 1024;
+const DEFAULT_COMPOSER_UPLOAD_HINT = "支持 PDF、TXT、MD、CSV、JSON、PY、YAML、LOG，最多 4 个文件。";
+const SUPPORTED_CHAT_UPLOAD_SUFFIXES = new Set([".pdf", ".txt", ".md", ".csv", ".json", ".py", ".yaml", ".yml", ".log"]);
+const WORKFLOW_PHASE_DEFINITIONS = [
+    { key: "intake", label: "接入", icon: "inbox" },
+    { key: "decide", label: "判断", icon: "branch" },
+    { key: "retrieve", label: "检索", icon: "search" },
+    { key: "answer", label: "回答", icon: "message" },
+    { key: "finalize", label: "收尾", icon: "checklist" },
+    { key: "return", label: "返回", icon: "send" },
+];
+const WORKFLOW_STEP_SHORT_LABELS = {
+    bootstrap: "接收问题",
+    workflow_plan_preview: "预览路径",
+    interaction_understand: "判断意图",
+    booking_prepare: "补齐预约",
+    booking_execute: "提交预约",
+    knowledge_write: "写入知识",
+    knowledge_retrieve: "查资料",
+    memory_retrieve: "找上下文",
+    prompt_build: "整理上下文",
+    llm_answer: "生成回复",
+    follow_up_plan: "整理后续",
+    memory_usefulness_score: "检查证据",
+    memory_persist: "写入记忆",
+    artifact_memory_writeback: "记录材料",
+    memory_profile_consolidate: "更新画像",
+    response_render: "返回结果",
+    current_stage: "当前处理中",
+};
 let assistantLabel = "我的学术分身";
 let activeConversationId = createConversationId();
 let activeWorkflowStream = null;
@@ -159,10 +224,21 @@ let latestWorkflowMeta = {
     workflowAction: null,
     knowledgeHits: null,
     isStreaming: false,
+    plannerPreview: null,
+    shadowPlannerPreview: null,
+    plannerComparison: null,
 };
+let workflowPlanDecayTimer = null;
+let workflowPlanLastSignature = "";
 let latestManagedServiceEvent = null;
 let isAdminSession = false;
 let isUserAuthenticated = false;
+let pendingChatAttachments = [];
+let conversationHistoryEntries = loadConversationHistory();
+let serverConversationEntries = [];
+let conversationHistoryMeta = loadConversationHistoryMeta();
+let currentConversationTitle = DEFAULT_CONVERSATION_TITLE;
+let currentConversationPreview = "";
 let resolvedApiOrigin = typeof globalThis.__SAGE_FACULTY_TWIN_API_ORIGIN__ === "string"
     ? globalThis.__SAGE_FACULTY_TWIN_API_ORIGIN__.trim()
     : "";
@@ -251,6 +327,21 @@ const adminOnlyModals = [
     operationsConsoleModal,
     questionAnalyticsModal,
 ].filter(Boolean);
+const overlayModals = [
+    identityModal,
+    knowledgeModal,
+    bookingModal,
+    suggestionModal,
+    adminLoginModal,
+    userRegisterModal,
+    userLoginModal,
+    availabilityModal,
+    bookingAdminModal,
+    escalationAdminModal,
+    memoryProfilesModal,
+    operationsConsoleModal,
+    questionAnalyticsModal,
+].filter(Boolean);
 const managedServiceButtons = [
     {
         action: "status",
@@ -284,6 +375,15 @@ if (workflowTrace) {
 }
 
 chatStream?.addEventListener("click", handleMessageSectionToggle);
+chatStream?.addEventListener("click", handleIntroQuickActionClick);
+historyList?.addEventListener("click", handleConversationHistoryClick);
+historyRailToggleButton?.addEventListener("click", toggleHistoryRail);
+historyNewChatButton?.addEventListener("click", () => {
+    startFreshConversation();
+});
+composerUploadButton?.addEventListener("click", () => chatFileInput?.click());
+chatFileInput?.addEventListener("change", handleChatFileSelection);
+composerAttachmentList?.addEventListener("click", handleComposerAttachmentAction);
 
 workflowToggleButton?.addEventListener("click", toggleWorkflowShell);
 workflowScrollLatestButton?.addEventListener("click", scrollWorkflowToLatest);
@@ -296,7 +396,6 @@ workflowMobileCloseButton?.addEventListener("click", closeWorkflowMobileSheet);
 mobileWorkflowTrigger?.addEventListener("click", toggleWorkflowMobileSheet);
 workflowMobileBackdrop?.addEventListener("click", closeWorkflowMobileSheet);
 globalThis.addEventListener("resize", syncWorkflowViewportState);
-introQuickActions?.addEventListener("click", handleIntroQuickActionClick);
 visitorProfileInput?.addEventListener("change", handleVisitorProfileChange);
 identityModal?.addEventListener("click", handleIdentityChoiceClick);
 document.getElementById("identity-user-login")?.addEventListener("click", () => {
@@ -462,6 +561,7 @@ escalationRouteFilter?.addEventListener("change", async () => {
 questionAnalyticsGaps?.addEventListener("click", handleKnowledgeGapDraftAction);
 questionAnalyticsDrafts?.addEventListener("click", handleKnowledgeGapDraftAction);
 operationsGaps?.addEventListener("click", handleKnowledgeGapDraftAction);
+operationsArtifactDrafts?.addEventListener("click", handleArtifactDraftAction);
 operationsQueues?.addEventListener("click", handleOperationsQueueAction);
 operationsTasks?.addEventListener("click", handleOperationsTaskAction);
 modalOverlay.addEventListener("click", handleModalOverlayClick);
@@ -554,6 +654,8 @@ chatForm.addEventListener("submit", async (event) => {
         return;
     }
 
+    noteOutgoingConversationQuestion(question);
+
     const payload = {
         student_name: document.getElementById("student-name").value,
         student_email: document.getElementById("student-email").value || null,
@@ -562,14 +664,25 @@ chatForm.addEventListener("submit", async (event) => {
         question,
         conversation_id: activeConversationId,
     };
+    const submittedFiles = [...pendingChatAttachments];
+    const submittedAttachments = submittedFiles.map((file) => ({
+        fileName: file.name,
+        sizeBytes: file.size,
+    }));
     const workflowRequestId = createConversationId();
 
-    appendMessage("user", payload.student_name || "学生", question, { emphasis: "user" });
+    appendMessage("user", payload.student_name || "学生", question, {
+        emphasis: "user",
+        attachments: submittedAttachments,
+    });
     const pendingMessage = appendMessage("assistant", assistantLabel, "正在整理问题、检索资料并准备回复", {
         state: "pending",
     });
-    renderPendingAssistantMessage(pendingMessage, "理解问题");
+    renderPendingAssistantMessage(pendingMessage, "理解问题", []);
+    persistActiveConversationSnapshot();
+    const requestBody = buildChatRequestBody(payload, submittedFiles);
     document.getElementById("chat-question").value = "";
+    clearPendingChatAttachments();
     autoResizeTextarea();
     chatSubmitButton.disabled = true;
     chatSubmitButton.textContent = "发送中";
@@ -578,7 +691,7 @@ chatForm.addEventListener("submit", async (event) => {
     try {
         const data = await apiRequest(`/chat?request_id=${encodeURIComponent(workflowRequestId)}`, {
             method: "POST",
-            body: JSON.stringify(payload),
+            body: requestBody,
             timeoutMs: 45000,
         });
         activeConversationId = data.conversation_id || activeConversationId;
@@ -587,6 +700,9 @@ chatForm.addEventListener("submit", async (event) => {
             workflowAction: data.workflow_action || null,
             knowledgeHits: Array.isArray(data.knowledge_hits) ? data.knowledge_hits.length : null,
             isStreaming: false,
+            plannerPreview: data.planner_preview || null,
+            shadowPlannerPreview: data.shadow_planner_preview || null,
+            plannerComparison: data.planner_comparison || null,
         });
         renderAssistantMessage(
             pendingMessage,
@@ -596,17 +712,152 @@ chatForm.addEventListener("submit", async (event) => {
             data.knowledge_hits || [],
             data.booking_result || null,
             false,
-            data.exchange_id || null
+            data.exchange_id || null,
+            data.workflow_trace || []
         );
+        noteConversationAnswerPreview(data.answer);
+        persistActiveConversationSnapshot();
+        void syncConversationHistoryFromServer();
     } catch (error) {
         stopWorkflowTraceStream();
         renderWorkflowTraceError(error.message);
-        renderAssistantMessage(pendingMessage, error.message, [], [], [], null, true, null);
+        renderAssistantMessage(pendingMessage, error.message, [], [], [], null, true, null, activeWorkflowSteps);
+        noteConversationAnswerPreview(error.message);
+        persistActiveConversationSnapshot();
     } finally {
         chatSubmitButton.disabled = false;
         chatSubmitButton.textContent = "发送";
     }
 });
+
+function getChatAttachmentKey(file) {
+    return `${file.name}:${file.size}:${file.lastModified}`;
+}
+
+function buildChatRequestBody(payload, attachments = []) {
+    if (!attachments.length) {
+        return JSON.stringify(payload);
+    }
+
+    const formData = new FormData();
+    Object.entries(payload).forEach(([key, value]) => {
+        if (value !== null && value !== undefined && value !== "") {
+            formData.append(key, String(value));
+        }
+    });
+    attachments.forEach((file) => {
+        formData.append("files", file, file.name);
+    });
+    return formData;
+}
+
+function formatAttachmentSize(sizeBytes) {
+    if (typeof sizeBytes !== "number" || Number.isNaN(sizeBytes) || sizeBytes <= 0) {
+        return "";
+    }
+    if (sizeBytes < 1024) {
+        return `${sizeBytes} B`;
+    }
+    if (sizeBytes < 1024 * 1024) {
+        return `${(sizeBytes / 1024).toFixed(1)} KB`;
+    }
+    return `${(sizeBytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function setComposerUploadHint(message = DEFAULT_COMPOSER_UPLOAD_HINT, state = "normal") {
+    if (!composerUploadHint) {
+        return;
+    }
+    composerUploadHint.textContent = message;
+    composerUploadHint.classList.toggle("composer-upload-hint-error", state === "error");
+}
+
+function isSupportedChatAttachmentFile(file) {
+    const suffix = file.name.includes(".") ? `.${file.name.split(".").pop().toLowerCase()}` : "";
+    return SUPPORTED_CHAT_UPLOAD_SUFFIXES.has(suffix) || String(file.type || "").toLowerCase().startsWith("text/");
+}
+
+function renderComposerAttachmentList() {
+    if (!composerAttachmentList) {
+        return;
+    }
+    if (!pendingChatAttachments.length) {
+        composerAttachmentList.hidden = true;
+        composerAttachmentList.innerHTML = "";
+        setComposerUploadHint();
+        return;
+    }
+
+    composerAttachmentList.hidden = false;
+    composerAttachmentList.innerHTML = pendingChatAttachments
+        .map((file) => `
+            <span class="attachment-chip attachment-chip-editable" data-chat-file-key="${escapeHtml(getChatAttachmentKey(file))}">
+                <span class="attachment-chip-copy">
+                    <strong>${escapeHtml(file.name)}</strong>
+                    <small>${escapeHtml(formatAttachmentSize(file.size))}</small>
+                </span>
+                <button type="button" class="attachment-chip-remove" data-remove-chat-file="${escapeHtml(getChatAttachmentKey(file))}" aria-label="移除 ${escapeHtml(file.name)}">×</button>
+            </span>
+        `)
+        .join("");
+    setComposerUploadHint(`已选中 ${pendingChatAttachments.length} 个附件。`);
+}
+
+function clearPendingChatAttachments() {
+    pendingChatAttachments = [];
+    if (chatFileInput) {
+        chatFileInput.value = "";
+    }
+    renderComposerAttachmentList();
+}
+
+function handleComposerAttachmentAction(event) {
+    const button = event.target.closest("[data-remove-chat-file]");
+    if (!button) {
+        return;
+    }
+    const targetKey = button.dataset.removeChatFile || "";
+    pendingChatAttachments = pendingChatAttachments.filter((file) => getChatAttachmentKey(file) !== targetKey);
+    renderComposerAttachmentList();
+}
+
+function handleChatFileSelection(event) {
+    const files = Array.from(event.target.files || []);
+    if (!files.length) {
+        return;
+    }
+
+    const nextAttachments = [...pendingChatAttachments];
+    let errorMessage = "";
+    for (const file of files) {
+        if (!isSupportedChatAttachmentFile(file)) {
+            errorMessage = `暂只支持 PDF、TXT、MD、CSV、JSON、PY、YAML、LOG 文件：${file.name}`;
+            continue;
+        }
+        if (file.size > MAX_CHAT_UPLOAD_BYTES) {
+            errorMessage = `附件超过 5MB 限制：${file.name}`;
+            continue;
+        }
+        if (nextAttachments.length >= MAX_CHAT_UPLOAD_FILES) {
+            errorMessage = `一次最多上传 ${MAX_CHAT_UPLOAD_FILES} 个附件。`;
+            break;
+        }
+        const key = getChatAttachmentKey(file);
+        if (nextAttachments.some((item) => getChatAttachmentKey(item) === key)) {
+            continue;
+        }
+        nextAttachments.push(file);
+    }
+
+    pendingChatAttachments = nextAttachments;
+    if (chatFileInput) {
+        chatFileInput.value = "";
+    }
+    renderComposerAttachmentList();
+    if (errorMessage) {
+        setComposerUploadHint(errorMessage, "error");
+    }
+}
 
 knowledgeForm.addEventListener("submit", async (event) => {
     event.preventDefault();
@@ -813,7 +1064,11 @@ function hasActiveOverlaySurface() {
         memoryProfilesModal,
         operationsConsoleModal,
         questionAnalyticsModal,
-    ].some((element) => element && !element.classList.contains("hidden"));
+    ].some(isOverlayElementVisible);
+}
+
+function isOverlayElementVisible(element) {
+    return Boolean(element && !element.classList.contains("hidden"));
 }
 
 function maybeOpenVisitorIdentityPrompt() {
@@ -823,7 +1078,7 @@ function maybeOpenVisitorIdentityPrompt() {
 }
 
 function isVisitorIdentityPromptOpen() {
-    return Boolean(identityModal && !identityModal.classList.contains("hidden"));
+    return isOverlayElementVisible(identityModal);
 }
 
 function handleModalOverlayClick() {
@@ -851,6 +1106,7 @@ function setMultilineText(element, lines) {
 }
 
 function updateIntroQuickActions(config) {
+    const introQuickActionButtons = Array.from(document.querySelectorAll(".intro-chip-button"));
     introQuickActionButtons.forEach((button, index) => {
         const action = config.quickActions[index];
         if (!action) {
@@ -891,7 +1147,7 @@ function updateComposerContextChips() {
 
 function applyVisitorProfilePresentation({ syncCourseContext = false } = {}) {
     const config = getVisitorProfileConfig();
-    setMultilineText(introCardBody, config.introLines);
+    setMultilineText(document.querySelector(".intro-card .message-body"), config.introLines);
     updateIntroQuickActions(config);
     updateProfileDrawerCopy(config);
 
@@ -1138,6 +1394,7 @@ async function refreshUserSession() {
     } catch (error) {
         applyUserSession({ is_authenticated: false, mode: "guest", account: null });
     }
+    await syncConversationHistoryFromServer();
 }
 
 function applyUserSession(session) {
@@ -1285,19 +1542,7 @@ function closeAdminOnlyModals() {
         modal.classList.add("hidden");
         modal.setAttribute("aria-hidden", "true");
     });
-    if (
-        sideDrawer.classList.contains("hidden") &&
-        knowledgeModal.classList.contains("hidden") &&
-        bookingModal.classList.contains("hidden") &&
-        suggestionModal.classList.contains("hidden") &&
-        adminLoginModal.classList.contains("hidden") &&
-        availabilityModal.classList.contains("hidden") &&
-        bookingAdminModal.classList.contains("hidden") &&
-        escalationAdminModal.classList.contains("hidden") &&
-        memoryProfilesModal.classList.contains("hidden") &&
-        operationsConsoleModal.classList.contains("hidden") &&
-        questionAnalyticsModal.classList.contains("hidden")
-    ) {
+    if (sideDrawer.classList.contains("hidden") && !hasVisibleOverlayModal()) {
         modalOverlay.classList.add("hidden");
     }
     syncFloatingWorkflowTriggerState();
@@ -1696,6 +1941,7 @@ async function loadOperationsWorkbench() {
             data.question_analytics?.knowledge_gap_suggestions || [],
             data.knowledge_gap_drafts || []
         );
+        renderOperationsArtifactDrafts(data.artifact_memory_drafts || []);
         renderOperationsEscalations(data.escalations || []);
         renderOperationsFollowUps(data.follow_up_actions || []);
         renderOperationsSuggestions(data.anonymous_suggestions || []);
@@ -1714,7 +1960,7 @@ function renderOperationsLoadingState() {
     if (operationsQueues) {
         operationsQueues.innerHTML = loadingCard;
     }
-    [operationsTasks, operationsBookings, operationsStudentProfiles, operationsSatisfaction, operationsGaps, operationsEscalations, operationsFollowUps, operationsSuggestions].forEach((element) => {
+    [operationsTasks, operationsBookings, operationsStudentProfiles, operationsSatisfaction, operationsGaps, operationsArtifactDrafts, operationsEscalations, operationsFollowUps, operationsSuggestions].forEach((element) => {
         if (element) {
             element.innerHTML = loadingCard;
         }
@@ -1723,7 +1969,7 @@ function renderOperationsLoadingState() {
 
 function renderOperationsErrorState(message) {
     const errorCard = `<div class="list-card"><p class="list-body">${escapeHtml(message)}</p></div>`;
-    [operationsQueues, operationsTasks, operationsBookings, operationsStudentProfiles, operationsSatisfaction, operationsGaps, operationsEscalations, operationsFollowUps, operationsSuggestions].forEach((element) => {
+    [operationsQueues, operationsTasks, operationsBookings, operationsStudentProfiles, operationsSatisfaction, operationsGaps, operationsArtifactDrafts, operationsEscalations, operationsFollowUps, operationsSuggestions].forEach((element) => {
         if (element) {
             element.innerHTML = errorCard;
         }
@@ -1736,10 +1982,22 @@ function renderOperationsSummary(overview) {
     }
     const totals = overview.totals || {};
     const analytics = overview.question_analytics || {};
+    const neuromem = overview.neuromem || {};
+    const plannerMetrics = overview.planner_metrics || {};
+    const conversationStats = neuromem.conversation_stats || {};
+    const telemetry = conversationStats.telemetry || {};
     const entries = [
         ["知识条目", totals.knowledge_documents || 0],
         ["学生记忆", totals.memory_profiles || 0],
+        ["材料草稿", totals.artifact_memory_drafts || 0],
+        ["记忆检索", telemetry.query_count || 0],
+        ["记忆写回", telemetry.write_count || 0],
+        ["记忆遥测", telemetry.event_count || 0],
         ["反馈记录", totals.feedback_records || 0],
+        ["规划请求", totals.planner_requests || plannerMetrics.deterministic_total || 0],
+        ["规划回退", totals.planner_fallbacks || plannerMetrics.deterministic_fallbacks || 0],
+        ["规划分歧", totals.planner_shadow_drifts || 0],
+        ["影子错误", totals.planner_shadow_errors || plannerMetrics.shadow_errors || 0],
         ["匿名留言", totals.suggestions || 0],
         ["总问答", analytics.total_exchanges || 0],
         ["人工接管", analytics.human_handoff_count || 0],
@@ -2003,6 +2261,87 @@ function renderOperationsKnowledgeGaps(gaps, drafts) {
     ].filter(Boolean).join("");
 }
 
+function renderOperationsArtifactDrafts(drafts) {
+    if (!operationsArtifactDrafts) {
+        return;
+    }
+    if (!Array.isArray(drafts) || !drafts.length) {
+        renderOperationsEmpty(operationsArtifactDrafts, "当前没有待审核材料草稿。");
+        return;
+    }
+    operationsArtifactDrafts.innerHTML = drafts
+        .map(
+            (draft) => `
+                <article class="list-card list-card-analytics list-card-analytics-draft">
+                    <h3>${escapeHtml((draft.artifact_names || []).join("、") || "未命名材料")}</h3>
+                    <p class="list-meta">${escapeHtml(draft.student_name)}${draft.student_email ? ` | ${escapeHtml(draft.student_email)}` : ""}</p>
+                    <p class="list-body">${escapeHtml(draft.provenance_note)}</p>
+                    <p class="list-body analytics-secondary-copy">保留策略：${escapeHtml(draft.retention_label)} | 摘录 ${escapeHtml(String(draft.artifact_excerpt_count || 0))} 条</p>
+                    <div class="list-card-actions">
+                        <div class="inline-action-group">
+                            ${draft.status === "draft"
+                    ? `<button type="button" class="ghost-button inline-action-button" data-artifact-draft-reject="${escapeHtml(draft.draft_id)}">驳回</button>
+                               <button type="button" class="primary-button inline-action-button" data-artifact-draft-accept="${escapeHtml(draft.draft_id)}">采纳</button>`
+                    : ""}
+                        </div>
+                        <span class="status-badge ${formatArtifactDraftStatusClass(draft.status)}">${escapeHtml(formatArtifactDraftStatusLabel(draft.status))}</span>
+                        <span class="list-meta">${escapeHtml(formatDateTime(draft.updated_at))}</span>
+                    </div>
+                </article>
+            `
+        )
+        .join("");
+}
+
+function formatArtifactDraftStatusLabel(status) {
+    switch (status) {
+        case "accepted":
+            return "已采纳";
+        case "rejected":
+            return "已驳回";
+        default:
+            return "待审核";
+    }
+}
+
+function formatArtifactDraftStatusClass(status) {
+    switch (status) {
+        case "accepted":
+            return "status-badge-confirmed";
+        case "rejected":
+            return "status-badge-rejected";
+        default:
+            return "status-badge-pending";
+    }
+}
+
+async function handleArtifactDraftAction(event) {
+    if (!ensureAdminOnlyAccess({ responseElement: operationsResponse })) {
+        return;
+    }
+    const acceptButton = event.target.closest("[data-artifact-draft-accept]");
+    const rejectButton = event.target.closest("[data-artifact-draft-reject]");
+    if (!acceptButton && !rejectButton) {
+        return;
+    }
+    const button = acceptButton || rejectButton;
+    const draftId = acceptButton?.dataset.artifactDraftAccept || rejectButton?.dataset.artifactDraftReject;
+    const action = acceptButton ? "accept" : "reject";
+    button.disabled = true;
+    setInlineStatus(operationsResponse, action === "accept" ? "正在采纳材料草稿..." : "正在驳回材料草稿...", "empty");
+    try {
+        await apiRequest(`/memory/artifact-drafts/${encodeURIComponent(draftId)}/${action}`, {
+            method: "POST",
+        });
+        setInlineStatus(operationsResponse, action === "accept" ? "材料草稿已采纳。" : "材料草稿已驳回。", "success");
+        await loadOperationsWorkbench();
+    } catch (error) {
+        setInlineStatus(operationsResponse, error.message, "error");
+    } finally {
+        button.disabled = false;
+    }
+}
+
 function renderOperationsEscalations(records) {
     if (!operationsEscalations) {
         return;
@@ -2087,6 +2426,9 @@ async function handleOperationsQueueAction(event) {
     if (target === "booking_review") {
         openModal(bookingAdminModal);
         await loadBookingList();
+    } else if (target === "artifact_memory_drafts") {
+        openModal(operationsConsoleModal);
+        operationsArtifactDrafts?.scrollIntoView({ behavior: "smooth", block: "start" });
     } else if (target === "knowledge_gap_drafts") {
         openModal(questionAnalyticsModal);
         await loadQuestionAnalytics();
@@ -2106,6 +2448,8 @@ function formatOperationQueueLabel(queueKey) {
     switch (queueKey) {
         case "booking_review":
             return "Booking";
+        case "artifact_memory_drafts":
+            return "Artifacts";
         case "knowledge_gap_drafts":
             return "Knowledge";
         case "human_handoff":
@@ -2123,6 +2467,8 @@ function formatOperationsTaskType(taskType) {
     switch (taskType) {
         case "booking_review":
             return "预约审核";
+        case "artifact_memory_draft":
+            return "材料草稿";
         case "knowledge_gap_draft":
             return "知识缺口";
         case "human_handoff":
@@ -2131,6 +2477,8 @@ function formatOperationsTaskType(taskType) {
             return "后续动作";
         case "anonymous_suggestion":
             return "匿名留言";
+        case "planner_comparison":
+            return "规划分歧";
         default:
             return "运营任务";
     }
@@ -2870,14 +3218,15 @@ async function apiRequest(path, options = {}) {
     const timeoutId = globalThis.setTimeout(() => controller.abort(), timeoutMs);
     const apiOrigin = await resolveApiOrigin();
     const requestUrl = buildApiUrl(path, apiOrigin);
+    const requestHeaders = new Headers(fetchOptions.headers || {});
+    if (!(fetchOptions.body instanceof FormData) && !requestHeaders.has("Content-Type")) {
+        requestHeaders.set("Content-Type", "application/json");
+    }
 
     let response;
     try {
         response = await fetch(requestUrl, {
-            headers: {
-                "Content-Type": "application/json",
-                ...(fetchOptions.headers || {}),
-            },
+            headers: requestHeaders,
             credentials: "include",
             ...fetchOptions,
             signal: controller.signal,
@@ -2927,19 +3276,542 @@ function appendMessage(role, label, text, options = {}) {
     const article = document.createElement("article");
     const stateClass = options.state ? ` message-${options.state}` : "";
     const emphasisClass = options.emphasis ? ` message-emphasis-${options.emphasis}` : "";
+    const attachmentsHtml = Array.isArray(options.attachments) && options.attachments.length
+        ? `
+            <div class="message-attachment-row">
+                ${options.attachments
+            .map((attachment) => `
+                    <span class="attachment-chip attachment-chip-readonly">
+                        <span class="attachment-chip-copy">
+                            <strong>${escapeHtml(attachment.fileName || attachment.file_name || "附件")}</strong>
+                            <small>${escapeHtml(formatAttachmentSize(attachment.sizeBytes || attachment.size_bytes || 0))}</small>
+                        </span>
+                    </span>
+                `)
+            .join("")}
+            </div>
+        `
+        : "";
     article.className = `message message-${role}${stateClass}${emphasisClass}`;
     article.innerHTML = `
     <div class="message-role">${escapeHtml(label)}</div>
     <div class="message-frame">
+        ${attachmentsHtml}
         <div class="message-body">${escapeHtml(text)}</div>
     </div>
   `;
     chatStream.appendChild(article);
+    syncConversationMode();
     chatStream.scrollTop = chatStream.scrollHeight;
     return article;
 }
 
-function renderPendingAssistantMessage(container, currentStage = "理解问题") {
+function loadConversationHistory() {
+    try {
+        const raw = globalThis.localStorage?.getItem(CHAT_HISTORY_STORAGE_KEY);
+        if (!raw) {
+            return [];
+        }
+        const parsed = JSON.parse(raw);
+        if (!Array.isArray(parsed)) {
+            return [];
+        }
+        return parsed
+            .map((entry) => ({
+                id: typeof entry?.id === "string" ? entry.id : "",
+                title: typeof entry?.title === "string" ? entry.title : DEFAULT_CONVERSATION_TITLE,
+                preview: typeof entry?.preview === "string" ? entry.preview : "",
+                html: typeof entry?.html === "string" ? entry.html : "",
+                updatedAt: Number.isFinite(entry?.updatedAt) ? entry.updatedAt : Date.now(),
+                exchangeCount: Number.isFinite(entry?.exchangeCount) ? entry.exchangeCount : 1,
+                source: "local",
+            }))
+            .filter((entry) => entry.id && entry.html)
+            .sort((left, right) => right.updatedAt - left.updatedAt)
+            .slice(0, MAX_CHAT_HISTORY_ITEMS);
+    } catch {
+        return [];
+    }
+}
+
+function loadConversationHistoryMeta() {
+    try {
+        const raw = globalThis.localStorage?.getItem(CHAT_HISTORY_META_STORAGE_KEY);
+        if (!raw) {
+            return { titleOverrides: {}, hiddenIds: [] };
+        }
+        const parsed = JSON.parse(raw);
+        const titleOverrides = parsed?.titleOverrides && typeof parsed.titleOverrides === "object"
+            ? Object.fromEntries(
+                Object.entries(parsed.titleOverrides)
+                    .filter(([key, value]) => typeof key === "string" && typeof value === "string" && value.trim())
+            )
+            : {};
+        const hiddenIds = Array.isArray(parsed?.hiddenIds)
+            ? parsed.hiddenIds.filter((value) => typeof value === "string" && value.trim())
+            : [];
+        return { titleOverrides, hiddenIds };
+    } catch {
+        return { titleOverrides: {}, hiddenIds: [] };
+    }
+}
+
+function saveConversationHistory() {
+    try {
+        globalThis.localStorage?.setItem(
+            CHAT_HISTORY_STORAGE_KEY,
+            JSON.stringify(conversationHistoryEntries.slice(0, MAX_CHAT_HISTORY_ITEMS))
+        );
+    } catch {
+        // Ignore persistence failures in privacy-restricted modes.
+    }
+}
+
+function saveConversationHistoryMeta() {
+    try {
+        globalThis.localStorage?.setItem(
+            CHAT_HISTORY_META_STORAGE_KEY,
+            JSON.stringify(conversationHistoryMeta)
+        );
+    } catch {
+        // Ignore persistence failures in privacy-restricted modes.
+    }
+}
+
+function buildConversationTitle(text) {
+    const normalized = String(text || "").replace(/\s+/g, " ").trim();
+    if (!normalized) {
+        return DEFAULT_CONVERSATION_TITLE;
+    }
+    return normalized.length > 20 ? `${normalized.slice(0, 20)}...` : normalized;
+}
+
+function buildConversationPreview(text) {
+    const normalized = String(text || "").replace(/\s+/g, " ").trim();
+    if (!normalized) {
+        return "";
+    }
+    return normalized.length > 48 ? `${normalized.slice(0, 48)}...` : normalized;
+}
+
+function noteOutgoingConversationQuestion(question) {
+    if (!currentConversationTitle || currentConversationTitle === DEFAULT_CONVERSATION_TITLE) {
+        currentConversationTitle = buildConversationTitle(question);
+    }
+    currentConversationPreview = buildConversationPreview(question);
+}
+
+function noteConversationAnswerPreview(answerText) {
+    const preview = buildConversationPreview(answerText);
+    if (preview) {
+        currentConversationPreview = preview;
+    }
+}
+
+function getCurrentHistorySyncEmail() {
+    const email = String(studentEmailInput?.value || "").trim().toLowerCase();
+    return email || "";
+}
+
+function buildMergedConversationEntries() {
+    const merged = new Map();
+
+    serverConversationEntries.forEach((entry) => {
+        merged.set(entry.id, { ...entry, source: "server" });
+    });
+
+    conversationHistoryEntries.forEach((entry) => {
+        const existing = merged.get(entry.id) || {};
+        merged.set(entry.id, {
+            ...existing,
+            ...entry,
+            title: entry.title || existing.title || DEFAULT_CONVERSATION_TITLE,
+            preview: entry.preview || existing.preview || "",
+            updatedAt: Math.max(Number(existing.updatedAt || 0), Number(entry.updatedAt || 0)),
+            exchangeCount: Math.max(Number(existing.exchangeCount || 1), Number(entry.exchangeCount || 1)),
+            source: existing.id ? "hybrid" : "local",
+        });
+    });
+
+    return [...merged.values()]
+        .filter((entry) => !conversationHistoryMeta.hiddenIds.includes(entry.id))
+        .map((entry) => ({
+            ...entry,
+            title: conversationHistoryMeta.titleOverrides[entry.id] || entry.title || DEFAULT_CONVERSATION_TITLE,
+            preview: entry.preview || "点击继续这段对话",
+        }))
+        .sort((left, right) => right.updatedAt - left.updatedAt)
+        .slice(0, MAX_CHAT_HISTORY_ITEMS);
+}
+
+function groupConversationHistoryEntries(entries) {
+    const groups = [
+        { key: "today", label: "今天", items: [] },
+        { key: "recent", label: "最近 7 天", items: [] },
+        { key: "older", label: "更早", items: [] },
+    ];
+    const now = new Date();
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+    const recentThreshold = startOfToday - 6 * 24 * 60 * 60 * 1000;
+
+    entries.forEach((entry) => {
+        const timestamp = Number(entry.updatedAt || 0);
+        if (timestamp >= startOfToday) {
+            groups[0].items.push(entry);
+        } else if (timestamp >= recentThreshold) {
+            groups[1].items.push(entry);
+        } else {
+            groups[2].items.push(entry);
+        }
+    });
+
+    return groups.filter((group) => group.items.length);
+}
+
+function hasRenderableConversation() {
+    return Boolean(chatStream?.querySelector(".message-user, .message-pending, .message-ready"));
+}
+
+function persistActiveConversationSnapshot() {
+    if (!chatStream || !hasRenderableConversation()) {
+        renderConversationHistoryList();
+        return;
+    }
+
+    const entry = {
+        id: activeConversationId,
+        title: conversationHistoryMeta.titleOverrides[activeConversationId] || currentConversationTitle || DEFAULT_CONVERSATION_TITLE,
+        preview: currentConversationPreview || buildConversationPreview(chatStream.textContent || ""),
+        html: chatStream.innerHTML,
+        updatedAt: Date.now(),
+        exchangeCount: chatStream.querySelectorAll(".message-user").length || 1,
+        source: "local",
+    };
+
+    conversationHistoryEntries = [entry, ...conversationHistoryEntries.filter((item) => item.id !== activeConversationId)]
+        .slice(0, MAX_CHAT_HISTORY_ITEMS);
+    saveConversationHistory();
+    renderConversationHistoryList();
+}
+
+function renderConversationHistoryList() {
+    if (!historyList) {
+        return;
+    }
+
+    const mergedEntries = buildMergedConversationEntries();
+
+    if (!mergedEntries.length) {
+        historyList.innerHTML = `<div class="history-empty">${escapeHtml(getCurrentHistorySyncEmail() ? "还没有可恢复的历史对话。" : "新的对话会出现在这里；登录或填写邮箱后也能同步到其他设备。")}</div>`;
+        return;
+    }
+
+    historyList.innerHTML = groupConversationHistoryEntries(mergedEntries)
+        .map((group) => `
+            <section class="history-group" aria-label="${escapeHtml(group.label)}">
+                <h3 class="history-group-title">${escapeHtml(group.label)}</h3>
+                <div class="history-group-list">
+                    ${group.items.map((entry) => {
+            const isActive = entry.id === activeConversationId && hasRenderableConversation();
+            return `
+                            <article class="history-item ${isActive ? "history-item-active" : ""}">
+                                <button type="button" class="history-item-main" data-history-id="${escapeHtml(entry.id)}">
+                                    <div class="history-item-head">
+                                        <strong class="history-item-title">${escapeHtml(entry.title || DEFAULT_CONVERSATION_TITLE)}</strong>
+                                        <span class="history-item-time">${escapeHtml(formatConversationHistoryTime(entry.updatedAt))}</span>
+                                    </div>
+                                    <p class="history-item-preview">${escapeHtml(entry.preview || "点击继续这段对话")}</p>
+                                    <div class="history-item-meta-row">
+                                        <span class="history-item-badge">${isActive ? "当前" : `${escapeHtml(String(entry.exchangeCount || 1))} 轮`}</span>
+                                        ${entry.source === "server" || entry.source === "hybrid" ? '<span class="history-item-sync">已同步</span>' : ""}
+                                    </div>
+                                </button>
+                                <div class="history-item-actions">
+                                    <button type="button" class="history-item-action" data-history-rename="${escapeHtml(entry.id)}">改名</button>
+                                    <button type="button" class="history-item-action" data-history-remove="${escapeHtml(entry.id)}">移除</button>
+                                </div>
+                            </article>
+                        `;
+        }).join("")}
+                </div>
+            </section>
+        `)
+        .join("");
+}
+
+function formatConversationHistoryTime(timestamp) {
+    const date = new Date(timestamp);
+    if (Number.isNaN(date.getTime())) {
+        return "刚刚";
+    }
+
+    const now = new Date();
+    const sameDay = date.toDateString() === now.toDateString();
+    if (sameDay) {
+        return new Intl.DateTimeFormat("zh-CN", { hour: "2-digit", minute: "2-digit" }).format(date);
+    }
+    return new Intl.DateTimeFormat("zh-CN", { month: "numeric", day: "numeric" }).format(date);
+}
+
+async function handleConversationHistoryClick(event) {
+    const renameTrigger = event.target.closest("[data-history-rename]");
+    if (renameTrigger && historyList?.contains(renameTrigger)) {
+        handleConversationRename(renameTrigger.dataset.historyRename || "");
+        return;
+    }
+
+    const removeTrigger = event.target.closest("[data-history-remove]");
+    if (removeTrigger && historyList?.contains(removeTrigger)) {
+        handleConversationRemove(removeTrigger.dataset.historyRemove || "");
+        return;
+    }
+
+    const trigger = event.target.closest("[data-history-id]");
+    if (!trigger || !historyList?.contains(trigger)) {
+        return;
+    }
+
+    const conversationId = trigger.dataset.historyId || "";
+    if (!conversationId || conversationId === activeConversationId) {
+        return;
+    }
+
+    persistActiveConversationSnapshot();
+    await restoreConversationFromHistory(conversationId);
+}
+
+function handleConversationRename(conversationId) {
+    if (!conversationId) {
+        return;
+    }
+    const entry = buildMergedConversationEntries().find((item) => item.id === conversationId);
+    if (!entry) {
+        return;
+    }
+    const nextTitle = globalThis.prompt("重命名这段对话", entry.title || DEFAULT_CONVERSATION_TITLE);
+    if (nextTitle === null) {
+        return;
+    }
+    const normalized = nextTitle.trim();
+    if (!normalized) {
+        delete conversationHistoryMeta.titleOverrides[conversationId];
+    } else {
+        conversationHistoryMeta.titleOverrides[conversationId] = buildConversationTitle(normalized);
+    }
+    if (conversationId === activeConversationId) {
+        currentConversationTitle = conversationHistoryMeta.titleOverrides[conversationId] || currentConversationTitle;
+        persistActiveConversationSnapshot();
+    }
+    saveConversationHistoryMeta();
+    renderConversationHistoryList();
+}
+
+function handleConversationRemove(conversationId) {
+    if (!conversationId) {
+        return;
+    }
+    const confirmed = globalThis.confirm("把这段对话从左栏隐藏？本地快照会移除，服务端同步记录也不会再显示。 ");
+    if (!confirmed) {
+        return;
+    }
+    conversationHistoryMeta.hiddenIds = [...new Set([...conversationHistoryMeta.hiddenIds, conversationId])];
+    delete conversationHistoryMeta.titleOverrides[conversationId];
+    conversationHistoryEntries = conversationHistoryEntries.filter((entry) => entry.id !== conversationId);
+    saveConversationHistory();
+    saveConversationHistoryMeta();
+    if (conversationId === activeConversationId) {
+        startFreshConversation();
+        return;
+    }
+    renderConversationHistoryList();
+}
+
+async function restoreConversationFromHistory(conversationId) {
+    const entry = conversationHistoryEntries.find((item) => item.id === conversationId);
+    if (!chatStream) {
+        return;
+    }
+
+    stopWorkflowTraceStream();
+    activeWorkflowSteps = [];
+    activeConversationId = conversationId;
+    if (entry?.html) {
+        currentConversationTitle = conversationHistoryMeta.titleOverrides[conversationId] || entry.title || DEFAULT_CONVERSATION_TITLE;
+        currentConversationPreview = entry.preview || "";
+        chatStream.innerHTML = entry.html || initialChatStreamMarkup;
+        hydrateConversationInteractiveState();
+        renderConversationHistoryList();
+        renderWorkflowTrace([], {
+            workflowAction: null,
+            knowledgeHits: null,
+            isStreaming: false,
+            currentLabel: undefined,
+            plannerPreview: null,
+            shadowPlannerPreview: null,
+            plannerComparison: null,
+        });
+        chatStream.scrollTop = 0;
+        return;
+    }
+
+    try {
+        const transcript = await fetchConversationTranscript(conversationId);
+        renderConversationTranscript(transcript);
+        renderConversationHistoryList();
+    } catch (error) {
+        currentConversationTitle = DEFAULT_CONVERSATION_TITLE;
+        currentConversationPreview = "";
+        startFreshConversation();
+        console.error(error);
+    }
+}
+
+async function fetchConversationTranscript(conversationId) {
+    const email = getCurrentHistorySyncEmail();
+    if (!email) {
+        throw new Error("当前没有可用于同步历史的邮箱信息。");
+    }
+    const params = new URLSearchParams({ student_email: email });
+    return apiRequest(`/chat/conversations/${encodeURIComponent(conversationId)}?${params.toString()}`, { timeoutMs: 10000 });
+}
+
+function renderConversationTranscript(transcript) {
+    if (!chatStream || !transcript) {
+        return;
+    }
+
+    chatStream.innerHTML = "";
+    currentConversationTitle = conversationHistoryMeta.titleOverrides[transcript.conversation_id] || transcript.title || DEFAULT_CONVERSATION_TITLE;
+    currentConversationPreview = transcript.preview || "";
+    activeConversationId = transcript.conversation_id;
+
+    const speakerName = transcript.student_name || studentNameInput?.value || "学生";
+    const exchanges = Array.isArray(transcript.exchanges) ? transcript.exchanges : [];
+    if (!exchanges.length) {
+        chatStream.innerHTML = initialChatStreamMarkup;
+        syncIntroCardPresentation();
+        syncConversationMode();
+        return;
+    }
+
+    exchanges.forEach((exchange) => {
+        appendMessage("user", speakerName, exchange.question, {});
+        appendMessage("assistant", assistantLabel, exchange.answer, {});
+    });
+    syncConversationMode();
+}
+
+async function syncConversationHistoryFromServer() {
+    const email = getCurrentHistorySyncEmail();
+    if (!email) {
+        serverConversationEntries = [];
+        renderConversationHistoryList();
+        return;
+    }
+
+    try {
+        const params = new URLSearchParams({ student_email: email, limit: String(MAX_CHAT_HISTORY_ITEMS) });
+        const data = await apiRequest(`/chat/conversations?${params.toString()}`, { timeoutMs: 8000 });
+        serverConversationEntries = Array.isArray(data?.conversations)
+            ? data.conversations.map((entry) => ({
+                id: String(entry.conversation_id || ""),
+                title: String(entry.title || DEFAULT_CONVERSATION_TITLE),
+                preview: String(entry.preview || "点击继续这段对话"),
+                updatedAt: Date.parse(String(entry.last_message_at || "")) || Date.now(),
+                exchangeCount: Number(entry.exchange_count || 1),
+                source: "server",
+            })).filter((entry) => entry.id)
+            : [];
+    } catch {
+        serverConversationEntries = [];
+    }
+
+    renderConversationHistoryList();
+}
+
+function setHistoryRailCollapsed(collapsed) {
+    document.body.classList.toggle("history-rail-collapsed", collapsed);
+    if (historyRailToggleButton) {
+        historyRailToggleButton.textContent = collapsed ? "展开" : "收起";
+        historyRailToggleButton.setAttribute("aria-expanded", String(!collapsed));
+    }
+    try {
+        globalThis.localStorage?.setItem(HISTORY_RAIL_COLLAPSED_KEY, collapsed ? "1" : "0");
+    } catch {
+        // Ignore persistence failures in privacy-restricted modes.
+    }
+}
+
+function toggleHistoryRail() {
+    setHistoryRailCollapsed(!document.body.classList.contains("history-rail-collapsed"));
+}
+
+function restoreHistoryRailState() {
+    try {
+        setHistoryRailCollapsed(globalThis.localStorage?.getItem(HISTORY_RAIL_COLLAPSED_KEY) !== "0");
+    } catch {
+        setHistoryRailCollapsed(true);
+    }
+}
+
+function hydrateConversationInteractiveState() {
+    syncConversationMode();
+    attachFeedbackHandlersToStream();
+}
+
+function attachFeedbackHandlersToStream() {
+    if (!chatStream) {
+        return;
+    }
+    chatStream.querySelectorAll(".message-feedback[data-feedback-exchange]").forEach((feedbackSection) => {
+        const container = feedbackSection.closest(".message");
+        const exchangeId = feedbackSection.dataset.feedbackExchange || "";
+        if (container && exchangeId) {
+            attachFeedbackHandlers(container, exchangeId);
+        }
+    });
+}
+
+function startFreshConversation() {
+    if (hasRenderableConversation()) {
+        persistActiveConversationSnapshot();
+    }
+
+    stopWorkflowTraceStream();
+    activeWorkflowSteps = [];
+    activeConversationId = createConversationId();
+    currentConversationTitle = DEFAULT_CONVERSATION_TITLE;
+    currentConversationPreview = "";
+    latestWorkflowMeta = {
+        workflowAction: null,
+        knowledgeHits: null,
+        isStreaming: false,
+        plannerPreview: null,
+        shadowPlannerPreview: null,
+        plannerComparison: null,
+    };
+    clearPendingChatAttachments();
+    if (chatStream) {
+        chatStream.innerHTML = initialChatStreamMarkup;
+    }
+    syncIntroCardPresentation();
+    renderConversationHistoryList();
+    syncConversationMode();
+    renderWorkflowTrace([], latestWorkflowMeta);
+    chatSubmitButton.disabled = false;
+    chatSubmitButton.textContent = "发送";
+    chatQuestion?.focus();
+}
+
+function syncConversationMode() {
+    if (!chatStream) {
+        return;
+    }
+    const hasConversation = Boolean(chatStream.querySelector(".message-user, .message-pending, .message-ready"));
+    document.body.classList.toggle("conversation-active", hasConversation);
+}
+
+function renderPendingAssistantMessage(container, currentStage = "理解问题", workflowSteps = []) {
     container.innerHTML = `
         <div class="message-role">${escapeHtml(assistantLabel)}</div>
         <div class="message-frame message-pending-frame">
@@ -2951,34 +3823,33 @@ function renderPendingAssistantMessage(container, currentStage = "理解问题")
                         <p id="pending-stage-label" class="thinking-stage-label">${escapeHtml(currentStage)}</p>
                     </div>
                 </div>
-                <div class="thinking-steps" aria-label="当前处理步骤">
-                    <span class="thinking-step thinking-step-active">理解</span>
-                    <span class="thinking-step">检索</span>
-                    <span class="thinking-step">生成</span>
+                <div class="thinking-phase-rail" aria-live="polite">
+                    ${buildWorkflowPhaseRailHtml({ currentStage, workflowSteps, complete: false })}
+                </div>
+                <div class="thinking-trace" aria-label="实时处理过程">
+                    <div class="thinking-trace-list"></div>
                 </div>
             </div>
         </div>
     `;
+    syncPendingWorkflowTrace(workflowSteps, { animateNewItems: false, currentStage });
 }
 
-function updatePendingAssistantMessage(currentStage) {
+function updatePendingAssistantMessage(currentStage, workflowSteps = []) {
     const pendingLabel = chatStream?.querySelector(".message-pending #pending-stage-label");
     if (pendingLabel) {
         pendingLabel.textContent = currentStage;
     }
-    const pendingSteps = Array.from(chatStream?.querySelectorAll(".message-pending .thinking-step") || []);
-    if (!pendingSteps.length) {
-        return;
+    const pendingRail = chatStream?.querySelector(".message-pending .thinking-phase-rail");
+    if (pendingRail) {
+        pendingRail.innerHTML = buildWorkflowPhaseRailHtml({
+            currentStage,
+            workflowSteps,
+            complete: false,
+        });
     }
-    const normalizedStage = String(currentStage || "");
-    const activeIndex = /检索|知识|memory|retrieve/i.test(normalizedStage)
-        ? 1
-        : /回复|生成|回答|render|answer|llm/i.test(normalizedStage)
-            ? 2
-            : 0;
-    pendingSteps.forEach((step, index) => {
-        step.classList.toggle("thinking-step-active", index === activeIndex);
-    });
+
+    syncPendingWorkflowTrace(workflowSteps, { animateNewItems: true, currentStage });
 }
 
 function renderAssistantMessage(
@@ -2989,7 +3860,8 @@ function renderAssistantMessage(
     hits,
     bookingResult = null,
     isError = false,
-    exchangeId = null
+    exchangeId = null,
+    workflowTrace = []
 ) {
     const bodyClass = isError ? "message-body" : "message-body";
     const cleanedText = stripNotificationText(text, bookingResult?.notification || null);
@@ -3036,7 +3908,10 @@ function renderAssistantMessage(
             title: "建议的后续动作",
             copy: "这些动作会把这次对话继续往后推进，而不是停在一条回复上。",
             count: followUpActions.length,
+            countLabel: "需确认",
             sectionClassName: "message-section-follow-up",
+            closedLabel: "确认查看",
+            openLabel: "收起",
             contentHtml: `
                 <div class="message-basis-list">
                     ${followUpActions.map((action) => buildFollowUpActionHtml(action)).join("")}
@@ -3044,12 +3919,18 @@ function renderAssistantMessage(
             `,
         })
         : "";
+    const workflowTraceHtml = Array.isArray(workflowTrace) && workflowTrace.length
+        ? buildWorkflowStatusSummaryHtml(workflowTrace)
+        : "";
     container.innerHTML = `
         <div class="message-role">${escapeHtml(assistantLabel)}</div>
     <div class="message-frame">
         <div class="message-main-copy">
-            <span class="message-section-kicker">Reply</span>
-            <div class="${bodyClass}">${escapeHtml(cleanedText)}</div>
+            <div class="message-reply-block">
+                <span class="message-section-kicker">Reply</span>
+                <div class="${bodyClass}">${escapeHtml(cleanedText)}</div>
+            </div>
+            ${workflowTraceHtml}
         </div>
         ${notificationHtml}
         ${basisHtml}
@@ -3066,27 +3947,360 @@ function renderAssistantMessage(
     chatStream.scrollTop = chatStream.scrollHeight;
 }
 
-function buildCollapsibleSupportSectionHtml({ kicker, title, copy, count, contentHtml, sectionClassName = "message-section-support" }) {
-    const countLabel = Number.isFinite(count) ? `${count} 条` : "查看";
+function buildWorkflowStatusSummaryHtml(workflowTrace) {
+    if (!Array.isArray(workflowTrace) || !workflowTrace.length) {
+        return "";
+    }
+
+    const latestStep = workflowTrace[workflowTrace.length - 1] || null;
+    const totalDurationMs = workflowTrace.reduce(
+        (sum, step) => (typeof step?.duration_ms === "number" ? sum + step.duration_ms : sum),
+        0
+    );
+    const completedPhaseCount = deriveWorkflowPhaseStates({ workflowSteps: workflowTrace, complete: true })
+        .filter((phase) => phase.state === "completed")
+        .length;
+    const preview = latestStep
+        ? `${completedPhaseCount}/${WORKFLOW_PHASE_DEFINITIONS.length} 段 · ${workflowTrace.length} 步 · ${totalDurationMs > 0 ? formatWorkflowDuration(totalDurationMs) : "处理中"}`
+        : `${workflowTrace.length} 步`;
+
     return `
-        <section class="message-section ${escapeHtml(sectionClassName)}" data-expanded="false">
-            <button type="button" class="message-section-toggle" aria-expanded="false">
+        <section class="message-workflow-summary message-section" data-expanded="false" aria-label="本次处理过程">
+            <div class="message-workflow-summary-head">
+                <div class="message-workflow-summary-copy">
+                    <span class="message-section-kicker">Workflow</span>
+                    <strong class="message-section-title">处理进展</strong>
+                </div>
+                <div class="message-workflow-summary-meta">
+                    <span class="message-inline-process-preview">${escapeHtml(preview)}</span>
+                </div>
+            </div>
+            ${buildWorkflowPhaseRailHtml({ workflowSteps: workflowTrace, complete: true })}
+            <button type="button" class="message-section-toggle message-workflow-summary-toggle" aria-expanded="false" data-closed-label="展开完整步骤" data-open-label="收起详情">
+                <div class="message-section-toggle-copy">
+                    <span class="message-workflow-summary-note">默认只显示简化阶段，完整步骤按需展开。</span>
+                </div>
+                <div class="message-section-toggle-meta">
+                    <span class="message-section-count">${escapeHtml(`${workflowTrace.length} 步`)}</span>
+                    <span class="message-section-chevron">展开完整步骤</span>
+                </div>
+            </button>
+            <div class="message-section-content" hidden>
+                <div class="message-workflow-chip-row">
+                    ${workflowTrace.map((step, index) => buildWorkflowStepChipHtml(step, index)).join("")}
+                </div>
+            </div>
+        </section>
+    `;
+}
+
+function buildWorkflowPhaseRailHtml({ currentStage = "", workflowSteps = [], complete = false } = {}) {
+    const phases = deriveWorkflowPhaseStates({ currentStage, workflowSteps, complete });
+    return `
+        <div class="workflow-phase-rail" aria-label="当前处理阶段">
+            ${phases.map((phase, index) => `
+                <div class="workflow-phase-item workflow-phase-item-${escapeHtml(phase.state)}" data-phase-key="${escapeHtml(phase.key)}">
+                    <span class="workflow-phase-icon" aria-hidden="true">${buildWorkflowPhaseIconSvg(phase.icon)}</span>
+                    <span class="workflow-phase-label">${escapeHtml(phase.label)}</span>
+                    ${index < phases.length - 1 ? '<span class="workflow-phase-link" aria-hidden="true"></span>' : ""}
+                </div>
+            `).join("")}
+        </div>
+    `;
+}
+
+function buildWorkflowPhaseIconSvg(iconName) {
+    const iconMap = {
+        inbox: `
+            <svg viewBox="0 0 24 24" fill="none" focusable="false">
+                <path d="M4.5 8.4 7.1 5.5h9.8l2.6 2.9v9.1H4.5Z" stroke="currentColor" stroke-width="1.7"/>
+                <path d="M8.4 12.3h7.2" stroke="currentColor" stroke-width="1.7"/>
+                <path d="m12 8.1 2 2-2 2" stroke="currentColor" stroke-width="1.7"/>
+            </svg>`,
+        branch: `
+            <svg viewBox="0 0 24 24" fill="none" focusable="false">
+                <circle cx="7" cy="6.5" r="2.1" stroke="currentColor" stroke-width="1.7"/>
+                <circle cx="17" cy="6.5" r="2.1" stroke="currentColor" stroke-width="1.7"/>
+                <circle cx="12" cy="17.2" r="2.1" stroke="currentColor" stroke-width="1.7"/>
+                <path d="M9 7.6c1.3 1 2.1 2.3 3 5.3M15 7.6c-1.3 1-2.1 2.3-3 5.3" stroke="currentColor" stroke-width="1.7"/>
+            </svg>`,
+        search: `
+            <svg viewBox="0 0 24 24" fill="none" focusable="false">
+                <circle cx="10.4" cy="10.4" r="4.6" stroke="currentColor" stroke-width="1.7"/>
+                <path d="m14 14 4.1 4.1" stroke="currentColor" stroke-width="1.7"/>
+                <path d="M8.3 10.4h4.2" stroke="currentColor" stroke-width="1.7"/>
+            </svg>`,
+        message: `
+            <svg viewBox="0 0 24 24" fill="none" focusable="false">
+                <path d="M5 6.6h14v8.5h-7l-3.7 3.3v-3.3H5z" stroke="currentColor" stroke-width="1.7"/>
+                <path d="M8.3 10.1h7.2M8.3 12.8h4.8" stroke="currentColor" stroke-width="1.7"/>
+                <path d="m16.8 5.1.5 1.3 1.3.5-1.3.5-.5 1.3-.5-1.3-1.3-.5 1.3-.5z" stroke="currentColor" stroke-width="1.4"/>
+            </svg>`,
+        checklist: `
+            <svg viewBox="0 0 24 24" fill="none" focusable="false">
+                <rect x="5" y="4.8" width="14" height="14.5" rx="3.2" stroke="currentColor" stroke-width="1.7"/>
+                <path d="M9.4 9.1h5.8M9.4 12.3h5.8M9.4 15.5h4.1" stroke="currentColor" stroke-width="1.7"/>
+                <path d="m7.2 9.3.7.7 1.3-1.5M7.2 15.7l.7.7 1.3-1.5" stroke="currentColor" stroke-width="1.6"/>
+            </svg>`,
+        send: `
+            <svg viewBox="0 0 24 24" fill="none" focusable="false">
+                <path d="M4.8 12 19 5.6l-4.3 12.8-3.1-5.2-6.8-.1Z" stroke="currentColor" stroke-width="1.7"/>
+                <path d="M11.7 13 18.8 5.8" stroke="currentColor" stroke-width="1.7"/>
+                <path d="M9.5 18.2h5.3" stroke="currentColor" stroke-width="1.5" opacity="0.7"/>
+            </svg>`,
+    };
+    return iconMap[iconName] || iconMap.message;
+}
+
+function deriveWorkflowPhaseStates({ currentStage = "", workflowSteps = [], complete = false } = {}) {
+    const visibleSteps = buildVisibleWorkflowSteps(workflowSteps, currentStage, { includeCurrentStage: !complete });
+    const lastVisibleStep = visibleSteps[visibleSteps.length - 1] || null;
+    const activePhaseIndex = lastVisibleStep
+        ? WORKFLOW_PHASE_DEFINITIONS.findIndex((phase) => phase.key === inferWorkflowPhaseKey(lastVisibleStep))
+        : 0;
+
+    return WORKFLOW_PHASE_DEFINITIONS.map((definition, index) => {
+        let state = "pending";
+        if (complete) {
+            state = index <= activePhaseIndex ? "completed" : "pending";
+        } else if (index < activePhaseIndex) {
+            state = "completed";
+        } else if (index === activePhaseIndex) {
+            state = "active";
+        }
+        return {
+            ...definition,
+            state,
+        };
+    });
+}
+
+function inferWorkflowPhaseKey(step) {
+    const key = String(step?.key || "");
+    const normalized = `${key} ${String(step?.title || "")}`.toLowerCase();
+
+    if (key === "response_render" || /返回结果|return|response/.test(normalized)) {
+        return "return";
+    }
+    if (
+        ["follow_up_plan", "memory_usefulness_score", "memory_persist", "artifact_memory_writeback", "memory_profile_consolidate"].includes(key)
+        || /规划后续|评估记忆|写入对话记忆|记录材料|沉淀长期画像|persist|follow_up|usefulness/.test(normalized)
+    ) {
+        return "finalize";
+    }
+    if (["prompt_build", "llm_answer"].includes(key) || /构造回答上下文|生成回答|回答|回复|answer|prompt|llm/.test(normalized)) {
+        return "answer";
+    }
+    if (["knowledge_retrieve", "memory_retrieve"].includes(key) || /检索|记忆|资料|上下文|retrieve|memory|knowledge|search/.test(normalized)) {
+        return "retrieve";
+    }
+    if (["workflow_plan_preview", "interaction_understand", "booking_prepare", "booking_execute", "knowledge_write", "current_stage"].includes(key)
+        || /预览|理解用户意图|预约|知识入库|当前处理中|plan|intent|booking/.test(normalized)) {
+        return "decide";
+    }
+    return "intake";
+}
+
+function buildVisibleWorkflowSteps(workflowSteps = [], currentStage = "", options = {}) {
+    const normalizedSteps = Array.isArray(workflowSteps) ? [...workflowSteps] : [];
+    const includeCurrentStage = Boolean(options.includeCurrentStage);
+    const currentTitle = String(currentStage || "").trim();
+    const latestTitle = String(normalizedSteps[normalizedSteps.length - 1]?.title || "").trim();
+    if (includeCurrentStage && currentTitle && currentTitle !== latestTitle) {
+        normalizedSteps.push({
+            key: "current_stage",
+            title: currentTitle,
+            summary: "当前正在执行这一步。",
+            detail: "前面的步骤已经完成，系统正在推进这一环。",
+            status: "active",
+        });
+    }
+    return normalizedSteps;
+}
+
+function buildCollapsibleSupportSectionHtml({
+    kicker,
+    title,
+    copy,
+    count,
+    countLabel,
+    contentHtml,
+    sectionClassName = "message-section-support",
+    defaultExpanded = false,
+    closedLabel = "查看",
+    openLabel = "收起",
+}) {
+    const resolvedCountLabel = countLabel || (Number.isFinite(count) ? `${count} 条` : closedLabel);
+    return `
+        <section class="message-section ${escapeHtml(sectionClassName)}" data-expanded="${defaultExpanded}">
+            <button type="button" class="message-section-toggle" aria-expanded="${defaultExpanded}" data-closed-label="${escapeHtml(closedLabel)}" data-open-label="${escapeHtml(openLabel)}">
                 <div class="message-section-toggle-copy">
                     <span class="message-section-kicker">${escapeHtml(kicker)}</span>
                     <strong class="message-section-title">${escapeHtml(title)}</strong>
                 </div>
                 <div class="message-section-toggle-meta">
-                    <span class="message-section-count">${escapeHtml(countLabel)}</span>
-                    <span class="message-section-chevron">查看</span>
+                    <span class="message-section-count">${escapeHtml(resolvedCountLabel)}</span>
+                    <span class="message-section-chevron">${defaultExpanded ? escapeHtml(openLabel) : escapeHtml(closedLabel)}</span>
                 </div>
             </button>
-            <div class="message-section-content" hidden>
+            <div class="message-section-content" ${defaultExpanded ? "" : "hidden"}>
                 <div class="message-basis-header">
                     <p class="message-basis-copy">${escapeHtml(copy)}</p>
                 </div>
                 ${contentHtml}
             </div>
         </section>
+    `;
+}
+
+function syncPendingWorkflowTrace(workflowSteps = [], options = {}) {
+    const traceList = chatStream?.querySelector(".message-pending .thinking-trace-list");
+    if (!traceList) {
+        return;
+    }
+
+    const visibleSteps = buildVisibleWorkflowSteps(workflowSteps, options.currentStage || chatStream?.querySelector(".message-pending #pending-stage-label")?.textContent || "", {
+        includeCurrentStage: true,
+    });
+
+    if (!visibleSteps.length) {
+        traceList.innerHTML = '<div class="thinking-trace-empty">会用阶段总览和完整步骤 chips 显示当前 workflow 走到哪一环。</div>';
+        return;
+    }
+
+    traceList.innerHTML = buildPendingWorkflowTraceCompactHtml(visibleSteps, {
+        animate: options.animateNewItems !== false,
+    });
+
+    chatStream.scrollTop = chatStream.scrollHeight;
+}
+
+function buildPendingWorkflowTraceCompactHtml(steps, options = {}) {
+    const latestStep = steps[steps.length - 1] || null;
+    if (!latestStep) {
+        return '<div class="thinking-trace-empty">会用阶段图标和简短状态提示当前处理进展。</div>';
+    }
+
+    const completedSteps = steps.filter((step) => step?.status !== "active");
+    const activeStepIndex = steps.findIndex((step) => step?.status === "active");
+    const currentStepIndex = activeStepIndex >= 0 ? activeStepIndex : Math.max(steps.length - 1, 0);
+    const phaseStates = deriveWorkflowPhaseStates({
+        currentStage: latestStep.title,
+        workflowSteps: steps,
+        complete: false,
+    });
+    const completedPhaseCount = phaseStates.filter((phase) => phase.state === "completed").length;
+
+    return `
+        <div class="thinking-trace-compact ${options.animate ? "thinking-trace-item-enter" : ""}">
+            <div class="thinking-trace-compact-current">
+                <span class="thinking-trace-status">当前</span>
+                <strong>${escapeHtml(latestStep?.title || "处理中")}</strong>
+                ${typeof latestStep?.duration_ms === "number" ? `<span class="thinking-trace-duration">${escapeHtml(formatWorkflowDuration(latestStep.duration_ms))}</span>` : ""}
+            </div>
+            <div class="thinking-trace-progress-meta">
+                <span>阶段 ${completedPhaseCount + 1}/${WORKFLOW_PHASE_DEFINITIONS.length}</span>
+                <span>步骤 ${currentStepIndex + 1}/${steps.length}</span>
+            </div>
+            <p class="thinking-trace-compact-copy">${escapeHtml(latestStep?.summary || latestStep?.detail || "正在继续推进这次请求。")}</p>
+            <div class="thinking-trace-chip-row">
+                ${steps.map((step, index) => buildWorkflowStepChipHtml(step, index, { compact: true, current: index === currentStepIndex })).join("")}
+            </div>
+            ${completedSteps.length ? `<p class="thinking-trace-compact-history">已完成 ${completedSteps.length} 个实际步骤，后续会继续补齐剩余环节。</p>` : ""}
+        </div>
+    `;
+}
+
+function buildWorkflowStepChipHtml(step, index, options = {}) {
+    const title = step?.title || `步骤 ${index + 1}`;
+    const displayTitle = formatWorkflowStepChipTitle(step, title);
+    const status = options.current ? "active" : normalizeWorkflowStepStatus(step?.status);
+    const duration = typeof step?.duration_ms === "number" ? formatWorkflowDuration(step.duration_ms) : "";
+    const tooltip = [title, step?.summary || step?.detail || ""].filter(Boolean).join(" · ");
+    const classNames = [
+        "workflow-step-chip",
+        options.compact ? "workflow-step-chip-compact" : "",
+        `workflow-step-chip-${status}`,
+        options.current ? "workflow-step-chip-current" : "",
+    ].filter(Boolean).join(" ");
+    return `
+        <span class="${classNames}" title="${escapeHtml(tooltip)}">
+            <span class="workflow-step-chip-index">${escapeHtml(String(index + 1))}</span>
+            <span class="workflow-step-chip-title">${escapeHtml(displayTitle)}</span>
+            ${duration ? `<span class="workflow-step-chip-duration">${escapeHtml(duration)}</span>` : ""}
+        </span>
+    `;
+}
+
+function formatWorkflowStepChipTitle(step, fallbackTitle) {
+    const shortLabel = WORKFLOW_STEP_SHORT_LABELS[String(step?.key || "")];
+    const title = shortLabel || fallbackTitle || "处理中";
+    if (title.length <= MAX_WORKFLOW_STEP_TITLE_LENGTH) {
+        return title;
+    }
+    return `${title.slice(0, MAX_WORKFLOW_STEP_TITLE_LENGTH)}...`;
+}
+
+function normalizeWorkflowStepStatus(status) {
+    if (status === "skipped") {
+        return "skipped";
+    }
+    if (status === "active") {
+        return "active";
+    }
+    return "completed";
+}
+
+function appendPendingWorkflowTraceItems(traceList, steps, options = {}) {
+    if (!traceList || !Array.isArray(steps) || !steps.length) {
+        return;
+    }
+
+    steps.forEach((step, index) => {
+        const wrapper = document.createElement("div");
+        wrapper.innerHTML = buildPendingWorkflowTraceItemHtml(step, index === steps.length - 1);
+        const element = wrapper.firstElementChild;
+        if (!(element instanceof HTMLElement)) {
+            return;
+        }
+        if (options.animate) {
+            element.classList.add("thinking-trace-item-enter");
+        }
+        traceList.appendChild(element);
+    });
+}
+
+function buildPendingWorkflowTraceItemHtml(step, isLatest = false) {
+    const statusLabel = isLatest ? "进行中" : "已完成";
+    return `
+        <article class="thinking-trace-item ${isLatest ? "thinking-trace-item-latest" : ""}" data-step-key="${escapeHtml(getPendingWorkflowTraceKey(step))}">
+            <div class="thinking-trace-title-row">
+                <div class="thinking-trace-title-copy">
+                    <strong>${escapeHtml(step?.title || "处理中")}</strong>
+                    <span class="thinking-trace-status">${escapeHtml(statusLabel)}</span>
+                </div>
+                ${typeof step?.duration_ms === "number" ? `<span class="thinking-trace-duration">${escapeHtml(formatWorkflowDuration(step.duration_ms))}</span>` : ""}
+            </div>
+        </article>
+    `;
+}
+
+function getPendingWorkflowTraceKey(step) {
+    return String(step?.key || step?.title || step?.summary || "pending-step");
+}
+
+function buildWorkflowTraceMessageItemHtml(step, index) {
+    return `
+        <article class="message-process-item">
+            <div class="message-process-head">
+                <span class="message-process-index">${escapeHtml(String(index + 1))}</span>
+                <div class="message-process-copy">
+                    <strong>${escapeHtml(step.title || "处理中")}</strong>
+                    <p>${escapeHtml(step.summary || step.detail || "")}</p>
+                </div>
+                ${typeof step.duration_ms === "number" ? `<span class="message-process-duration">${escapeHtml(formatWorkflowDuration(step.duration_ms))}</span>` : ""}
+            </div>
+        </article>
     `;
 }
 
@@ -3355,6 +4569,10 @@ function buildFeedbackSectionHtml(exchangeId, isError) {
 }
 
 function attachFeedbackHandlers(container, exchangeId) {
+    if (!container || container.__feedbackHandlersBound) {
+        return;
+    }
+    container.__feedbackHandlersBound = true;
     const upButton = container.querySelector("[data-feedback-up]");
     const downButton = container.querySelector("[data-feedback-down]");
     const submitButton = container.querySelector("[data-feedback-submit]");
@@ -3436,6 +4654,12 @@ function renderWorkflowTrace(steps, meta = {}) {
             meta.knowledgeHits !== undefined ? meta.knowledgeHits : latestWorkflowMeta.knowledgeHits,
         isStreaming: meta.isStreaming !== undefined ? meta.isStreaming : latestWorkflowMeta.isStreaming,
         currentLabel: meta.currentLabel !== undefined ? meta.currentLabel : latestWorkflowMeta.currentLabel,
+        plannerPreview:
+            meta.plannerPreview !== undefined ? meta.plannerPreview : latestWorkflowMeta.plannerPreview,
+        shadowPlannerPreview:
+            meta.shadowPlannerPreview !== undefined ? meta.shadowPlannerPreview : latestWorkflowMeta.shadowPlannerPreview,
+        plannerComparison:
+            meta.plannerComparison !== undefined ? meta.plannerComparison : latestWorkflowMeta.plannerComparison,
     };
     latestWorkflowMeta = resolvedMeta;
 
@@ -3523,6 +4747,9 @@ function renderWorkflowTraceError(message) {
         knowledgeHits: latestWorkflowMeta.knowledgeHits,
         isStreaming: false,
         currentLabel: "流程失败",
+        plannerPreview: latestWorkflowMeta.plannerPreview,
+        shadowPlannerPreview: latestWorkflowMeta.shadowPlannerPreview,
+        plannerComparison: latestWorkflowMeta.plannerComparison,
     });
     workflowTrace.innerHTML = `
         <article class="workflow-step workflow-step-error" data-expanded="true">
@@ -3557,6 +4784,9 @@ function renderWorkflowTracePlaceholder(title, summary, detail) {
         knowledgeHits: latestWorkflowMeta.knowledgeHits,
         isStreaming: true,
         currentLabel: title,
+        plannerPreview: null,
+        shadowPlannerPreview: null,
+        plannerComparison: null,
     });
     workflowTrace.innerHTML = `
         <article class="workflow-step workflow-step-empty" data-expanded="true">
@@ -3892,12 +5122,15 @@ function handleWorkflowStreamEvent(payload) {
 
     if (payload.type === "trace-step" && payload.step) {
         activeWorkflowSteps = [...activeWorkflowSteps, payload.step];
-        updatePendingAssistantMessage(payload.step.title || "处理中");
+        updatePendingAssistantMessage(payload.step.title || "处理中", activeWorkflowSteps);
         renderWorkflowTrace(activeWorkflowSteps, {
             workflowAction: latestWorkflowMeta.workflowAction,
             knowledgeHits: latestWorkflowMeta.knowledgeHits,
             isStreaming: true,
             currentLabel: payload.step.title,
+            plannerPreview: latestWorkflowMeta.plannerPreview,
+            shadowPlannerPreview: latestWorkflowMeta.shadowPlannerPreview,
+            plannerComparison: latestWorkflowMeta.plannerComparison,
         });
         return;
     }
@@ -3951,11 +5184,13 @@ function handleMessageSectionToggle(event) {
 
     const expanded = toggle.getAttribute("aria-expanded") === "true";
     const nextExpanded = !expanded;
+    const closedLabel = toggle.dataset.closedLabel || "查看";
+    const openLabel = toggle.dataset.openLabel || "收起";
     toggle.setAttribute("aria-expanded", String(nextExpanded));
     section.dataset.expanded = String(nextExpanded);
     content.hidden = !nextExpanded;
     if (chevron) {
-        chevron.textContent = nextExpanded ? "收起" : "查看";
+        chevron.textContent = nextExpanded ? openLabel : closedLabel;
     }
 }
 
@@ -4002,7 +5237,474 @@ function updateWorkflowStats(steps, meta = {}) {
     workflowCurrentAction.textContent = formatWorkflowActionLabel(meta, steps);
     workflowKnowledgeCount.textContent =
         typeof meta.knowledgeHits === "number" ? `${meta.knowledgeHits} 条` : steps.length ? "0 条" : "--";
+    updateWorkflowPlanSummary(meta.plannerPreview, meta.shadowPlannerPreview, meta.plannerComparison, meta.isStreaming);
     updateMobileWorkflowTrigger(meta, steps);
+}
+
+function updateWorkflowPlanComparison(comparison) {
+    if (!workflowPlanCompareHeading || !workflowPlanCompareCopy) {
+        return;
+    }
+
+    if (!comparison) {
+        workflowPlanCompareHeading.textContent = "方案对照";
+        workflowPlanCompareCopy.textContent = "只有存在对照结果时，这里才会说明两套方案是否一致。";
+        if (workflowPlanCompareBadge) {
+            workflowPlanCompareBadge.textContent = "对照";
+            workflowPlanCompareBadge.className = "workflow-plan-badge workflow-plan-badge-idle";
+        }
+        if (workflowPlanCompareDetails) {
+            workflowPlanCompareDetails.hidden = true;
+            workflowPlanCompareDetails.open = false;
+        }
+        if (workflowPlanCompareSteps) {
+            workflowPlanCompareSteps.innerHTML = "";
+        }
+        return;
+    }
+
+    const sharedSteps = Array.isArray(comparison.shared_steps) ? comparison.shared_steps : [];
+    const deterministicOnlySteps = Array.isArray(comparison.deterministic_only_steps)
+        ? comparison.deterministic_only_steps
+        : [];
+    const shadowOnlySteps = Array.isArray(comparison.shadow_only_steps) ? comparison.shadow_only_steps : [];
+    const diffChips = [
+        ...deterministicOnlySteps.map((stepId) => ({ prefix: "D", stepId })),
+        ...shadowOnlySteps.map((stepId) => ({ prefix: "S", stepId })),
+    ];
+
+    workflowPlanCompareHeading.textContent = formatPlannerComparisonHeading(comparison.comparison_status);
+    workflowPlanCompareCopy.textContent = formatPlannerComparisonSummary(comparison);
+    if (workflowPlanCompareBadge) {
+        workflowPlanCompareBadge.textContent = formatPlannerComparisonBadge(comparison.comparison_status);
+        workflowPlanCompareBadge.className = "workflow-plan-badge workflow-plan-badge-compare";
+    }
+    if (workflowPlanCompareToggle) {
+        workflowPlanCompareToggle.textContent = diffChips.length
+            ? `查看差异步骤 (${diffChips.length})`
+            : `查看共有步骤 (${sharedSteps.length})`;
+    }
+    if (workflowPlanCompareDetails) {
+        workflowPlanCompareDetails.hidden = !diffChips.length && !sharedSteps.length;
+    }
+    if (workflowPlanCompareSteps) {
+        const chipSource = diffChips.length
+            ? diffChips.map(
+                ({ prefix, stepId }) => `
+                    <span class="workflow-plan-chip">
+                        <span class="workflow-plan-chip-index">${escapeHtml(prefix === "D" ? "实" : "对")}</span>
+                        <span>${escapeHtml(formatWorkflowPlanStepLabel(stepId))}</span>
+                    </span>
+                `
+            )
+            : sharedSteps.map(
+                (stepId, index) => `
+                    <span class="workflow-plan-chip">
+                        <span class="workflow-plan-chip-index">${index + 1}</span>
+                        <span>${escapeHtml(formatWorkflowPlanStepLabel(stepId))}</span>
+                    </span>
+                `
+            );
+        workflowPlanCompareSteps.innerHTML = chipSource.join("");
+    }
+}
+
+function formatPlannerComparisonHeading(status) {
+    switch (status) {
+        case "shadow_disabled":
+            return "当前处理方式";
+        case "shadow_error":
+            return "系统改用稳妥路径";
+        case "equivalent":
+            return "处理方式已确认";
+        case "different_steps":
+            return "系统补充做了一次校验";
+        case "different_goal":
+            return "系统采用了更稳妥的处理方式";
+        default:
+            return "处理说明";
+    }
+}
+
+function formatPlannerComparisonBadge(status) {
+    switch (status) {
+        case "shadow_disabled":
+            return "说明";
+        case "shadow_error":
+            return "已保护";
+        case "equivalent":
+            return "已确认";
+        case "different_steps":
+            return "已校验";
+        case "different_goal":
+            return "已调整";
+        default:
+            return "说明";
+    }
+}
+
+function formatPlannerComparisonSummary(comparison) {
+    switch (comparison.comparison_status) {
+        case "shadow_error":
+            return "系统在后台做补充校验时没有完成，所以这次直接沿用已确认的稳妥路径，不影响你现在看到的回复。";
+        case "equivalent":
+            return "系统内部的补充校验结果与当前处理方式一致，所以本轮回复按既定路径完成。";
+        case "different_steps":
+            return "系统在组织回复前又补充检查了一次准备顺序，但最终仍沿用当前这条处理路径，不会改变这次回答的结论。";
+        case "different_goal":
+            return "系统评估过另一种回复组织方式，但最终保留了更稳妥的当前方案，所以你看到的是已经收敛后的结果。";
+        case "shadow_disabled":
+            return "这里展示的是本次实际采用的处理方式。";
+        default:
+            return comparison.summary || "这里会补充说明系统这次为什么这样组织回答。";
+    }
+}
+
+function updateWorkflowPlanSummary(plannerPreview, shadowPlannerPreview) {
+    const comparison = arguments.length >= 3 ? arguments[2] : latestWorkflowMeta.plannerComparison;
+    const isStreaming = arguments.length >= 4 ? arguments[3] : latestWorkflowMeta.isStreaming;
+    syncWorkflowPlannerVisibility(plannerPreview, comparison);
+    updatePlannerPreviewPanel(
+        {
+            heading: workflowPlanHeading,
+            badge: workflowPlanBadge,
+            copy: workflowPlanCopy,
+            details: workflowPlanDetails,
+            toggle: workflowPlanToggle,
+            steps: workflowPlanSteps,
+        },
+        plannerPreview,
+        {
+            idleHeading: "这次回答的组织方式",
+            idleCopy: "这里会用一句话说明这次回答是怎么组织出来的。",
+            idleBadge: "说明",
+            idleBadgeClass: "workflow-plan-badge workflow-plan-badge-idle",
+            acceptedBadge: isStreaming ? "处理中" : "已采用",
+            fallbackBadge: "备用",
+            disabledBadge: "未启用",
+            disabledBadgeClass: "workflow-plan-badge workflow-plan-badge-shadow",
+            isShadow: false,
+        }
+    );
+    updateWorkflowPlanNote(comparison, shadowPlannerPreview);
+    if (workflowPlanCard) {
+        workflowPlanCard.dataset.state = deriveWorkflowPlanCardState(plannerPreview, comparison, isStreaming);
+    }
+    updateWorkflowPlanCardEmphasis(plannerPreview, comparison, isStreaming);
+}
+
+function updatePlannerPreviewPanel(elements, plannerPreview, options) {
+    const { heading, badge, copy, details, toggle, steps } = elements;
+    if (!heading || !copy) {
+        return;
+    }
+
+    if (!plannerPreview) {
+        heading.textContent = options.idleHeading;
+        copy.textContent = options.idleCopy;
+        if (badge) {
+            badge.textContent = options.idleBadge;
+            badge.className = options.idleBadgeClass;
+        }
+        if (details) {
+            details.hidden = true;
+            details.open = false;
+        }
+        if (steps) {
+            steps.innerHTML = "";
+        }
+        return;
+    }
+
+    const plannedSteps = Array.isArray(plannerPreview.planned_steps) ? plannerPreview.planned_steps : [];
+    const isDisabledShadow = isShadowPreviewDisabled(plannerPreview);
+    const acceptanceLabel = isDisabledShadow
+        ? options.disabledBadge
+        : (plannerPreview.accepted ? options.acceptedBadge : options.fallbackBadge);
+
+    heading.textContent = formatPlannerGoalHeading(plannerPreview.goal, {
+        accepted: Boolean(plannerPreview.accepted),
+        isShadow: Boolean(options.isShadow),
+    });
+    if (badge) {
+        badge.textContent = acceptanceLabel;
+        badge.className = isDisabledShadow
+            ? options.disabledBadgeClass
+            : plannerPreview.accepted
+                ? "workflow-plan-badge workflow-plan-badge-accepted"
+                : "workflow-plan-badge workflow-plan-badge-fallback";
+    }
+    copy.textContent = formatPlannerPreviewSummary(plannerPreview, plannedSteps, {
+        isShadow: Boolean(options.isShadow),
+        isDisabledShadow,
+    });
+
+    if (toggle) {
+        toggle.textContent = plannedSteps.length
+            ? `展开过程说明 (${plannedSteps.length})`
+            : "没有额外过程说明";
+    }
+    if (details) {
+        details.hidden = !plannedSteps.length;
+    }
+    if (steps) {
+        steps.innerHTML = plannedSteps
+            .map(
+                (stepId, index) => `
+                    <span class="workflow-plan-chip">
+                        <span class="workflow-plan-chip-index">${index + 1}</span>
+                        <span>${escapeHtml(formatWorkflowPlanStepLabel(stepId))}</span>
+                    </span>
+                `
+            )
+            .join("");
+    }
+}
+
+function syncWorkflowPlannerVisibility(plannerPreview, comparison) {
+    const showPlanCard = shouldShowWorkflowPlanCard(plannerPreview, comparison);
+
+    if (workflowPlanCard) {
+        workflowPlanCard.hidden = !showPlanCard;
+    }
+    if (!showPlanCard) {
+        resetWorkflowPlanCardEmphasis();
+    }
+}
+
+function hasVisiblePlannerComparison(comparison) {
+    return Boolean(comparison) && comparison.comparison_status !== "shadow_disabled";
+}
+
+function shouldShowWorkflowPlanCard(plannerPreview, comparison) {
+    if (plannerPreview && plannerPreview.accepted === false) {
+        return true;
+    }
+
+    if (!comparison) {
+        return false;
+    }
+
+    return ["different_steps", "different_goal", "shadow_error"].includes(comparison.comparison_status);
+}
+
+function hasVisibleShadowPreview(plannerPreview) {
+    return Boolean(plannerPreview)
+        && !isShadowPreviewDisabled(plannerPreview)
+        && plannerPreview.goal !== "shadow planner pending"
+        && plannerPreview.goal !== "shadow planner error";
+}
+
+function isShadowPreviewDisabled(plannerPreview) {
+    return plannerPreview.planner_mode === "llm_shadow"
+        && Array.isArray(plannerPreview.validation_errors)
+        && plannerPreview.validation_errors.includes("shadow planner disabled")
+        && (!Array.isArray(plannerPreview.planned_steps) || !plannerPreview.planned_steps.length);
+}
+
+function formatPlannerGoalLabel(goal) {
+    const goalLabels = {
+        explain_admin_boundary: "说明权限边界",
+        prepare_booking_agenda: "提醒先准备预约信息",
+        prepare_booking_request: "整理预约请求",
+        answer_research_question: "回答研究相关问题",
+        respond_simple_greeting: "简短回应",
+        answer_course_question: "回答课程相关问题",
+        answer_grounded_question: "基于现有资料回答",
+    };
+    return goalLabels[goal] || String(goal || "处理当前问题").replace(/_/g, " ");
+}
+
+function formatPlannerGoalHeading(goal, options = {}) {
+    const label = formatPlannerGoalLabel(goal);
+    if (options.isShadow) {
+        return `系统内部还评估了另一种“${label}”的组织方式`;
+    }
+    if (options.accepted) {
+        return `这次回答会按“${label}”来组织`;
+    }
+    return `这次回答原本按“${label}”组织，但会在必要时改用更稳妥的处理方式`;
+}
+
+function formatPlannerFallbackLabel(template) {
+    const fallbackLabels = {
+        review_queue: "请老师本人确认后再处理",
+        advise_only: "先给你准备建议",
+        book_meeting: "继续走预约流程",
+        answer_question: "直接给出回复",
+    };
+    return fallbackLabels[template] || String(template || "直接回答").replace(/_/g, " ");
+}
+
+function formatPlannerPreviewSummary(plannerPreview, plannedSteps, options) {
+    if (options.isDisabledShadow) {
+        return "当前只保留本次实际采用的处理方式。";
+    }
+
+    const stepSummary = formatPlannerStepFlowSummary(plannedSteps);
+    if (options.isShadow) {
+        return `${stepSummary}。这只是系统内部的补充校验，不会真正影响这次回复。`;
+    }
+
+    const parts = [stepSummary];
+    if (!plannerPreview.accepted) {
+        parts.push(`如果当前信息不足，系统会改用“${formatPlannerFallbackLabel(plannerPreview.fallback_template)}”这种更稳妥的处理方式`);
+    }
+    if (plannerPreview.fallback_reason) {
+        parts.push(`原因：${plannerPreview.fallback_reason}`);
+    }
+    return parts.join("；");
+}
+
+function formatPlannerStepFlowSummary(plannedSteps) {
+    if (!plannedSteps.length) {
+        return "系统会直接基于当前信息组织回复";
+    }
+
+    const stepLabels = plannedSteps.slice(0, 2).map((stepId) => formatWorkflowPlanStepLabel(stepId));
+    if (plannedSteps.length === 1) {
+        return `系统会先${stepLabels[0]}，再给出回复`;
+    }
+    if (plannedSteps.length === 2) {
+        return `系统会先${stepLabels[0]}，再${stepLabels[1]}，最后组织回复`;
+    }
+    return `系统会先${stepLabels[0]}、${stepLabels[1]}等 ${plannedSteps.length} 个步骤，再组织最终回复`;
+}
+
+function updateWorkflowPlanNote(comparison, shadowPlannerPreview) {
+    if (!workflowPlanNote) {
+        return;
+    }
+
+    const note = formatPlannerComparisonInlineNote(comparison, shadowPlannerPreview);
+    workflowPlanNote.hidden = !note;
+    workflowPlanNote.textContent = note || "";
+}
+
+function formatPlannerComparisonInlineNote(comparison, shadowPlannerPreview) {
+    if (!comparison) {
+        return hasVisibleShadowPreview(shadowPlannerPreview)
+            ? "补充说明：系统还会在后台做一次补充校验，但不会影响这次实际回答。"
+            : "";
+    }
+
+    switch (comparison.comparison_status) {
+        case "shadow_error":
+            return "补充说明：后台补充校验这次没有跑完，但不影响你现在看到的回答。";
+        case "equivalent":
+            return "补充说明：后台补充校验结果与当前处理方式一致。";
+        case "different_steps":
+            return "补充说明：系统还试了一种不同的准备顺序，但没有改动这次实际回答。";
+        case "different_goal":
+            return "补充说明：系统还评估了另一种回答组织思路，但最终没有采用。";
+        default:
+            return "";
+    }
+}
+
+function deriveWorkflowPlanCardState(plannerPreview, comparison, isStreaming) {
+    if (isStreaming) {
+        return "active";
+    }
+    if (comparison?.comparison_status === "shadow_error") {
+        return "attention";
+    }
+    if (comparison && comparison.comparison_status !== "shadow_disabled") {
+        return "compare";
+    }
+    if (plannerPreview && !plannerPreview.accepted) {
+        return "attention";
+    }
+    return "complete";
+}
+
+function updateWorkflowPlanCardEmphasis(plannerPreview, comparison, isStreaming) {
+    if (!workflowPlanCard || workflowPlanCard.hidden) {
+        resetWorkflowPlanCardEmphasis();
+        return;
+    }
+
+    const signature = buildWorkflowPlanCardSignature(plannerPreview, comparison);
+    const changed = signature !== workflowPlanLastSignature;
+    workflowPlanLastSignature = signature;
+
+    workflowPlanCard.classList.toggle("workflow-plan-card-live", Boolean(isStreaming));
+
+    if (isStreaming) {
+        clearWorkflowPlanDecayTimer();
+        workflowPlanCard.classList.remove("workflow-plan-card-settled");
+        if (changed) {
+            replayWorkflowPlanCardReveal();
+        }
+        return;
+    }
+
+    if (changed) {
+        replayWorkflowPlanCardReveal();
+    }
+    workflowPlanCard.classList.remove("workflow-plan-card-live");
+    workflowPlanCard.classList.remove("workflow-plan-card-settled");
+    clearWorkflowPlanDecayTimer();
+    workflowPlanDecayTimer = globalThis.setTimeout(() => {
+        workflowPlanCard?.classList.add("workflow-plan-card-settled");
+        workflowPlanDecayTimer = null;
+    }, 4200);
+}
+
+function buildWorkflowPlanCardSignature(plannerPreview, comparison) {
+    return JSON.stringify({
+        goal: plannerPreview?.goal || null,
+        accepted: plannerPreview?.accepted || false,
+        fallbackTemplate: plannerPreview?.fallback_template || null,
+        plannedSteps: Array.isArray(plannerPreview?.planned_steps) ? plannerPreview.planned_steps : [],
+        comparisonStatus: comparison?.comparison_status || null,
+        comparisonSummary: comparison?.summary || null,
+    });
+}
+
+function replayWorkflowPlanCardReveal() {
+    if (!workflowPlanCard) {
+        return;
+    }
+    workflowPlanCard.classList.remove("workflow-plan-card-reveal");
+    void workflowPlanCard.offsetWidth;
+    workflowPlanCard.classList.add("workflow-plan-card-reveal");
+}
+
+function clearWorkflowPlanDecayTimer() {
+    if (workflowPlanDecayTimer !== null) {
+        globalThis.clearTimeout(workflowPlanDecayTimer);
+        workflowPlanDecayTimer = null;
+    }
+}
+
+function resetWorkflowPlanCardEmphasis() {
+    clearWorkflowPlanDecayTimer();
+    workflowPlanLastSignature = "";
+    if (!workflowPlanCard) {
+        return;
+    }
+    workflowPlanCard.classList.remove("workflow-plan-card-live", "workflow-plan-card-settled", "workflow-plan-card-reveal");
+}
+
+function formatWorkflowPlanStepLabel(stepId) {
+    const labels = {
+        answer_with_citations: "带依据回答",
+        assemble_prompt_context: "组装上下文",
+        classify_intent: "识别意图",
+        create_escalation_draft: "生成人工升级草稿",
+        detect_knowledge_gap: "检查知识缺口",
+        detect_profile_context: "识别身份场景",
+        draft_booking_request: "生成预约草稿",
+        draft_follow_up_action: "生成后续动作草稿",
+        draft_knowledge_gap: "生成知识缺口草稿",
+        record_conversation_memory: "写回对话记忆",
+        render_user_response: "组织返回结果",
+        retrieve_knowledge: "检索知识资料",
+        retrieve_profile_memory: "检索长期记忆",
+        retrieve_recent_memory: "检索近期记忆",
+    };
+    return labels[stepId] || String(stepId || "").replaceAll("_", " ");
 }
 
 function formatWorkflowActionLabel(meta, steps) {
@@ -4036,8 +5738,9 @@ function formatWorkflowActionLabel(meta, steps) {
 function applyBranding(ownerName, ownerRole, homepageUrl) {
     assistantLabel = formatAssistantLabel(ownerName);
     document.title = assistantLabel;
-    if (assistantName) {
-        assistantName.textContent = assistantLabel;
+    const currentAssistantName = document.getElementById("assistant-name");
+    if (currentAssistantName) {
+        currentAssistantName.textContent = assistantLabel;
     }
     if (topbarTitle) {
         topbarTitle.textContent = formatWorkspaceTitle(ownerName);
@@ -4047,12 +5750,20 @@ function applyBranding(ownerName, ownerRole, homepageUrl) {
     }
     if (homepageLink) {
         const normalizedHomepageUrl = homepageUrl ? String(homepageUrl).trim() : "";
-        homepageLink.hidden = !normalizedHomepageUrl;
-        homepageLink.href = normalizedHomepageUrl || "#";
+        homepageLink.hidden = false;
+        homepageLink.href = normalizedHomepageUrl || "/home/";
     }
     if (chatQuestion) {
         chatQuestion.placeholder = "直接说问题；预约请写 agenda、blocker 和 draft。";
     }
+}
+
+function syncIntroCardPresentation() {
+    const currentAssistantName = document.getElementById("assistant-name");
+    if (currentAssistantName) {
+        currentAssistantName.textContent = assistantLabel;
+    }
+    applyVisitorProfilePresentation({ syncCourseContext: true });
 }
 
 function formatAssistantLabel(ownerName) {
@@ -4068,11 +5779,9 @@ function formatAssistantLabel(ownerName) {
 function formatWorkspaceTitle(ownerName) {
     const normalizedOwnerName = ownerName ? String(ownerName).trim() : "";
     if (!normalizedOwnerName) {
-        return "我的分身办公室";
+        return "学术分身";
     }
-    return /[A-Za-z]/.test(normalizedOwnerName)
-        ? `${normalizedOwnerName} 的分身办公室`
-        : `${normalizedOwnerName}的分身办公室`;
+    return normalizedOwnerName;
 }
 
 function formatWorkspaceSubtitle(ownerName, ownerRole) {
@@ -4088,6 +5797,9 @@ function formatWorkspaceSubtitle(ownerName, ownerRole) {
 }
 
 function openModal(element) {
+    if (!element) {
+        return;
+    }
     closeWorkflowMobileSheet();
     modalOverlay.classList.remove("hidden");
     element.classList.remove("hidden");
@@ -4097,7 +5809,7 @@ function openModal(element) {
 
 function closeModals() {
     modalOverlay.classList.add("hidden");
-    [identityModal, knowledgeModal, bookingModal, suggestionModal, adminLoginModal, userRegisterModal, userLoginModal, availabilityModal, bookingAdminModal, escalationAdminModal, memoryProfilesModal, operationsConsoleModal, questionAnalyticsModal].forEach((element) => {
+    overlayModals.forEach((element) => {
         element.classList.add("hidden");
         element.setAttribute("aria-hidden", "true");
     });
@@ -4116,24 +5828,14 @@ function openDrawer() {
 function closeDrawer() {
     sideDrawer.classList.add("hidden");
     sideDrawer.setAttribute("aria-hidden", "true");
-    if (
-        knowledgeModal.classList.contains("hidden") &&
-        bookingModal.classList.contains("hidden") &&
-        suggestionModal.classList.contains("hidden") &&
-        identityModal.classList.contains("hidden") &&
-        adminLoginModal.classList.contains("hidden") &&
-        userRegisterModal.classList.contains("hidden") &&
-        userLoginModal.classList.contains("hidden") &&
-        availabilityModal.classList.contains("hidden") &&
-        bookingAdminModal.classList.contains("hidden") &&
-        escalationAdminModal.classList.contains("hidden") &&
-        memoryProfilesModal.classList.contains("hidden") &&
-        operationsConsoleModal.classList.contains("hidden") &&
-        questionAnalyticsModal.classList.contains("hidden")
-    ) {
+    if (!hasVisibleOverlayModal()) {
         modalOverlay.classList.add("hidden");
     }
     syncFloatingWorkflowTriggerState();
+}
+
+function hasVisibleOverlayModal() {
+    return overlayModals.some((element) => !element.classList.contains("hidden"));
 }
 
 function syncFloatingWorkflowTriggerState() {
@@ -4155,6 +5857,7 @@ async function handleAdminLogout() {
         operationsStudentProfiles.innerHTML = "";
         operationsSatisfaction.innerHTML = "";
         operationsGaps.innerHTML = "";
+        operationsArtifactDrafts.innerHTML = "";
         operationsEscalations.innerHTML = "";
         operationsFollowUps.innerHTML = "";
         operationsSuggestions.innerHTML = "";
@@ -4428,10 +6131,12 @@ function formatProfileCategoryLabel(category) {
 seedBookingDefaults();
 autoResizeTextarea();
 updateComposerContextChips();
+restoreHistoryRailState();
 restoreWorkflowShellState();
 syncWorkflowViewportState();
 
 async function initializePage() {
+    renderConversationHistoryList();
     applyStoredVisitorProfile();
     applyVisitorProfilePresentation({ syncCourseContext: true });
     markPresentationReady();

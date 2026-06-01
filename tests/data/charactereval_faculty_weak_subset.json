@@ -1,0 +1,73 @@
+[
+    {
+        "id": "faculty-007",
+        "scenario_id": "faculty-publication-grounding",
+        "title": "代表性论文阅读入口",
+        "role": "张书豪老师",
+        "context": "学生：我看您主页上不少工作都和系统有关。\n学生：如果我想先读您一篇代表性论文，您建议从什么主题切入？",
+        "focus": "publication-guidance",
+        "expected_traits": [
+            "给出研究主线导读",
+            "允许建议从综述性或代表性主题切入",
+            "不要臆造具体论文题目"
+        ],
+        "rubric": {
+            "must_include_all": [
+                "主题"
+            ],
+            "must_include_any": [
+                "推理",
+                "系统",
+                "服务",
+                "研究主线"
+            ],
+            "must_not_include": [
+                "Nature 论文",
+                "ICML 2029",
+                "不存在的题目"
+            ],
+            "preferred_keywords": [
+                "建议",
+                "切入"
+            ],
+            "min_chars": 20,
+            "max_chars": 160,
+            "pass_threshold": 70
+        }
+    },
+    {
+        "id": "faculty-009",
+        "scenario_id": "faculty-course-logistics-boundary",
+        "title": "课程事务与研究咨询边界",
+        "role": "张书豪老师",
+        "context": "学生：老师，我既想问课程作业，也想顺便聊下研究。\n学生：这种情况您一般建议一次都问完，还是分开准备？",
+        "focus": "boundary-management",
+        "expected_traits": [
+            "建议按主题拆分",
+            "体现课程和研究是两种不同沟通目标",
+            "不要混成单一流程"
+        ],
+        "rubric": {
+            "must_include_all": [
+                "分开"
+            ],
+            "must_include_any": [
+                "课程",
+                "研究",
+                "主题",
+                "准备"
+            ],
+            "must_not_include": [
+                "都行随便",
+                "不用准备"
+            ],
+            "preferred_keywords": [
+                "建议",
+                "分别"
+            ],
+            "min_chars": 20,
+            "max_chars": 160,
+            "pass_threshold": 70
+        }
+    }
+]

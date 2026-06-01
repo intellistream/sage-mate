@@ -1,9 +1,17 @@
 from __future__ import annotations
 
 from datetime import date, datetime
+from typing import Any
 
 from pydantic import BaseModel, Field
 from pydantic import field_validator
+
+
+class ChatAttachment(BaseModel):
+    file_name: str = Field(min_length=1, max_length=256)
+    media_type: str = Field(min_length=1, max_length=128)
+    text_content: str = Field(min_length=1, max_length=12000)
+    size_bytes: int | None = Field(default=None, ge=0)
 
 
 class ChatRequest(BaseModel):
@@ -17,14 +25,23 @@ class ChatRequest(BaseModel):
         pattern="^(hust_undergraduate|paper_writing_student|lab_member|general_visitor)$",
     )
     conversation_id: str | None = Field(default=None, max_length=128)
+    attachments: list[ChatAttachment] = Field(default_factory=list, max_length=4)
 
 
 class InteractionIntent(BaseModel):
-    action: str = Field(default="answer", pattern="^(answer|book_meeting|ask_followup|review_queue|human_handoff|admin_add_knowledge)$")
-    domain: str = Field(default="general", pattern="^(general|research|teaching|advising|booking)$")
+    action: str = Field(
+        default="answer",
+        pattern="^(answer|book_meeting|ask_followup|review_queue|human_handoff|admin_add_knowledge)$",
+    )
+    domain: str = Field(
+        default="general", pattern="^(general|research|teaching|advising|booking)$"
+    )
     retrieval_scopes: list[str] = Field(default_factory=list)
     exclude_scopes: list[str] = Field(default_factory=list)
-    decision_mode: str = Field(default="direct_answer", pattern="^(direct_answer|advise_only|review_queue|human_handoff)$")
+    decision_mode: str = Field(
+        default="direct_answer",
+        pattern="^(direct_answer|advise_only|review_queue|human_handoff)$",
+    )
     needs_clarification: bool = False
     clarification_message: str | None = Field(default=None, max_length=512)
     escalation_reason: str | None = Field(default=None, max_length=512)
@@ -54,7 +71,9 @@ class FollowUpAction(BaseModel):
     title: str = Field(min_length=1, max_length=256)
     detail: str = Field(min_length=1, max_length=512)
     channel: str = Field(default="chat", pattern="^(chat|email)$")
-    status: str = Field(default="suggested", pattern="^(suggested|queued|pending|sent|skipped)$")
+    status: str = Field(
+        default="suggested", pattern="^(suggested|queued|pending|sent|skipped)$"
+    )
     source_label: str | None = Field(default=None, max_length=256)
     due_at: datetime | None = None
 
@@ -107,6 +126,42 @@ class NotificationDeliveryStatus(BaseModel):
     detail: str | None = Field(default=None, max_length=512)
 
 
+class WorkflowPlanPreview(BaseModel):
+    planner_version: str = Field(min_length=1, max_length=32)
+    policy_version: str = Field(min_length=1, max_length=64)
+    planner_mode: str = Field(min_length=1, max_length=32)
+    execution_mode: str = Field(min_length=1, max_length=32)
+    goal: str = Field(min_length=1, max_length=128)
+    accepted: bool = True
+    fallback_template: str = Field(min_length=1, max_length=64)
+    fallback_reason: str | None = Field(default=None, max_length=256)
+    planned_steps: list[str] = Field(default_factory=list)
+    validation_errors: list[str] = Field(default_factory=list)
+    explain_to_operator: str = Field(min_length=1, max_length=512)
+
+
+class WorkflowPlanComparison(BaseModel):
+    comparison_status: str = Field(
+        pattern="^(shadow_disabled|shadow_error|equivalent|different_steps|different_goal)$"
+    )
+    same_goal: bool = True
+    same_fallback_template: bool = True
+    shared_steps: list[str] = Field(default_factory=list)
+    deterministic_only_steps: list[str] = Field(default_factory=list)
+    shadow_only_steps: list[str] = Field(default_factory=list)
+    summary: str = Field(min_length=1, max_length=512)
+
+
+class MemoryAuditItem(BaseModel):
+    entry_id: str = Field(min_length=1, max_length=128)
+    memory_type: str = Field(pattern="^(short_term|long_term)$")
+    source: str = Field(min_length=1, max_length=64)
+    topic: str = Field(min_length=1, max_length=64)
+    source_label: str = Field(min_length=1, max_length=128)
+    summary: str = Field(min_length=1, max_length=1200)
+    score: float | None = None
+
+
 class ChatResponse(BaseModel):
     answer: str
     owner_name: str
@@ -121,7 +176,47 @@ class ChatResponse(BaseModel):
     pending_fields: list[str] = Field(default_factory=list)
     booking_result: BookingResponse | None = None
     escalation_record: EscalationRecord | None = None
+    planner_preview: WorkflowPlanPreview | None = None
+    shadow_planner_preview: WorkflowPlanPreview | None = None
+    planner_comparison: WorkflowPlanComparison | None = None
     workflow_trace: list[WorkflowTraceStep] = Field(default_factory=list)
+    memory_used: bool = False
+    memory_write_back: bool = False
+    retrieved_items: list[MemoryAuditItem] = Field(default_factory=list)
+
+
+class ConversationHistoryItemResponse(BaseModel):
+    conversation_id: str
+    title: str = Field(min_length=1, max_length=256)
+    preview: str = Field(min_length=1, max_length=512)
+    student_name: str = Field(min_length=1, max_length=128)
+    student_email: str | None = Field(default=None, max_length=256)
+    course_context: str | None = Field(default=None, max_length=512)
+    exchange_count: int = Field(ge=1)
+    last_message_at: datetime
+
+
+class ConversationHistoryListResponse(BaseModel):
+    conversations: list[ConversationHistoryItemResponse] = Field(default_factory=list)
+
+
+class ConversationExchangeResponse(BaseModel):
+    exchange_id: str
+    question: str = Field(min_length=1, max_length=4000)
+    answer: str = Field(min_length=1, max_length=12000)
+    workflow_action: str = Field(min_length=1, max_length=64)
+    knowledge_hit_count: int = Field(ge=0)
+    created_at: datetime
+
+
+class ConversationTranscriptResponse(BaseModel):
+    conversation_id: str
+    title: str = Field(min_length=1, max_length=256)
+    preview: str = Field(min_length=1, max_length=512)
+    student_name: str = Field(min_length=1, max_length=128)
+    student_email: str | None = Field(default=None, max_length=256)
+    course_context: str | None = Field(default=None, max_length=512)
+    exchanges: list[ConversationExchangeResponse] = Field(default_factory=list)
 
 
 class BookingRequest(BaseModel):
@@ -323,7 +418,9 @@ class QuestionAnalyticsReportResponse(BaseModel):
     window_end: datetime
     overview: QuestionAnalyticsOverview
     top_clusters: list[QuestionClusterSummary] = Field(default_factory=list)
-    knowledge_gap_suggestions: list[KnowledgeGapSuggestion] = Field(default_factory=list)
+    knowledge_gap_suggestions: list[KnowledgeGapSuggestion] = Field(
+        default_factory=list
+    )
     unresolved_questions: list[UnresolvedQuestionItem] = Field(default_factory=list)
     handoff_categories: list[HandoffCategorySummary] = Field(default_factory=list)
 
@@ -336,6 +433,37 @@ class OperationsQueueSummary(BaseModel):
     action_url: str = Field(min_length=1, max_length=128)
 
 
+class NeuroMemOperationsSnapshot(BaseModel):
+    backend: str = Field(default="")
+    conversation_stats: dict[str, Any] = Field(default_factory=dict)
+    profile_stats: dict[str, Any] = Field(default_factory=dict)
+    recent_events: list[dict[str, Any]] = Field(default_factory=list)
+
+
+class PlannerMetricsSnapshot(BaseModel):
+    record_count: int = 0
+    deterministic_total: int = 0
+    deterministic_accepted: int = 0
+    deterministic_fallbacks: int = 0
+    deterministic_acceptance_rate: float = 0.0
+    deterministic_fallback_rate: float = 0.0
+    shadow_total: int = 0
+    shadow_ready: int = 0
+    shadow_accepted: int = 0
+    shadow_rejected: int = 0
+    shadow_disabled: int = 0
+    shadow_errors: int = 0
+    shadow_acceptance_rate: float = 0.0
+    shadow_error_rate: float = 0.0
+    avg_deterministic_latency_ms: float = 0.0
+    avg_shadow_latency_ms: float = 0.0
+    max_deterministic_latency_ms: float = 0.0
+    max_shadow_latency_ms: float = 0.0
+    rejection_reasons: dict[str, int] = Field(default_factory=dict)
+    rejected_steps: dict[str, int] = Field(default_factory=dict)
+    fallback_templates: dict[str, int] = Field(default_factory=dict)
+
+
 class OperationsOverviewResponse(BaseModel):
     generated_at: datetime
     window_days: int
@@ -343,6 +471,12 @@ class OperationsOverviewResponse(BaseModel):
     totals: dict[str, int] = Field(default_factory=dict)
     queues: list[OperationsQueueSummary] = Field(default_factory=list)
     question_analytics: QuestionAnalyticsOverview
+    neuromem: NeuroMemOperationsSnapshot = Field(
+        default_factory=NeuroMemOperationsSnapshot
+    )
+    planner_metrics: PlannerMetricsSnapshot = Field(
+        default_factory=PlannerMetricsSnapshot
+    )
 
 
 class StudentOperationsProfile(BaseModel):
@@ -361,7 +495,9 @@ class StudentOperationsProfile(BaseModel):
 
 
 class OperationsTaskStateUpdateRequest(BaseModel):
-    status: str | None = Field(default=None, pattern="^(open|in_progress|done|deferred)$")
+    status: str | None = Field(
+        default=None, pattern="^(open|in_progress|done|deferred)$"
+    )
     assigned_to: str | None = Field(default=None, max_length=128)
     note: str | None = Field(default=None, max_length=1000)
 
@@ -425,7 +561,12 @@ class OperationsWorkbenchResponse(BaseModel):
     satisfaction: OperationsSatisfactionSummary
     pending_bookings: list[BookingRecord] = Field(default_factory=list)
     student_profiles: list[StudentOperationsProfile] = Field(default_factory=list)
-    knowledge_gap_drafts: list[KnowledgeGapDraftRecordResponse] = Field(default_factory=list)
+    artifact_memory_drafts: list[ArtifactMemoryDraftRecordResponse] = Field(
+        default_factory=list
+    )
+    knowledge_gap_drafts: list[KnowledgeGapDraftRecordResponse] = Field(
+        default_factory=list
+    )
     escalations: list[EscalationRecord] = Field(default_factory=list)
     follow_up_actions: list[FollowUpQueueRecord] = Field(default_factory=list)
     anonymous_suggestions: list[AnonymousSuggestionRecord] = Field(default_factory=list)
@@ -456,6 +597,25 @@ class KnowledgeGapDraftRecordResponse(BaseModel):
     published_at: datetime | None = None
 
 
+class ArtifactMemoryDraftRecordResponse(BaseModel):
+    draft_id: str
+    conversation_id: str
+    source_memory_id: str | None = None
+    student_name: str
+    student_email: str | None = None
+    interaction_domain: str | None = None
+    question: str
+    answer: str
+    artifact_names: list[str] = Field(default_factory=list)
+    artifact_sources: list[str] = Field(default_factory=list)
+    artifact_excerpt_count: int = Field(default=0, ge=0)
+    provenance_note: str
+    retention_label: str
+    status: str
+    created_at: datetime
+    updated_at: datetime
+
+
 class AdminLoginRequest(BaseModel):
     username: str = Field(min_length=1, max_length=128)
     password: str = Field(min_length=1, max_length=256)
@@ -464,7 +624,9 @@ class AdminLoginRequest(BaseModel):
 class UserRegisterRequest(BaseModel):
     name: str = Field(min_length=1, max_length=128)
     email: str = Field(min_length=3, max_length=256)
-    visitor_profile: str = Field(pattern="^(hust_undergraduate|paper_writing_student|lab_member|general_visitor)$")
+    visitor_profile: str = Field(
+        pattern="^(hust_undergraduate|paper_writing_student|lab_member|general_visitor)$"
+    )
     password: str = Field(min_length=8, max_length=256)
 
 
@@ -477,7 +639,9 @@ class UserAccountResponse(BaseModel):
     user_id: str
     name: str
     email: str
-    visitor_profile: str = Field(pattern="^(hust_undergraduate|paper_writing_student|lab_member|general_visitor)$")
+    visitor_profile: str = Field(
+        pattern="^(hust_undergraduate|paper_writing_student|lab_member|general_visitor)$"
+    )
     created_at: datetime
 
 

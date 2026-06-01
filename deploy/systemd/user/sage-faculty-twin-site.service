@@ -7,6 +7,7 @@ Requires=sage-faculty-twin-app.service
 Type=simple
 WorkingDirectory=__REPO_ROOT__
 Environment=APP_PORT=55601
+Environment=HOMEPAGE_REDIRECT_ORIGIN=https://home.shuhao.sage.org.ai
 Environment=SITE_PORT=8088
 ExecStart=__REPO_ROOT__/tools/run_local_proxy.sh
 ExecReload=__REPO_ROOT__/tools/reload_local_proxy.sh

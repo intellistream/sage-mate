@@ -1,0 +1,205 @@
+[
+    {
+        "scenario_id": "recent-topic-followup",
+        "title": "承接上一轮主题继续给建议",
+        "focus": "conversation-memory",
+        "student_name": "Alice",
+        "student_email": "alice@example.com",
+        "course_context": "科研指导",
+        "visitor_profile": "general_visitor",
+        "seed_turns": [
+            {
+                "question": "我最近在纠结大模型推理引擎和推理服务系统之间该先收窄哪个方向。"
+            }
+        ],
+        "evaluation_turn": {
+            "question": "再根据刚才的上下文给我一个下一步建议。"
+        },
+        "expected_traits": [
+            "承接上一轮具体研究主题",
+            "显示 recent memory 已被引用"
+        ],
+        "rubric": {
+            "must_include_all": [
+                "建议"
+            ],
+            "must_include_any": [
+                "推理引擎",
+                "推理服务系统",
+                "收窄"
+            ],
+            "must_not_include": [
+                "很高兴认识你",
+                "我是张书豪"
+            ],
+            "preferred_keywords": [
+                "先"
+            ],
+            "memory_grounding_terms": [
+                "推理引擎",
+                "推理服务系统"
+            ],
+            "required_memory_types": [
+                "short_term"
+            ],
+            "require_memory_used": true,
+            "min_retrieved_items": 1,
+            "min_chars": 18,
+            "max_chars": 220,
+            "pass_threshold": 72
+        }
+    },
+    {
+        "scenario_id": "booking-preference-followup",
+        "title": "复用历史预约偏好给准备建议",
+        "focus": "profile-memory",
+        "student_name": "Alice",
+        "student_email": "alice@example.com",
+        "course_context": "科研指导",
+        "visitor_profile": "general_visitor",
+        "seed_turns": [
+            {
+                "question": "请帮我预约 2026-05-26 15:00 讨论论文进展。"
+            }
+        ],
+        "evaluation_turn": {
+            "question": "根据你记得的我的预约习惯，提醒我还要准备什么？"
+        },
+        "expected_traits": [
+            "复用预约主题或时间偏好",
+            "显示 profile memory 已被引用"
+        ],
+        "rubric": {
+            "must_include_all": [
+                "准备"
+            ],
+            "must_include_any": [
+                "论文进展",
+                "agenda",
+                "问题"
+            ],
+            "must_not_include": [
+                "很高兴认识你",
+                "重新介绍一下自己"
+            ],
+            "preferred_keywords": [
+                "先"
+            ],
+            "memory_grounding_terms": [
+                "论文进展",
+                "15:00"
+            ],
+            "required_memory_types": [
+                "short_term",
+                "long_term"
+            ],
+            "require_memory_used": true,
+            "min_retrieved_items": 2,
+            "min_chars": 18,
+            "max_chars": 220,
+            "pass_threshold": 74
+        }
+    },
+    {
+        "scenario_id": "collaboration-style-followup",
+        "title": "复用沟通偏好给材料准备清单",
+        "focus": "communication-preference",
+        "student_name": "Alice",
+        "student_email": "alice@example.com",
+        "course_context": "科研指导",
+        "visitor_profile": "general_visitor",
+        "seed_turns": [
+            {
+                "question": "和老师约时间前，我应该先准备什么？"
+            }
+        ],
+        "evaluation_turn": {
+            "question": "按你记得的我的沟通偏好，我这次找你前应该先准备什么？"
+        },
+        "expected_traits": [
+            "延续 checklist 风格建议",
+            "复用稳定 profile memory"
+        ],
+        "rubric": {
+            "must_include_all": [
+                "准备"
+            ],
+            "must_include_any": [
+                "agenda",
+                "blocker",
+                "draft",
+                "问题清单"
+            ],
+            "must_not_include": [
+                "很高兴认识你"
+            ],
+            "preferred_keywords": [
+                "先"
+            ],
+            "memory_grounding_terms": [
+                "agenda",
+                "draft"
+            ],
+            "required_memory_types": [
+                "long_term"
+            ],
+            "require_memory_used": true,
+            "min_retrieved_items": 1,
+            "min_chars": 18,
+            "max_chars": 220,
+            "pass_threshold": 72
+        }
+    },
+    {
+        "scenario_id": "history-conditioned-next-step",
+        "title": "承接已整理进展决定下一步动作",
+        "focus": "memory-conditioned-generation",
+        "student_name": "Alice",
+        "student_email": "alice@example.com",
+        "course_context": "科研指导",
+        "visitor_profile": "general_visitor",
+        "seed_turns": [
+            {
+                "question": "上次你建议我按主题整理问题，我现在已经整理成三类了。"
+            }
+        ],
+        "evaluation_turn": {
+            "question": "按我现在的进展，下一步更适合先发邮件还是继续补实验？"
+        },
+        "expected_traits": [
+            "承接历史建议",
+            "结合现在已整理进展"
+        ],
+        "rubric": {
+            "must_include_all": [
+                "下一步"
+            ],
+            "must_include_any": [
+                "邮件",
+                "实验",
+                "整理",
+                "问题"
+            ],
+            "must_not_include": [
+                "我是张书豪",
+                "很高兴认识你"
+            ],
+            "preferred_keywords": [
+                "可以先"
+            ],
+            "memory_grounding_terms": [
+                "整理成三类",
+                "上次"
+            ],
+            "required_memory_types": [
+                "short_term",
+                "long_term"
+            ],
+            "require_memory_used": true,
+            "min_retrieved_items": 2,
+            "min_chars": 18,
+            "max_chars": 220,
+            "pass_threshold": 74
+        }
+    }
+]

@@ -323,6 +323,16 @@ validated policy, and bounded side-effect rules. The generated plan should be un
 execution, replayable after execution, and replaceable by a known V2 template whenever planning is
 not clearly beneficial.
 
+The V3 release theme is therefore: **make planning explicit before making behavior more powerful**.
+The first V3 increments should expose plans, validate plans, and replay plans while keeping live
+answers close to the proven V2 templates. More autonomous side effects should arrive only after the
+planner has deterministic baselines, policy tests, and operator-visible rejection reasons.
+
+V3 should also make the product thesis explicit: `my-twin` is not an "AI teacher" and not a
+persona-imitation chatbot. It is an academic office entrance that reduces repeated context load,
+organizes requests, prepares next actions, and hands uncertain or consequential decisions back to
+the owner with enough context for review.
+
 ### V3 Product Goals
 
 - Make the twin feel less rigid across the owner's multiple identities: course instructor,
@@ -334,6 +344,75 @@ not clearly beneficial.
   context, memory usage, and owner-review boundaries.
 - Let future faculty deployments add local capabilities through policy and step registration rather
   than editing the main chat service for every role-specific workflow.
+
+### V3 Product Acceptance Model
+
+V3 should be judged by whether it realizes the "academic office entrance" workflow described for
+`my-twin`:
+
+- **Student entry:** a student can start from one place to ask a question, prepare a meeting agenda,
+  describe an experiment blocker, provide missing background, or request a handoff.
+- **Context organization:** the system turns scattered messages into structured intent, profile
+  context, relevant knowledge, recent memory, long-term journey state, and suggested next actions.
+- **Grounded assistance:** course, experiment, homepage, FAQ, and research answers should be based
+  on synchronized knowledge and visible evidence rather than plausible free-form generation.
+- **Bounded action:** the system may prepare a booking request, agenda, escalation, follow-up draft,
+  or knowledge-gap task, but it must not pretend to approve meetings, invent policies, publish
+  knowledge, or send external messages without owner/admin review.
+- **Human handoff:** when confidence, authority, privacy, or policy says "this needs the owner", V3
+  should package the question, evidence, memory signals, missing fields, and recommended action for
+  review instead of forcing a final answer.
+- **Operational learning:** repeated failures, unresolved questions, weak retrieval, stale sources,
+  and frequent student blockers should become reviewable operations tasks so the knowledge base and
+  workflow policies improve over time.
+- **System portability:** SAGE orchestration, NeuroMem memory, knowledge retrieval, local vLLM-hust
+  inference, and optional SageVDB retrieval should remain replaceable components behind stable
+  contracts, so the app can evolve without rewriting the whole assistant.
+
+If a V3 feature makes the app sound more like the owner but does not improve one of these acceptance
+points, it should be treated as secondary. The core value is clearer academic work boundaries, not
+more fluent impersonation.
+
+### V3 Scope Commitments
+
+V3 should absorb the following recommendations as product commitments rather than loose ideas:
+
+- **Deterministic planner first:** every V3 behavior must have a non-LLM baseline that can run when
+  local Qwen planning is malformed, slow, or low-confidence.
+- **Shadow before live:** LLM-generated plans should be recorded and compared before they are allowed
+  to change execution for real users.
+- **Policy before side effects:** booking, escalation, memory writeback, follow-up drafts, and
+  knowledge-gap creation must be policy-validated before execution.
+- **Evidence as a contract:** a plan that retrieves knowledge or memory must say which evidence type
+  it used, where it came from, and how the final answer should expose it.
+- **Operator-readable failures:** rejected plans, fallbacks, skipped steps, and policy denials must
+  be understandable in the admin console without reading logs.
+- **Faculty portability:** the implementation should make role modes and capability packs data-driven
+  enough that another faculty twin can reuse the machinery with local policies.
+
+### V3 NeuroMem Commitments
+
+The current app already uses NeuroMem for short-term conversation recall, long-term profile memory,
+knowledge-backed retrieval, and operations telemetry. V3 should move NeuroMem from a helpful storage
+layer into an explicit planning and quality-improvement substrate.
+
+The following three NeuroMem workstreams are not optional V3 ideas. They should be treated as part
+of the main V3 roadmap:
+
+- **Hybrid retrieval instead of memory-only lexical recall:** expand the current BM25-style
+  NeuroMem usage into a governed hybrid retrieval layer that can combine lexical retrieval,
+  NeuroMem memory retrieval, profile recall, and optional SageVDB-style semantic retrieval under a
+  visible evidence contract. The planner should choose retrieval shape by request type instead of
+  always assuming the same memory or knowledge query style.
+- **Typed academic memory for uploads and meetings:** treat uploaded drafts, agendas, meeting
+  preparation packets, recurring blockers, follow-up commitments, and review artifacts as typed
+  memory objects rather than transient prompt context only. A user who uploads a paper draft or
+  confirms a meeting should create reviewable academic memory that can influence later advising,
+  booking preparation, and owner review.
+- **Closed-loop memory quality evaluation:** use NeuroMem telemetry, user feedback, replay suites,
+  and benchmark adapters to measure whether memory retrieval actually helped. V3 should track which
+  memory classes improve answers, which memories go stale, which retrieved items correlate with low
+  satisfaction, and when writeback volume is increasing without improving usefulness.
 
 ### Additional V3 Capability Candidates
 
@@ -368,6 +447,17 @@ optional if schedule or validation risk becomes too high.
   topic handling first-class planner constraints. The planner should know when not to retrieve or
   write certain profile memories, especially for student records, recommendation requests, and
   personal circumstances.
+- **NeuroMem hybrid retrieval policy:** define when the planner should use lexical knowledge search,
+  recent-memory recall, long-term profile memory, upload-derived memory, or optional semantic/vector
+  retrieval. This should be visible in plan traces and replay tests so retrieval strategy becomes a
+  governed decision rather than a hidden implementation detail.
+- **Typed artifact memory:** make academic artifacts first-class memory records with provenance and
+  retention rules: uploaded drafts, meeting agendas, follow-up commitments, recurring blockers,
+  reading plans, and review packets. This lets V3 reason over a student's journey rather than only
+  raw chat turns.
+- **Memory usefulness scoring:** add evaluation slices that connect memory retrieval to answer
+  helpfulness, operator corrections, handoff reduction, stale-memory rate, and repeated-question
+  reduction. The point is not to maximize stored memories; it is to maximize useful memories.
 
 #### V3 Optional Extensions
 
@@ -390,10 +480,16 @@ optional if schedule or validation risk becomes too high.
   capability packs, their allowed steps, required policies, tests, and last validation result. This
   turns plugin support into something operators can understand.
 
-Suggested priority for V3: implement role-aware modes, journey state, provenance contracts, privacy
-hooks, and the planner quality lab first. Meeting packets, research-group coordination, style
-profiles, safe artifact drafting, and capability marketplace can follow after the core planner is
-observable and policy-safe.
+Recommended V3 priority:
+
+1. Ship the planning substrate: `PlanSpec`, step registry metadata, policy validation, fallback
+  reasons, and tests.
+2. Add role-aware operating modes, journey state, evidence contracts, and privacy hooks as planner
+  inputs.
+3. Add the planner quality lab and scenario replay suite before enabling LLM planning live.
+4. Add owner attention budgeting once operations tasks and planner traces share enough metadata.
+5. Add meeting packets, research-group coordination, style profiles, safe artifact drafting, and
+  capability marketplace only after the core planner is observable and policy-safe.
 
 ### V3 Architecture Shape
 
@@ -419,9 +515,18 @@ Suggested module boundaries:
   owner-review requirements, and side-effect validation.
 - `workflow_trace.py`: plan trace serialization, rejected-plan reasons, stage timings, skipped
   stages, evidence links, and replay identifiers.
+- `workflow_context.py`: normalized request context, role mode, journey state, identity, consent,
+  runtime flags, and available knowledge/memory scopes.
+- `workflow_eval.py`: offline replay harness, template-vs-plan comparison, scenario labels,
+  acceptance metrics, and regression summaries.
 - `data/workflow_policies/`: versioned YAML policies for owner-specific planning constraints.
+- `data/workflow_scenarios/`: canonical V2/V3 replay cases for course, research, booking,
+  knowledge-gap, human-handoff, greeting, and admin-denial scenarios.
 - `tests/test_dynamic_workflow_planner.py`: schema, policy, fallback, and representative scenario
   coverage.
+
+The first implementation should keep these modules metadata-heavy. Do not wire LLM planner prompts
+or dynamic side effects until the schema, registry, policy, and replay tests are already passing.
 
 ### PlanSpec Contract
 
@@ -433,11 +538,19 @@ shape:
   "plan_id": "generated-or-template-id",
   "planner_version": "v3.0.0",
   "policy_version": "faculty-default-2026-05",
+  "planner_mode": "deterministic",
+  "execution_mode": "shadow_or_template",
   "goal": "answer_course_question",
   "risk_level": "read_only",
   "profile_context": "paper_writing_course",
+  "journey_state": "course_student",
   "estimated_latency_budget_ms": 12000,
   "requires_owner_review": false,
+  "evidence_contract": {
+    "requires_citations": true,
+    "allowed_sources": ["course_material", "public_homepage", "profile_memory"],
+    "forbidden_sources": ["private_student_record_without_consent"]
+  },
   "steps": [
     {
       "step_id": "detect_profile_context",
@@ -462,6 +575,7 @@ shape:
     }
   ],
   "fallback_template": "answer_question",
+  "fallback_reason": null,
   "explain_to_operator": "Course question with retrieval; no booking or admin side effect needed."
 }
 ```
@@ -475,6 +589,9 @@ Required validation rules:
 - `risk_level` must match the strongest side effect in the plan.
 - Write-side-effect steps must declare whether owner review is required.
 - Admin-only steps must be rejected for normal user sessions.
+- Evidence contracts must reject unavailable, private, or policy-forbidden source classes.
+- `planner_mode` and `execution_mode` must be explicit so deterministic, shadow, template, and live
+  planner behavior can be separated in traces.
 - Unknown fields from an LLM-generated plan should be rejected rather than ignored.
 
 ### Step Registry
@@ -488,17 +605,25 @@ Initial read-only steps:
   course, paper writing, research collaboration, group operations, or booking preparation.
 - `classify_intent`: classify answer, booking, escalation, knowledge-gap, feedback, or admin intent.
 - `retrieve_knowledge`: search curated homepage/course/PDF knowledge and return source evidence.
+- `retrieve_hybrid_knowledge`: choose and execute the right read-only retrieval mix across lexical
+  knowledge search, NeuroMem-backed recall, and optional semantic/vector search under policy.
 - `retrieve_recent_memory`: retrieve recent conversation context for the current user/session.
 - `retrieve_profile_memory`: retrieve long-term academic profile memory where permitted.
+- `retrieve_artifact_memory`: retrieve typed upload, meeting, agenda, blocker, or follow-up memory
+  when the request refers to earlier materials rather than only earlier chat turns.
 - `assemble_prompt_context`: merge question, policy, evidence, and memory into model-ready context.
 - `answer_with_citations`: generate a grounded answer with visible evidence and next steps.
 - `detect_knowledge_gap`: decide whether the answer exposed missing or stale knowledge.
+- `score_memory_usefulness`: record whether the selected memory and retrieval evidence should be
+  treated as helpful, stale, low-confidence, or operator-review-worthy for later evaluation.
 - `render_user_response`: format the final response, citations, workflow trace, and suggested
   follow-up actions.
 
 Guarded write or review steps for later V3 increments:
 
 - `record_conversation_memory`: write chat summary and profile signals after response generation.
+- `record_artifact_memory`: write typed upload, meeting-preparation, blocker, and agenda memory with
+  provenance and retention metadata after policy validation.
 - `draft_booking_request`: prepare booking data for user confirmation, without confirming a meeting.
 - `create_escalation_draft`: create a human-handoff draft that waits for owner/admin processing.
 - `draft_follow_up_action`: draft reminders, reading suggestions, or post-meeting notes for review.
@@ -516,15 +641,32 @@ Explicitly prohibited generated steps:
 
 #### V3.0: Read-Only Planner Preview
 
-- Add `PlanSpec` models and validation tests.
-- Add a deterministic planner that maps common requests to generated-looking plans without using an
-  LLM planner yet.
-- Implement read-only step registry metadata for profile detection, intent classification,
-  retrieval, prompt assembly, answer generation, and response rendering.
-- Show the accepted plan in the existing workflow trace as "planned steps" before execution.
-- Keep execution equivalent to V2 templates where possible, so behavior changes are limited to
-  observability and plan selection.
-- Add fallback to V2 templates for invalid plans and record the fallback reason.
+Goal: make V3 observable without making live behavior riskier.
+
+First PR sequence:
+
+1. Add `PlanSpec` Pydantic models, strict JSON validation, and contract tests.
+2. Add read-only step registry metadata for profile detection, intent classification, retrieval,
+   prompt assembly, answer generation, response rendering, and knowledge-gap detection.
+3. Add policy validation for known steps, dependency satisfaction, acyclic graphs, side effects,
+   owner-review requirements, admin-only steps, latency/token budgets, and evidence contracts.
+4. Add a deterministic planner that maps common requests to generated-looking plans without using
+   an LLM planner yet.
+5. Add scenario fixtures and replay tests that compare the deterministic plan with current V2
+   template behavior.
+6. Add typed NeuroMem memory schema and scenario labels for conversation memory, profile memory,
+  upload-derived memory, meeting memory, and follow-up memory so replay tests can check retrieval
+  and retention behavior before live planning changes.
+7. Show the accepted plan in the existing workflow trace as "planned steps" before execution.
+8. Keep execution equivalent to V2 templates where possible, so behavior changes are limited to
+   observability and plan selection.
+9. Add fallback to V2 templates for invalid plans and record the fallback reason.
+
+Exit criteria:
+
+- Planner metadata and policy tests pass without requiring a live model.
+- Canonical scenarios produce valid deterministic plans with operator-readable explanations.
+- Live chat can expose planned steps while still executing the V2-safe template path.
 
 #### V3.1: LLM-Assisted JSON Planner
 
@@ -535,6 +677,13 @@ Explicitly prohibited generated steps:
   effect, excessive stage count, or malformed JSON.
 - Add operator-visible metrics: planner acceptance rate, fallback rate, plan latency, rejected-step
   distribution, and plan-vs-template quality outcome.
+- Add side-by-side replay and shadow metrics for lexical retrieval, NeuroMem-backed memory recall,
+  upload-artifact retrieval, and optional semantic/vector retrieval so the planner can learn which
+  retrieval path works best for each request family.
+
+The LLM planner should initially be read-only and shadow-only. It should not win over the
+deterministic planner until the replay suite shows that it preserves or improves step selection,
+retrieval scope, answer quality, and latency for the weak-local-model cases already seen in V2.
 
 #### V3.2: Guarded Side-Effect Planning
 
@@ -543,6 +692,13 @@ Explicitly prohibited generated steps:
 - Require policy gates and owner-review markers for every write-side-effect step.
 - Add tests proving normal users cannot generate admin-only plans.
 - Add trace UI that distinguishes read-only, draft-write, and owner-approved side effects.
+- Start writing typed artifact memory in this phase: uploaded drafts, agenda packets, recurring
+  blockers, meeting-preparation notes, and follow-up commitments should become policy-validated
+  NeuroMem records rather than only transient prompt context.
+
+Side-effect planning should start with draft-only actions. Direct confirmation, external sending,
+knowledge publication, and calendar writes remain outside V3.2 unless an explicit owner policy,
+admin session, review trace, and rollback story are present.
 
 #### V3.3: Faculty-Specific Capability Plugins
 
@@ -552,6 +708,29 @@ Explicitly prohibited generated steps:
   steps.
 - Add a plugin compatibility report to the operations console so owners can see which capabilities
   are enabled and which policies constrain them.
+
+Plugin support should be driven by manifests, not ad hoc imports in the chat service. A capability
+pack should declare its steps, policy requirements, test scenarios, UI trace renderer, and minimum
+app version before it can be enabled.
+
+### V3 Immediate Backlog
+
+The first implementation sprint should stay deliberately small:
+
+- Add `workflow_planner.py`, `workflow_steps.py`, `workflow_policy.py`, `workflow_context.py`, and
+  `workflow_eval.py` with metadata-only behavior.
+- Add `PlanSpec`, `PlanStepSpec`, `EvidenceContract`, `PlannerDecision`, and `PlannerFallback`
+  models.
+- Add a default policy file under `data/workflow_policies/` for the current faculty deployment.
+- Add typed NeuroMem memory descriptors for conversation, profile, upload artifact, meeting, and
+  follow-up memory classes so replay scenarios can assert what kind of memory was allowed or denied.
+- Add canonical replay scenarios under `data/workflow_scenarios/` for the existing weak-model
+  regressions: Tutorial 7, Chinese-time booking, database lab, research direction, SAGE/ICML, and
+  booking-preparation-vs-booking-action.
+- Add replay scenarios for upload-aware advising, memory-conditioned next-step recommendations,
+  meeting-preparation continuity, and stale-memory rejection.
+- Add tests before wiring the planner into live chat.
+- Integrate the accepted deterministic plan into the current workflow trace only after tests pass.
 
 ### Evaluation and Acceptance Criteria
 
@@ -578,6 +757,9 @@ Metrics to track:
 - Average planning latency.
 - End-to-end response latency compared with V2 templates.
 - Retrieval precision for generated retrieval plans.
+- Memory usefulness rate by memory class (conversation, profile, upload artifact, meeting,
+  follow-up).
+- Stale-memory rate and stale-memory suppression rate.
 - Booking/escalation false-positive rate.
 - User-visible answer helpfulness.
 - Owner correction rate for generated side-effect drafts.

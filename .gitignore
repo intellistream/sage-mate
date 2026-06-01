@@ -6,6 +6,7 @@ __pycache__/
 .benchmarks/
 .env
 .runtime/
+.preview/
 htmlcov/
 .coverage
 coverage.xml
@@ -17,6 +18,7 @@ data/knowledge_base/
 data/knowledge_base.backup-*/
 data/knowledge_gap_drafts/
 data/operations_task_state/
+data/suggestions/
 data/user_accounts/
 dist/
 build/

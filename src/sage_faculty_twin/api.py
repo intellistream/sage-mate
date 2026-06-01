@@ -3,6 +3,7 @@ import json
 import threading
 from collections.abc import AsyncIterator
 from datetime import date
+from io import BytesIO
 from pathlib import Path
 
 from fastapi import Depends
@@ -11,10 +12,12 @@ from fastapi import HTTPException
 from fastapi import Request
 from fastapi import Query
 from fastapi import Response
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.responses import StreamingResponse
 from fastapi.staticfiles import StaticFiles
+from pydantic import ValidationError
 from sage.edge.app import create_app as create_edge_app
 
 from .auth import ADMIN_COOKIE_NAME
@@ -29,6 +32,7 @@ from .models import (
     AdminSessionResponse,
     AnonymousSuggestionCreate,
     AnonymousSuggestionRecord,
+    ArtifactMemoryDraftRecordResponse,
     AvailabilitySchedule,
     BookingDecisionRequest,
     BookingRecord,
@@ -36,6 +40,9 @@ from .models import (
     BookingResponse,
     ChatFeedbackRequest,
     ChatFeedbackResponse,
+    ChatAttachment,
+    ConversationHistoryListResponse,
+    ConversationTranscriptResponse,
     ChatRequest,
     ChatResponse,
     EscalationDecisionRequest,
@@ -78,12 +85,38 @@ service = DigitalTwinService(settings)
 web_dir = Path(__file__).with_name("web")
 homepage_dir = settings.homepage_dir.resolve()
 NO_STORE_HEADERS = {"Cache-Control": "no-store, no-cache, must-revalidate"}
+MAX_CHAT_ATTACHMENTS = 4
+MAX_CHAT_ATTACHMENT_BYTES = 5 * 1024 * 1024
+MAX_CHAT_ATTACHMENT_TEXT_CHARS = 12000
+SUPPORTED_CHAT_ATTACHMENT_SUFFIXES = {
+    ".pdf",
+    ".txt",
+    ".md",
+    ".csv",
+    ".json",
+    ".py",
+    ".yaml",
+    ".yml",
+    ".log",
+}
+SUPPORTED_CHAT_ATTACHMENT_MEDIA_TYPES = {
+    "application/json",
+    "application/pdf",
+    "application/x-yaml",
+    "text/csv",
+    "text/markdown",
+    "text/plain",
+    "text/x-python",
+}
 
 
 class WorkflowEventBroker:
     def __init__(self) -> None:
         self._lock = threading.Lock()
-        self._streams: dict[str, tuple[asyncio.AbstractEventLoop, asyncio.Queue[dict[str, object] | None]]] = {}
+        self._streams: dict[
+            str,
+            tuple[asyncio.AbstractEventLoop, asyncio.Queue[dict[str, object] | None]],
+        ] = {}
 
     async def stream(self, request_id: str) -> AsyncIterator[str]:
         loop = asyncio.get_running_loop()
@@ -134,6 +167,164 @@ class WorkflowEventBroker:
 workflow_event_broker = WorkflowEventBroker()
 
 
+def _raise_chat_validation_error(exc: ValidationError) -> None:
+    raise RequestValidationError(exc.errors()) from exc
+
+
+def _coerce_optional_form_value(value: object) -> str | None:
+    if value is None:
+        return None
+    text = str(value).strip()
+    return text or None
+
+
+def _truncate_attachment_text(text: str) -> str:
+    normalized = text.strip()
+    if len(normalized) <= MAX_CHAT_ATTACHMENT_TEXT_CHARS:
+        return normalized
+    return normalized[: MAX_CHAT_ATTACHMENT_TEXT_CHARS - 9].rstrip() + "\n[已截断]"
+
+
+def _extract_pdf_text(content: bytes, file_name: str) -> str:
+    try:
+        from pypdf import PdfReader
+    except ImportError as exc:
+        raise HTTPException(
+            status_code=500, detail="当前环境缺少 PDF 解析依赖 pypdf。"
+        ) from exc
+
+    try:
+        reader = PdfReader(BytesIO(content))
+    except Exception as exc:
+        raise HTTPException(
+            status_code=400, detail=f"无法读取 PDF 文件：{file_name}"
+        ) from exc
+
+    text = "\n".join((page.extract_text() or "") for page in reader.pages).strip()
+    if not text:
+        raise HTTPException(
+            status_code=400, detail=f"PDF 文件没有可提取的文本内容：{file_name}"
+        )
+    return _truncate_attachment_text(text)
+
+
+def _extract_text_attachment(content: bytes, file_name: str) -> str:
+    try:
+        text = content.decode("utf-8")
+    except UnicodeDecodeError as exc:
+        raise HTTPException(
+            status_code=400, detail=f"文本附件必须使用 UTF-8 编码：{file_name}"
+        ) from exc
+
+    text = text.strip()
+    if not text:
+        raise HTTPException(
+            status_code=400, detail=f"附件没有可用文本内容：{file_name}"
+        )
+    return _truncate_attachment_text(text)
+
+
+def _extract_chat_attachment_text(
+    file_name: str, media_type: str, content: bytes
+) -> str:
+    suffix = Path(file_name).suffix.lower()
+    normalized_media_type = (media_type or "application/octet-stream").lower()
+
+    if suffix == ".pdf" or normalized_media_type == "application/pdf":
+        return _extract_pdf_text(content, file_name)
+
+    if (
+        suffix in SUPPORTED_CHAT_ATTACHMENT_SUFFIXES
+        or normalized_media_type.startswith("text/")
+        or normalized_media_type in SUPPORTED_CHAT_ATTACHMENT_MEDIA_TYPES
+    ):
+        return _extract_text_attachment(content, file_name)
+
+    raise HTTPException(
+        status_code=400,
+        detail=f"暂只支持 PDF、TXT、MD、CSV、JSON、PY、YAML、LOG 文件：{file_name}",
+    )
+
+
+async def _parse_chat_attachments(files: list[object]) -> list[ChatAttachment]:
+    if len(files) > MAX_CHAT_ATTACHMENTS:
+        raise HTTPException(
+            status_code=400, detail=f"一次最多上传 {MAX_CHAT_ATTACHMENTS} 个附件。"
+        )
+
+    attachments: list[ChatAttachment] = []
+    for upload in files:
+        if (
+            not hasattr(upload, "filename")
+            or not hasattr(upload, "read")
+            or not hasattr(upload, "close")
+        ):
+            continue
+        file_name = (upload.filename or "").strip()
+        if not file_name:
+            raise HTTPException(status_code=400, detail="上传文件必须带文件名。")
+
+        content = await upload.read()
+        await upload.close()
+        if not content:
+            raise HTTPException(status_code=400, detail=f"附件为空：{file_name}")
+        if len(content) > MAX_CHAT_ATTACHMENT_BYTES:
+            raise HTTPException(
+                status_code=400, detail=f"附件超过 5MB 限制：{file_name}"
+            )
+
+        media_type = (
+            upload.content_type or "application/octet-stream"
+        ).strip() or "application/octet-stream"
+        text_content = _extract_chat_attachment_text(file_name, media_type, content)
+        try:
+            attachments.append(
+                ChatAttachment(
+                    file_name=file_name,
+                    media_type=media_type,
+                    size_bytes=len(content),
+                    text_content=text_content,
+                )
+            )
+        except ValidationError as exc:
+            _raise_chat_validation_error(exc)
+
+    return attachments
+
+
+async def _parse_chat_request(raw_request: Request) -> ChatRequest:
+    content_type = raw_request.headers.get("content-type", "")
+
+    if content_type.startswith("multipart/form-data"):
+        form = await raw_request.form()
+        files = [item for item in form.getlist("files") if hasattr(item, "filename")]
+        payload = {
+            "student_name": _coerce_optional_form_value(form.get("student_name")),
+            "student_email": _coerce_optional_form_value(form.get("student_email")),
+            "course_context": _coerce_optional_form_value(form.get("course_context")),
+            "visitor_profile": _coerce_optional_form_value(form.get("visitor_profile")),
+            "question": _coerce_optional_form_value(form.get("question")),
+            "conversation_id": _coerce_optional_form_value(form.get("conversation_id")),
+            "attachments": await _parse_chat_attachments(files),
+        }
+        try:
+            return ChatRequest.model_validate(payload)
+        except ValidationError as exc:
+            _raise_chat_validation_error(exc)
+
+    try:
+        payload = await raw_request.json()
+    except json.JSONDecodeError as exc:
+        raise HTTPException(
+            status_code=400, detail="聊天请求体不是合法 JSON。"
+        ) from exc
+
+    try:
+        return ChatRequest.model_validate(payload)
+    except ValidationError as exc:
+        _raise_chat_validation_error(exc)
+
+
 def frontend_asset(filename: str) -> FileResponse:
     return FileResponse(web_dir / filename, headers=NO_STORE_HEADERS)
 
@@ -156,6 +347,7 @@ def homepage_asset(asset_path: str = "index.html") -> FileResponse:
 
 def require_admin_session(request: Request) -> dict:
     return service.require_admin_session(request.cookies.get(ADMIN_COOKIE_NAME))
+
 
 llm_app.mount("/static", StaticFiles(directory=web_dir), name="static")
 
@@ -215,7 +407,9 @@ async def control_managed_services(
 
 
 @llm_app.post("/auth/admin/login", response_model=AdminSessionResponse)
-async def admin_login(payload: AdminLoginRequest, response: Response) -> AdminSessionResponse:
+async def admin_login(
+    payload: AdminLoginRequest, response: Response
+) -> AdminSessionResponse:
     result = service.login_admin(payload)
     set_admin_session_cookie(response, result.session_token, settings)
     return result.session
@@ -228,14 +422,18 @@ async def admin_logout(response: Response) -> AdminSessionResponse:
 
 
 @llm_app.post("/auth/user/register", response_model=UserSessionResponse)
-async def user_register(payload: UserRegisterRequest, response: Response) -> UserSessionResponse:
+async def user_register(
+    payload: UserRegisterRequest, response: Response
+) -> UserSessionResponse:
     result = service.register_user(payload)
     set_user_session_cookie(response, result.session_token, settings)
     return result.session
 
 
 @llm_app.post("/auth/user/login", response_model=UserSessionResponse)
-async def user_login(payload: UserLoginRequest, response: Response) -> UserSessionResponse:
+async def user_login(
+    payload: UserLoginRequest, response: Response
+) -> UserSessionResponse:
     result = service.login_user(payload)
     set_user_session_cookie(response, result.session_token, settings)
     return result.session
@@ -297,10 +495,10 @@ async def shutdown_event() -> None:
 
 @llm_app.post("/chat", response_model=ChatResponse)
 async def chat(
-    payload: ChatRequest,
     raw_request: Request,
     request_id: str | None = Query(default=None, min_length=1, max_length=128),
 ) -> ChatResponse:
+    payload = await _parse_chat_request(raw_request)
     if request_id is None:
         return await service.answer(
             payload,
@@ -311,7 +509,9 @@ async def chat(
         response = await service.answer(
             payload,
             admin_session_token=raw_request.cookies.get(ADMIN_COOKIE_NAME),
-            trace_callback=lambda step: workflow_event_broker.publish_step(request_id, step),
+            trace_callback=lambda step: workflow_event_broker.publish_step(
+                request_id, step
+            ),
         )
     except Exception as exc:
         workflow_event_broker.publish_error(request_id, str(exc))
@@ -326,8 +526,45 @@ async def submit_chat_feedback(request: ChatFeedbackRequest) -> ChatFeedbackResp
     return service.submit_chat_feedback(request)
 
 
+@llm_app.get("/chat/conversations", response_model=ConversationHistoryListResponse)
+async def list_chat_conversations(
+    request: Request,
+    student_email: str | None = Query(default=None, max_length=256),
+    limit: int = Query(default=30, ge=1, le=100),
+) -> ConversationHistoryListResponse:
+    user_session = service.get_user_session(request.cookies.get(USER_COOKIE_NAME))
+    resolved_email = student_email or (
+        user_session.account.email
+        if user_session.is_authenticated and user_session.account
+        else None
+    )
+    return service.list_chat_conversations(student_email=resolved_email, limit=limit)
+
+
+@llm_app.get(
+    "/chat/conversations/{conversation_id}",
+    response_model=ConversationTranscriptResponse,
+)
+async def get_chat_conversation(
+    conversation_id: str,
+    request: Request,
+    student_email: str | None = Query(default=None, max_length=256),
+) -> ConversationTranscriptResponse:
+    user_session = service.get_user_session(request.cookies.get(USER_COOKIE_NAME))
+    resolved_email = student_email or (
+        user_session.account.email
+        if user_session.is_authenticated and user_session.account
+        else None
+    )
+    return service.get_chat_conversation(
+        conversation_id=conversation_id, student_email=resolved_email
+    )
+
+
 @llm_app.post("/suggestions", response_model=AnonymousSuggestionRecord)
-async def submit_anonymous_suggestion(request: AnonymousSuggestionCreate, raw_request: Request) -> AnonymousSuggestionRecord:
+async def submit_anonymous_suggestion(
+    request: AnonymousSuggestionCreate, raw_request: Request
+) -> AnonymousSuggestionRecord:
     return service.submit_anonymous_suggestion(
         request,
         admin_session_token=raw_request.cookies.get(ADMIN_COOKIE_NAME),
@@ -379,7 +616,9 @@ async def list_memory_profiles(
     limit: int = Query(default=50, ge=1, le=200),
     _: dict = Depends(require_admin_session),
 ) -> MemoryProfileListResponse:
-    return service.list_memory_profiles(category=category, student_query=student_query, limit=limit)
+    return service.list_memory_profiles(
+        category=category, student_query=student_query, limit=limit
+    )
 
 
 @llm_app.get("/analytics/questions", response_model=QuestionAnalyticsReportResponse)
@@ -416,14 +655,50 @@ async def update_operations_task_state(
     return service.update_operations_task_state(task_key, request)
 
 
-@llm_app.get("/analytics/questions/gap-drafts", response_model=list[KnowledgeGapDraftRecordResponse])
+@llm_app.get(
+    "/analytics/questions/gap-drafts",
+    response_model=list[KnowledgeGapDraftRecordResponse],
+)
 async def list_knowledge_gap_drafts(
     _: dict = Depends(require_admin_session),
 ) -> list[KnowledgeGapDraftRecordResponse]:
     return service.list_knowledge_gap_drafts()
 
 
-@llm_app.post("/analytics/questions/gap-drafts", response_model=KnowledgeGapDraftRecordResponse)
+@llm_app.get(
+    "/memory/artifact-drafts", response_model=list[ArtifactMemoryDraftRecordResponse]
+)
+async def list_artifact_memory_drafts(
+    _: dict = Depends(require_admin_session),
+) -> list[ArtifactMemoryDraftRecordResponse]:
+    return service.list_artifact_memory_drafts()
+
+
+@llm_app.post(
+    "/memory/artifact-drafts/{draft_id}/accept",
+    response_model=ArtifactMemoryDraftRecordResponse,
+)
+async def accept_artifact_memory_draft(
+    draft_id: str,
+    _: dict = Depends(require_admin_session),
+) -> ArtifactMemoryDraftRecordResponse:
+    return service.accept_artifact_memory_draft(draft_id)
+
+
+@llm_app.post(
+    "/memory/artifact-drafts/{draft_id}/reject",
+    response_model=ArtifactMemoryDraftRecordResponse,
+)
+async def reject_artifact_memory_draft(
+    draft_id: str,
+    _: dict = Depends(require_admin_session),
+) -> ArtifactMemoryDraftRecordResponse:
+    return service.reject_artifact_memory_draft(draft_id)
+
+
+@llm_app.post(
+    "/analytics/questions/gap-drafts", response_model=KnowledgeGapDraftRecordResponse
+)
 async def create_knowledge_gap_draft(
     request: KnowledgeGapDraftCreateRequest,
     _: dict = Depends(require_admin_session),
@@ -431,7 +706,10 @@ async def create_knowledge_gap_draft(
     return service.create_knowledge_gap_draft(request)
 
 
-@llm_app.post("/analytics/questions/gap-drafts/{draft_id}/publish", response_model=KnowledgeGapDraftRecordResponse)
+@llm_app.post(
+    "/analytics/questions/gap-drafts/{draft_id}/publish",
+    response_model=KnowledgeGapDraftRecordResponse,
+)
 async def publish_knowledge_gap_draft(
     draft_id: str,
     _: dict = Depends(require_admin_session),
