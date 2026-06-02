@@ -5819,19 +5819,33 @@ function closeModals() {
 
 function openDrawer() {
     closeWorkflowMobileSheet();
-    modalOverlay.classList.remove("hidden");
     sideDrawer.classList.remove("hidden");
     sideDrawer.setAttribute("aria-hidden", "false");
+    document.body.classList.add("drawer-pinned");
+    if (isDrawerOverlayViewport()) {
+        modalOverlay.classList.remove("hidden");
+    } else if (!hasVisibleOverlayModal()) {
+        modalOverlay.classList.add("hidden");
+    }
     syncFloatingWorkflowTriggerState();
 }
 
 function closeDrawer() {
     sideDrawer.classList.add("hidden");
     sideDrawer.setAttribute("aria-hidden", "true");
+    document.body.classList.remove("drawer-pinned");
     if (!hasVisibleOverlayModal()) {
         modalOverlay.classList.add("hidden");
     }
     syncFloatingWorkflowTriggerState();
+}
+
+function isDrawerOverlayViewport() {
+    try {
+        return Boolean(globalThis.matchMedia?.("(max-width: 920px)").matches);
+    } catch {
+        return false;
+    }
 }
 
 function hasVisibleOverlayModal() {

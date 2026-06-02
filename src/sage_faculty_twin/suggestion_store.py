@@ -69,6 +69,8 @@ class SuggestionBoardStore:
         return len(self._records)
 
     def _persist_record(self, record: SuggestionBoardEntry) -> None:
+        # Defensive: re-create the directory in case it was wiped at runtime.
+        self._path.mkdir(parents=True, exist_ok=True)
         (self._path / f"{record.suggestion_id}.json").write_text(
             json.dumps(record.to_dict(), ensure_ascii=False, indent=2),
             encoding="utf-8",

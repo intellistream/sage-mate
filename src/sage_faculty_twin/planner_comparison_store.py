@@ -54,26 +54,18 @@ class PlannerComparisonEntry:
         return cls(
             record_id=str(payload["record_id"]),
             conversation_id=str(payload["conversation_id"]),
-            exchange_id=(
-                str(payload["exchange_id"]) if payload.get("exchange_id") else None
-            ),
+            exchange_id=(str(payload["exchange_id"]) if payload.get("exchange_id") else None),
             workflow_action=str(payload.get("workflow_action") or "answer"),
             question=str(payload.get("question") or ""),
-            comparison_status=str(
-                payload.get("comparison_status") or "shadow_disabled"
-            ),
+            comparison_status=str(payload.get("comparison_status") or "shadow_disabled"),
             deterministic_goal=str(payload.get("deterministic_goal") or ""),
-            shadow_goal=(
-                str(payload["shadow_goal"]) if payload.get("shadow_goal") else None
-            ),
+            shadow_goal=(str(payload["shadow_goal"]) if payload.get("shadow_goal") else None),
             same_goal=bool(payload.get("same_goal", True)),
             same_fallback_template=bool(payload.get("same_fallback_template", True)),
             deterministic_only_steps=[
                 str(item) for item in payload.get("deterministic_only_steps", [])
             ],
-            shadow_only_steps=[
-                str(item) for item in payload.get("shadow_only_steps", [])
-            ],
+            shadow_only_steps=[str(item) for item in payload.get("shadow_only_steps", [])],
             summary=str(payload.get("summary") or ""),
             created_at=datetime.fromisoformat(str(payload["created_at"])),
         )
@@ -130,9 +122,7 @@ class PlannerComparisonStore:
         limit: int | None = None,
         actionable_only: bool = False,
     ) -> list[PlannerComparisonEntry]:
-        entries = sorted(
-            self._entries.values(), key=lambda item: item.created_at, reverse=True
-        )
+        entries = sorted(self._entries.values(), key=lambda item: item.created_at, reverse=True)
         if actionable_only:
             entries = [entry for entry in entries if entry.actionable]
         if limit is not None:
@@ -147,12 +137,12 @@ class PlannerComparisonStore:
 
     def count_status(self, comparison_status: str) -> int:
         return sum(
-            1
-            for entry in self._entries.values()
-            if entry.comparison_status == comparison_status
+            1 for entry in self._entries.values() if entry.comparison_status == comparison_status
         )
 
     def _persist_entry(self, entry: PlannerComparisonEntry) -> None:
+        # Defensive: re-create the directory in case it was wiped at runtime.
+        self._path.mkdir(parents=True, exist_ok=True)
         (self._path / f"{entry.record_id}.json").write_text(
             json.dumps(entry.to_dict(), ensure_ascii=False, indent=2),
             encoding="utf-8",

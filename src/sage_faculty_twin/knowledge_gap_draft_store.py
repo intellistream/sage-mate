@@ -64,10 +64,16 @@ class KnowledgeGapDraftRecord:
             tags=[str(item) for item in payload.get("tags", [])],
             source_name=str(payload["source_name"]),
             status=str(payload["status"]),
-            published_document_id=(str(payload["published_document_id"]) if payload.get("published_document_id") else None),
+            published_document_id=(
+                str(payload["published_document_id"])
+                if payload.get("published_document_id")
+                else None
+            ),
             created_at=datetime.fromisoformat(str(payload["created_at"])),
             updated_at=datetime.fromisoformat(str(payload["updated_at"])),
-            published_at=datetime.fromisoformat(str(published_at_raw)) if published_at_raw else None,
+            published_at=datetime.fromisoformat(str(published_at_raw))
+            if published_at_raw
+            else None,
         )
 
     def to_response(self) -> KnowledgeGapDraftRecordResponse:
@@ -165,6 +171,8 @@ class KnowledgeGapDraftStore:
         return len(self._records)
 
     def _persist_record(self, record: KnowledgeGapDraftRecord) -> None:
+        # Defensive: re-create the directory in case it was wiped at runtime.
+        self._path.mkdir(parents=True, exist_ok=True)
         (self._path / f"{record.draft_id}.json").write_text(
             json.dumps(record.to_dict(), ensure_ascii=False, indent=2),
             encoding="utf-8",

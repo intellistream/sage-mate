@@ -157,7 +157,9 @@ class FollowUpQueueStore:
     def count_actions(self) -> int:
         return len(self._entries)
 
-    def _find_existing(self, *, booking_id: str | None, action_type: str) -> FollowUpQueueEntry | None:
+    def _find_existing(
+        self, *, booking_id: str | None, action_type: str
+    ) -> FollowUpQueueEntry | None:
         if booking_id is None:
             return None
         for entry in self._entries.values():
@@ -166,6 +168,8 @@ class FollowUpQueueStore:
         return None
 
     def _persist_entry(self, entry: FollowUpQueueEntry) -> None:
+        # Defensive: re-create the directory in case it was wiped at runtime.
+        self._path.mkdir(parents=True, exist_ok=True)
         (self._path / f"{entry.action_id}.json").write_text(
             json.dumps(entry.to_dict(), ensure_ascii=False, indent=2),
             encoding="utf-8",

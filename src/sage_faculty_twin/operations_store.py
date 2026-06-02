@@ -67,9 +67,13 @@ class OperationsTaskStateStore:
             task_key=task_key,
             status=request.status or (existing.status if existing else "open"),
             assigned_to=self._normalize_optional_text(
-                request.assigned_to if request.assigned_to is not None else (existing.assigned_to if existing else None)
+                request.assigned_to
+                if request.assigned_to is not None
+                else (existing.assigned_to if existing else None)
             ),
-            note=self._normalize_optional_text(request.note if request.note is not None else (existing.note if existing else None)),
+            note=self._normalize_optional_text(
+                request.note if request.note is not None else (existing.note if existing else None)
+            ),
             updated_at=datetime.now(UTC),
         )
         self._entries[task_key] = entry
@@ -78,6 +82,8 @@ class OperationsTaskStateStore:
 
     def _persist_entry(self, entry: OperationsTaskStateEntry) -> None:
         file_name = re.sub(r"[^a-zA-Z0-9_.-]+", "-", entry.task_key).strip("-") or "task"
+        # Defensive: re-create the directory in case it was wiped at runtime.
+        self._path.mkdir(parents=True, exist_ok=True)
         (self._path / f"{file_name}.json").write_text(
             json.dumps(entry.to_dict(), ensure_ascii=False, indent=2),
             encoding="utf-8",

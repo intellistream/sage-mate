@@ -48,12 +48,16 @@ class EscalationQueueRecord:
             conversation_id=str(payload["conversation_id"]),
             student_name=str(payload["student_name"]),
             student_email=(str(payload["student_email"]) if payload.get("student_email") else None),
-            course_context=(str(payload["course_context"]) if payload.get("course_context") else None),
+            course_context=(
+                str(payload["course_context"]) if payload.get("course_context") else None
+            ),
             question=str(payload["question"]),
             route=str(payload["route"]),
             status=str(payload["status"]),
             reason=(str(payload["reason"]) if payload.get("reason") else None),
-            resolution_note=(str(payload["resolution_note"]) if payload.get("resolution_note") else None),
+            resolution_note=(
+                str(payload["resolution_note"]) if payload.get("resolution_note") else None
+            ),
             created_at=datetime.fromisoformat(str(payload["created_at"])),
             resolved_at=datetime.fromisoformat(str(resolved_at)) if resolved_at else None,
         )
@@ -123,7 +127,9 @@ class EscalationQueueStore:
             records = [record for record in records if record.route == normalized_route]
         return [record.to_response() for record in records]
 
-    def resolve_request(self, escalation_id: str, resolution_note: str | None = None) -> EscalationRecord:
+    def resolve_request(
+        self, escalation_id: str, resolution_note: str | None = None
+    ) -> EscalationRecord:
         record = self._records.get(escalation_id)
         if record is None:
             raise KeyError(escalation_id)
@@ -138,6 +144,8 @@ class EscalationQueueStore:
         return len(self._records)
 
     def _persist_record(self, record: EscalationQueueRecord) -> None:
+        # Defensive: re-create the directory in case it was wiped at runtime.
+        self._path.mkdir(parents=True, exist_ok=True)
         (self._path / f"{record.escalation_id}.json").write_text(
             json.dumps(record.to_dict(), ensure_ascii=False, indent=2),
             encoding="utf-8",

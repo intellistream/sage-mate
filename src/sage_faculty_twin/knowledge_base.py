@@ -109,6 +109,8 @@ class LocalKnowledgeStore:
             created_at=datetime.now(UTC),
         )
         target_path = self._base_dir / f"{record.document_id}.json"
+        # Defensive: re-create the directory in case it was wiped at runtime.
+        self._base_dir.mkdir(parents=True, exist_ok=True)
         target_path.write_text(record.model_dump_json(indent=2), encoding="utf-8")
         self._documents[record.document_id] = record
         if self._backend == "sagevdb":
@@ -137,6 +139,8 @@ class LocalKnowledgeStore:
             created_at=datetime.now(UTC),
         )
         target_path = self._base_dir / f"{updated_record.document_id}.json"
+        # Defensive: re-create the directory in case it was wiped at runtime.
+        self._base_dir.mkdir(parents=True, exist_ok=True)
         target_path.write_text(updated_record.model_dump_json(indent=2), encoding="utf-8")
         self._documents[updated_record.document_id] = updated_record
         self._remove_duplicate_documents_for_source(
@@ -168,6 +172,8 @@ class LocalKnowledgeStore:
             created_at=existing.created_at,
         )
         target_path = self._base_dir / f"{updated_record.document_id}.json"
+        # Defensive: re-create the directory in case it was wiped at runtime.
+        self._base_dir.mkdir(parents=True, exist_ok=True)
         target_path.write_text(updated_record.model_dump_json(indent=2), encoding="utf-8")
         self._documents[updated_record.document_id] = updated_record
         self._remove_duplicate_documents_for_source(
@@ -266,27 +272,27 @@ class LocalKnowledgeStore:
             self._documents[document.document_id] = document
         self._deduplicate_loaded_documents()
 
-    def _find_document_by_source_name(self, source_name: str | None) -> KnowledgeDocumentRecord | None:
+    def _find_document_by_source_name(
+        self, source_name: str | None
+    ) -> KnowledgeDocumentRecord | None:
         if not source_name:
             return None
         matches = self._find_documents_by_source_name(source_name)
         return matches[0] if matches else None
 
-    def _find_documents_by_source_name(self, source_name: str | None) -> list[KnowledgeDocumentRecord]:
+    def _find_documents_by_source_name(
+        self, source_name: str | None
+    ) -> list[KnowledgeDocumentRecord]:
         if not source_name:
             return []
         matches = [
-            document
-            for document in self._documents.values()
-            if document.source_name == source_name
+            document for document in self._documents.values() if document.source_name == source_name
         ]
         return sorted(matches, key=lambda item: item.created_at, reverse=True)
 
     def _deduplicate_loaded_documents(self) -> None:
         source_names = {
-            document.source_name
-            for document in self._documents.values()
-            if document.source_name
+            document.source_name for document in self._documents.values() if document.source_name
         }
         for source_name in source_names:
             self._remove_duplicate_documents_for_source(source_name, persist=True)
@@ -468,7 +474,9 @@ class LocalKnowledgeStore:
 
         limit = top_k or self._settings.retrieval_top_k
         expanded_query = self._expand_retrieval_text(query)
-        results = self._neuromem_collection.retrieve("search", expanded_query, top_k=max(limit * 5, limit + 8))
+        results = self._neuromem_collection.retrieve(
+            "search", expanded_query, top_k=max(limit * 5, limit + 8)
+        )
         query_tokens = self._tokenize(query)
         query_profile = _build_query_profile(query, visitor_profile=visitor_profile)
 
@@ -515,12 +523,18 @@ class LocalKnowledgeStore:
                     metadata=document.metadata,
                 )
             )
-        hits.extend(sorted(lexical_hits, key=lambda item: item.score, reverse=True)[: max(limit * 3, limit + 5)])
+        hits.extend(
+            sorted(lexical_hits, key=lambda item: item.score, reverse=True)[
+                : max(limit * 3, limit + 5)
+            ]
+        )
 
         reranked = sorted(
             hits,
             key=lambda item: (
-                self._score_document(self._documents[item.document_id], query_tokens, query_profile),
+                self._score_document(
+                    self._documents[item.document_id], query_tokens, query_profile
+                ),
                 item.score,
             ),
             reverse=True,
@@ -554,7 +568,9 @@ class LocalKnowledgeStore:
 
         self._sagevdb.build_index(self._np.stack(vectors), metadata=metadata_batch)
 
-    def _add_to_sagevdb(self, document: KnowledgeDocumentRecord, rebuild_index: bool = True) -> None:
+    def _add_to_sagevdb(
+        self, document: KnowledgeDocumentRecord, rebuild_index: bool = True
+    ) -> None:
         if self._sagevdb is None:
             return
 
@@ -620,7 +636,9 @@ class LocalKnowledgeStore:
                     metadata=document.metadata,
                 )
             )
-        return self._finalize_hits(hits, _build_query_profile(query, visitor_profile=visitor_profile), limit)
+        return self._finalize_hits(
+            hits, _build_query_profile(query, visitor_profile=visitor_profile), limit
+        )
 
     def _score_document(
         self,
@@ -668,8 +686,12 @@ class LocalKnowledgeStore:
             return 0.0
 
         document_tags = {tag.lower() for tag in document.tags}
-        prefers_teaching = bool(query_profile.document_types or "teaching" in query_profile.topic_domains)
-        prefers_research = bool(query_profile.research_focus or "research" in query_profile.topic_domains)
+        prefers_teaching = bool(
+            query_profile.document_types or "teaching" in query_profile.topic_domains
+        )
+        prefers_research = bool(
+            query_profile.research_focus or "research" in query_profile.topic_domains
+        )
         prefers_meeting = "meeting" in query_profile.topic_domains
 
         if visitor_profile == "hust_undergraduate":
@@ -697,7 +719,11 @@ class LocalKnowledgeStore:
                 boost += 4.5
             if document_tags & {"profile", "overview"}:
                 boost += 1.5
-            if not prefers_teaching and not prefers_meeting and document_tags & _TEACHING_RELATED_TAGS:
+            if (
+                not prefers_teaching
+                and not prefers_meeting
+                and document_tags & _TEACHING_RELATED_TAGS
+            ):
                 boost -= 2.5
             return boost
 
@@ -706,7 +732,12 @@ class LocalKnowledgeStore:
                 return 4.0
             if not prefers_teaching and document_tags & _RESEARCH_DOCUMENT_TAGS:
                 return 2.0
-            if not prefers_teaching and not prefers_research and not prefers_meeting and document_tags & _TEACHING_RELATED_TAGS:
+            if (
+                not prefers_teaching
+                and not prefers_research
+                and not prefers_meeting
+                and document_tags & _TEACHING_RELATED_TAGS
+            ):
                 return -2.5
 
         return 0.0
@@ -714,7 +745,9 @@ class LocalKnowledgeStore:
     def _build_excerpt(self, content: str, query_tokens: set[str]) -> str:
         compact = " ".join(content.split())
         lowercase = compact.lower()
-        hit_index = min((lowercase.find(token) for token in query_tokens if token in lowercase), default=-1)
+        hit_index = min(
+            (lowercase.find(token) for token in query_tokens if token in lowercase), default=-1
+        )
         if hit_index == -1:
             return compact[:220]
         start = max(hit_index - 60, 0)
@@ -757,7 +790,10 @@ class LocalKnowledgeStore:
 
         if query_profile.ordinal_numbers:
             haystacks = [document.title, document.source_name or "", document.content[:400]]
-            if any(_document_mentions_ordinal(haystack, query_profile.ordinal_numbers) for haystack in haystacks):
+            if any(
+                _document_mentions_ordinal(haystack, query_profile.ordinal_numbers)
+                for haystack in haystacks
+            ):
                 boost += 4.0
                 if document_types & query_profile.document_types:
                     boost += 2.0
@@ -857,7 +893,9 @@ class LocalKnowledgeStore:
                 entity_matched_hits = [
                     hit
                     for hit in aligned_hits
-                    if _hit_matches_named_entities(hit, self._documents[hit.document_id], query_profile.named_entities)
+                    if _hit_matches_named_entities(
+                        hit, self._documents[hit.document_id], query_profile.named_entities
+                    )
                 ]
                 if entity_matched_hits:
                     aligned_hits = entity_matched_hits
@@ -878,7 +916,9 @@ class LocalKnowledgeStore:
 
 
 def _tokenize_text(text: str) -> set[str]:
-    tokens: set[str] = {token.lower() for token in re.findall(r"[A-Za-z0-9_]+", text) if len(token) > 1}
+    tokens: set[str] = {
+        token.lower() for token in re.findall(r"[A-Za-z0-9_]+", text) if len(token) > 1
+    }
     for span in re.findall(r"[\u4e00-\u9fff]+", text):
         if not span:
             continue
@@ -907,7 +947,15 @@ class QueryProfile:
 
 
 _TEACHING_DOCUMENT_TYPES = {"tutorial", "lecture", "experiment"}
-_TEACHING_RELATED_TAGS = {"teaching", "courseware", "tutorial", "lecture", "experiment", "resources", "pdf"}
+_TEACHING_RELATED_TAGS = {
+    "teaching",
+    "courseware",
+    "tutorial",
+    "lecture",
+    "experiment",
+    "resources",
+    "pdf",
+}
 _RESEARCH_DOCUMENT_TAGS = {"research", "publication", "paper-digest", "overview", "profile"}
 _MEETING_DOCUMENT_TAGS = {"meeting", "preparation", "policy", "qa", "course"}
 _COURSE_ALIAS_MAP = {
@@ -954,9 +1002,22 @@ _TEACHING_ALIAS_MAP = {
     "preparation": ("preparation", "准备", "提前准备", "材料"),
     "policy": ("policy", "建议", "要求", "规范"),
     "qa": ("qa", "答疑", "提问", "问题"),
-    "course:llm-inference": ("大模型推理基础设施", "大模型推理", "推理系统", "kv cache", "prefill", "decode"),
+    "course:llm-inference": (
+        "大模型推理基础设施",
+        "大模型推理",
+        "推理系统",
+        "kv cache",
+        "prefill",
+        "decode",
+    ),
     "course:paper-writing": ("研究生论文写作", "论文写作", "毕业论文", "发表高水平论文"),
-    "course:database-lab": ("数据库实验课", "数据库实验", "database lab", "database experiment", "db lab"),
+    "course:database-lab": (
+        "数据库实验课",
+        "数据库实验",
+        "database lab",
+        "database experiment",
+        "db lab",
+    ),
     "identity:teacher": ("主课老师", "教师", "课程"),
     "identity:pi": ("课题组", "负责人", "导师", "PI"),
     "domain:teaching": ("教学", "课程", "研究生课程"),
@@ -978,10 +1039,21 @@ def _build_query_profile(query: str, visitor_profile: str | None = None) -> Quer
     if "tutorial" in lowered or "教程" in query or "习题" in query or "练习" in query:
         document_types.add("tutorial")
         topic_domains.add("teaching")
-    if "lecture" in lowered or "讲义" in query or "课件" in query or re.search(r"第\s*\d+\s*讲", query):
+    if (
+        "lecture" in lowered
+        or "讲义" in query
+        or "课件" in query
+        or re.search(r"第\s*\d+\s*讲", query)
+    ):
         document_types.add("lecture")
         topic_domains.add("teaching")
-    if "experiment" in lowered or "lab" in lowered or "实验" in query or "project" in lowered or "项目" in query:
+    if (
+        "experiment" in lowered
+        or "lab" in lowered
+        or "实验" in query
+        or "project" in lowered
+        or "项目" in query
+    ):
         document_types.add("experiment")
         topic_domains.add("teaching")
 
@@ -1003,9 +1075,14 @@ def _build_query_profile(query: str, visitor_profile: str | None = None) -> Quer
         "publications",
         "research",
     )
-    if any(marker in lowered for marker in research_markers) or any(marker in query for marker in research_markers):
+    if any(marker in lowered for marker in research_markers) or any(
+        marker in query for marker in research_markers
+    ):
         topic_domains.add("research")
-        if any(marker in query for marker in ("研究主线", "研究方向", "主要研究", "研究什么", "研究板块")):
+        if any(
+            marker in query
+            for marker in ("研究主线", "研究方向", "主要研究", "研究什么", "研究板块")
+        ):
             research_focus = "overview"
         elif "论文" in query or _has_named_research_entity(query):
             research_focus = "paper"
@@ -1030,7 +1107,9 @@ def _build_query_profile(query: str, visitor_profile: str | None = None) -> Quer
         "准备什么",
         "提前准备",
     )
-    if any(marker in lowered for marker in meeting_markers) or any(marker in query for marker in meeting_markers):
+    if any(marker in lowered for marker in meeting_markers) or any(
+        marker in query for marker in meeting_markers
+    ):
         topic_domains.add("meeting")
     elif "准备" in query and any(role in query for role in ("老师", "导师")):
         topic_domains.add("meeting")
@@ -1119,7 +1198,15 @@ def _infer_knowledge_metadata(
             metadata["identity"] = "public-profile"
 
     if "material_type" not in metadata:
-        for candidate in ("tutorial", "lecture", "experiment", "pdf", "paper-digest", "overview", "profile"):
+        for candidate in (
+            "tutorial",
+            "lecture",
+            "experiment",
+            "pdf",
+            "paper-digest",
+            "overview",
+            "profile",
+        ):
             if candidate in tag_set:
                 metadata["material_type"] = candidate
                 break
@@ -1157,10 +1244,14 @@ def _document_course_ids(document: KnowledgeDocumentRecord) -> frozenset[str]:
 def _is_paper_writing_document(document: KnowledgeDocumentRecord) -> bool:
     document_tags = {tag.lower() for tag in document.tags}
     haystacks = (document.title, document.source_name or "", document.content[:400])
-    matches_topic = any("论文写作" in haystack or "paper-writing" in haystack.lower() for haystack in haystacks)
+    matches_topic = any(
+        "论文写作" in haystack or "paper-writing" in haystack.lower() for haystack in haystacks
+    )
     if not matches_topic:
         return False
-    return bool(document_tags & _TEACHING_RELATED_TAGS) or "graduate-paper-writing-course" in (document.source_name or "")
+    return bool(document_tags & _TEACHING_RELATED_TAGS) or "graduate-paper-writing-course" in (
+        document.source_name or ""
+    )
 
 
 def _has_named_research_entity(query: str) -> bool:
@@ -1233,22 +1324,32 @@ def _hit_matches_ordinal_query(
         padded = f"{number:02d}"
         patterns: list[str] = []
         if not document_types or "lecture" in document_types:
-            patterns.extend([
-                rf"第\s*0?{number}\s*讲",
-                rf"lecture[-_\s]?0?{number}\b",
-                rf"第{padded}讲",
-            ])
+            patterns.extend(
+                [
+                    rf"第\s*0?{number}\s*讲",
+                    rf"lecture[-_\s]?0?{number}\b",
+                    rf"第{padded}讲",
+                ]
+            )
         if not document_types or "tutorial" in document_types:
-            patterns.extend([
-                rf"tutorial[-_\s]?0?{number}\b",
-                rf"tutorial\s*{padded}\b",
-            ])
+            patterns.extend(
+                [
+                    rf"tutorial[-_\s]?0?{number}\b",
+                    rf"tutorial\s*{padded}\b",
+                ]
+            )
         if not document_types or "experiment" in document_types:
-            patterns.extend([
-                rf"实验\s*0?{number}\b",
-                rf"experiment[-_\s]?0?{number}\b",
-            ])
-        if any(re.search(pattern, haystack, re.IGNORECASE) for pattern in patterns for haystack in haystacks):
+            patterns.extend(
+                [
+                    rf"实验\s*0?{number}\b",
+                    rf"experiment[-_\s]?0?{number}\b",
+                ]
+            )
+        if any(
+            re.search(pattern, haystack, re.IGNORECASE)
+            for pattern in patterns
+            for haystack in haystacks
+        ):
             return True
     return False
 
@@ -1264,7 +1365,9 @@ def _hit_matches_named_entities(
     return any(any(entity in haystack for haystack in haystacks) for entity in named_entities)
 
 
-def _dedupe_hits_by_source_group(hits: list[KnowledgeSearchHit], limit: int) -> list[KnowledgeSearchHit]:
+def _dedupe_hits_by_source_group(
+    hits: list[KnowledgeSearchHit], limit: int
+) -> list[KnowledgeSearchHit]:
     deduped_hits: list[KnowledgeSearchHit] = []
     seen_source_groups: set[str] = set()
     for hit in hits:

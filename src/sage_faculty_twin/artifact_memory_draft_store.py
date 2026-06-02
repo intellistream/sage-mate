@@ -74,25 +74,17 @@ class ArtifactMemoryDraftRecord:
             draft_id=str(payload["draft_id"]),
             conversation_id=str(payload["conversation_id"]),
             source_memory_id=(
-                str(payload["source_memory_id"])
-                if payload.get("source_memory_id")
-                else None
+                str(payload["source_memory_id"]) if payload.get("source_memory_id") else None
             ),
             student_name=str(payload["student_name"]),
-            student_email=(
-                str(payload["student_email"]) if payload.get("student_email") else None
-            ),
+            student_email=(str(payload["student_email"]) if payload.get("student_email") else None),
             interaction_domain=(
-                str(payload["interaction_domain"])
-                if payload.get("interaction_domain")
-                else None
+                str(payload["interaction_domain"]) if payload.get("interaction_domain") else None
             ),
             question=str(payload["question"]),
             answer=str(payload["answer"]),
             artifact_names=[str(item) for item in payload.get("artifact_names", [])],
-            artifact_sources=[
-                str(item) for item in payload.get("artifact_sources", [])
-            ],
+            artifact_sources=[str(item) for item in payload.get("artifact_sources", [])],
             artifact_excerpt_count=int(payload.get("artifact_excerpt_count", 0)),
             provenance_note=str(payload.get("provenance_note") or ""),
             retention_label=str(payload.get("retention_label") or "project_followup"),
@@ -149,9 +141,7 @@ class ArtifactMemoryDraftStore:
         return record
 
     def list_drafts(self) -> list[ArtifactMemoryDraftRecord]:
-        return sorted(
-            self._records.values(), key=lambda item: item.updated_at, reverse=True
-        )
+        return sorted(self._records.values(), key=lambda item: item.updated_at, reverse=True)
 
     def get_draft(self, draft_id: str) -> ArtifactMemoryDraftRecord | None:
         return self._records.get(draft_id)
@@ -179,6 +169,8 @@ class ArtifactMemoryDraftStore:
         return record
 
     def _persist_record(self, record: ArtifactMemoryDraftRecord) -> None:
+        # Defensive: re-create the directory in case it was wiped at runtime.
+        self._path.mkdir(parents=True, exist_ok=True)
         (self._path / f"{record.draft_id}.json").write_text(
             json.dumps(record.to_dict(), ensure_ascii=False, indent=2),
             encoding="utf-8",

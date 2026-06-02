@@ -67,18 +67,26 @@ class UserAccountStore:
         self._records_by_email: dict[str, UserAccountRecord] = {}
         self._load_from_disk()
 
-    def register_user(self, *, name: str, email: str, visitor_profile: str, password: str) -> UserAccountResponse:
+    def register_user(
+        self, *, name: str, email: str, visitor_profile: str, password: str
+    ) -> UserAccountResponse:
         normalized_name = name.strip()
         normalized_email = self._normalize_email(email)
         normalized_visitor_profile = visitor_profile.strip()
         if not normalized_name:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="用户名不能为空。")
         if not self._looks_like_email(normalized_email):
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="请输入有效的邮箱地址。")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, detail="请输入有效的邮箱地址。"
+            )
         if normalized_visitor_profile not in _VISITOR_PROFILE_VALUES:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="请选择有效的访问身份。")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, detail="请选择有效的访问身份。"
+            )
         if normalized_email in self._records_by_email:
-            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="该邮箱已注册，请直接登录。")
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT, detail="该邮箱已注册，请直接登录。"
+            )
 
         now = datetime.now(UTC)
         salt = secrets.token_hex(16)
@@ -101,11 +109,15 @@ class UserAccountStore:
         normalized_email = self._normalize_email(email)
         record = self._records_by_email.get(normalized_email)
         if record is None:
-            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="用户邮箱或密码错误。")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED, detail="用户邮箱或密码错误。"
+            )
 
         expected_hash = self._hash_password(password=password, salt=record.password_salt)
         if not secrets.compare_digest(record.password_hash, expected_hash):
-            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="用户邮箱或密码错误。")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED, detail="用户邮箱或密码错误。"
+            )
         return record.to_response()
 
     def get_user_by_id(self, user_id: str) -> UserAccountResponse | None:
@@ -116,6 +128,8 @@ class UserAccountStore:
         return len(self._records_by_id)
 
     def _persist_record(self, record: UserAccountRecord) -> None:
+        # Defensive: re-create the directory in case it was wiped at runtime.
+        self._path.mkdir(parents=True, exist_ok=True)
         (self._path / f"{record.user_id}.json").write_text(
             json.dumps(record.to_dict(), ensure_ascii=False, indent=2) + "\n",
             encoding="utf-8",

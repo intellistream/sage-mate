@@ -59,18 +59,12 @@ class PlannerMetricsEntry:
             accepted=bool(payload.get("accepted", False)),
             status=str(payload.get("status") or "accepted"),
             fallback_template=(
-                str(payload["fallback_template"])
-                if payload.get("fallback_template")
-                else None
+                str(payload["fallback_template"]) if payload.get("fallback_template") else None
             ),
             fallback_reason=(
-                str(payload["fallback_reason"])
-                if payload.get("fallback_reason")
-                else None
+                str(payload["fallback_reason"]) if payload.get("fallback_reason") else None
             ),
-            validation_errors=[
-                str(item) for item in payload.get("validation_errors", [])
-            ],
+            validation_errors=[str(item) for item in payload.get("validation_errors", [])],
             planned_steps=[str(item) for item in payload.get("planned_steps", [])],
             latency_ms=float(payload.get("latency_ms") or 0.0),
             created_at=datetime.fromisoformat(str(payload["created_at"])),
@@ -113,9 +107,7 @@ class PlannerMetricsStore:
             status=status,
             fallback_template=fallback_template,
             fallback_reason=fallback_reason.strip() if fallback_reason else None,
-            validation_errors=[
-                item.strip() for item in validation_errors if item.strip()
-            ],
+            validation_errors=[item.strip() for item in validation_errors if item.strip()],
             planned_steps=list(planned_steps),
             latency_ms=max(0.0, float(latency_ms)),
             created_at=datetime.now(UTC),
@@ -128,29 +120,19 @@ class PlannerMetricsStore:
         return len(self._entries)
 
     def list_entries(self, *, limit: int | None = None) -> list[PlannerMetricsEntry]:
-        entries = sorted(
-            self._entries.values(), key=lambda item: item.created_at, reverse=True
-        )
+        entries = sorted(self._entries.values(), key=lambda item: item.created_at, reverse=True)
         if limit is not None:
             entries = entries[: max(0, limit)]
         return entries
 
     def build_summary(self) -> dict[str, object]:
         entries = list(self._entries.values())
-        deterministic = [
-            entry for entry in entries if entry.planner_stage == "deterministic"
-        ]
+        deterministic = [entry for entry in entries if entry.planner_stage == "deterministic"]
         shadow = [entry for entry in entries if entry.planner_stage == "shadow"]
-        shadow_ready = [
-            entry for entry in shadow if entry.status in {"accepted", "rejected"}
-        ]
-        deterministic_fallbacks = [
-            entry for entry in deterministic if entry.status == "fallback"
-        ]
+        shadow_ready = [entry for entry in shadow if entry.status in {"accepted", "rejected"}]
+        deterministic_fallbacks = [entry for entry in deterministic if entry.status == "fallback"]
         shadow_errors = [entry for entry in shadow if entry.status == "shadow_error"]
-        shadow_disabled = [
-            entry for entry in shadow if entry.status == "shadow_disabled"
-        ]
+        shadow_disabled = [entry for entry in shadow if entry.status == "shadow_disabled"]
         shadow_rejected = [entry for entry in shadow if entry.status == "rejected"]
         rejection_reasons: Counter[str] = Counter()
         rejected_steps: Counter[str] = Counter()
@@ -172,17 +154,13 @@ class PlannerMetricsStore:
         return {
             "record_count": len(entries),
             "deterministic_total": len(deterministic),
-            "deterministic_accepted": sum(
-                1 for entry in deterministic if entry.accepted
-            ),
+            "deterministic_accepted": sum(1 for entry in deterministic if entry.accepted),
             "deterministic_fallbacks": len(deterministic_fallbacks),
             "deterministic_acceptance_rate": _ratio(
                 sum(1 for entry in deterministic if entry.accepted),
                 len(deterministic),
             ),
-            "deterministic_fallback_rate": _ratio(
-                len(deterministic_fallbacks), len(deterministic)
-            ),
+            "deterministic_fallback_rate": _ratio(len(deterministic_fallbacks), len(deterministic)),
             "shadow_total": len(shadow),
             "shadow_ready": len(shadow_ready),
             "shadow_accepted": sum(1 for entry in shadow_ready if entry.accepted),
@@ -204,6 +182,9 @@ class PlannerMetricsStore:
         }
 
     def _persist_entry(self, entry: PlannerMetricsEntry) -> None:
+        # Defensive: ensure target directory still exists (it may have been removed
+        # between server startup and this write — e.g. during a layout migration).
+        self._path.mkdir(parents=True, exist_ok=True)
         (self._path / f"{entry.record_id}.json").write_text(
             json.dumps(entry.to_dict(), ensure_ascii=False, indent=2),
             encoding="utf-8",

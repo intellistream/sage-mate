@@ -34,7 +34,9 @@ class ConversationFeedbackRecord:
 
     @classmethod
     def from_dict(cls, payload: dict[str, object]) -> ConversationFeedbackRecord:
-        created_at_raw = payload.get("created_at") or payload.get("updated_at") or datetime.now(UTC).isoformat()
+        created_at_raw = (
+            payload.get("created_at") or payload.get("updated_at") or datetime.now(UTC).isoformat()
+        )
         updated_at_raw = payload.get("updated_at") or created_at_raw
         return cls(
             exchange_id=str(payload["exchange_id"]),
@@ -95,7 +97,9 @@ _DOMAIN_LABELS = {
 
 
 class ConversationAnalyticsStore:
-    def __init__(self, settings: AppSettings, conversation_store: NeuroMemConversationStore) -> None:
+    def __init__(
+        self, settings: AppSettings, conversation_store: NeuroMemConversationStore
+    ) -> None:
         self._settings = settings
         self._conversation_store = conversation_store
         self._base_dir = settings.conversation_memory_dir
@@ -128,6 +132,8 @@ class ConversationAnalyticsStore:
             updated_at=now,
         )
         self._feedback[exchange_id] = feedback
+        # Defensive: re-create the directory in case it was wiped at runtime.
+        self._feedback_dir.mkdir(parents=True, exist_ok=True)
         (self._feedback_dir / f"{exchange_id}.json").write_text(
             json.dumps(feedback.to_dict(), ensure_ascii=False, indent=2),
             encoding="utf-8",
@@ -140,17 +146,25 @@ class ConversationAnalyticsStore:
     def count_feedback(self) -> int:
         return len(self._feedback)
 
-    def build_weekly_report(self, *, days: int = 7, cluster_limit: int = 6, unresolved_limit: int = 10) -> dict[str, object]:
+    def build_weekly_report(
+        self, *, days: int = 7, cluster_limit: int = 6, unresolved_limit: int = 10
+    ) -> dict[str, object]:
         window_end = datetime.now(UTC)
         window_start = window_end - timedelta(days=days)
         samples = self._build_samples(window_start)
         clusters = self._build_clusters(samples)
         top_clusters = sorted(clusters, key=self._cluster_sort_key, reverse=True)[:cluster_limit]
 
-        positive_count = sum(1 for sample in samples if sample.feedback and sample.feedback.rating == "up")
-        negative_count = sum(1 for sample in samples if sample.feedback and sample.feedback.rating == "down")
+        positive_count = sum(
+            1 for sample in samples if sample.feedback and sample.feedback.rating == "up"
+        )
+        negative_count = sum(
+            1 for sample in samples if sample.feedback and sample.feedback.rating == "down"
+        )
         unresolved_samples = [sample for sample in samples if self._is_unresolved(sample)]
-        handoff_samples = [sample for sample in samples if sample.feedback and sample.feedback.needs_human_followup]
+        handoff_samples = [
+            sample for sample in samples if sample.feedback and sample.feedback.needs_human_followup
+        ]
 
         return {
             "window_days": days,
@@ -170,7 +184,10 @@ class ConversationAnalyticsStore:
                 for cluster in top_clusters
                 if self._cluster_gap_score(cluster) > 0
             ],
-            "unresolved_questions": [self._serialize_unresolved(sample) for sample in unresolved_samples[:unresolved_limit]],
+            "unresolved_questions": [
+                self._serialize_unresolved(sample)
+                for sample in unresolved_samples[:unresolved_limit]
+            ],
             "handoff_categories": self._build_handoff_categories(handoff_samples),
         }
 
@@ -180,10 +197,18 @@ class ConversationAnalyticsStore:
         samples = self._build_samples(window_start)
         feedback_samples = [sample for sample in samples if sample.feedback is not None]
         feedback_count = len(feedback_samples)
-        positive_count = sum(1 for sample in feedback_samples if sample.feedback and sample.feedback.rating == "up")
-        negative_count = sum(1 for sample in feedback_samples if sample.feedback and sample.feedback.rating == "down")
+        positive_count = sum(
+            1 for sample in feedback_samples if sample.feedback and sample.feedback.rating == "up"
+        )
+        negative_count = sum(
+            1 for sample in feedback_samples if sample.feedback and sample.feedback.rating == "down"
+        )
         unresolved_count = sum(1 for sample in feedback_samples if self._is_unresolved(sample))
-        handoff_count = sum(1 for sample in feedback_samples if sample.feedback and sample.feedback.needs_human_followup)
+        handoff_count = sum(
+            1
+            for sample in feedback_samples
+            if sample.feedback and sample.feedback.needs_human_followup
+        )
         return {
             "feedback_count": feedback_count,
             "positive_count": positive_count,
@@ -199,7 +224,11 @@ class ConversationAnalyticsStore:
     def build_gap_draft_payload(self, *, cluster_id: str, days: int = 7) -> dict[str, object]:
         report = self.build_weekly_report(days=days, cluster_limit=12)
         gap = next(
-            (item for item in report["knowledge_gap_suggestions"] if str(item["cluster_id"]) == cluster_id),
+            (
+                item
+                for item in report["knowledge_gap_suggestions"]
+                if str(item["cluster_id"]) == cluster_id
+            ),
             None,
         )
         if gap is None:
@@ -254,7 +283,10 @@ class ConversationAnalyticsStore:
     def _should_exclude_from_question_report(self, record: ConversationMemoryRecord) -> bool:
         interaction_domain = (record.interaction_domain or "").strip().lower()
         workflow_action = (record.workflow_action or "").strip().lower()
-        return interaction_domain == "booking" or workflow_action in {"book_meeting", "collect_booking_details"}
+        return interaction_domain == "booking" or workflow_action in {
+            "book_meeting",
+            "collect_booking_details",
+        }
 
     def _build_clusters(self, samples: list[ExchangeAnalyticsSample]) -> list[ExchangeCluster]:
         clusters: list[ExchangeCluster] = []
@@ -289,26 +321,53 @@ class ConversationAnalyticsStore:
 
     def _cluster_priority_score(self, cluster: ExchangeCluster) -> float:
         unresolved_count = sum(1 for sample in cluster.samples if self._is_unresolved(sample))
-        handoff_count = sum(1 for sample in cluster.samples if sample.feedback and sample.feedback.needs_human_followup)
-        negative_count = sum(1 for sample in cluster.samples if sample.feedback and sample.feedback.rating == "down")
+        handoff_count = sum(
+            1
+            for sample in cluster.samples
+            if sample.feedback and sample.feedback.needs_human_followup
+        )
+        negative_count = sum(
+            1 for sample in cluster.samples if sample.feedback and sample.feedback.rating == "down"
+        )
         return len(cluster.samples) + unresolved_count * 1.5 + handoff_count * 2.0 + negative_count
 
     def _cluster_gap_score(self, cluster: ExchangeCluster) -> float:
         unresolved_count = sum(1 for sample in cluster.samples if self._is_unresolved(sample))
-        negative_count = sum(1 for sample in cluster.samples if sample.feedback and sample.feedback.rating == "down")
-        handoff_count = sum(1 for sample in cluster.samples if sample.feedback and sample.feedback.needs_human_followup)
-        zero_knowledge_count = sum(1 for sample in cluster.samples if sample.record.knowledge_hit_count == 0)
-        return negative_count * 2.0 + unresolved_count * 1.5 + handoff_count * 2.5 + zero_knowledge_count * 0.5
+        negative_count = sum(
+            1 for sample in cluster.samples if sample.feedback and sample.feedback.rating == "down"
+        )
+        handoff_count = sum(
+            1
+            for sample in cluster.samples
+            if sample.feedback and sample.feedback.needs_human_followup
+        )
+        zero_knowledge_count = sum(
+            1 for sample in cluster.samples if sample.record.knowledge_hit_count == 0
+        )
+        return (
+            negative_count * 2.0
+            + unresolved_count * 1.5
+            + handoff_count * 2.5
+            + zero_knowledge_count * 0.5
+        )
 
     def _serialize_cluster(self, cluster: ExchangeCluster) -> dict[str, object]:
         unresolved_count = sum(1 for sample in cluster.samples if self._is_unresolved(sample))
-        negative_count = sum(1 for sample in cluster.samples if sample.feedback and sample.feedback.rating == "down")
-        handoff_count = sum(1 for sample in cluster.samples if sample.feedback and sample.feedback.needs_human_followup)
+        negative_count = sum(
+            1 for sample in cluster.samples if sample.feedback and sample.feedback.rating == "down"
+        )
+        handoff_count = sum(
+            1
+            for sample in cluster.samples
+            if sample.feedback and sample.feedback.needs_human_followup
+        )
         return {
             "cluster_id": cluster.cluster_id,
             "label": self._cluster_label(cluster),
             "interaction_domain": cluster.interaction_domain,
-            "interaction_domain_label": _DOMAIN_LABELS.get(cluster.interaction_domain, cluster.interaction_domain),
+            "interaction_domain_label": _DOMAIN_LABELS.get(
+                cluster.interaction_domain, cluster.interaction_domain
+            ),
             "count": len(cluster.samples),
             "unresolved_count": unresolved_count,
             "negative_feedback_count": negative_count,
@@ -317,10 +376,18 @@ class ConversationAnalyticsStore:
         }
 
     def _build_knowledge_gap_suggestion(self, cluster: ExchangeCluster) -> dict[str, object]:
-        zero_knowledge_count = sum(1 for sample in cluster.samples if sample.record.knowledge_hit_count == 0)
+        zero_knowledge_count = sum(
+            1 for sample in cluster.samples if sample.record.knowledge_hit_count == 0
+        )
         unresolved_count = sum(1 for sample in cluster.samples if self._is_unresolved(sample))
-        handoff_count = sum(1 for sample in cluster.samples if sample.feedback and sample.feedback.needs_human_followup)
-        negative_count = sum(1 for sample in cluster.samples if sample.feedback and sample.feedback.rating == "down")
+        handoff_count = sum(
+            1
+            for sample in cluster.samples
+            if sample.feedback and sample.feedback.needs_human_followup
+        )
+        negative_count = sum(
+            1 for sample in cluster.samples if sample.feedback and sample.feedback.rating == "down"
+        )
         if zero_knowledge_count >= max(1, math.ceil(len(cluster.samples) / 2)):
             reason = "这类问题经常没有命中现成资料。"
             suggested_action = "优先补充离线知识材料或FAQ，并给该主题增加更明确的标签。"
@@ -357,13 +424,18 @@ class ConversationAnalyticsStore:
             "student_name": sample.record.student_name,
             "question": sample.record.question,
             "interaction_domain": sample.record.interaction_domain or "general",
-            "interaction_domain_label": _DOMAIN_LABELS.get(sample.record.interaction_domain or "general", sample.record.interaction_domain or "general"),
+            "interaction_domain_label": _DOMAIN_LABELS.get(
+                sample.record.interaction_domain or "general",
+                sample.record.interaction_domain or "general",
+            ),
             "issue_summary": sample.feedback.issue_summary if sample.feedback else None,
             "needs_human_followup": bool(sample.feedback and sample.feedback.needs_human_followup),
             "created_at": sample.record.created_at,
         }
 
-    def _build_handoff_categories(self, handoff_samples: list[ExchangeAnalyticsSample]) -> list[dict[str, object]]:
+    def _build_handoff_categories(
+        self, handoff_samples: list[ExchangeAnalyticsSample]
+    ) -> list[dict[str, object]]:
         grouped: dict[str, list[ExchangeAnalyticsSample]] = {}
         for sample in handoff_samples:
             key = sample.record.interaction_domain or "general"
@@ -382,8 +454,12 @@ class ConversationAnalyticsStore:
             )
         return categories
 
-    def _build_satisfaction_reason_summaries(self, feedback_samples: list[ExchangeAnalyticsSample]) -> list[dict[str, object]]:
-        problem_samples = [sample for sample in feedback_samples if self._is_problem_feedback(sample)]
+    def _build_satisfaction_reason_summaries(
+        self, feedback_samples: list[ExchangeAnalyticsSample]
+    ) -> list[dict[str, object]]:
+        problem_samples = [
+            sample for sample in feedback_samples if self._is_problem_feedback(sample)
+        ]
         total = len(problem_samples) or 1
         grouped: dict[str, list[ExchangeAnalyticsSample]] = {}
         for sample in problem_samples:
@@ -406,16 +482,22 @@ class ConversationAnalyticsStore:
             )
         return summaries
 
-    def _build_satisfaction_trend(self, feedback_samples: list[ExchangeAnalyticsSample]) -> list[dict[str, object]]:
+    def _build_satisfaction_trend(
+        self, feedback_samples: list[ExchangeAnalyticsSample]
+    ) -> list[dict[str, object]]:
         grouped: dict[date, list[ExchangeAnalyticsSample]] = {}
         for sample in feedback_samples:
             grouped.setdefault(sample.record.created_at.astimezone(UTC).date(), []).append(sample)
         trend = []
         for day, samples in sorted(grouped.items()):
             count = len(samples)
-            positive_count = sum(1 for sample in samples if sample.feedback and sample.feedback.rating == "up")
+            positive_count = sum(
+                1 for sample in samples if sample.feedback and sample.feedback.rating == "up"
+            )
             unresolved_count = sum(1 for sample in samples if self._is_unresolved(sample))
-            handoff_count = sum(1 for sample in samples if sample.feedback and sample.feedback.needs_human_followup)
+            handoff_count = sum(
+                1 for sample in samples if sample.feedback and sample.feedback.needs_human_followup
+            )
             trend.append(
                 {
                     "date": day,
@@ -430,18 +512,32 @@ class ConversationAnalyticsStore:
     def _is_problem_feedback(self, sample: ExchangeAnalyticsSample) -> bool:
         if sample.feedback is None:
             return False
-        return sample.feedback.rating == "down" or not sample.feedback.resolved or sample.feedback.needs_human_followup
+        return (
+            sample.feedback.rating == "down"
+            or not sample.feedback.resolved
+            or sample.feedback.needs_human_followup
+        )
 
     def _satisfaction_reason_key(self, sample: ExchangeAnalyticsSample) -> str:
         feedback = sample.feedback
-        text = " ".join(part for part in (feedback.issue_summary if feedback else None, sample.record.question) if part).lower()
+        text = " ".join(
+            part
+            for part in (feedback.issue_summary if feedback else None, sample.record.question)
+            if part
+        ).lower()
         if feedback and feedback.needs_human_followup:
             return "needs_human_followup"
         if any(keyword in text for keyword in ("知识", "资料", "命中", "材料", "faq", "reference")):
             return "knowledge_gap"
-        if any(keyword in text for keyword in ("预约", "时间", "会议", "calendar", "booking", "schedule")):
+        if any(
+            keyword in text
+            for keyword in ("预约", "时间", "会议", "calendar", "booking", "schedule")
+        ):
             return "booking_flow"
-        if any(keyword in text for keyword in ("具体", "清单", "步骤", "不够", "缺少", "模糊", "detail")):
+        if any(
+            keyword in text
+            for keyword in ("具体", "清单", "步骤", "不够", "缺少", "模糊", "detail")
+        ):
             return "answer_specificity"
         return "other"
 
@@ -509,7 +605,9 @@ class ConversationAnalyticsStore:
             return False
         return feedback.rating == "down" or not feedback.resolved or feedback.needs_human_followup
 
-    def _token_similarity(self, left: frozenset[str] | set[str], right: frozenset[str] | set[str]) -> float:
+    def _token_similarity(
+        self, left: frozenset[str] | set[str], right: frozenset[str] | set[str]
+    ) -> float:
         if not left or not right:
             return 0.0
         left_set = set(left)
