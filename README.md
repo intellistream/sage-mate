@@ -160,6 +160,189 @@ stop it and start it again before validating the change in the browser.
 Deployment and operations details are documented in [docs/deployment.md](docs/deployment.md).
 The admin operations-console flow is documented in [docs/ops-console.md](docs/ops-console.md).
 
+## Full Deployment (Ascend NPU)
+
+This section documents deploying the **entire workspace** — vLLM serving on Huawei Ascend NPU
+plus the faculty-twin app — to a fresh machine from scratch.
+
+### Repo relationships
+
+```
+sage-faculty-twin (this app)
+  ├─ pip depends on: isage (SAGE), isage-neuromem (neuromem), isage-vdb (sageVDB)
+  └─ talks to (HTTP): vllm-hust + vllm-ascend-hust
+
+vllm-hust          = fork of vllm-project/vllm       (base LLM engine)
+vllm-ascend-hust   = fork of vllm-project/vllm-ascend (Ascend hardware plugin)
+                     → registers via entry_points: vllm.platform_plugins → ascend
+```
+
+### Prerequisites
+
+| Item | Requirement |
+|------|-------------|
+| OS | Linux (aarch64 or x86_64) |
+| Python | >= 3.10, < 3.12 |
+| CANN | 8.5.1 (Ascend toolkit) |
+| PyTorch | 2.9.0 + torch-npu 2.9.0 |
+| NPU | Atlas 800I A2/A3, or Atlas A2/A3 Training series |
+
+### Step 0 — System preflight
+
+```bash
+npu-smi info
+cat /usr/local/Ascend/ascend-toolkit/latest/version.info  # CANN 8.5.1
+source /usr/local/Ascend/ascend-toolkit/set_env.sh
+source /usr/local/Ascend/nnal/atb/set_env.sh 2>/dev/null || true
+python3 -c "import torch, torch_npu; print(torch.__version__, torch_npu.npu.is_available())"
+# Expected: 2.9.0 True
+```
+
+### Step 1 — Clone all repos (sibling layout)
+
+```bash
+export WORKSPACE=~/work
+mkdir -p "$WORKSPACE" && cd "$WORKSPACE"
+
+git clone https://github.com/intellistream/SAGE.git
+git clone https://github.com/intellistream/neuromem.git
+git clone https://github.com/intellistream/sageVDB.git
+git clone https://github.com/intellistream/vllm-hust.git
+git clone https://github.com/intellistream/vllm-ascend-hust.git
+git clone https://github.com/intellistream/sage-faculty-twin.git
+```
+
+### Step 2 — Create venv + install all packages (editable)
+
+**Install order matters** — torch-npu first (blocks CUDA torch from PyPI), then vllm-hust
+(base engine), then vllm-ascend-hust (Ascend plugin), then SAGE ecosystem, then twin.
+
+```bash
+python3 -m venv "$WORKSPACE/.venv"
+source "$WORKSPACE/.venv/bin/activate"
+pip install --upgrade pip setuptools wheel
+
+# Pre-install Ascend-flavored torch
+pip install torch==2.9.0 torch-npu==2.9.0 torchvision==0.24.0 torchaudio==2.9.0
+
+# Base vLLM engine
+cd "$WORKSPACE/vllm-hust"     && pip install -e . --no-build-isolation
+
+# Ascend plugin (registers via entry_points into vllm)
+cd "$WORKSPACE/vllm-ascend-hust" && pip install -e . --no-build-isolation
+
+# SAGE platform packages
+cd "$WORKSPACE/SAGE"          && pip install -e .
+cd "$WORKSPACE/neuromem"      && pip install -e .
+cd "$WORKSPACE/sageVDB"       && pip install -e .
+
+# Faculty-twin app
+cd "$WORKSPACE/sage-faculty-twin" && pip install -e .
+```
+
+Verify:
+
+```bash
+python3 -c "
+import vllm; print('vllm-hust', vllm.__version__)
+import vllm_ascend; print('vllm-ascend-hust loaded')
+import sage; print('isage OK')
+import sage.neuromem; print('isage-neuromem OK')
+import sage_faculty_twin; print('sage-faculty-twin OK')
+"
+```
+
+### Step 3 — Launch the LLM service
+
+```bash
+export MODEL="Qwen/Qwen2.5-32B-Instruct"   # adjust to what's on disk
+export SERVED_NAME="qwen32b"
+export VLLM_PORT=8080
+export VLLM_KEY="change-me-please"
+
+nohup python3 -m vllm.entrypoints.openai.api_server \
+    --model "$MODEL" \
+    --served-model-name "$SERVED_NAME" \
+    --host 127.0.0.1 --port "$VLLM_PORT" \
+    --api-key "$VLLM_KEY" \
+    --tensor-parallel-size 1 \
+    --max-model-len 8192 \
+    --enforce-eager \
+    >>"$HOME/logs/vllm.log" 2>&1 &
+
+# Wait until ready (30–120 s for first model load)
+for i in $(seq 1 60); do
+  curl -fsS "http://127.0.0.1:$VLLM_PORT/v1/models" \
+    -H "Authorization: Bearer $VLLM_KEY" >/dev/null 2>&1 && break
+  sleep 5
+done
+```
+
+### Step 4 — Verify chunked transfer (critical)
+
+Faculty-twin's per-token SSE streaming requires `Transfer-Encoding: chunked` from the
+upstream endpoint. Verify **before** enabling streaming:
+
+```bash
+curl -N -i \
+  -H "Authorization: Bearer $VLLM_KEY" \
+  -H 'Content-Type: application/json' \
+  -d "{\"model\":\"$SERVED_NAME\",\"messages\":[{\"role\":\"user\",\"content\":\"hi\"}],\"stream\":true}" \
+  "http://127.0.0.1:$VLLM_PORT/v1/chat/completions" | head -25
+```
+
+Expected: headers contain `Transfer-Encoding: chunked` and body shows `data: {...}` lines
+arriving progressively. If absent, a proxy is buffering — bypass it or fix it before
+enabling streaming.
+
+### Step 5 — Configure and launch the twin
+
+Open a **separate shell** (do NOT source CANN `set_env.sh` here — avoids `LD_LIBRARY_PATH`
+pollution):
+
+```bash
+cd "$WORKSPACE/sage-faculty-twin"
+[[ -f .env ]] || cp .env.example .env
+
+# Append the local vllm connection:
+cat >> .env <<'EOF'
+DIGITAL_TWIN_LLM_BASE_URL=http://127.0.0.1:8080/v1
+DIGITAL_TWIN_API_KEY=change-me-please
+DIGITAL_TWIN_MODEL_NAME=qwen32b
+DIGITAL_TWIN_STREAM_CHAT_ANSWER=true
+EOF
+
+bash tools/run_app_server.sh    # binds 127.0.0.1:55601
+```
+
+### Step 6 — Smoke test
+
+```bash
+curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:55601/    # 200
+curl -s http://127.0.0.1:55601/healthz
+```
+
+Browser preview from your laptop:
+
+```bash
+ssh -N -L 55601:127.0.0.1:55601 <target-host>
+# open http://127.0.0.1:55601
+```
+
+### Troubleshooting
+
+| Symptom | Fix |
+|---------|-----|
+| `No module named torch_npu` | `pip install torch-npu==2.9.0` in the vllm shell |
+| `vllm_ascend not registered` | Re-run `pip install -e ../vllm-ascend-hust` |
+| `import sage.neuromem` fails | Install isage before isage-neuromem (namespace resolution) |
+| NPU OOM | Lower `--max-model-len` or increase `--tensor-parallel-size` |
+| Streaming works in curl but not UI | Confirm `.env` has `DIGITAL_TWIN_STREAM_CHAT_ANSWER=true`; `tools/run_app_server.sh` sources it |
+| Response buffered (no chunked header) | A proxy is in the way — point `LLM_BASE_URL` directly at vllm, not a router |
+| Version mismatch warning | Align `upstream_version.json` between vllm-hust and vllm-ascend-hust |
+
+---
+
 ## Runtime Data Boundaries
 
 This repository intentionally keeps versioned templates separate from runtime-generated state.
