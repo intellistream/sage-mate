@@ -689,48 +689,71 @@ chatForm.addEventListener("submit", async (event) => {
     autoResizeTextarea();
     chatSubmitButton.disabled = true;
     chatSubmitButton.textContent = "发送中";
-    await openWorkflowTraceStream(workflowRequestId);
+    let workflowRequestIdActive = workflowRequestId;
+    await openWorkflowTraceStream(workflowRequestIdActive);
 
-    try {
-        const data = await apiRequest(`/chat?request_id=${encodeURIComponent(workflowRequestId)}`, {
-            method: "POST",
-            body: requestBody,
-            timeoutMs: 120000,
-        });
-        activeConversationId = data.conversation_id || activeConversationId;
-        stopWorkflowTraceStream();
-        renderWorkflowTrace(data.workflow_trace || [], {
-            workflowAction: data.workflow_action || null,
-            knowledgeHits: Array.isArray(data.knowledge_hits) ? data.knowledge_hits.length : null,
-            isStreaming: false,
-            plannerPreview: data.planner_preview || null,
-            shadowPlannerPreview: data.shadow_planner_preview || null,
-            plannerComparison: data.planner_comparison || null,
-        });
-        renderAssistantMessage(
-            pendingMessage,
-            data.answer,
-            data.answer_basis || [],
-            data.follow_up_actions || [],
-            data.knowledge_hits || [],
-            data.booking_result || null,
-            false,
-            data.exchange_id || null,
-            data.workflow_trace || []
-        );
-        noteConversationAnswerPreview(data.answer);
-        persistActiveConversationSnapshot();
-        void syncConversationHistoryFromServer();
-    } catch (error) {
-        stopWorkflowTraceStream();
-        renderWorkflowTraceError(error.message);
-        renderAssistantMessage(pendingMessage, error.message, [], [], [], null, true, null, activeWorkflowSteps);
-        noteConversationAnswerPreview(error.message);
-        persistActiveConversationSnapshot();
-    } finally {
-        chatSubmitButton.disabled = false;
-        chatSubmitButton.textContent = "发送";
+    let attempt = 0;
+    const maxAttempts = submittedFiles.length === 0 ? 2 : 1;
+    while (true) {
+        attempt += 1;
+        try {
+            const data = await apiRequest(`/chat?request_id=${encodeURIComponent(workflowRequestIdActive)}`, {
+                method: "POST",
+                body: requestBody,
+                timeoutMs: 120000,
+            });
+            activeConversationId = data.conversation_id || activeConversationId;
+            stopWorkflowTraceStream();
+            renderWorkflowTrace(data.workflow_trace || [], {
+                workflowAction: data.workflow_action || null,
+                knowledgeHits: Array.isArray(data.knowledge_hits) ? data.knowledge_hits.length : null,
+                isStreaming: false,
+                plannerPreview: data.planner_preview || null,
+                shadowPlannerPreview: data.shadow_planner_preview || null,
+                plannerComparison: data.planner_comparison || null,
+            });
+            renderAssistantMessage(
+                pendingMessage,
+                data.answer,
+                data.answer_basis || [],
+                data.follow_up_actions || [],
+                data.knowledge_hits || [],
+                data.booking_result || null,
+                false,
+                data.exchange_id || null,
+                data.workflow_trace || []
+            );
+            noteConversationAnswerPreview(data.answer);
+            persistActiveConversationSnapshot();
+            void syncConversationHistoryFromServer();
+            break;
+        } catch (error) {
+            const canRetry =
+                attempt < maxAttempts &&
+                error?.status === 504 &&
+                submittedFiles.length === 0;
+            if (canRetry) {
+                stopWorkflowTraceStream();
+                workflowRequestIdActive = createConversationId();
+                renderPendingAssistantMessage(
+                    pendingMessage,
+                    "后端响应超时，正在自动重试…",
+                    []
+                );
+                await new Promise((resolve) => globalThis.setTimeout(resolve, 1500));
+                await openWorkflowTraceStream(workflowRequestIdActive);
+                continue;
+            }
+            stopWorkflowTraceStream();
+            renderWorkflowTraceError(error.message);
+            renderAssistantMessage(pendingMessage, error.message, [], [], [], null, true, null, activeWorkflowSteps);
+            noteConversationAnswerPreview(error.message);
+            persistActiveConversationSnapshot();
+            break;
+        }
     }
+    chatSubmitButton.disabled = false;
+    chatSubmitButton.textContent = "发送";
 });
 
 function getChatAttachmentKey(file) {
@@ -5247,11 +5270,45 @@ function stopWorkflowTraceStream() {
     }
     activeWorkflowRequestId = null;
     latestWorkflowMeta = { ...latestWorkflowMeta, isStreaming: false, currentLabel: undefined };
+    clearStreamingAnswerBuffer();
     updateMobileWorkflowTrigger();
+}
+
+// Chat Latency Optimizations Task 5: lazy-create a streaming-answer-body
+// container inside the pending assistant bubble and append each delta to
+// it so the user sees text emerging while the LLM is still decoding. The
+// final ChatResponse from the /chat POST replaces the entire pending
+// bubble via renderAssistantMessage.
+let streamingAnswerBuffer = "";
+
+function appendStreamingAnswerDelta(delta) {
+    if (!delta) return;
+    streamingAnswerBuffer += delta;
+    const pending = chatStream && chatStream.querySelector(".message-pending");
+    if (!pending) return;
+    let body = pending.querySelector(".streaming-answer-body");
+    if (!body) {
+        body = document.createElement("div");
+        body.className = "streaming-answer-body message-body";
+        const frame = pending.querySelector(".message-frame") || pending;
+        frame.appendChild(body);
+    }
+    body.textContent = streamingAnswerBuffer;
+}
+
+function clearStreamingAnswerBuffer() {
+    streamingAnswerBuffer = "";
 }
 
 function handleWorkflowStreamEvent(payload) {
     if (!payload || typeof payload !== "object") {
+        return;
+    }
+
+    // Chat Latency Optimizations Task 4: backend emits a typed keepalive
+    // every ~15s while /chat is in-flight so Cloudflare doesn't drop the
+    // SSE connection mid-answer. Ignore them on the client.
+    if (payload.type === "keepalive") {
         return;
     }
 
@@ -5267,6 +5324,24 @@ function handleWorkflowStreamEvent(payload) {
             shadowPlannerPreview: latestWorkflowMeta.shadowPlannerPreview,
             plannerComparison: latestWorkflowMeta.plannerComparison,
         });
+        return;
+    }
+
+    // Chat Latency Optimizations Task 5: stream answer tokens. The /chat
+    // POST still returns the final structured ChatResponse and the
+    // resolved promise paints the canonical bubble via
+    // ``renderAssistantMessage``; the streamed text is purely for
+    // perceived-latency feedback while the LLM is decoding.
+    if (payload.type === "answer_delta" && typeof payload.text === "string") {
+        appendStreamingAnswerDelta(payload.text);
+        return;
+    }
+
+    if (payload.type === "answer_done") {
+        // The /chat POST resolution will swap the pending bubble for the
+        // fully-rendered ChatResponse, so we just clear the streaming
+        // buffer here.
+        clearStreamingAnswerBuffer();
         return;
     }
 
@@ -6284,6 +6359,19 @@ restoreHistoryRailState();
 restoreWorkflowShellState();
 syncWorkflowViewportState();
 
+async function initializePage() {
+    renderConversationHistoryList();
+    applyStoredVisitorProfile();
+    applyVisitorProfilePresentation({ syncCourseContext: true });
+    markPresentationReady();
+    await refreshStatus();
+    await refreshSession();
+    await refreshUserSession();
+    applyVisitorProfilePresentation({ syncCourseContext: true });
+    maybeOpenVisitorIdentityPrompt();
+}
+
+initializePage();
 async function initializePage() {
     renderConversationHistoryList();
     applyStoredVisitorProfile();

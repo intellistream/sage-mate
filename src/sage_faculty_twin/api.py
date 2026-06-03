@@ -91,8 +91,26 @@ MAX_CHAT_ATTACHMENT_TEXT_CHARS = 12000
 # ``DIGITAL_TWIN_CHAT_REQUEST_TIMEOUT_SECONDS`` if the upstream LLM is
 # consistently slower than this budget.
 CHAT_REQUEST_TIMEOUT_SECONDS = float(
-    os.environ.get("DIGITAL_TWIN_CHAT_REQUEST_TIMEOUT_SECONDS", "95")
+    os.environ.get("DIGITAL_TWIN_CHAT_REQUEST_TIMEOUT_SECONDS", "80")
 )
+# Chat Latency Optimizations Task 4: SSE keepalive cadence on the
+# ``/chat/workflow-events`` stream. While ``/chat`` is in-flight the LLM
+# stage may not emit a trace step for tens of seconds; without a heartbeat
+# Cloudflare's idle proxy timeout (~100s on the free plan) can drop the SSE
+# connection mid-answer. We emit a typed ``{"type": "keepalive"}`` event
+# every ``CHAT_SSE_KEEPALIVE_SECONDS`` seconds so the connection stays warm.
+CHAT_SSE_KEEPALIVE_SECONDS = float(os.environ.get("DIGITAL_TWIN_CHAT_SSE_KEEPALIVE_SECONDS", "15"))
+# Chat Latency Optimizations Task 5: when this flag is enabled the LLM
+# stage emits each token chunk over the workflow-events SSE channel as a
+# typed ``answer_delta`` event, followed by a final ``answer_done`` event
+# carrying the full ChatResponse dict. The /chat POST still returns the
+# same JSON ChatResponse so CLI/test callers see the same contract; the
+# browser uses the SSE deltas to paint the answer progressively. Defaults
+# to off for the first commit so we can canary; flip to ``true`` after
+# monitoring.
+STREAM_CHAT_ANSWER = os.environ.get(
+    "DIGITAL_TWIN_STREAM_CHAT_ANSWER", "false"
+).strip().lower() not in {"0", "false", "no", "off"}
 SUPPORTED_CHAT_ATTACHMENT_SUFFIXES = {
     ".pdf",
     ".txt",
@@ -131,7 +149,22 @@ class WorkflowEventBroker:
 
         try:
             while True:
-                payload = await queue.get()
+                # Chat Latency Optimizations Task 4: emit a keepalive event
+                # whenever no trace step has arrived within the heartbeat
+                # window so Cloudflare/edge proxies don't drop the SSE
+                # connection while the LLM stage is decoding. The keepalive
+                # is a typed JSON event the frontend can ignore explicitly
+                # rather than an SSE comment, keeping it observable in dev
+                # tools.
+                try:
+                    payload = await asyncio.wait_for(
+                        queue.get(), timeout=CHAT_SSE_KEEPALIVE_SECONDS
+                    )
+                except asyncio.TimeoutError:
+                    yield (
+                        "data: " + json.dumps({"type": "keepalive"}, ensure_ascii=False) + "\n\n"
+                    )
+                    continue
                 if payload is None:
                     break
                 yield f"data: {json.dumps(payload, ensure_ascii=False)}\n\n"
@@ -147,6 +180,23 @@ class WorkflowEventBroker:
             "step": getattr(step, "model_dump")(mode="json"),
         }
         self._publish(request_id, payload)
+
+    def publish_answer_chunk(self, request_id: str, delta: str) -> None:
+        # Chat Latency Optimizations Task 5: surface streaming LLM tokens
+        # to the browser. The frontend appends ``delta`` to the pending
+        # assistant message body. Empty deltas are dropped so we don't
+        # spam the SSE stream with no-op events when the upstream emits
+        # heartbeat/keepalive lines without content tokens.
+        if not delta:
+            return
+        self._publish(request_id, {"type": "answer_delta", "text": delta})
+
+    def publish_answer_done(self, request_id: str, response_dict: dict[str, object]) -> None:
+        # Final structured payload — the browser replaces the streamed text
+        # with the rendered ChatResponse so it can show ``answer_basis``,
+        # ``follow_up_actions``, ``knowledge_hits`` and ``booking_result``
+        # consistently with non-streaming sessions.
+        self._publish(request_id, {"type": "answer_done", "response": response_dict})
 
     def publish_error(self, request_id: str, message: str) -> None:
         self._publish(request_id, {"type": "error", "message": message})
@@ -497,12 +547,38 @@ async def chat(
                 detail=(f"后端在 {int(timeout_seconds)} 秒内未完成响应，请稍后重试。"),
             ) from exc
 
+    # When ``request_id`` is supplied the chat workflow streams trace events
+    # over the workflow-events SSE channel. With
+    # ``DIGITAL_TWIN_POST_ANSWER_BACKGROUND`` enabled the service returns the
+    # rendered ``ChatResponse`` immediately after ``response_render`` and runs
+    # the four post-answer side-effects (memory_persist, profile,
+    # follow_up_plan, usefulness_score) on a background task. We defer
+    # ``publish_complete`` until that background task finishes so the SSE
+    # consumer still sees the post-answer trace steps before the stream
+    # closes.
+    def _on_post_answer_complete() -> None:
+        workflow_event_broker.publish_complete(request_id)
+
+    answer_chunk_callback = None
+    if STREAM_CHAT_ANSWER:
+        # Chat Latency Optimizations Task 5: only attach the streaming
+        # callback when the feature flag is on. The service then asks
+        # the LLM client for a streaming completion and forwards each
+        # chunk to the SSE broker so the browser can paint tokens as
+        # they arrive.
+        def _on_answer_chunk(delta: str) -> None:
+            workflow_event_broker.publish_answer_chunk(request_id, delta)
+
+        answer_chunk_callback = _on_answer_chunk
+
     try:
         response = await asyncio.wait_for(
             service.answer(
                 payload,
                 admin_session_token=admin_session_token,
                 trace_callback=lambda step: workflow_event_broker.publish_step(request_id, step),
+                on_post_answer_complete=_on_post_answer_complete,
+                answer_chunk_callback=answer_chunk_callback,
             ),
             timeout=timeout_seconds,
         )
@@ -514,7 +590,16 @@ async def chat(
         workflow_event_broker.publish_error(request_id, str(exc))
         raise
 
-    workflow_event_broker.publish_complete(request_id)
+    if STREAM_CHAT_ANSWER:
+        # Surface the final structured ChatResponse to the SSE channel so
+        # the streaming UI can swap the progressively-painted text for the
+        # rendered fields (answer_basis, follow_up_actions, etc.) without
+        # re-fetching anything.
+        try:
+            workflow_event_broker.publish_answer_done(request_id, response.model_dump(mode="json"))
+        except Exception:  # pragma: no cover - defensive
+            pass
+
     return response
 
 

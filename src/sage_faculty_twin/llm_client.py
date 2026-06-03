@@ -6,19 +6,16 @@ import re
 import threading
 import time
 from collections import OrderedDict
-from typing import Any, Literal
+from typing import Any, Callable, Literal
 
 import httpx
-from pydantic import BaseModel
-from pydantic import Field
-from pydantic import ValidationError
+from pydantic import BaseModel, Field, ValidationError
 
 from .config import AppSettings
 from .models import InteractionIntent
 from .workflow_context import WorkflowRequestContext
 from .workflow_planner import PlanSpec, ShadowPlanCandidate
 from .workflow_steps import get_default_step_registry
-
 
 _DEFAULT_RETRIEVAL_SCOPES: dict[str, list[str]] = {
     "general": [],
@@ -38,12 +35,10 @@ _DEFAULT_EXCLUDE_SCOPES: dict[str, list[str]] = {
 
 
 class _InteractionIntentPayload(BaseModel):
-    action: Literal[
-        "answer", "book_meeting", "ask_followup", "review_queue", "human_handoff"
-    ] = "answer"
-    domain: Literal["general", "research", "teaching", "advising", "booking"] = (
-        "general"
+    action: Literal["answer", "book_meeting", "ask_followup", "review_queue", "human_handoff"] = (
+        "answer"
     )
+    domain: Literal["general", "research", "teaching", "advising", "booking"] = "general"
     retrieval_scopes: list[str] = Field(default_factory=list)
     exclude_scopes: list[str] = Field(default_factory=list)
     decision_mode: (
@@ -89,8 +84,7 @@ class VllmChatClient:
         with self._metrics_lock:
             last_status = "not_checked"
             if self._last_success_at is not None and (
-                self._last_error_at is None
-                or self._last_success_at >= self._last_error_at
+                self._last_error_at is None or self._last_success_at >= self._last_error_at
             ):
                 last_status = "ok"
             elif self._last_error_at is not None:
@@ -185,12 +179,8 @@ class VllmChatClient:
     ) -> ShadowPlanCandidate:
         step_registry = get_default_step_registry()
         allowed_step_ids = ", ".join(sorted(step_registry))
-        allowed_sources = (
-            ", ".join(sorted(context.available_evidence_sources)) or "none"
-        )
-        deterministic_steps = ", ".join(
-            step.step_id for step in deterministic_plan.steps
-        )
+        allowed_sources = ", ".join(sorted(context.available_evidence_sources)) or "none"
+        deterministic_steps = ", ".join(step.step_id for step in deterministic_plan.steps)
         system_prompt = (
             "You are a shadow workflow planner for an academic digital twin. "
             "Return JSON only. Do not execute anything. Do not invent unregistered steps. "
@@ -239,6 +229,7 @@ class VllmChatClient:
         *,
         temperature: float = 0.2,
         max_tokens: int | None = 256,
+        token_callback: Callable[[str], None] | None = None,
     ) -> str:
         payload: dict[str, Any] = {
             "model": self._settings.model_name,
@@ -251,7 +242,81 @@ class VllmChatClient:
         if max_tokens is not None:
             payload["max_tokens"] = max_tokens
 
+        if token_callback is not None:
+            # Chat Latency Optimizations Task 5: stream tokens via
+            # OpenAI-compatible ``stream=true`` so the SSE channel can
+            # forward each chunk to the browser. Streaming responses
+            # bypass the response cache because we cannot replay an
+            # already-flushed stream to a callback.
+            stream_payload = dict(payload)
+            stream_payload["stream"] = True
+            return self._request_chat_completion_stream(stream_payload, token_callback)
+
         return self._request_chat_completion_sync(payload)
+
+    def _request_chat_completion_stream(
+        self,
+        payload: dict[str, Any],
+        token_callback: Callable[[str], None],
+    ) -> str:
+        # We deliberately skip the response cache for streaming requests:
+        # the cache stores the final string and cannot replay deltas to
+        # ``token_callback``. Cached non-streaming completions are still
+        # served by ``_request_chat_completion_sync`` for callers that
+        # don't pass a callback.
+        self._record_request_start()
+        max_retries = self._settings.llm_retry_attempts
+        for attempt in range(max_retries + 1):
+            collected: list[str] = []
+            try:
+                with self._client.stream("POST", "/chat/completions", json=payload) as response:
+                    response.raise_for_status()
+                    for raw_line in response.iter_lines():
+                        if not raw_line:
+                            continue
+                        line = (
+                            raw_line.decode("utf-8")
+                            if isinstance(raw_line, (bytes, bytearray))
+                            else raw_line
+                        )
+                        if not line.startswith("data:"):
+                            continue
+                        data_text = line[len("data:") :].strip()
+                        if not data_text or data_text == "[DONE]":
+                            if data_text == "[DONE]":
+                                break
+                            continue
+                        try:
+                            chunk = json.loads(data_text)
+                        except json.JSONDecodeError:
+                            continue
+                        choices = chunk.get("choices") or []
+                        if not choices:
+                            continue
+                        delta = choices[0].get("delta") or {}
+                        delta_content = delta.get("content")
+                        if not delta_content:
+                            continue
+                        text = str(delta_content)
+                        collected.append(text)
+                        try:
+                            token_callback(text)
+                        except Exception:  # pragma: no cover - defensive
+                            pass
+                answer = "".join(collected)
+                if not answer:
+                    raise RuntimeError("vllm-hust returned an empty streaming chat message")
+                break
+            except httpx.TimeoutException as exc:
+                if attempt >= max_retries:
+                    self._record_request_error(exc)
+                    raise
+                self._sleep_before_retry(attempt + 1)
+            except Exception as exc:
+                self._record_request_error(exc)
+                raise
+        self._record_request_success()
+        return answer
 
     def _request_chat_completion_sync(self, payload: dict[str, Any]) -> str:
 
@@ -291,9 +356,7 @@ class VllmChatClient:
         return answer
 
     async def answer_question(self, system_prompt: str, user_prompt: str) -> str:
-        return await asyncio.to_thread(
-            self.answer_question_sync, system_prompt, user_prompt
-        )
+        return await asyncio.to_thread(self.answer_question_sync, system_prompt, user_prompt)
 
     def _extract_json_object(self, text: str) -> dict[str, Any]:
         cleaned = text.strip()
@@ -313,16 +376,12 @@ class VllmChatClient:
             )
         return payload
 
-    def _parse_interaction_intent_payload(
-        self, content: str
-    ) -> _InteractionIntentPayload:
+    def _parse_interaction_intent_payload(self, content: str) -> _InteractionIntentPayload:
         try:
             payload = self._extract_json_object(content)
             return _InteractionIntentPayload.model_validate(payload)
         except (RuntimeError, ValidationError) as exc:
-            repaired_content = self._repair_interaction_intent_payload(
-                content, str(exc)
-            )
+            repaired_content = self._repair_interaction_intent_payload(content, str(exc))
             repaired_payload = self._extract_json_object(repaired_content)
             return _InteractionIntentPayload.model_validate(repaired_payload)
 
@@ -335,9 +394,7 @@ class VllmChatClient:
             repaired_payload = self._extract_json_object(repaired_content)
             return ShadowPlanCandidate.model_validate(repaired_payload)
 
-    def _repair_interaction_intent_payload(
-        self, content: str, validation_error: str
-    ) -> str:
+    def _repair_interaction_intent_payload(self, content: str, validation_error: str) -> str:
         system_prompt = (
             "You repair JSON emitted by an interaction-intent classifier. "
             "Preserve the original intent meaning, but return valid JSON only. "
@@ -381,23 +438,15 @@ class VllmChatClient:
             max_tokens=220,
         )
 
-    def _coerce_interaction_intent(
-        self, payload: _InteractionIntentPayload
-    ) -> InteractionIntent:
+    def _coerce_interaction_intent(self, payload: _InteractionIntentPayload) -> InteractionIntent:
         action = payload.action
         domain = payload.domain
         decision_mode = payload.decision_mode
-        retrieval_scopes = payload.retrieval_scopes or _DEFAULT_RETRIEVAL_SCOPES.get(
-            domain, []
-        )
-        exclude_scopes = payload.exclude_scopes or _DEFAULT_EXCLUDE_SCOPES.get(
-            domain, []
-        )
+        retrieval_scopes = payload.retrieval_scopes or _DEFAULT_RETRIEVAL_SCOPES.get(domain, [])
+        exclude_scopes = payload.exclude_scopes or _DEFAULT_EXCLUDE_SCOPES.get(domain, [])
         if decision_mode is None:
             decision_mode = (
-                action
-                if action in {"review_queue", "human_handoff"}
-                else "direct_answer"
+                action if action in {"review_queue", "human_handoff"} else "direct_answer"
             )
         normalized_payload = {
             "action": action,
@@ -498,9 +547,7 @@ class VllmChatClient:
                 }
             )
 
-        if _looks_like_progress_followup_advising_question(
-            lowered, question, course_context_text
-        ):
+        if _looks_like_progress_followup_advising_question(lowered, question, course_context_text):
             return intent.model_copy(
                 update={
                     "action": "answer",
@@ -594,9 +641,7 @@ class VllmChatClient:
         return intent
 
     def _cache_key(self, payload: dict[str, Any]) -> str:
-        return json.dumps(
-            payload, sort_keys=True, ensure_ascii=False, separators=(",", ":")
-        )
+        return json.dumps(payload, sort_keys=True, ensure_ascii=False, separators=(",", ":"))
 
     def _get_cached_response(self, cache_key: str) -> str | None:
         ttl_seconds = self._settings.llm_cache_ttl_seconds
@@ -633,9 +678,7 @@ class VllmChatClient:
 
     def _evict_expired_locked(self, now: float) -> None:
         expired_keys = [
-            key
-            for key, (expires_at, _) in self._response_cache.items()
-            if expires_at <= now
+            key for key, (expires_at, _) in self._response_cache.items() if expires_at <= now
         ]
         for key in expired_keys:
             self._response_cache.pop(key, None)
@@ -672,9 +715,7 @@ class VllmChatClient:
         return time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(timestamp))
 
     def _sleep_before_retry(self, retry_number: int) -> None:
-        delay_seconds = self._settings.llm_retry_backoff_seconds * (
-            2 ** max(0, retry_number - 1)
-        )
+        delay_seconds = self._settings.llm_retry_backoff_seconds * (2 ** max(0, retry_number - 1))
         if delay_seconds > 0:
             time.sleep(delay_seconds)
 
@@ -773,9 +814,9 @@ def _looks_like_booking_information_question(lowered: str, question: str) -> boo
     has_info_marker = any(marker in lowered for marker in info_markers) or any(
         marker in question for marker in info_markers
     )
-    has_booking_context = any(
-        marker in lowered for marker in booking_context_markers
-    ) or any(marker in question for marker in booking_context_markers)
+    has_booking_context = any(marker in lowered for marker in booking_context_markers) or any(
+        marker in question for marker in booking_context_markers
+    )
     return has_info_marker and has_booking_context
 
 
@@ -804,27 +845,21 @@ def _looks_like_teaching_question(lowered: str, question: str) -> bool:
     )
 
 
-def _looks_like_mixed_course_research_boundary_question(
-    lowered: str, question: str
-) -> bool:
+def _looks_like_mixed_course_research_boundary_question(lowered: str, question: str) -> bool:
     has_course = any(marker in lowered for marker in ("course", "assignment")) or any(
         marker in question for marker in ("课程", "作业", "课上问题")
     )
-    has_research = any(
-        marker in lowered for marker in ("research", "paper", "project")
-    ) or any(marker in question for marker in ("研究", "科研", "论文", "项目"))
-    has_boundary = any(
-        marker in lowered for marker in ("separately", "split", "together")
-    ) or any(
+    has_research = any(marker in lowered for marker in ("research", "paper", "project")) or any(
+        marker in question for marker in ("研究", "科研", "论文", "项目")
+    )
+    has_boundary = any(marker in lowered for marker in ("separately", "split", "together")) or any(
         marker in question
         for marker in ("分开准备", "分开", "分别", "一次都问完", "一起问", "一起聊")
     )
     return has_course and has_research and has_boundary
 
 
-def _looks_like_advising_question(
-    lowered: str, question: str, course_context_text: str
-) -> bool:
+def _looks_like_advising_question(lowered: str, question: str, course_context_text: str) -> bool:
     advising_markers = (
         "准备什么",
         "提前准备",
@@ -868,8 +903,7 @@ def _looks_like_advising_question(
     ):
         return True
     if any(marker in question for marker in scope_markers) and any(
-        marker in question
-        for marker in ("老师", "研究", "项目", "题目", "论文", "摘要")
+        marker in question for marker in ("老师", "研究", "项目", "题目", "论文", "摘要")
     ):
         return True
     if any(marker in question for marker in contact_markers) and any(

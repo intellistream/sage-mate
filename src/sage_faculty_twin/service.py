@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
+import logging
+import os
 import re
 import threading
 from collections.abc import Callable, Iterable
@@ -165,6 +167,43 @@ _PARALLEL_TRACE_GROUPS: dict[str, str] = {
     "memory_usefulness_score": "post_answer",
 }
 
+# Trace keys that belong to the post-answer fan-out branch. Kept in canonical
+# order. The chat DAG runs these stages *after* ``response_render`` when the
+# critical path completes — so the immediate ``ChatResponse`` ships without
+# waiting on memory writes / follow-up planning when
+# ``DIGITAL_TWIN_POST_ANSWER_BACKGROUND`` is enabled (Task 2 of the Chat
+# Latency Optimizations plan).
+_POST_ANSWER_TRACE_KEYS: tuple[str, ...] = (
+    "memory_persist",
+    "artifact_memory_writeback",
+    "memory_profile_consolidate",
+    "follow_up_plan",
+    "memory_usefulness_score",
+)
+
+# Default-on so production /chat returns as soon as the LLM answer is rendered.
+# Set ``DIGITAL_TWIN_POST_ANSWER_BACKGROUND=false`` to roll back to the
+# previous blocking semantics (post-answer stages run before /chat returns).
+_POST_ANSWER_BACKGROUND_DEFAULT: bool = os.environ.get(
+    "DIGITAL_TWIN_POST_ANSWER_BACKGROUND", "true"
+).strip().lower() not in {"0", "false", "no", "off"}
+
+# Chat Latency Optimizations Task 3: soft cap on assembled prompt size.
+# When ``len(system_prompt) + len(user_prompt)`` exceeds this threshold the
+# prompt builder truncates inputs in this order:
+#   (a) drop oldest memory hits beyond the top 3,
+#   (b) cap each knowledge hit excerpt at ``_KNOWLEDGE_HIT_BODY_CAP`` chars,
+#   (c) cap each attachment ``text_content`` at ``_ATTACHMENT_BODY_CAP`` chars.
+# Override via ``DIGITAL_TWIN_PROMPT_SOFT_CAP``. ~24000 chars roughly maps to
+# 6k tokens for typical Chinese/English mixed content, well below the model
+# context window but small enough to keep decode latency bounded.
+_PROMPT_SOFT_CAP: int = max(1, int(os.environ.get("DIGITAL_TWIN_PROMPT_SOFT_CAP", "24000")))
+_PROMPT_MEMORY_HIT_KEEP: int = 3
+_KNOWLEDGE_HIT_BODY_CAP: int = 1200
+_ATTACHMENT_BODY_CAP: int = 4000
+
+_logger = logging.getLogger(__name__)
+
 
 def _canonicalize_workflow_trace(
     trace: list["WorkflowTraceStep"],
@@ -222,6 +261,11 @@ class ChatWorkflowContext:
     answer: str | None = None
     system_prompt: str | None = None
     user_prompt: str | None = None
+    # Chat Latency Optimizations Task 3: set when the prompt builder applied
+    # the soft-cap truncation chain (memory hits / knowledge excerpts /
+    # attachment bodies). Surfaced via the ``prompt_build`` trace step so the
+    # UI can show a "提示词已截断" badge when it kicked in.
+    prompt_truncated: bool = False
     recent_session_context: str = ""
     interaction_intent: InteractionIntent | None = None
     pending_fields: list[str] = field(default_factory=list)
@@ -295,6 +339,7 @@ class FacultyTwinWorkflowSupport:
         email_notifier: BookingEmailNotifier,
         admin_session_payload: dict[str, Any] | None = None,
         trace_callback: WorkflowTraceCallback | None = None,
+        answer_chunk_callback: Callable[[str], None] | None = None,
         planner_decision: PlannerDecision | None = None,
         shadow_planner_decision: PlannerDecision | None = None,
         shadow_planner_status: str = "shadow_disabled",
@@ -317,6 +362,7 @@ class FacultyTwinWorkflowSupport:
         self._email_notifier = email_notifier
         self._admin_session_payload = admin_session_payload
         self._trace_callback = trace_callback
+        self._answer_chunk_callback = answer_chunk_callback
         self._action_planner = LightweightActionPlanner()
         self._planner_decision = planner_decision
         self._shadow_planner_decision = shadow_planner_decision
@@ -896,19 +942,112 @@ class FacultyTwinWorkflowSupport:
             return context
 
         context.system_prompt = build_system_prompt(self._settings)
-        context.user_prompt = self._build_student_prompt(
-            context.request,
-            context.knowledge_hits,
-            context.memory_hits,
-            context.interaction_intent,
-            recent_session_context=context.recent_session_context,
-        )
+
+        # Chat Latency Optimizations Task 3: assemble the prompt with the
+        # full inputs first, then progressively truncate when the combined
+        # system + user prompt exceeds the soft cap. Order matters: memory
+        # hits beyond the top 3 are dropped first (cheapest signal loss),
+        # then knowledge excerpts, then attachment bodies.
+        memory_hits = list(context.memory_hits)
+        knowledge_hits = list(context.knowledge_hits)
+        attachments = list(getattr(context.request, "attachments", None) or [])
+        truncation_actions: list[str] = []
+
+        def _build(
+            mem: list[ConversationMemoryHit],
+            know: list[KnowledgeSearchHit],
+            atts: list[ChatAttachment],
+        ) -> str:
+            base_attachments = list(getattr(context.request, "attachments", None) or [])
+            if atts != base_attachments:
+                request_for_prompt = context.request.model_copy(update={"attachments": atts})
+            else:
+                request_for_prompt = context.request
+            return self._build_student_prompt(
+                request_for_prompt,
+                know,
+                mem,
+                context.interaction_intent,
+                recent_session_context=context.recent_session_context,
+            )
+
+        user_prompt = _build(memory_hits, knowledge_hits, attachments)
+        cap = _PROMPT_SOFT_CAP
+
+        def _over_cap() -> bool:
+            return len(context.system_prompt or "") + len(user_prompt) > cap
+
+        # (a) Drop oldest memory hits beyond the configured keep count.
+        if _over_cap() and len(memory_hits) > _PROMPT_MEMORY_HIT_KEEP:
+            original_count = len(memory_hits)
+            memory_hits = memory_hits[:_PROMPT_MEMORY_HIT_KEEP]
+            truncation_actions.append(f"memory({original_count}→{_PROMPT_MEMORY_HIT_KEEP})")
+            user_prompt = _build(memory_hits, knowledge_hits, attachments)
+
+        # (b) Cap each knowledge hit excerpt at the configured length.
+        if _over_cap():
+            capped_count = 0
+            new_knowledge: list[KnowledgeSearchHit] = []
+            for hit in knowledge_hits:
+                if len(hit.excerpt) > _KNOWLEDGE_HIT_BODY_CAP:
+                    new_knowledge.append(
+                        hit.model_copy(
+                            update={"excerpt": hit.excerpt[:_KNOWLEDGE_HIT_BODY_CAP] + "…"}
+                        )
+                    )
+                    capped_count += 1
+                else:
+                    new_knowledge.append(hit)
+            if capped_count:
+                knowledge_hits = new_knowledge
+                truncation_actions.append(f"knowledge≤{_KNOWLEDGE_HIT_BODY_CAP}({capped_count})")
+                user_prompt = _build(memory_hits, knowledge_hits, attachments)
+
+        # (c) Cap each attachment text body at the configured length.
+        if _over_cap():
+            capped_count = 0
+            new_attachments: list[ChatAttachment] = []
+            for attachment in attachments:
+                if len(attachment.text_content) > _ATTACHMENT_BODY_CAP:
+                    new_attachments.append(
+                        attachment.model_copy(
+                            update={
+                                "text_content": attachment.text_content[:_ATTACHMENT_BODY_CAP] + "…"
+                            }
+                        )
+                    )
+                    capped_count += 1
+                else:
+                    new_attachments.append(attachment)
+            if capped_count:
+                attachments = new_attachments
+                truncation_actions.append(f"attachment≤{_ATTACHMENT_BODY_CAP}({capped_count})")
+                user_prompt = _build(memory_hits, knowledge_hits, attachments)
+
+        context.user_prompt = user_prompt
+        context.prompt_truncated = bool(truncation_actions)
+        prompt_size = len(context.system_prompt or "") + len(user_prompt)
+
+        if context.prompt_truncated:
+            actions_text = ", ".join(truncation_actions)
+            detail = (
+                f"提示词超过软上限 ({cap} 字符)，已按顺序截断："
+                f"{actions_text}；最终 {prompt_size} 字符。"
+            )
+        else:
+            detail = f"已合并身份设定、课程上下文和检索结果，准备生成回答（{prompt_size} 字符）。"
+        # Trace step ``detail`` is constrained to 512 chars by the model.
+        if len(detail) > 480:
+            detail = detail[:480] + "…"
+
         self._append_trace(
             context,
             key="prompt_build",
             title="构造回答上下文",
-            summary="已组装回答上下文。",
-            detail="已合并身份设定、课程上下文和检索结果，准备生成回答。",
+            summary=(
+                "已组装回答上下文（已截断）。" if context.prompt_truncated else "已组装回答上下文。"
+            ),
+            detail=detail,
             duration_ms=self._elapsed_ms(started_at),
         )
         return context
@@ -1087,10 +1226,23 @@ class FacultyTwinWorkflowSupport:
         if context.system_prompt is None or context.user_prompt is None:
             raise RuntimeError("chat workflow reached llm stage without a prepared prompt")
 
-        context.answer = self._llm_client.answer_question_sync(
-            context.system_prompt,
-            context.user_prompt,
-        )
+        # Chat Latency Optimizations Task 5: when an ``answer_chunk_callback``
+        # is wired up by the /chat endpoint we ask the LLM client for a
+        # streaming completion so each token is forwarded over the
+        # workflow-events SSE channel as it arrives. The full string is
+        # still returned so the rest of the pipeline (trace, render,
+        # post-answer fan-out) sees the same final answer.
+        if self._answer_chunk_callback is not None:
+            context.answer = self._llm_client.answer_question_sync(
+                context.system_prompt,
+                context.user_prompt,
+                token_callback=self._answer_chunk_callback,
+            )
+        else:
+            context.answer = self._llm_client.answer_question_sync(
+                context.system_prompt,
+                context.user_prompt,
+            )
         context.workflow_action = (
             "advise_only" if context.decision_mode == "advise_only" else "answer"
         )
@@ -4010,6 +4162,27 @@ class ChatResponseRenderStage(MapFunction):
         return self._support.render_chat_response(data)
 
 
+class _CaptureContextStage(MapFunction):
+    """Pass-through map that side-channels the in-flight ChatWorkflowContext.
+
+    The chat critical-path DAG ends with ``ChatResponseRenderStage`` which
+    consumes a ``ChatWorkflowContext`` and emits a ``ChatResponse``. We need
+    the underlying context after the pipeline completes so the post-answer
+    fan-out stages can run on it (Task 2 of the Chat Latency Optimizations
+    plan). Inserting this stage right before render lets us capture the
+    same mutable context object the render will see, without adding a
+    second sink to the DAG.
+    """
+
+    def __init__(self, captured: list[ChatWorkflowContext]) -> None:
+        super().__init__()
+        self._captured = captured
+
+    def execute(self, data: ChatWorkflowContext) -> ChatWorkflowContext:
+        self._captured.append(data)
+        return data
+
+
 class ReadAdminSessionStage(MapFunction):
     def __init__(self, support: FacultyTwinWorkflowSupport) -> None:
         super().__init__()
@@ -4267,12 +4440,16 @@ class DigitalTwinService:
         request: ChatRequest,
         admin_session_token: str | None = None,
         trace_callback: WorkflowTraceCallback | None = None,
+        on_post_answer_complete: Callable[[], None] | None = None,
+        answer_chunk_callback: Callable[[str], None] | None = None,
     ) -> ChatResponse:
         return await self._answer_with_execution_mode(
             request,
             admin_session_token=admin_session_token,
             trace_callback=trace_callback,
             use_runtime_pipeline=True,
+            on_post_answer_complete=on_post_answer_complete,
+            answer_chunk_callback=answer_chunk_callback,
         )
 
     async def answer_in_process(
@@ -4280,12 +4457,16 @@ class DigitalTwinService:
         request: ChatRequest,
         admin_session_token: str | None = None,
         trace_callback: WorkflowTraceCallback | None = None,
+        on_post_answer_complete: Callable[[], None] | None = None,
+        answer_chunk_callback: Callable[[str], None] | None = None,
     ) -> ChatResponse:
         return await self._answer_with_execution_mode(
             request,
             admin_session_token=admin_session_token,
             trace_callback=trace_callback,
             use_runtime_pipeline=False,
+            on_post_answer_complete=on_post_answer_complete,
+            answer_chunk_callback=answer_chunk_callback,
         )
 
     async def _answer_with_execution_mode(
@@ -4295,6 +4476,8 @@ class DigitalTwinService:
         admin_session_token: str | None,
         trace_callback: WorkflowTraceCallback | None,
         use_runtime_pipeline: bool,
+        on_post_answer_complete: Callable[[], None] | None = None,
+        answer_chunk_callback: Callable[[str], None] | None = None,
     ) -> ChatResponse:
         admin_session_payload = decode_admin_session_token(admin_session_token, self._settings)
         recent_session_context = self._build_recent_session_context(request)
@@ -4334,6 +4517,7 @@ class DigitalTwinService:
         support = self._build_support(
             admin_session_payload=admin_session_payload,
             trace_callback=trace_callback,
+            answer_chunk_callback=answer_chunk_callback,
             planner_decision=planner_decision,
             shadow_planner_decision=shadow_decision,
             shadow_planner_status=shadow_status,
@@ -4356,15 +4540,68 @@ class DigitalTwinService:
             (ChatResponseRenderStage, support),
         ]
         if use_runtime_pipeline:
-            response = await asyncio.to_thread(
+            response, context = await asyncio.to_thread(
                 self._run_chat_dag_pipeline,
                 request,
                 support,
             )
         else:
+            # Linear path: existing 13-stage chain still runs post-answer
+            # stages BEFORE response_render, so the response naturally
+            # carries the canonical 14-step trace + populated
+            # ``follow_up_actions`` / ``exchange_id``. No background split.
             response = await asyncio.to_thread(self._run_stage_chain, request, stages)
-        self._persist_planner_comparison_result(request, response)
-        return response
+            self._persist_planner_comparison_result(request, response)
+            if on_post_answer_complete is not None:
+                on_post_answer_complete()
+            return response
+
+        should_background = _POST_ANSWER_BACKGROUND_DEFAULT and trace_callback is not None
+
+        if should_background:
+            # Production fast path: ship the rendered response immediately,
+            # run post-answer side-effects on a background task. The trace
+            # callback inside ``_run_post_answer_inline_blocking`` keeps the
+            # workflow-events SSE stream populated; ``on_post_answer_complete``
+            # lets the caller (api.py) defer ``publish_complete`` until the
+            # background task finishes so SSE consumers see the post-answer
+            # trace steps before the stream closes.
+            async def _run_post_answer_background() -> None:
+                try:
+                    await asyncio.to_thread(
+                        self._run_post_answer_inline_blocking,
+                        context,
+                        support,
+                    )
+                except Exception:  # pragma: no cover - defensive log
+                    _logger.exception(
+                        "post-answer background task failed (conversation_id=%s)",
+                        getattr(context, "conversation_id", None),
+                    )
+                finally:
+                    if on_post_answer_complete is not None:
+                        try:
+                            on_post_answer_complete()
+                        except Exception:  # pragma: no cover
+                            _logger.exception(
+                                "post-answer complete callback failed (conversation_id=%s)",
+                                getattr(context, "conversation_id", None),
+                            )
+
+            asyncio.create_task(_run_post_answer_background())
+            self._persist_planner_comparison_result(request, response)
+            return response
+
+        # Inline path (DAG runtime, no background flag or no trace callback):
+        # mirror the legacy semantics so direct callers (tests, batch jobs,
+        # benchmark adapter) still see the canonical 14-step trace and the
+        # populated post-answer fields.
+        await asyncio.to_thread(self._run_post_answer_inline_blocking, context, support)
+        final_response = self._patch_response_with_post_answer(response, context)
+        if on_post_answer_complete is not None:
+            on_post_answer_complete()
+        self._persist_planner_comparison_result(request, final_response)
+        return final_response
 
     def preview_workflow_plan(
         self,
@@ -5355,6 +5592,7 @@ class DigitalTwinService:
         self,
         admin_session_payload: dict[str, Any] | None = None,
         trace_callback: WorkflowTraceCallback | None = None,
+        answer_chunk_callback: Callable[[str], None] | None = None,
         planner_decision: PlannerDecision | None = None,
         shadow_planner_decision: PlannerDecision | None = None,
         shadow_planner_status: str = "shadow_disabled",
@@ -5378,6 +5616,7 @@ class DigitalTwinService:
             self._email_notifier,
             admin_session_payload=admin_session_payload,
             trace_callback=trace_callback,
+            answer_chunk_callback=answer_chunk_callback,
             planner_decision=planner_decision,
             shadow_planner_decision=shadow_planner_decision,
             shadow_planner_status=shadow_planner_status,
@@ -5505,30 +5744,33 @@ class DigitalTwinService:
         self,
         request: ChatRequest,
         support: FacultyTwinWorkflowSupport,
-    ) -> ChatResponse:
-        """Run the chat workflow as a SAGE DAG with parallel branches.
+    ) -> tuple[ChatResponse, ChatWorkflowContext]:
+        """Run the chat critical-path DAG and return both the rendered
+        :class:`ChatResponse` and the underlying :class:`ChatWorkflowContext`.
 
-        Topology::
+        Critical-path topology (Task 2 of the Chat Latency Optimizations
+        plan)::
 
             bootstrap -> understand -> booking_prep -> booking_exec
                 |
                 +--> memory_retrieve  ----+
-                |                         +--> merge2 -> prompt_build -> llm_answer
-                +--> knowledge_retrieve --+                                    |
-                                                                               v
-                +-- memory_persist ----------+
-                +-- memory_profile ----------+
-                +-- follow_up_plan ----------+ -> merge4 -> response_render -> sink
-                +-- memory_usefulness -------+
+                |                         +--> merge2 -> prompt_build -> llm_answer -> render -> sink
+                +--> knowledge_retrieve --+
 
-        Both fan-outs share a single mutable ``ChatWorkflowContext`` object;
-        SAGE's in-memory router delivers the same packet to each downstream
-        branch by reference. Each branch mutates disjoint fields, so the
-        merge operators only need to wait for all branches to arrive before
-        forwarding the (already-merged) context downstream.
+        The four post-answer fan-out stages (``memory_persist``,
+        ``memory_profile_consolidate``, ``follow_up_plan``,
+        ``memory_usefulness_score``) are intentionally *not* part of this
+        graph: they run after this method returns either inline (test path)
+        or as a fire-and-forget ``asyncio.create_task`` (production path).
+        See :meth:`_run_post_answer_inline_blocking`.
+
+        The retrieval branches still share the same mutable
+        ``ChatWorkflowContext`` instance — SAGE's in-memory router delivers
+        the same packet to each downstream branch by reference.
         """
         env = FlowNetEnvironment("faculty-twin-chat")
-        results: list[ChatResponse] = []
+        responses: list[ChatResponse] = []
+        contexts: list[ChatWorkflowContext] = []
 
         head = (
             env.from_batch([request])
@@ -5545,26 +5787,79 @@ class DigitalTwinService:
             .comap(_ChatContextMerge2)
         )
 
-        # Linear: prompt build then LLM answer.
-        after_llm = after_retrieval.map(PromptBuildStage, support).map(LlmAnswerStage, support)
-
-        # Fan-out 2: four post-answer side-effect stages run in parallel.
-        after_post = (
-            after_llm.map(MemoryPersistStage, support)
-            .connect(after_llm.map(MemoryProfileConsolidationStage, support))
-            .connect(after_llm.map(FollowUpPlanningStage, support))
-            .connect(after_llm.map(MemoryUsefulnessScoringStage, support))
-            .comap(_ChatContextMerge4)
+        # Linear: prompt build -> LLM answer -> response render.
+        after_render = (
+            after_retrieval.map(PromptBuildStage, support)
+            .map(LlmAnswerStage, support)
+            .map(_CaptureContextStage, contexts)
+            .map(ChatResponseRenderStage, support)
         )
-
-        # Linear tail: render and collect.
-        after_post.map(ChatResponseRenderStage, support).sink(ResultCollector, results)
+        after_render.sink(ResultCollector, responses)
 
         env.submit(autostop=True)
 
-        if not results:
+        if not responses:
             raise RuntimeError("SAGE runtime completed without producing a chat response.")
-        return results[-1]
+        if not contexts:
+            raise RuntimeError(
+                "SAGE runtime completed without capturing the chat workflow context."
+            )
+        return responses[-1], contexts[-1]
+
+    def _run_post_answer_inline_blocking(
+        self,
+        context: ChatWorkflowContext,
+        support: FacultyTwinWorkflowSupport,
+    ) -> ChatWorkflowContext:
+        """Run the four post-answer side-effect stages on ``context``.
+
+        This runs synchronously on whatever thread the caller is on. The
+        stages mutate ``context`` in place (memory writes, follow-up
+        planning, profile consolidation, usefulness scoring) and emit trace
+        steps via the support's ``trace_callback``. Each stage is wrapped in
+        a try/except so a failure in one stage does not cancel the others;
+        the chat answer has already been delivered to the user, so this
+        layer is best-effort.
+        """
+        post_answer_stages: list[tuple[str, type[MapFunction]]] = [
+            ("memory_persist", MemoryPersistStage),
+            ("memory_profile_consolidate", MemoryProfileConsolidationStage),
+            ("follow_up_plan", FollowUpPlanningStage),
+            ("memory_usefulness_score", MemoryUsefulnessScoringStage),
+        ]
+        for stage_key, stage_cls in post_answer_stages:
+            try:
+                stage_cls(support).execute(context)
+            except Exception:  # pragma: no cover - logged for ops review
+                _logger.exception(
+                    "post-answer stage %s failed (conversation_id=%s)",
+                    stage_key,
+                    getattr(context, "conversation_id", None),
+                )
+        return context
+
+    @staticmethod
+    def _patch_response_with_post_answer(
+        response: ChatResponse, context: ChatWorkflowContext
+    ) -> ChatResponse:
+        """Re-build a ChatResponse so post-answer mutations are visible.
+
+        The critical-path DAG renders ``response`` *before* the post-answer
+        stages mutate ``context``. When post-answer ran inline (test path or
+        ``DIGITAL_TWIN_POST_ANSWER_BACKGROUND=false``), this helper folds the
+        new context fields back into the response so legacy callers continue
+        to see the canonical 14-step trace, the assigned ``exchange_id``,
+        and the ``follow_up_actions`` list.
+        """
+        canonical_trace = _canonicalize_workflow_trace(context.workflow_trace)
+        updates: dict[str, Any] = {
+            "workflow_trace": canonical_trace,
+            "follow_up_actions": context.follow_up_actions,
+            "memory_write_back": context.persisted_memory_record is not None,
+        }
+        if context.persisted_memory_record is not None:
+            updates["exchange_id"] = context.persisted_memory_record.memory_id
+        return response.model_copy(update=updates)
 
     def _run_stage_chain(
         self,

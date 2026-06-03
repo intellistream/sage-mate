@@ -3,7 +3,6 @@ from pathlib import Path
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
@@ -20,7 +19,7 @@ class AppSettings(BaseSettings):
     model_name: str = Field(default="meta-llama/Llama-3.1-8B-Instruct")
     llm_base_url: str = Field(default="http://127.0.0.1:8000/v1")
     api_key: str = Field(default="EMPTY")
-    llm_timeout_seconds: int = Field(default=90, ge=1, le=300)
+    llm_timeout_seconds: int = Field(default=60, ge=1, le=300)
     llm_retry_attempts: int = Field(default=2, ge=0, le=5)
     llm_retry_backoff_seconds: float = Field(default=1.0, ge=0.0, le=30.0)
     llm_cache_ttl_seconds: int = Field(default=3600, ge=0, le=86400)
@@ -31,18 +30,14 @@ class AppSettings(BaseSettings):
             "and route scheduling requests into structured booking guidance."
         )
     )
-    owner_style_profile_path: Path = Field(
-        default=Path("data/persona/style_profile.md")
-    )
+    owner_style_profile_path: Path = Field(default=Path("data/persona/style_profile.md"))
     homepage_dir: Path = Field(default=REPO_ROOT / "data/homepage")
     homepage_public_url: str = Field(default="")
     booking_timezone: str = Field(default="Asia/Shanghai")
     booking_start_hour: int = Field(default=9, ge=0, le=23)
     booking_end_hour: int = Field(default=18, ge=1, le=24)
     meeting_duration_minutes: int = Field(default=30, ge=15, le=120)
-    availability_schedule_path: Path = Field(
-        default=Path("data/availability/current_week.json")
-    )
+    availability_schedule_path: Path = Field(default=Path("data/availability/current_week.json"))
     booking_notification_email: str = Field(default="faculty@example.edu")
     smtp_host: str | None = Field(default=None)
     smtp_port: int = Field(default=587, ge=1, le=65535)
@@ -73,9 +68,7 @@ class AppSettings(BaseSettings):
     shadow_planner_max_tokens: int = Field(default=384, ge=64, le=2048)
     conversation_memory_top_k: int = Field(default=4, ge=1, le=10)
     sagevdb_embedding_backend: str = Field(default="sentence-transformers")
-    sagevdb_embedding_model: str = Field(
-        default="sentence-transformers/all-MiniLM-L6-v2"
-    )
+    sagevdb_embedding_model: str = Field(default="sentence-transformers/all-MiniLM-L6-v2")
     sagevdb_dimension: int = Field(default=256, ge=32, le=4096)
     sagevdb_backend: str = Field(default="cpp")
     sagevdb_anns_algorithm: str = Field(default="faiss_hnsw")

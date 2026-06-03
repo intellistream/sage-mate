@@ -1,7 +1,7 @@
 import json
+import threading
 from collections import OrderedDict
 from pathlib import Path
-import threading
 
 import httpx
 import pytest
@@ -201,9 +201,7 @@ def test_normalize_interaction_intent_for_email_vs_meeting_boundary_question() -
     assert normalized.needs_clarification is False
 
 
-def test_normalize_interaction_intent_for_mixed_course_research_boundary_question() -> (
-    None
-):
+def test_normalize_interaction_intent_for_mixed_course_research_boundary_question() -> None:
     client = object.__new__(VllmChatClient)
     raw_intent = InteractionIntent(
         action="ask_followup",
@@ -330,10 +328,7 @@ def test_classify_booking_intent_sync_returns_false_on_classifier_failure() -> N
 
     client.classify_interaction_intent_sync = classify_interaction_intent_sync
 
-    assert (
-        client.classify_booking_intent_sync("帮我预约明天上午讨论论文", "科研指导")
-        is False
-    )
+    assert client.classify_booking_intent_sync("帮我预约明天上午讨论论文", "科研指导") is False
 
 
 class _FakeChatCompletionResponse:
@@ -407,10 +402,13 @@ def test_request_chat_completion_retries_timeout_then_succeeds(
     assert snapshot["llm_last_error"] == ""
 
 
-def test_app_settings_defaults_to_higher_llm_timeout() -> None:
+def test_app_settings_defaults_to_lower_llm_timeout() -> None:
     settings = AppSettings()
 
-    assert settings.llm_timeout_seconds == 90
+    # Chat Latency Optimizations Task 1 lowered the default LLM timeout to
+    # 60s so the request budget (80s) surfaces 504 well below Cloudflare's
+    # 100s edge cap. ge=1, le=300 still allows operator overrides.
+    assert settings.llm_timeout_seconds == 60
 
 
 def test_request_chat_completion_raises_after_retry_budget(

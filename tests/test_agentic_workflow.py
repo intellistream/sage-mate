@@ -2,6 +2,8 @@ import asyncio
 from datetime import datetime, timedelta
 from pathlib import Path
 
+import pytest
+
 from sage_faculty_twin.benchmark_adapter import LampQuestionSample, build_lamp_request
 from sage_faculty_twin.config import AppSettings, settings
 from sage_faculty_twin.models import (
@@ -720,7 +722,15 @@ def test_chat_answers_office_hour_query_without_starting_booking_workflow(
     assert _trace_step(response, "booking_prepare").summary == "未进入预约流程。"
 
 
-def test_chat_emits_trace_steps_via_callback(tmp_path: Path) -> None:
+def test_chat_emits_trace_steps_via_callback(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Chat Latency Optimizations Task 2 introduced background dispatch of
+    # post-answer side-effects when ``trace_callback`` is set. This test
+    # predates that change and asserts post-answer keys are received via the
+    # callback before ``service.answer`` returns; pin the inline path so the
+    # synchronous emission contract still holds.
+    monkeypatch.setattr("sage_faculty_twin.service._POST_ANSWER_BACKGROUND_DEFAULT", False)
     settings = AppSettings(knowledge_base_dir=tmp_path)
     service = DigitalTwinService(settings)
     service._llm_client = FailingLLMClient()
@@ -739,7 +749,11 @@ def test_chat_emits_trace_steps_via_callback(tmp_path: Path) -> None:
         )
     )
 
-    assert [step.key for step in emitted_steps] == [step.key for step in response.workflow_trace]
+    # Trace callback receives every step that ends up in the canonicalized
+    # response trace; order may differ because the response trace is
+    # canonicalized (response_render last) while the callback emits in
+    # runtime order (response_render before post-answer side-effects).
+    assert {step.key for step in emitted_steps} == {step.key for step in response.workflow_trace}
     assert emitted_steps[0].summary == "已建立当前会话。"
     assert emitted_steps[1].key == "workflow_plan_preview"
     assert response.planner_preview is not None
@@ -748,7 +762,10 @@ def test_chat_emits_trace_steps_via_callback(tmp_path: Path) -> None:
     assert response.shadow_planner_preview.planner_mode == "llm_shadow"
     assert response.planner_comparison is not None
     assert response.planner_comparison.comparison_status == "shadow_disabled"
-    assert emitted_steps[-1].key == "response_render"
+    # In inline post-answer mode response_render is emitted at runtime BEFORE
+    # the post-answer steps; the canonicalized response.workflow_trace puts
+    # response_render last but the runtime emission order does not.
+    assert "response_render" in {step.key for step in emitted_steps}
     assert any(step.key == "memory_profile_consolidate" for step in emitted_steps)
 
 
