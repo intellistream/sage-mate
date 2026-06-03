@@ -3315,6 +3315,10 @@ body.workflow-shell-collapsed #workflow-toggle {
         align-items: start;
     }
 
+    body.history-rail-collapsed .chat-layout {
+        grid-template-columns: 1fr;
+    }
+
     .history-rail {
         position: static;
         min-height: 0;
@@ -3384,7 +3388,7 @@ body.workflow-shell-collapsed #workflow-toggle {
     }
 
     .chat-shell {
-        min-height: 0;
+        min-height: calc(100dvh - 220px);
         height: auto;
     }
 
@@ -3437,21 +3441,25 @@ body.workflow-shell-collapsed #workflow-toggle {
     }
 
     .composer-row {
-        align-items: stretch;
-        flex-direction: column;
+        align-items: flex-end;
+        flex-direction: row;
+        padding: 8px 10px;
     }
 
     .composer-row textarea {
         flex: 1;
+        min-height: 20px;
     }
 
     .composer-upload-button {
-        width: 100%;
+        width: 38px;
+        height: 38px;
+        flex-shrink: 0;
     }
 
     .send-button {
-        width: 100%;
-        min-width: 0;
+        min-width: 60px;
+        flex-shrink: 0;
     }
 
     .workflow-phase-rail {
