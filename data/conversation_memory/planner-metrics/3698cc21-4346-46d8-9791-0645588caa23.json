@@ -1,0 +1,24 @@
+{
+  "record_id": "3698cc21-4346-46d8-9791-0645588caa23",
+  "conversation_id": "",
+  "planner_stage": "shadow",
+  "planner_mode": "llm_shadow",
+  "question": "用一句话介绍SAGE (nonce-122ba6)",
+  "goal": "answer_research_question",
+  "accepted": true,
+  "status": "accepted",
+  "fallback_template": "answer_question",
+  "fallback_reason": null,
+  "validation_errors": [],
+  "planned_steps": [
+    "detect_profile_context",
+    "classify_intent",
+    "retrieve_hybrid_knowledge",
+    "assemble_prompt_context",
+    "answer_with_citations",
+    "score_memory_usefulness",
+    "render_user_response"
+  ],
+  "latency_ms": 6273.217188194394,
+  "created_at": "2026-06-03T09:35:41.334580+00:00"
+}

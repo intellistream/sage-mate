@@ -1,0 +1,25 @@
+{
+  "record_id": "106f2db2-b125-4d25-90de-e14a1c77dbea",
+  "conversation_id": "non-admin-knowledge-injection",
+  "exchange_id": "77c20cd5-1cc6-4c82-9936-981708d6ae9a",
+  "workflow_action": "answer",
+  "question": "加入知识库：标题：不应该写入 内容：这条内容不能由普通用户写入。",
+  "comparison_status": "shadow_disabled",
+  "deterministic_goal": "answer_course_question",
+  "shadow_goal": null,
+  "same_goal": true,
+  "same_fallback_template": true,
+  "deterministic_only_steps": [
+    "detect_profile_context",
+    "classify_intent",
+    "retrieve_hybrid_knowledge",
+    "retrieve_recent_memory",
+    "assemble_prompt_context",
+    "answer_with_citations",
+    "score_memory_usefulness",
+    "render_user_response"
+  ],
+  "shadow_only_steps": [],
+  "summary": "Current LLM client does not implement shadow planner proposals.",
+  "created_at": "2026-06-03T07:28:04.103609+00:00"
+}

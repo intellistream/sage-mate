@@ -1,0 +1,16 @@
+{
+  "record_id": "7ba90c10-716f-4306-add7-72bcb6c5e788",
+  "conversation_id": "conv-review-queue",
+  "planner_stage": "shadow",
+  "planner_mode": "llm_shadow",
+  "question": "能不能破例帮我把截止时间延期一天？",
+  "goal": "answer_course_question",
+  "accepted": false,
+  "status": "shadow_disabled",
+  "fallback_template": "answer_question",
+  "fallback_reason": "Current LLM client does not implement shadow planner proposals.",
+  "validation_errors": [],
+  "planned_steps": [],
+  "latency_ms": 0.002639368176460266,
+  "created_at": "2026-06-03T07:28:26.567642+00:00"
+}

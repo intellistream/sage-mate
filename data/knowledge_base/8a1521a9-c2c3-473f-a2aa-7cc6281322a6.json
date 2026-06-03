@@ -1,0 +1,21 @@
+{
+  "document_id": "8a1521a9-c2c3-473f-a2aa-7cc6281322a6",
+  "title": "荣誉附件正文｜LOA full（第7部分）",
+  "content": "reference table is much lower than acquiring large amount of labelled training datasets. D) Spatial-temporal-aware trend detection feedback.\n\nFinally, we will take the spatial similarity and temporal correlation among input tuples to further enhance our learning model to improve prediction accuracy. Specifically, we plan to evaluate two optimizations: 1) temporal-awareness: opinionated data stream within a closed time period may show an aggregated opinion with high probability. Hence, we compute the opinion trend of a sliding window of tweets and use the trend detection results to adjust the similarity classification calculation, where the window length and slides are tuneable and their effectiveness will be examined in our project; 2) we also examine the spatial similarity among opinionated streams based on a simple rational – the same region of users may express similar opinions for the same events happening around them. We may hence enhance the similarity calculation among users with close localities. Second, A High-Performance System Implementation: A naive single-threaded implementation of the proposed solution would not be able to handle large volume of data streams. In contrast, crafting a parallel implementation of the proposed solution is difficult, especially we need to ensure elastic scalability: scale to more (less) machines when input workloads are higher (lower). As streaming workloads, especially twitter streams usually come with dynamic characteristics, such elasticity is very important to avoid resource overprovisioning. We hence propose to implement our algorithm based on a production-level stream processing engine, Apache Flink. However, the implementation is still non-trivial and can lead to poor performance. A key design aspect is regarding the model management. The high-level idea our proposed model management is illustrated in Figure 3. A-5 RTDS S 21 14 01 1 A) Periodical model merging. Intuitively, the system can maintain a centralized learned word embedding model. When the streaming data are processed in a distributed and parallel way, different processing threads/nodes may access the same learned model for updating the word’s vector representations concurrently. This may lead to the loss of some of the updates and resulting in an incorrect model. On the other hand, if we maintain the model locally at each computing node, the concurrent update problem is eliminated but it raises the problem of divergence among learned models at each computing node. We hence propose to adopt model splitting and merging strategy, shown on the left-hand side of Figure 3. The input data stream is first random partitioned and processed by multiple threads concurrently. Then, our proposed incremental learning models (WP1) captures the vector representation of each word, and the classifying is working at the same time. The models learned at multiple threads will be periodically merged controlled by a timer guided by merging policies to maximize the model utilization. B) LRU-based model pruning. Once a merged model is created, it will be saved to a key-value store such as Redis and to be invoked by threads to reset their current model (WP1).",
+  "tags": [
+    "homepage",
+    "profile",
+    "awards",
+    "achievement",
+    "attachment",
+    "pdf"
+  ],
+  "source_name": "homepage:contents/awards/基金/LOA full.pdf::part-7",
+  "metadata": {
+    "domain": "teaching",
+    "identity": "teacher",
+    "material_type": "pdf",
+    "source_kind": "homepage"
+  },
+  "created_at": "2026-05-28T01:19:22.827750Z"
+}

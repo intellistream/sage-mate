@@ -1,0 +1,14 @@
+{
+  "escalation_id": "686a435b-6156-4d47-8acd-87a671f00a1a",
+  "conversation_id": "c57e518a-75be-49dd-acba-520f5fb4677e",
+  "student_name": "guest",
+  "student_email": null,
+  "course_context": "初次来访",
+  "question": "张老师今年的保研名额招满了吗？",
+  "route": "review_queue",
+  "status": "待处理",
+  "reason": null,
+  "resolution_note": null,
+  "created_at": "2026-05-27T11:10:01.301547+00:00",
+  "resolved_at": null
+}

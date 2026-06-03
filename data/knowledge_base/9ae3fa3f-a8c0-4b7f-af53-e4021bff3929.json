@@ -1,0 +1,23 @@
+{
+  "document_id": "9ae3fa3f-a8c0-4b7f-af53-e4021bff3929",
+  "title": "论文提炼｜In-Cache Query Co-Processing on Coupled CPU-GPU Architectures",
+  "content": "论文名称：In-Cache Query Co-Processing on Coupled CPU-GPU Architectures\n研究主题：大模型推理、检索增强与记忆系统\n发表 venue：VLDB - Proceedings of the VLDB Endowment\n发表年份：2014\n作者：Jiong He, Shuhao Zhang, Bingsheng He\n作者角色：合作作者或共同作者\n一句话总结：Recently, there have been some emerging processor designs that the CPU and the GPU (Graphics Processing Unit) are integrated in a single chip and share Last Level Cache (LLC).\n核心内容：\nRecently, there have been some emerging processor designs that the CPU and the GPU (Graphics Processing Unit) are integrated in a single chip and share Last Level Cache (LLC). However, the main memory bandwidth of such coupled CPU-GPU architectures can be much lower than that of a discrete GPU. As a result, current GPU query co-processing paradigms can severely suffer from memory stalls. In this paper, we propose a novel in-cache query co-processing paradigm for main memory On-Line Analytical Processing (OLAP) databases on coupled CPU-GPU architectures. Specifically, we adapt CPU-assisted prefetching to minimize cache misses in GPU query co-processing and CPU-assisted decompression to improve query execution performance. Furthermore, we develop a cost model guided adaptation mechanism for distributing the workload of prefetching, decompression, and query execution between CPU and GPU. We implement a system prototype and evaluate it on two recent AMD APUs A8 and A10. The experimental results show that 1) in-cache query co-processing can effectively improve the performance of the state-of-the-art GPU co-processing paradigm by up to 30% and 33% on A8 and A10, respectively, and 2) our workload distribution adaption mechanism can significantly improve the query performance by up to 36% and 40% on A8 and A10, respectively.\n适合回答的问题：\n- 这篇论文主要解决什么问题，以及它为什么重要。\n- 这篇论文的核心方法、系统设计或算法思路是什么。\n- 这篇论文与 大模型推理、检索增强与记忆系统 这条研究主线的关系是什么。",
+  "tags": [
+    "homepage",
+    "research",
+    "publication",
+    "paper-digest",
+    "memory",
+    "compression",
+    "graph",
+    "gpu"
+  ],
+  "source_name": "homepage:contents/research_papers/publications_summary.md#4.2 In-Cache Query Co-Processing on Coupled CPU-GPU Architectures",
+  "metadata": {
+    "domain": "research",
+    "identity": "pi",
+    "material_type": "paper-digest",
+    "source_kind": "homepage"
+  },
+  "created_at": "2026-05-28T01:19:22.844248Z"
+}

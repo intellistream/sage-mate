@@ -1,0 +1,16 @@
+{
+  "record_id": "57ddcb6a-1e12-48ea-8758-d6d1eee5d5de",
+  "conversation_id": "6ddfa993-b958-4adb-8336-7b4dddf87e70",
+  "exchange_id": "710e2a34-a3a3-4cf0-9273-cbcbd4180f54",
+  "workflow_action": "ask_follow_up",
+  "question": "张老师27年招生满了吗",
+  "comparison_status": "equivalent",
+  "deterministic_goal": "answer_course_question",
+  "shadow_goal": "answer_course_question",
+  "same_goal": true,
+  "same_fallback_template": true,
+  "deterministic_only_steps": [],
+  "shadow_only_steps": [],
+  "summary": "Shadow planner matched the deterministic plan on goal, fallback, and ordered steps. Execution still follows the deterministic lane.",
+  "created_at": "2026-06-02T12:56:52.134558+00:00"
+}

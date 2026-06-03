@@ -1,0 +1,25 @@
+{
+  "record_id": "355df22e-47d6-42ae-b2f6-881ab04debe3",
+  "conversation_id": "lamp-LaMP-Local-lamp-collaboration-prep",
+  "exchange_id": null,
+  "workflow_action": "advise_only",
+  "question": "下面是一个 LaMP 风格的个性化回答任务。请结合学生画像，直接回答学生当前想请教老师的问题，只返回答案本身，不要解释。\nTask: LaMP-Local\n学生画像：\n- item 1: identity: 外部合作方 | topic: 也在做推理服务\n- item 2: goal: 判断目标是否对齐 | constraint: 暂时还没完全收敛需求\n学生当前想请教老师的问题：如果我想先和老师讨论有没有合作空间，最应该先准备哪几类信息？",
+  "comparison_status": "shadow_disabled",
+  "deterministic_goal": "prepare_booking_agenda",
+  "shadow_goal": null,
+  "same_goal": true,
+  "same_fallback_template": true,
+  "deterministic_only_steps": [
+    "detect_profile_context",
+    "classify_intent",
+    "retrieve_hybrid_knowledge",
+    "retrieve_recent_memory",
+    "assemble_prompt_context",
+    "answer_with_citations",
+    "score_memory_usefulness",
+    "render_user_response"
+  ],
+  "shadow_only_steps": [],
+  "summary": "Benchmark evaluation request skips shadow planner to keep latency and scoring focused on the main execution lane.",
+  "created_at": "2026-06-03T08:20:07.972281+00:00"
+}

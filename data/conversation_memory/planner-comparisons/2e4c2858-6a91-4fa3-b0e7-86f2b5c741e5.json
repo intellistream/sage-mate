@@ -1,0 +1,16 @@
+{
+  "record_id": "2e4c2858-6a91-4fa3-b0e7-86f2b5c741e5",
+  "conversation_id": "3bb1a1f9-a3e1-4459-b343-713eea524ca9",
+  "exchange_id": "e012192d-afb7-4bea-b2e4-e47218e777b7",
+  "workflow_action": "answer",
+  "question": "用一句话介绍SAGE系统",
+  "comparison_status": "equivalent",
+  "deterministic_goal": "answer_research_question",
+  "shadow_goal": "answer_research_question",
+  "same_goal": true,
+  "same_fallback_template": true,
+  "deterministic_only_steps": [],
+  "shadow_only_steps": [],
+  "summary": "Shadow planner matched the deterministic plan on goal, fallback, and ordered steps. Execution still follows the deterministic lane.",
+  "created_at": "2026-06-03T09:16:25.406736+00:00"
+}

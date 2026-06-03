@@ -1,0 +1,27 @@
+{
+  "record_id": "ec8c7600-fd40-4eea-a870-d6dabbbcd38d",
+  "conversation_id": "conv-artifact-preview",
+  "exchange_id": "f2819493-97a6-482b-a363-30c32cee8573",
+  "workflow_action": "advise_only",
+  "question": "我上传了 proposal draft，想继续讨论里面的实验计划和 agenda。",
+  "comparison_status": "shadow_disabled",
+  "deterministic_goal": "answer_research_artifact_question",
+  "shadow_goal": null,
+  "same_goal": true,
+  "same_fallback_template": true,
+  "deterministic_only_steps": [
+    "detect_profile_context",
+    "classify_intent",
+    "retrieve_hybrid_knowledge",
+    "retrieve_recent_memory",
+    "retrieve_artifact_memory",
+    "retrieve_profile_memory",
+    "assemble_prompt_context",
+    "answer_with_citations",
+    "score_memory_usefulness",
+    "render_user_response"
+  ],
+  "shadow_only_steps": [],
+  "summary": "Current LLM client does not implement shadow planner proposals.",
+  "created_at": "2026-06-03T09:00:11.457775+00:00"
+}

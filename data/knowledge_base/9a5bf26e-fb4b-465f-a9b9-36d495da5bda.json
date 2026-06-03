@@ -1,0 +1,31 @@
+{
+  "document_id": "9a5bf26e-fb4b-465f-a9b9-36d495da5bda",
+  "title": "课件正文｜研究生论文写作课程材料｜第 5 讲 多维视角看论文写作（第2部分）",
+  "content": "present a novel architecture that we believe is flexible and powerful.\n\nOur system is evaluated on internal datasets and performs well in most cases, although some additional testing may be needed. Due to space limits, implementation details are omitted. 1 过度使用主观词汇 2 评估结论模糊 3 数据不可复现 4 缺失对比基线 5 忽略伦理影响 张书豪 (华中科技大学) 研究生论文写作课程第五讲：多维视角看论文写作 二〇二六年五月 18 / 59 练习二：摘要片段诊断答案 A A. 过度使用主观词汇 问题类型：措辞问题 / 科学性不足 为什么危险：believe、powerful、flexible 都是主观判断词，没有可量化指标支撑。 审稿人第一反应通常是：谁认为它强？ 证据在哪里？ 怎么改：用任务、场景和结果替代情绪化赞美，例如直接写评估设置与具体收益。 张书豪 (华中科技大学) 研究生论文写作课程第五讲：多维视角看论文写作 二〇二六年五月 19 / 59 练习二：摘要片段诊断答案 B B. 评估结论模糊 问题类型：实验可信度 / 指标不透明 为什么危险：performs well in most cases 看起来像结论，实际上几乎没有信息量。 追问方式：什么叫 well？ 什么叫 most cases？ 没有指标就没法判断可信度。 怎么改：至少给出改进幅度、对照对象或适用条件，而不是只给抽象好评。 张书豪 (华中科技大学) 研究生论文写作课程第五讲：多维视角看论文写作 二〇二六年五月 20 / 59 练习二：摘要片段诊断答案 C C. 不可复现的数据集 问题类型：复现性危机 / 数据不开放 为什么危险：internal datasets 会立刻触发复现性担忧，因为外部研究者无法直接重复 实验。 如果数据确实不能公开，至少要说明数据特征、限制条件和可替代验证方式。 否则读者很难判断结论是否具有可迁移性和普适性。 张书豪 (华中科技大学) 研究生论文写作课程第五讲：多维视角看论文写作 二〇二六年五月 21 / 59 练习二：摘要片段诊断答案 D D. 缺失 baseline 对比 问题类型：方法定位不清 / 无贡献对照 为什么危险：只说系统很好，但没有说明比谁好、在哪些指标上更好，贡献定位就站 不住。 好论文通常都会明确写出：相比 X，我们在 Y 上更优或更通用。 没有对照对象时，所谓 improvement 往往只是作者自己的自我评价。 张书豪 (华中科技大学) 研究生论文写作课程第五讲：多维视角看论文写作 二〇二六年五月 22 / 59 练习二：摘要片段诊断答案 E E. 忽略伦理影响不是本题重点 问题类型：干扰项 / 评论失焦 为什么不是答案：这段话没有涉及人群、敏感数据或潜在滥用场景，因此伦理批评在 这里会失焦。 审稿意见要抓主要矛盾，而不是把所有可能的模板化批评都套上去。 这道题真正要训练的是：区分“可信度问题”和“不相关批评”。 张书豪 (华中科技大学) 研究生论文写作课程第五讲：多维视角看论文写作 二〇二六年五月 23 / 59 视角四：研究者视角，核心是控制变量 研究者关心的是：问题定义是否清楚、变量是否可控、结论是否可验证。 只做很多实验不够，必须让读者看到你到底在验证什么。 实验写作的说服力来自“操作变量”和“干扰因子”被明确区分。 张书豪 (华中科技大学) 研究生论文写作课程第五讲：多维视角看论文写作 二〇二六年五月 24 / 59 视角四：研究者视角为什么是实验写作核心 很多论文的问题不是“没做实验”，而是实验不能支撑它声称的结论。 变量边界一旦模糊，读者就会产生过多替代解释，导致说服力迅速下降。 研究者视角训练的是：把问题、变量、操作和证据链一一对齐。 写作要求 越是在实验部分，越不能写成流水账，而要写成“我在验证什么”的论证文本。 张书豪 (华中科技大学) 研究生论文写作课程第五讲：多维视角看论文写作 二〇二六年五月 25 / 59 视角四：研究者视角正反例 正例 To isolate the impact of batching frequency, we fix the window size to 5s and disable all compression mechanisms. 反例 We tested the system with different settings and observed performance improvements. 正例主动控制干扰因素，说明了要验证什么。 反例只说结果变好，却没说明哪个变量导致了变化。 张书豪 (华中科技大学) 研究生论文写作课程第五讲：多维视角看论文写作 二〇二六年五月 26 / 59 视角五：未来研究者视角，是否可拓展 好的结尾不会把话题封死，而会说明适用场景、失败边界和后续方向。 最差的“后续工作”写法，是无对象、无任务、无挑战的空话。 常见错误 No future work is foreseen. / We hope future researchers continue exploring this topic. 张书豪 (华中科技大学) 研究生论文写作课程第五讲：多维视角看论文写作 二〇二六年五月 27 / 59 视角五：未来研究者视角的真正作用 好的结尾不是收口式结束语，而是给后续研究留下可进入的接口。 作者需要主动回答：适用于什么场景、会在哪些边界失败、别人还能从哪里继续做。 如果“后续工作”只是“欢迎继续研究”，那本质上等于什么都没说。 关键认识 好的结论不是终点，而是一个能被后续研究者看见并接住的延伸入口。 张书豪 (华中科技大学) 研究生论文写作课程第五讲：多维视角看论文写作 二〇二六年五月 28 / 59 视角五：未来研究者视角正反例 正例 Our model assumes stationary event rates. Future work may explore rate-adaptive schemes or apply our method in multi-tenant scenarios. 反例 Our method is complete and does not require further extension. 正例说明了当前假设和可以推进的方向。 反例试图封死讨论空间，往往会让读者怀疑作者的深度判断。 张书豪 (华中科技大学) 研究生论文写作课程第五讲：多维视角看论文写作 二〇二六年五月 29 / 59 练练看 开放性与未来扩展 练习三：开放性与未来扩展 请判断下面哪一句最适合作为论文结尾中的“后续工作”表达。 1 The method works well; we do not foresee any immediate improvements. 2 An interesting direction is to remove the assumption of IID inputs. 3 Future work may include applying this system in real-time bidding scenarios. 4 We hope future researchers will continue exploring this general topic.",
+  "tags": [
+    "homepage",
+    "teaching",
+    "courseware",
+    "pdf",
+    "material:pdf",
+    "identity:teacher",
+    "domain:teaching",
+    "audience:graduate",
+    "course:paper-writing",
+    "material:lecture",
+    "lecture:5",
+    "lecture"
+  ],
+  "source_name": "homepage:contents/teaching/graduate-paper-writing-course.md#公开课件::contents/teaching/graduate-paper-writing-course/2026/lecture-5-beamer.pdf::part-2",
+  "metadata": {
+    "material_type": "lecture",
+    "identity": "teacher",
+    "domain": "teaching",
+    "audience": "graduate",
+    "course_id": "paper-writing",
+    "ordinal_type": "lecture",
+    "ordinal": "5",
+    "source_kind": "homepage"
+  },
+  "created_at": "2026-05-28T01:19:22.829982Z"
+}

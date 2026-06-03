@@ -1,0 +1,14 @@
+{
+  "document_id": "79e80f3c-22f8-4d43-9118-2d5c675ddca3",
+  "title": "论文提炼｜FusionFlow: Enabling Deep Structural Exploration for Automated Agentic Workflow Generation",
+  "content": "论文名称：FusionFlow: Enabling Deep Structural Exploration for Automated Agentic Workflow Generation\n研究主题：大模型推理、检索增强与记忆系统\n发表 venue：ACL - Annual Meeting of the Association for Computational Linguistics (Main Conference)\n发表年份：2026\n作者：Xiang Wang, Zongtao Yang, Zhuojian Hong, Shuhao Zhang, Wei Wei\n作者角色：Accepted collaborative paper; the public abstract/PDF has not yet been added to this repository.\n一句话总结：This collaborative paper focuses on automated agentic workflow generation through deep structural exploration.\n核心内容：\nThis collaborative paper focuses on automated agentic workflow generation through deep structural exploration.\n适合回答的问题：\n- 这篇论文主要解决什么问题，以及它为什么重要。\n- 这篇论文的核心方法、系统设计或算法思路是什么。\n- 这篇论文与 大模型推理、检索增强与记忆系统 这条研究主线的关系是什么。",
+  "tags": [
+    "homepage",
+    "research",
+    "publication",
+    "paper-digest",
+    "ann"
+  ],
+  "source_name": "homepage:contents/research_papers/publications_summary.md#0.9 FusionFlow: Enabling Deep Structural Exploration for Automated Agentic Workflow Generation",
+  "created_at": "2026-05-25T13:37:18.183485Z"
+}

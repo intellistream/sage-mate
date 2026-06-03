@@ -1,0 +1,21 @@
+{
+  "document_id": "bbdd2d6c-b724-4e74-87a5-54e0af3c6f6d",
+  "title": "荣誉附件正文｜LOA Combine（第6部分）",
+  "content": "they still require labelled datasets during model fine-tuning, which is inapplicable to our targeting problem context.\n\nMoreover, most works emphasize on data selection for better addressing catastrophic forgetting issues, while little work has paid attention to training efficiency, which becomes crucial considering practical computation and storage constraints. None of them consider addressing training efficiency and anti-forgetting issues together. Several prior works (Li, Shen, and Chen 2022) have successfully applied coreset selection in learning over streams with low training costs. However, we observe that existing coreset selection approaches are stateless based on a mini- batch scheme overlooking important information across continuous data streams. • Competitors/people working in similar areas that the applicant is aware of. Paper title Year Author Conferences Country Work topic Lifelong Pretraining: 2022 NAACL USA Continuous pre-training in multiple areas Xisen Jin Continually Adapting through knowledge distillation Language Models to Emerging Corpora Continual Model 2022 ACL USA fix the prediction errors in out-of- Bill Yuchen Lin Refinement in Out-of- distribution data streams while Distribution Data overcoming catastrophic forgetting Streams Camel: Managing 2022 Yiming Li SIGMOD HK Continuous fine-tuning in stream Data for Efficient environments based on coreset and buffer Stream Learning ELLE: Efficient 2022 ACL CN Continuous pre-training in multiple Yujia Qin, Jiajie Lifelong Pre-training domains through domain prompt Zhang for Emerging Data Online Coreset 2022 ICLR Korea store a subset of the training examples Jaehong Yoon Selection for (coreset) to be replayed later to alleviate Rehearsal-based catastrophic forgetting Continual Learning Looking Back on 2022 ICLR Lran Solving catastrophic through model Mozhgan Learned Experiences memory replay PourKeshavarz For Class/task Incremental Learning Don't Stop Pretraining: 2020 ACL Domain pre-training for model impact Suchin USA Adapt Language Gururangan Models to Domains and Tasks Mind the Gap: 2021 NeurIPS Release dynamic, streaming language Angeliki UK Assessing Temporal modelling benchmarks Lazaridou Generalization in ,Adhiguna Neural Language Kuncoro , Elena Models Gribovskaya A-5 RTDS S 22 14 05 1 ANNEX B PROJECT BUDGET SUMMARY OF PROJECT BUDGET Item Cost Manpower: 1 Visiting Research Assistant 20,000 Equipment/ Facilities: 15,000 Other Operating Expenditure: 57,000 Overseas Conference Travel 8,000 Total (exclusive of GST) 100,000 Notes: 1. The prices stated are exclusive of Good and Services Tax (GST). B-1 RTDS S 22 14 05 1 ANNEX C IMPLEMENTATION TIME SCHEDULE AND DELIVERABLES Milestones and Deliverables: Deliverable No Description of Deliverables Date of Deliverable 6 Months Implementing the overall framework architecture. T0 + 6 Months Implementing one or two of the stateful coreset selection mechanisms. 1 Year Implementing all three stateful coreset selection T0 +12 Months mechanisms. Verify the effectiveness of our framework by using real workloads and representative PLMs. Note : T0 is the Effective date of the contract Note: 1. T0 is the Effective Date of the Contract. 2.",
+  "tags": [
+    "homepage",
+    "profile",
+    "awards",
+    "achievement",
+    "attachment",
+    "pdf"
+  ],
+  "source_name": "homepage:contents/awards/基金/LOA Combine.pdf::part-6",
+  "metadata": {
+    "domain": "teaching",
+    "identity": "teacher",
+    "material_type": "pdf",
+    "source_kind": "homepage"
+  },
+  "created_at": "2026-05-28T01:19:22.825489Z"
+}

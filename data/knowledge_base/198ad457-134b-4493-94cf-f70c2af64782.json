@@ -1,0 +1,25 @@
+{
+  "document_id": "198ad457-134b-4493-94cf-f70c2af64782",
+  "title": "课程资料｜大模型推理基础设施课程材料",
+  "content": "大模型推理基础设施课程材料\n\n这里汇总《大模型推理基础设施》课程 2026 年公开版 PDF。\n\n共 34 份：讲义与导论 handout 15 份，tutorial 13 份，实验单与课程项目说明 6 份。\n\n材料按三类组织：\n\n- slides/：课堂讲义与导论 handout\n- tutorials/：逐讲 tutorial 题单\n- experiments/：实验单与课程项目实验说明",
+  "tags": [
+    "homepage",
+    "teaching",
+    "courseware",
+    "identity:teacher",
+    "domain:teaching",
+    "audience:graduate",
+    "course:llm-inference",
+    "material:course-overview"
+  ],
+  "source_name": "homepage:contents/teaching/intro-to-llm-inference-engines.md#大模型推理基础设施课程材料",
+  "metadata": {
+    "identity": "teacher",
+    "domain": "teaching",
+    "audience": "graduate",
+    "course_id": "llm-inference",
+    "material_type": "course-overview",
+    "source_kind": "homepage"
+  },
+  "created_at": "2026-05-28T01:19:22.831669Z"
+}

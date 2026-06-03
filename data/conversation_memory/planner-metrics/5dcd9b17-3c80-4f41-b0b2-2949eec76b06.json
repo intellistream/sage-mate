@@ -1,0 +1,25 @@
+{
+  "record_id": "5dcd9b17-3c80-4f41-b0b2-2949eec76b06",
+  "conversation_id": "7afec579-e5af-4b69-802e-a8382085ae1a",
+  "planner_stage": "shadow",
+  "planner_mode": "llm_shadow",
+  "question": "我刚问的是啥问题来着？",
+  "goal": "answer_course_question",
+  "accepted": true,
+  "status": "accepted",
+  "fallback_template": "answer_question",
+  "fallback_reason": null,
+  "validation_errors": [],
+  "planned_steps": [
+    "detect_profile_context",
+    "classify_intent",
+    "retrieve_hybrid_knowledge",
+    "retrieve_recent_memory",
+    "assemble_prompt_context",
+    "answer_with_citations",
+    "score_memory_usefulness",
+    "render_user_response"
+  ],
+  "latency_ms": 9527.695695869625,
+  "created_at": "2026-06-01T05:32:53.715750+00:00"
+}

@@ -1,0 +1,15 @@
+{
+  "document_id": "7f3c83d3-6027-43f1-a52a-8113ec730f7c",
+  "title": "论文提炼｜MOStream: A Modular and Self-Optimizing Data Stream Clustering Algorithm",
+  "content": "论文名称：MOStream: A Modular and Self-Optimizing Data Stream Clustering Algorithm\n研究主题：流处理系统、共享状态与运行时调度\n发表 venue：ICDM - International Conference on Data Mining\n发表年份：2024\n作者：Zhengru Wang, Xin Wang, Shuhao Zhang\n作者角色：你是通讯作者\n一句话总结：Data stream clustering is a critical operation in various real-world applications, ranging from the Internet of Things (IoT) to social media and financial systems.\n核心内容：\nData stream clustering is a critical operation in various real-world applications, ranging from the Internet of Things (IoT) to social media and financial systems. Existing data stream clustering algorithms often lack the flexibility and self-optimization capabilities needed to adapt to diverse workload characteristics such as outlier, cluster evolution and changing dimensions in data points. These limitations manifest in suboptimal clustering accuracy and computational inefficiency. In this paper, we introduce MOStream, a modular and self-optimizing data stream clustering algorithm to dynamically balance clustering accuracy and computational efficiency at runtime. MOStream distinguishes itself by its adaptivity, clearly demarcating four pivotal design dimensions: the summarizing data structure, the window model for handling data temporality, the outlier detection mechanism, and the refinement strategy for improving cluster quality. This clear separation facilitates flexible adaptation to varying design choices and enhances its adaptability to a wide array of application contexts. We conduct a rigorous performance evaluation of MOStream, employing diverse configurations and benchmarking it against 9 representative data stream clustering algorithms on 4 real-world datasets and 3 synthetic datasets. Our empirical results demonstrate that MOStream consistently surpasses competing algorithms in terms of clustering accuracy, processing throughput, and adaptability to varying data stream characteristics.\n适合回答的问题：\n- 这篇论文主要解决什么问题，以及它为什么重要。\n- 这篇论文的核心方法、系统设计或算法思路是什么。\n- 这篇论文与 流处理系统、共享状态与运行时调度 这条研究主线的关系是什么。",
+  "tags": [
+    "homepage",
+    "research",
+    "publication",
+    "paper-digest",
+    "stream-processing",
+    "clustering"
+  ],
+  "source_name": "homepage:contents/research_papers/publications_summary.md#2.4 MOStream: A Modular and Self-Optimizing Data Stream Clustering Algorithm",
+  "created_at": "2026-05-25T13:37:18.185338Z"
+}

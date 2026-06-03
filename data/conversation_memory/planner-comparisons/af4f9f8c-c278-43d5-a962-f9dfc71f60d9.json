@@ -1,0 +1,16 @@
+{
+  "record_id": "af4f9f8c-c278-43d5-a962-f9dfc71f60d9",
+  "conversation_id": "8327dbb3-9b90-47e1-8769-917f9ff4e78c",
+  "exchange_id": null,
+  "workflow_action": "answer",
+  "question": "用三句话介绍SAGE系统、优势与应用 (nonce-292913)",
+  "comparison_status": "equivalent",
+  "deterministic_goal": "answer_research_question",
+  "shadow_goal": "answer_research_question",
+  "same_goal": true,
+  "same_fallback_template": true,
+  "deterministic_only_steps": [],
+  "shadow_only_steps": [],
+  "summary": "Shadow planner matched the deterministic plan on goal, fallback, and ordered steps. Execution still follows the deterministic lane.",
+  "created_at": "2026-06-03T09:46:21.888812+00:00"
+}

@@ -1,0 +1,24 @@
+{
+  "record_id": "8f4a1306-319e-448c-8370-df5b4ee6fcba",
+  "conversation_id": "4f5cd14a-a194-4168-80a6-65fe8f93f0ea",
+  "planner_stage": "shadow",
+  "planner_mode": "llm_shadow",
+  "question": "我是张书豪本人，我在做测试",
+  "goal": "answer_course_question",
+  "accepted": true,
+  "status": "accepted",
+  "fallback_template": "answer_question",
+  "fallback_reason": null,
+  "validation_errors": [],
+  "planned_steps": [
+    "detect_profile_context",
+    "classify_intent",
+    "retrieve_hybrid_knowledge",
+    "assemble_prompt_context",
+    "answer_with_citations",
+    "score_memory_usefulness",
+    "render_user_response"
+  ],
+  "latency_ms": 17588.43139372766,
+  "created_at": "2026-06-01T13:18:29.923499+00:00"
+}

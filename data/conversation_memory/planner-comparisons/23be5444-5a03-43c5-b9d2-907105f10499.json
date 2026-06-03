@@ -1,0 +1,25 @@
+{
+  "record_id": "23be5444-5a03-43c5-b9d2-907105f10499",
+  "conversation_id": "charactereval-memory-isolation",
+  "exchange_id": null,
+  "workflow_action": "advise_only",
+  "question": "你正在参与一个 CharacterEval 风格的多轮角色一致性评测。请只输出目标角色的下一句回复。",
+  "comparison_status": "shadow_disabled",
+  "deterministic_goal": "answer_course_question",
+  "shadow_goal": null,
+  "same_goal": true,
+  "same_fallback_template": true,
+  "deterministic_only_steps": [
+    "detect_profile_context",
+    "classify_intent",
+    "retrieve_hybrid_knowledge",
+    "retrieve_recent_memory",
+    "assemble_prompt_context",
+    "answer_with_citations",
+    "score_memory_usefulness",
+    "render_user_response"
+  ],
+  "shadow_only_steps": [],
+  "summary": "Benchmark evaluation request skips shadow planner to keep latency and scoring focused on the main execution lane.",
+  "created_at": "2026-06-02T15:51:27.311802+00:00"
+}

@@ -1,0 +1,18 @@
+{
+  "document_id": "f9fcaf3b-f40f-4d2b-848b-3135488a875e",
+  "title": "论文页面｜文档（第5部分）",
+  "content": "data streams,” TKDE’03.\n\n[23] H. Miao and et al., “Streambox: Modern stream processing on a\n\nmulticore machine,” in USENIX ATC’17.\n\n[24] B. Chandramouli and et al., “Trill: A high-performance incremental\nquery processor for diverse analytics,” Proc. VLDB Endow. 2014.\n\n[25] Cyclicbarrier.\n\nhttps://docs.oracle.com/javase/7/docs/api/java/util/\n\nconcurrent/CyclicBarrier.html.\n\n[26] W. Pugh, “Skip lists: A probabilistic alternative to balanced trees,” in\n\nWorkshop on Algorithms and Data Structures, 1989.\n\n[27] D. Porobic and et al., “Oltp on hardware islands,” Proc. of the VLDB\n\nEndow. 2012.\n\n[28] D. Porobic and et al., “Atrapos: Adaptive transaction processing on\n\nhardware islands,” in ICDE’14.\n\n[29] R. D. Blumofe and C. E. Leiserson, “Scheduling multithreaded\n\ncomputations by work stealing,” J. ACM, 1999.\n\n[30] Y. Wu and et al., “Transaction healing: Scaling optimistic concurrency\n\ncontrol on multicores,” in SIGMOD ’16.\n\n[31] M. Hirzel and et al., “A catalog of stream processing optimizations,”\n\nACM Comput. Surv. 2014.\n\n[32] S. Zeuch and et al., “Analyzing efﬁcient stream processing on modern\n\nhardware,” Proc. VLDB Endow. 2019.\n\n[33] J. Gray, Benchmark Handbook: For Database and Transaction\nSan Francisco, CA, USA: Morgan Kaufmann\n\nProcessing Systems.\nPublishers Inc., 1992.\n\n[34] “Data Artisans Streaming Ledger Serializable ACID Transactions on\nStreaming Data, https://www.da-platform.com/streaming-ledger,” 2018.\n[35] J. Tan and M. Zhong, “An online bidding system (obs) under price\nmatch mechanism for commercial procurement,” Applied Mechanics and\nMaterials, 2014.\n\n[36] (2018) Intel memory latency checker, https://software.intel.com/articles/\n\nintelr-memory-latency-checker.\n\n[37] N. D. E. Jerger and et al., “Friendly ﬁre: understanding the effects of\n\nmultiprocessor prefetches,” in ISPASS’06.\n\n[38] T. Das and et al., “Adaptive stream processing using dynamic batch\n\nsizing,” in SOCC ’14.\n\n[39] A. Thomson and D. J. Abadi, “The case for determinism in database\n\nsystems,” Proc. VLDB Endow. 2010.\n\n[40] A. Kemper and T. Neumann, “Hyper: A hybrid oltp olap main memory\ndatabase system based on virtual memory snapshots,” in ICDE’11.\n[41] M. Stonebraker and et al., “The end of an architectural era: (it’s time\n\nfor a complete rewrite),” in VLDB ’07.\n\n[42] U. Cetintemel and et al., “S-store: A streaming newsql system for big\n\nvelocity applications,” Proc. VLDB Endow. 2014.\n\n[43] A. J. Bernstein and et al., “Concurrency control for step-decomposed\n\ntransactions,” Inf. Syst. 1999.\n\n[44] Y. Wu and et al., “Fast failure recovery for main-memory dbmss on\n\nmulticores,” in SIGMOD ’17.\n\n[45] D. Shasha and et al., “Transaction chopping: Algorithms and\n\nperformance studies,” ACM Trans. Database Syst. 1995.\n\n[46] N. Narula and et al., “Phase reconciliation for contended in-memory\n\ntransactions,” in OSDI’14.\n\n[47] J. M. Faleiro and et al., “Lazy evaluation of transactions in database\n\nsystems,” in SIGMOD ’14.\n\n[48] A. Koliousis and et al., “Saber: Window-based hybrid stream processing\n\nfor heterogeneous architectures,” in SIGMOD ’16.\n\n[49] S. Zhang and et al., “Hardware-conscious stream processing: A survey,”\n\nSIGMOD Rec., 2019.",
+  "tags": [
+    "homepage",
+    "research",
+    "publication",
+    "paper-page"
+  ],
+  "source_name": "homepage:contents/research_papers/2020/2020_tstream.md#文档::part-5",
+  "metadata": {
+    "domain": "research",
+    "identity": "pi",
+    "source_kind": "homepage"
+  },
+  "created_at": "2026-05-28T01:19:22.862831Z"
+}

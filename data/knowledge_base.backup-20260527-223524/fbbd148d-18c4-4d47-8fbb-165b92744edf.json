@@ -1,0 +1,16 @@
+{
+  "document_id": "fbbd148d-18c4-4d47-8fbb-165b92744edf",
+  "title": "论文提炼｜Data-Aware Adaptive Compression for Stream Processing",
+  "content": "论文名称：Data-Aware Adaptive Compression for Stream Processing\n研究主题：大模型推理、检索增强与记忆系统\n发表 venue：TKDE - IEEE Transactions on Knowledge and Data Engineering\n发表年份：2025\n作者：Yu Zhang, Feng Zhang, Hourun Li, Shuhao Zhang, Xiaoguang Guo, Yuxing Chen, Anqun Pan, Xiaoyong Du\n作者角色：合作作者或共同作者\n一句话总结：This work extends the compressed stream processing line by designing a compression-based stream engine that performs adaptive fine-grained query processing directly on compressed data.\n核心内容：\nThis work extends the compressed stream processing line by designing a compression-based stream engine that performs adaptive fine-grained query processing directly on compressed data. The system integrates nine compression methods and a cost model for automatic compression-scheme selection, enabling significantly higher throughput and lower latency than uncompressed stream processing baselines. Compared with prior stream solutions on uncompressed inputs, the framework improves average performance by 3.84×, reduces delay by 68.0%, and saves 68.7% space. Edge trials further show substantial throughput-price and throughput-power gains over cloud-oriented designs.\n适合回答的问题：\n- 这篇论文主要解决什么问题，以及它为什么重要。\n- 这篇论文的核心方法、系统设计或算法思路是什么。\n- 这篇论文与 大模型推理、检索增强与记忆系统 这条研究主线的关系是什么。",
+  "tags": [
+    "homepage",
+    "research",
+    "publication",
+    "paper-digest",
+    "rag",
+    "stream-processing",
+    "compression"
+  ],
+  "source_name": "homepage:contents/research_papers/publications_summary.md#0.5 Data-Aware Adaptive Compression for Stream Processing",
+  "created_at": "2026-05-25T13:37:18.182958Z"
+}

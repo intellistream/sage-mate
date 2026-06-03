@@ -1,0 +1,25 @@
+{
+  "record_id": "76c30446-09b3-475d-94ba-4c53491cb3dd",
+  "conversation_id": "conv-inline-task2",
+  "planner_stage": "deterministic",
+  "planner_mode": "deterministic",
+  "question": "给我一些下一步建议。",
+  "goal": "answer_course_question",
+  "accepted": true,
+  "status": "accepted",
+  "fallback_template": "answer_question",
+  "fallback_reason": null,
+  "validation_errors": [],
+  "planned_steps": [
+    "detect_profile_context",
+    "classify_intent",
+    "retrieve_hybrid_knowledge",
+    "retrieve_recent_memory",
+    "assemble_prompt_context",
+    "answer_with_citations",
+    "score_memory_usefulness",
+    "render_user_response"
+  ],
+  "latency_ms": 0.303405337035656,
+  "created_at": "2026-06-03T09:00:17.916196+00:00"
+}

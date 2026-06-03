@@ -1,0 +1,31 @@
+{
+  "document_id": "32ec8404-7e40-462c-ad69-5e1b1f38a125",
+  "title": "课件正文｜大模型推理基础设施课程材料｜第 11 讲 实验方法与验证（第2部分）",
+  "content": "码片段 records = load jsonl(\"run. log\") p99 = percentile([r[\"latency ms\"] for r in records], 99) goodput = sum(r[\"ok\"] for r in records) / total time 代码例子：最小日志汇总脚本（2） 核心结论 实验课需要让学生看到，图表往往来自对原始日志的二次组织。 课堂应追问 如果日志字段设计不对，后面哪些指标将根本算不出来？ 代码例子：最小日志汇总脚本（3） 核心结论 实验课需要让学生看到，图表往往来自对原始日志的二次组织。 课程结论 可验证性不只发生在论文写作阶段，而是从日志字段设计就已经开始了。 例子：消融实验最容易做假的地方（1） 核心结论 消融的真正任务是隔离变量，而不是制造更多子图。 伪消融一 一次改了多个控制点，却只关掉其中一个开关就说完成了消融。\n\n例子：消融实验最容易做假的地方（2） 核心结论 消融的真正任务是隔离变量，而不是制造更多子图。 伪消融二 workload 或参数同时变化，导致数字变化无法归因。 例子：消融实验最容易做假的地方（3） 核心结论 消融的真正任务是隔离变量，而不是制造更多子图。 课程要求 每一项消融都要明确写出“被隔离的变量”和“预期影响的指标”。 课堂练习：写一页可信实验卡片（1） 核心结论 实验方法训练最好用一页纸完成：问题、对照、指标、失败条件。 练习一 写出你的 workload 定义，至少包含输入长度分布、输出长度分布和到达模式。 课堂练习：写一页可信实验卡片（2） 核心结论 实验方法训练最好用一页纸完成：问题、对照、指标、失败条件。 练习二 写出一个主指标和两个辅助探针，并说明三者的因果关系假设。 课堂练习：写一页可信实验卡片（3） 核心结论 实验方法训练最好用一页纸完成：问题、对照、指标、失败条件。 练习三 用一句话写出：什么结果出现时，你会承认当前机制没有兑现预期收益？ 课堂讨论 核心结论 实验的目标在于判断系统假设是否成立，而非单纯证明预设观点。 ▶ 为什么单次最好结果价值很低？ ▶ 什么时候局部探针最能帮助解释端到端现象？ ▶ 哪些结果一旦出现，就说明当前机制假设应该被放弃？ 本讲总结 核心结论 缺乏规范实验设计时，机制难以转化为可信的系统结论。 ▶ 验证方法本身就是研究贡献的一部分。 ▶ 下一讲将把这些方法落到真实代码与复现实验上。 对应 Tutorial 核心结论 本讲对应 Tutorial 10。 先独立作答，再对照下一页参考答案。 ▶ 文件：build/tutorials/Tutorial 10 实验方法与验证. pdf ▶ 动手运行、日志记录与提交要求统一查看 build/experiments/ 和对应 experiment 源目录下的 assignment spring-2026/。",
+  "tags": [
+    "homepage",
+    "teaching",
+    "courseware",
+    "pdf",
+    "material:pdf",
+    "identity:teacher",
+    "domain:teaching",
+    "audience:graduate",
+    "course:llm-inference",
+    "material:lecture",
+    "lecture:11",
+    "lecture"
+  ],
+  "source_name": "homepage:contents/teaching/intro-to-llm-inference-engines.md#讲义与导论::contents/teaching/intro-to-llm-inference-engines/2026/slides/lectures/大模型推理基础设施_第11讲_实验方法与验证.pdf::part-2",
+  "metadata": {
+    "material_type": "lecture",
+    "identity": "teacher",
+    "domain": "teaching",
+    "audience": "graduate",
+    "course_id": "llm-inference",
+    "ordinal_type": "lecture",
+    "ordinal": "11",
+    "source_kind": "homepage"
+  },
+  "created_at": "2026-05-28T01:19:22.834694Z"
+}

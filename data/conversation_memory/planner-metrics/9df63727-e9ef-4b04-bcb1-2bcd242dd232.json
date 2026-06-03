@@ -1,0 +1,24 @@
+{
+  "record_id": "9df63727-e9ef-4b04-bcb1-2bcd242dd232",
+  "conversation_id": "",
+  "planner_stage": "deterministic",
+  "planner_mode": "deterministic",
+  "question": "和老师约时间前，我应该先准备什么？",
+  "goal": "prepare_booking_agenda",
+  "accepted": true,
+  "status": "accepted",
+  "fallback_template": "advise_only",
+  "fallback_reason": null,
+  "validation_errors": [],
+  "planned_steps": [
+    "detect_profile_context",
+    "classify_intent",
+    "retrieve_hybrid_knowledge",
+    "assemble_prompt_context",
+    "answer_with_citations",
+    "score_memory_usefulness",
+    "render_user_response"
+  ],
+  "latency_ms": 0.25004055351018906,
+  "created_at": "2026-06-02T15:30:50.325494+00:00"
+}

@@ -1,0 +1,25 @@
+{
+  "record_id": "5eb57091-f36b-4c2f-ad4d-3d78fdb3cf30",
+  "conversation_id": "memory-followup-recent-topic-followup",
+  "exchange_id": "68144453-f28a-45a0-9e87-eba4491b758d",
+  "workflow_action": "advise_only",
+  "question": "我最近在纠结大模型推理引擎和推理服务系统之间该先收窄哪个方向。",
+  "comparison_status": "shadow_disabled",
+  "deterministic_goal": "answer_research_question",
+  "shadow_goal": null,
+  "same_goal": true,
+  "same_fallback_template": true,
+  "deterministic_only_steps": [
+    "detect_profile_context",
+    "classify_intent",
+    "retrieve_hybrid_knowledge",
+    "retrieve_profile_memory",
+    "assemble_prompt_context",
+    "answer_with_citations",
+    "score_memory_usefulness",
+    "render_user_response"
+  ],
+  "shadow_only_steps": [],
+  "summary": "Current LLM client does not implement shadow planner proposals.",
+  "created_at": "2026-05-31T13:35:52.773387+00:00"
+}

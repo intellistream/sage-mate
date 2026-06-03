@@ -1,0 +1,25 @@
+{
+  "record_id": "b82ae339-522b-470b-9c00-7e4d245d9f44",
+  "conversation_id": "conv-admin-memory",
+  "exchange_id": "abbe27af-f553-458e-87ec-dc789fb25726",
+  "workflow_action": "advise_only",
+  "question": "和老师约时间前，我应该先准备什么？",
+  "comparison_status": "shadow_disabled",
+  "deterministic_goal": "prepare_booking_agenda",
+  "shadow_goal": null,
+  "same_goal": true,
+  "same_fallback_template": true,
+  "deterministic_only_steps": [
+    "detect_profile_context",
+    "classify_intent",
+    "retrieve_hybrid_knowledge",
+    "retrieve_recent_memory",
+    "assemble_prompt_context",
+    "answer_with_citations",
+    "score_memory_usefulness",
+    "render_user_response"
+  ],
+  "shadow_only_steps": [],
+  "summary": "Current LLM client does not implement shadow planner proposals.",
+  "created_at": "2026-06-01T13:26:40.126023+00:00"
+}

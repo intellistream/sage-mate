@@ -1,0 +1,20 @@
+{
+  "document_id": "819b4571-1dc2-4b14-8692-cf87dff7cd44",
+  "title": "论文提炼｜Melia: A MapReduce Framework on OpenCL-Based FPGAs",
+  "content": "论文名称：Melia: A MapReduce Framework on OpenCL-Based FPGAs\n研究主题：软硬件协同优化与高性能系统\n发表 venue：TPDS - IEEE Transactions on Parallel and Distributed Systems (TPDS)\n发表年份：2016\n作者：Zeke Wang, Shuhao Zhang, Bingsheng He, Wei Zhang\n作者角色：合作作者或共同作者\n一句话总结：MapReduce, originally developed by Google for search applications, has recently become a popular programming framework for parallel and distributed environments.\n核心内容：\nMapReduce, originally developed by Google for search applications, has recently become a popular programming framework for parallel and distributed environments. This paper presents an energy-efficient architecture design for MapReduce on Field Programmable Gate Arrays (FPGAs). The major goal is to enable users to program FPGAs with simple MapReduce interfaces, and meanwhile to embrace automatic performance optimizations within the MapReduce framework. Compared to other processors like CPUs and GPUs, FPGAs are (re-)programmable hardware and have very low energy consumption. However, the design and implementation of MapReduce on FPGAs can be challenging: firstly, FPGAs are usually programmed with hardware description languages, which hurts the programmability of the MapReduce design to its users; secondly, since MapReduce has irregular access patterns (especially in the reduce phase) and needs to support user-defined functions, careful designs and optimizations are required for efficiency. In this paper, we design, implement and evaluate Melia, a MapReduce framework on FPGAs. Melia takes advantage of the recent OpenCL programming framework developed for Altera FPGAs, and abstracts FPGAs behind the simple and familiar MapReduce interfaces in C. We further develop a series of FPGA-centric optimization techniques to improve the efficiency of Melia, and a costand resource-based approach to automate the parameter settings for those optimizations. We evaluate Melia on a recent Altera Stratix V GX FPGA with a number of commonly used MapReduce benchmarks. Our results demonstrate that 1) the efficiency and effectiveness of our optimizations and automated parameter setting approach, 2) Melia can achieve promising energy efficiency in comparison with its counterparts on CPUs/GPUs on both single-FPGA and cluster settings.\n适合回答的问题：\n- 这篇论文主要解决什么问题，以及它为什么重要。\n- 这篇论文的核心方法、系统设计或算法思路是什么。\n- 这篇论文与 软硬件协同优化与高性能系统 这条研究主线的关系是什么。",
+  "tags": [
+    "homepage",
+    "research",
+    "publication",
+    "paper-digest",
+    "gpu"
+  ],
+  "source_name": "homepage:contents/research_papers/publications_summary.md#4.5 Melia: A MapReduce Framework on OpenCL-Based FPGAs",
+  "metadata": {
+    "domain": "research",
+    "identity": "pi",
+    "material_type": "paper-digest",
+    "source_kind": "homepage"
+  },
+  "created_at": "2026-05-28T01:19:22.844564Z"
+}

@@ -1,0 +1,24 @@
+{
+  "record_id": "c4d1a73e-7e29-4d63-bf73-64815cc35c48",
+  "conversation_id": "",
+  "planner_stage": "deterministic",
+  "planner_mode": "deterministic",
+  "question": "用一句话介绍张书豪 (n-cd5cdd)",
+  "goal": "answer_grounded_question",
+  "accepted": true,
+  "status": "accepted",
+  "fallback_template": "answer_question",
+  "fallback_reason": null,
+  "validation_errors": [],
+  "planned_steps": [
+    "detect_profile_context",
+    "classify_intent",
+    "retrieve_hybrid_knowledge",
+    "assemble_prompt_context",
+    "answer_with_citations",
+    "score_memory_usefulness",
+    "render_user_response"
+  ],
+  "latency_ms": 0.6474554538726807,
+  "created_at": "2026-06-03T10:01:52.138607+00:00"
+}

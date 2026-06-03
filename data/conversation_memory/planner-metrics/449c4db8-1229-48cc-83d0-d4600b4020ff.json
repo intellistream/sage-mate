@@ -1,0 +1,16 @@
+{
+  "record_id": "449c4db8-1229-48cc-83d0-d4600b4020ff",
+  "conversation_id": "conv-artifact-preview",
+  "planner_stage": "shadow",
+  "planner_mode": "llm_shadow",
+  "question": "我上传了 proposal draft，想继续讨论里面的实验计划和 agenda。",
+  "goal": "answer_research_artifact_question",
+  "accepted": false,
+  "status": "shadow_disabled",
+  "fallback_template": "answer_question",
+  "fallback_reason": "Current LLM client does not implement shadow planner proposals.",
+  "validation_errors": [],
+  "planned_steps": [],
+  "latency_ms": 0.007569789886474609,
+  "created_at": "2026-06-02T15:51:34.232271+00:00"
+}

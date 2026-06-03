@@ -1,0 +1,16 @@
+{
+  "record_id": "30b6659b-7239-4f76-b227-1a9a903d1dd8",
+  "conversation_id": "conv-analytics-3",
+  "planner_stage": "shadow",
+  "planner_mode": "llm_shadow",
+  "question": "FlowRAG 主要做什么？",
+  "goal": "answer_course_question",
+  "accepted": false,
+  "status": "shadow_disabled",
+  "fallback_template": "answer_question",
+  "fallback_reason": "Current LLM client does not implement shadow planner proposals.",
+  "validation_errors": [],
+  "planned_steps": [],
+  "latency_ms": 0.004258938133716583,
+  "created_at": "2026-06-02T16:45:28.672195+00:00"
+}

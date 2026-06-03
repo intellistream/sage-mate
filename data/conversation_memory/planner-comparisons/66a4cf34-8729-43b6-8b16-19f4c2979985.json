@@ -1,0 +1,16 @@
+{
+  "record_id": "66a4cf34-8729-43b6-8b16-19f4c2979985",
+  "conversation_id": "lamp-LaMP_Local-lamp-015",
+  "exchange_id": "d9b44a2f-ed75-4624-aacc-4fc84fcd27a8",
+  "workflow_action": "advise_only",
+  "question": "你正在参与一个 LaMP 风格的个性化生成评测。请结合给定用户画像，只返回任务答案本身，不要解释。\nTask: LaMP_Local\nUser profile:\n- item 1: course: 推理引擎课程 | question: 为什么局部 kernel 优化不一定带来端到端收益\n- item 2: goal: 先把课上概念理解清楚 | constraint: 不是来问选题\nTask input: 按我的问题类型，您会建议我先理解哪一层？",
+  "comparison_status": "equivalent",
+  "deterministic_goal": "answer_research_question",
+  "shadow_goal": "answer_research_question",
+  "same_goal": true,
+  "same_fallback_template": true,
+  "deterministic_only_steps": [],
+  "shadow_only_steps": [],
+  "summary": "Shadow planner matched the deterministic plan on goal, fallback, and ordered steps. Execution still follows the deterministic lane.",
+  "created_at": "2026-05-30T17:50:27.811738+00:00"
+}

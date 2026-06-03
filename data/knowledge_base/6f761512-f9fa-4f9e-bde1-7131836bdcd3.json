@@ -1,0 +1,20 @@
+{
+  "document_id": "6f761512-f9fa-4f9e-bde1-7131836bdcd3",
+  "title": "论文提炼｜GRACE: Alleviating Reconstruction Cost in Dynamic Graph Processing Systems",
+  "content": "论文名称：GRACE: Alleviating Reconstruction Cost in Dynamic Graph Processing Systems\n研究主题：动态数据管理、持续学习与智能分析\n发表 venue：ICDE - IEEE 42nd International Conference on Data Engineering\n发表年份：2026\n作者：Hongru Gao, Shuhao Zhang, Xiaofei Liao, Hai Jin\n作者角色：你是通讯作者\n一句话总结：Efficient dynamic graph processing is increasingly important for real-time applications, yet existing PMA-based CSR systems suffer from costly reconstruction and frequent rebalancing under intensive updates.\n核心内容：\nEfficient dynamic graph processing is increasingly important for real-time applications, yet existing PMA-based CSR systems suffer from costly reconstruction and frequent rebalancing under intensive updates. GRACE is a lightweight extension that exploits graph structural properties to reduce reconstruction overhead while preserving layout contiguity. It combines a property-guided reservation strategy with cousin-aware rebalancing to reduce copying, traversal, and redundant relocation during updates. Implemented as a modular plugin atop representative dynamic graph systems, GRACE substantially accelerates reconstruction and graph updating while maintaining comparable computing performance.\n适合回答的问题：\n- 这篇论文主要解决什么问题，以及它为什么重要。\n- 这篇论文的核心方法、系统设计或算法思路是什么。\n- 这篇论文与 动态数据管理、持续学习与智能分析 这条研究主线的关系是什么。",
+  "tags": [
+    "homepage",
+    "research",
+    "publication",
+    "paper-digest",
+    "graph"
+  ],
+  "source_name": "homepage:contents/research_papers/publications_summary.md#0.5 GRACE: Alleviating Reconstruction Cost in Dynamic Graph Processing Systems",
+  "metadata": {
+    "domain": "research",
+    "identity": "pi",
+    "material_type": "paper-digest",
+    "source_kind": "homepage"
+  },
+  "created_at": "2026-05-28T01:19:22.839798Z"
+}

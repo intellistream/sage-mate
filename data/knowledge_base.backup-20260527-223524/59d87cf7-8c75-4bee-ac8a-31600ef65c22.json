@@ -1,0 +1,17 @@
+{
+  "document_id": "59d87cf7-8c75-4bee-ac8a-31600ef65c22",
+  "title": "论文提炼｜Revisiting the Design of Parallel Stream Joins on Trusted Execution Environments",
+  "content": "论文名称：Revisiting the Design of Parallel Stream Joins on Trusted Execution Environments\n研究主题：大模型推理、检索增强与记忆系统\n发表 venue：MDPI Algorithms - MDPI Algorithms\n发表年份：2022\n作者：Souhail Meftah, Shuhao Zhang, Bharadwaj Veeravalli, Khin Mi Mi Aung\n作者角色：合作作者或共同作者\n一句话总结：The appealing properties of secure hardware solutions such as trusted execution environment (TEE) including low computational overhead, confidentiality guarantee, and reduced attack surface have prompted considerable interest in adopting them for secure stream processing applicat\n核心内容：\nThe appealing properties of secure hardware solutions such as trusted execution environment (TEE) including low computational overhead, confidentiality guarantee, and reduced attack surface have prompted considerable interest in adopting them for secure stream processing applications. In this paper, we revisit the design of parallel stream join algorithms on multicore processors with TEEs. In particular, we conduct a series of profiling experiments to investigate the impact of alternative design choices to parallelize stream joins on TEE including: (1) execution approaches, (2) partitioning schemes, and (3) distributed scheduling strategies. From the profiling study, we observe three major high-performance impediments: (a) the computational overhead introduced with cryptographic primitives associated with page swapping operations, (b) the restrictive Enclave Page Cache (EPC) size that limits the supported amount of in-memory processing, and (c) the lack of vertical scalability to support the increasing workload often required for near real-time applications. Addressing these issues allowed us to design SecJoin, a more efficient parallel stream join algorithm that exploits modern scale-out architectures with TEEs rendering no trade-offs on security whilst optimizing performance. We present our model-driven parameterization of SecJoin and share our experimental results which have shown up to 4-folds of improvements in terms of throughput and latency.\n适合回答的问题：\n- 这篇论文主要解决什么问题，以及它为什么重要。\n- 这篇论文的核心方法、系统设计或算法思路是什么。\n- 这篇论文与 大模型推理、检索增强与记忆系统 这条研究主线的关系是什么。",
+  "tags": [
+    "homepage",
+    "research",
+    "publication",
+    "paper-digest",
+    "memory",
+    "stream-processing",
+    "graph",
+    "multicore"
+  ],
+  "source_name": "homepage:contents/research_papers/publications_summary.md#4.9 Revisiting the Design of Parallel Stream Joins on Trusted Execution Environments",
+  "created_at": "2026-05-25T13:37:18.189362Z"
+}

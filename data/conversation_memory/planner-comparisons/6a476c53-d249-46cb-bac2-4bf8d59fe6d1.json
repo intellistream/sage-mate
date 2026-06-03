@@ -1,0 +1,16 @@
+{
+  "record_id": "6a476c53-d249-46cb-bac2-4bf8d59fe6d1",
+  "conversation_id": "db52be5a-804e-42bb-9e43-af04d8494f65",
+  "exchange_id": "7b7305cc-5735-43ab-87fb-dc26176fac48",
+  "workflow_action": "answer",
+  "question": "当前实验章节包括 canonical continuation、cross-workload regime coverage、Q1–Q3 mechanism analysis、ShareGPT weak-anchor boundary，以及后续可能的 load/drift sweep 和 reference rule。希望确认实验顺序是否合理，哪些实验是必须补充的，哪些可以移到 appendix 或作为 future work。",
+  "comparison_status": "equivalent",
+  "deterministic_goal": "answer_course_question",
+  "shadow_goal": "answer_course_question",
+  "same_goal": true,
+  "same_fallback_template": true,
+  "deterministic_only_steps": [],
+  "shadow_only_steps": [],
+  "summary": "Shadow planner matched the deterministic plan on goal, fallback, and ordered steps. Execution still follows the deterministic lane.",
+  "created_at": "2026-06-03T06:27:37.497151+00:00"
+}

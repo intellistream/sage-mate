@@ -1,0 +1,16 @@
+{
+  "record_id": "04032790-2509-48a8-882e-c4d39df47369",
+  "conversation_id": "non-admin-knowledge-injection",
+  "planner_stage": "shadow",
+  "planner_mode": "llm_shadow",
+  "question": "加入知识库：标题：不应该写入 内容：这条内容不能由普通用户写入。",
+  "goal": "answer_course_question",
+  "accepted": false,
+  "status": "shadow_disabled",
+  "fallback_template": "answer_question",
+  "fallback_reason": "Current LLM client does not implement shadow planner proposals.",
+  "validation_errors": [],
+  "planned_steps": [],
+  "latency_ms": 0.0038463622331619263,
+  "created_at": "2026-06-03T08:26:52.459387+00:00"
+}

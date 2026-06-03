@@ -1,0 +1,21 @@
+{
+  "document_id": "4b00bf21-3873-4712-a7ae-ab5c02d7846d",
+  "title": "论文提炼｜A Framework of Knowledge Graph-Enhanced Large Language Model Based on Question Decomposition and Atomic Retrieval",
+  "content": "论文名称：A Framework of Knowledge Graph-Enhanced Large Language Model Based on Question Decomposition and Atomic Retrieval\n研究主题：大模型推理、检索增强与记忆系统\n发表 venue：EMNLP - Empirical Methods in Natural Language Processing (Findings)\n发表年份：2024\n作者：Yading Li, Dandan Song, Changzhi Zhou, Yuhang Tian, Hao Wang, Ziyi Yang, Shuhao Zhang\n作者角色：合作作者或共同作者\n一句话总结：Knowledge graphs (KGs) can provide ex-plainable reasoning for large language models(LLMs), alleviating their hallucination problem.Knowledge graph question answering (KGQA)is a typical benchmark to evaluate the methodsenhancing LLMs with KG.\n核心内容：\nKnowledge graphs (KGs) can provide ex-plainable reasoning for large language models(LLMs), alleviating their hallucination problem.Knowledge graph question answering (KGQA)is a typical benchmark to evaluate the methodsenhancing LLMs with KG. Previous methodson KG-enhanced LLM for KGQA either en-hance LLMs with KG retrieval in a single roundor perform multi-hop KG reasoning in multi-ple rounds with LLMs. Both of them conductretrieving and reasoning based solely on thewhole original question, without any process-ing to the question. To tackle this limitation,we propose a framework of KG-enhanced LLMbased on question decomposition and atomic re-trieval, called KELDaR. We introduce questiondecomposition tree as the framework for LLMreasoning. This approach extracts the implicitinformation of reasoning steps within complexquestions, serving as a guide to facilitate atomicretrieval on KG targeting the atomic-level sim-ple questions at leaves of the tree. Additionally,we design strategies for atomic retrieval, whichextract and retrieve question-relevant KG sub-graphs to assist the few-shot LLM in answeringatomic-level questions. Experiments on KGQAdatasets demonstrate that our framework out-performs existing reasoning-based baselines.And in a low-cost setting without additionaltraining or fine-tuning, our framework achievescompetitive or superior results compared tomost existing training-based baselines.\n适合回答的问题：\n- 这篇论文主要解决什么问题，以及它为什么重要。\n- 这篇论文的核心方法、系统设计或算法思路是什么。\n- 这篇论文与 大模型推理、检索增强与记忆系统 这条研究主线的关系是什么。",
+  "tags": [
+    "homepage",
+    "research",
+    "publication",
+    "paper-digest",
+    "llm",
+    "graph"
+  ],
+  "source_name": "homepage:contents/research_papers/publications_summary.md#2.3 A Framework of Knowledge Graph-Enhanced Large Language Model Based on Question Decomposition and Atomic Retrieval",
+  "metadata": {
+    "domain": "research",
+    "identity": "pi",
+    "material_type": "paper-digest",
+    "source_kind": "homepage"
+  },
+  "created_at": "2026-05-28T01:19:22.841661Z"
+}

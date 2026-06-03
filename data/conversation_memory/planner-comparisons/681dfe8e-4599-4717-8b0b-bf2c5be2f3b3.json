@@ -1,0 +1,16 @@
+{
+  "record_id": "681dfe8e-4599-4717-8b0b-bf2c5be2f3b3",
+  "conversation_id": "conv-escalation-admin",
+  "exchange_id": "bc38341c-a6c4-4292-ae04-3543f4cb127f",
+  "workflow_action": "human_handoff",
+  "question": "我想正式投诉这次成绩处理有误，请你马上联系老师。",
+  "comparison_status": "equivalent",
+  "deterministic_goal": "answer_course_question",
+  "shadow_goal": "answer_course_question",
+  "same_goal": true,
+  "same_fallback_template": true,
+  "deterministic_only_steps": [],
+  "shadow_only_steps": [],
+  "summary": "Shadow planner matched the deterministic plan on goal, fallback, and ordered steps. Execution still follows the deterministic lane.",
+  "created_at": "2026-06-03T04:26:46.117833+00:00"
+}

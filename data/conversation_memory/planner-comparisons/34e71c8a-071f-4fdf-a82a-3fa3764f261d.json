@@ -1,0 +1,24 @@
+{
+  "record_id": "34e71c8a-071f-4fdf-a82a-3fa3764f261d",
+  "conversation_id": "conv-review-queue",
+  "exchange_id": "0f3a6183-9a93-4914-9e8c-df8c7945894e",
+  "workflow_action": "review_queue",
+  "question": "能不能破例帮我把截止时间延期一天？",
+  "comparison_status": "shadow_disabled",
+  "deterministic_goal": "answer_course_question",
+  "shadow_goal": null,
+  "same_goal": true,
+  "same_fallback_template": true,
+  "deterministic_only_steps": [
+    "detect_profile_context",
+    "classify_intent",
+    "retrieve_knowledge",
+    "retrieve_recent_memory",
+    "assemble_prompt_context",
+    "answer_with_citations",
+    "render_user_response"
+  ],
+  "shadow_only_steps": [],
+  "summary": "Current LLM client does not implement shadow planner proposals.",
+  "created_at": "2026-05-31T09:12:22.269747+00:00"
+}

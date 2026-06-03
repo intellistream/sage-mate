@@ -1,0 +1,16 @@
+{
+  "record_id": "b913b492-f3bd-4456-b20c-2c3226a12bb7",
+  "conversation_id": "conv-follow-up",
+  "planner_stage": "shadow",
+  "planner_mode": "llm_shadow",
+  "question": "我的邮箱是 alice@example.com",
+  "goal": "answer_course_question",
+  "accepted": false,
+  "status": "shadow_disabled",
+  "fallback_template": "answer_question",
+  "fallback_reason": "Current LLM client does not implement shadow planner proposals.",
+  "validation_errors": [],
+  "planned_steps": [],
+  "latency_ms": 0.0028274953365325928,
+  "created_at": "2026-06-03T04:19:46.071992+00:00"
+}

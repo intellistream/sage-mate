@@ -10,16 +10,9 @@ __pycache__/
 htmlcov/
 .coverage
 coverage.xml
-data/conversation_memory/
-data/escalations/
-data/follow_up_actions/
+# Runtime data is now tracked for cross-machine replication.
+# Only truly transient / large generated artifacts stay ignored:
 data/homepage/
-data/knowledge_base/
-data/knowledge_base.backup-*/
-data/knowledge_gap_drafts/
-data/operations_task_state/
-data/suggestions/
-data/user_accounts/
 dist/
 build/
 *.egg-info/

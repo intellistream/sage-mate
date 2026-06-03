@@ -1,0 +1,21 @@
+{
+  "document_id": "d69448ad-1b0d-42b0-ae91-03c94adcb8b3",
+  "title": "论文提炼｜NebulaStream: Complex Analytics Beyond the Cloud",
+  "content": "论文名称：NebulaStream: Complex Analytics Beyond the Cloud\n研究主题：大模型推理、检索增强与记忆系统\n发表 venue：OJIOT - Open Journal of Internet of Things\n发表年份：2020\n作者：Steffen Zeuch, Eleni Tzirita Zacharatou, Shuhao Zhang, Xenofon Chatziliadis, Ankit Chaudhary, Bonaventura Del Monte, Dimitrios Giouroukis, Philipp M. Grulich, Ariane Ziehn, Volker Markl\n作者角色：合作作者或共同作者\n一句话总结：The arising Internet of Things (IoT) will require significant changes to current stream processing engines (SPEs) to enable large-scale IoT applications.\n核心内容：\nThe arising Internet of Things (IoT) will require significant changes to current stream processing engines (SPEs) to enable large-scale IoT applications. In this paper, we present challenges and opportunities for an IoT data management system to enable complex analytics beyond the cloud. As one of the most important upcoming IoT applications, we focus on the vision of a smart city. The goal of this paper is to bridge the gap between the requirements of upcoming IoT applications and the supported features of an IoT data management system. To this end, we outline how state-of-the-art SPEs have to change to exploit the new capabilities of the IoT and showcase how we tackle IoT challenges in our own system, NebulaStream. This paper lays the foundation for a new type of system that leverages the IoT to enable large-scale applications over millions of IoT devices in highly dynamic and geo-distributed environments.\n适合回答的问题：\n- 这篇论文主要解决什么问题，以及它为什么重要。\n- 这篇论文的核心方法、系统设计或算法思路是什么。\n- 这篇论文与 大模型推理、检索增强与记忆系统 这条研究主线的关系是什么。",
+  "tags": [
+    "homepage",
+    "research",
+    "publication",
+    "paper-digest",
+    "rag",
+    "stream-processing"
+  ],
+  "source_name": "homepage:contents/research_papers/publications_summary.md#3.5 NebulaStream: Complex Analytics Beyond the Cloud",
+  "metadata": {
+    "domain": "research",
+    "identity": "pi",
+    "material_type": "paper-digest",
+    "source_kind": "homepage"
+  },
+  "created_at": "2026-05-28T01:19:22.842703Z"
+}

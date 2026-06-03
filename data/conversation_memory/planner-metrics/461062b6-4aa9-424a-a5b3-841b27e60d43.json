@@ -1,0 +1,22 @@
+{
+  "record_id": "461062b6-4aa9-424a-a5b3-841b27e60d43",
+  "conversation_id": "smoke-restart-check",
+  "planner_stage": "deterministic",
+  "planner_mode": "deterministic",
+  "question": "Hello",
+  "goal": "respond_simple_greeting",
+  "accepted": true,
+  "status": "accepted",
+  "fallback_template": "answer_question",
+  "fallback_reason": null,
+  "validation_errors": [],
+  "planned_steps": [
+    "detect_profile_context",
+    "classify_intent",
+    "assemble_prompt_context",
+    "answer_with_citations",
+    "render_user_response"
+  ],
+  "latency_ms": 0.9260727092623711,
+  "created_at": "2026-06-02T12:36:27.049169+00:00"
+}

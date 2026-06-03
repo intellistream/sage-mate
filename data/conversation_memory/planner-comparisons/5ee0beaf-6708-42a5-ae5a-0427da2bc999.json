@@ -1,0 +1,25 @@
+{
+  "record_id": "5ee0beaf-6708-42a5-ae5a-0427da2bc999",
+  "conversation_id": "conv-human-handoff",
+  "exchange_id": "4b48f62a-951b-4524-9615-8464a3e0762c",
+  "workflow_action": "human_handoff",
+  "question": "我想正式投诉这次成绩处理有误，请你马上联系老师。",
+  "comparison_status": "shadow_disabled",
+  "deterministic_goal": "answer_course_question",
+  "shadow_goal": null,
+  "same_goal": true,
+  "same_fallback_template": true,
+  "deterministic_only_steps": [
+    "detect_profile_context",
+    "classify_intent",
+    "retrieve_hybrid_knowledge",
+    "retrieve_recent_memory",
+    "assemble_prompt_context",
+    "answer_with_citations",
+    "score_memory_usefulness",
+    "render_user_response"
+  ],
+  "shadow_only_steps": [],
+  "summary": "Current LLM client does not implement shadow planner proposals.",
+  "created_at": "2026-06-01T13:26:19.352973+00:00"
+}

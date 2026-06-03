@@ -1,0 +1,25 @@
+{
+  "record_id": "c1d82dd4-ce7f-45bf-919e-bd60f7f60bcd",
+  "conversation_id": "conv-analytics-3",
+  "planner_stage": "deterministic",
+  "planner_mode": "deterministic",
+  "question": "FlowRAG 主要做什么？",
+  "goal": "answer_course_question",
+  "accepted": true,
+  "status": "accepted",
+  "fallback_template": "answer_question",
+  "fallback_reason": null,
+  "validation_errors": [],
+  "planned_steps": [
+    "detect_profile_context",
+    "classify_intent",
+    "retrieve_hybrid_knowledge",
+    "retrieve_recent_memory",
+    "assemble_prompt_context",
+    "answer_with_citations",
+    "score_memory_usefulness",
+    "render_user_response"
+  ],
+  "latency_ms": 0.179339200258255,
+  "created_at": "2026-06-01T13:33:53.994486+00:00"
+}

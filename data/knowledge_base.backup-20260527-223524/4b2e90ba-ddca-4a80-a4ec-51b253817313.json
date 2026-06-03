@@ -1,0 +1,16 @@
+{
+  "document_id": "4b2e90ba-ddca-4a80-a4ec-51b253817313",
+  "title": "论文提炼｜LibAMM: Empirical Insights into Approximate Computing for Accelerating Matrix Multiplication",
+  "content": "论文名称：LibAMM: Empirical Insights into Approximate Computing for Accelerating Matrix Multiplication\n研究主题：大模型推理、检索增强与记忆系统\n发表 venue：NeurIPS - Conference on Neural Information Processing Systems\n发表年份：2024\n作者：Xianzhi Zeng, Wenchao Jiang, Shuhao Zhang\n作者角色：你是通讯作者\n一句话总结：Matrix multiplication (MM) is pivotal in fields from deep learning to scientific computing, driving the quest for improved computational efficiency.\n核心内容：\nMatrix multiplication (MM) is pivotal in fields from deep learning to scientific computing, driving the quest for improved computational efficiency. Accelerating MM encompasses strategies like complexity reduction, parallel and distributed computing, hardware acceleration, and approximate computing techniques, namely AMM algorithms. Amidst growing concerns over the resource demands of large language models (LLMs), AMM has garnered renewed focus. However, understanding the nuances that govern AMM’s effectiveness remains incomplete. This study delves into AMM by examining algorithmic strategies, operational specifics, dataset characteristics, and their application in real-world tasks. Through comprehensive testing across diverse datasets and scenarios, we analyze how these factors affect AMM’s performance, uncovering that the selection of AMM approaches significantly influences the balance between efficiency and accuracy, with factors like memory access playing a pivotal role. Additionally, dataset attributes are shown to be vital for the success of AMM in applications. Our results advocate for tailored algorithmic approaches and careful strategy selection to enhance AMM’s effectiveness. To aid in the practical application and ongoing research of AMM, we introduce LibAMM —a toolkit offering a wide range of AMM algorithms, benchmarks, and tools for experiment management. LibAMM aims to facilitate research and application in AMM, guiding future developments towards more adaptive and context-aware computational solutions.\n适合回答的问题：\n- 这篇论文主要解决什么问题，以及它为什么重要。\n- 这篇论文的核心方法、系统设计或算法思路是什么。\n- 这篇论文与 大模型推理、检索增强与记忆系统 这条研究主线的关系是什么。",
+  "tags": [
+    "homepage",
+    "research",
+    "publication",
+    "paper-digest",
+    "llm",
+    "memory",
+    "approximate-computing"
+  ],
+  "source_name": "homepage:contents/research_papers/publications_summary.md#1.6 LibAMM: Empirical Insights into Approximate Computing for Accelerating Matrix Multiplication",
+  "created_at": "2026-05-25T13:37:18.184365Z"
+}

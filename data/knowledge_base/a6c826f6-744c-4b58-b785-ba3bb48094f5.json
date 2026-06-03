@@ -1,0 +1,31 @@
+{
+  "document_id": "a6c826f6-744c-4b58-b785-ba3bb48094f5",
+  "title": "课件正文｜大模型推理基础设施课程材料｜Tutorial 9 论文比较方法",
+  "content": "TUTORIAL 9：论文比较方法 1 Tutorial 9：论文比较方法 题目 1. [单选题] 两篇论文都使用“推理加速”这一表述，为什么仍可能不适合放入同一张比较表？A. 因 为标题字体不同 B. 因为问题边界和目标可能并不一致 C. 因为摘要长度不同 D. 因为作者人数不 同 2. [判断题] 只要结果图足够漂亮，就足以支撑系统论文的核心结论。 3. [多选题] “假设-机制-边界-实验”四段式中，哪些部分直接影响一篇论文是否可比较？A. 假设 B. 机制 C. 边界 D. 实验设计 4. [简答题] 为什么 baseline 的选择本身会影响结论强度？ 5. [判断题] 负结果通常没有信息价值，因此可以在比较中忽略。 6. [简答题] 为什么 workload 差异会破坏横向比较的有效性？ 7. [多选题] 哪些代价最容易被“漂亮图表”掩盖？A. 维护成本 B. 资源代价 C. 隐含前提 D. 论文题 目颜色 8. [伪代码题] 请写出一个简短伪代码，把一篇论文的阅读笔记整理成 {assumption, mechanism, boundary, experiment} 四个字段。 TUTORIAL 9：论文比较方法 2 9. [判断题] 系统论文更适合做结果排名，而不是做边界与代价分析。 10. [简答题] 什么样的比较表才具有真正的分析价值？ TUTORIAL 9：论文比较方法 3 参考答案 1. B。表面标签相同，并不代表问题边界和目标一致。 2. 错。图表本身不会自动解释其前提与代价。 3. A、B、C、D。四个部分都会影响比较有效性。 4. 因为 baseline 决定了比较起点和结论口径。 5. 错。负结果往往揭示方法何时不成立。 6. 因为 workload 一旦变化，指标和代价结构也会随之变化。 7. A、B、C。这些代价最容易被掩盖。 8. 示例伪代码： function summarize paper(note): return { assumption: extract assumption(note), mechanism: extract mechanism(note), boundary: extract boundary(note), experiment: extract experiment(note) } 9. 错。系统论文更适合分析边界、机制和代价结构。 10. 至少应同时列出假设、机制、边界和实验设计。",
+  "tags": [
+    "homepage",
+    "teaching",
+    "courseware",
+    "pdf",
+    "material:pdf",
+    "identity:teacher",
+    "domain:teaching",
+    "audience:graduate",
+    "course:llm-inference",
+    "material:tutorial",
+    "tutorial:9",
+    "tutorial"
+  ],
+  "source_name": "homepage:contents/teaching/intro-to-llm-inference-engines.md#Tutorials::contents/teaching/intro-to-llm-inference-engines/2026/tutorials/Tutorial_09_论文比较方法.pdf",
+  "metadata": {
+    "material_type": "tutorial",
+    "identity": "teacher",
+    "domain": "teaching",
+    "audience": "graduate",
+    "course_id": "llm-inference",
+    "ordinal_type": "tutorial",
+    "ordinal": "9",
+    "source_kind": "homepage"
+  },
+  "created_at": "2026-05-28T01:19:22.836790Z"
+}

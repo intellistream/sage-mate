@@ -1,0 +1,16 @@
+{
+  "record_id": "70eaee25-4b2b-4d2b-9ce9-2647eba66815",
+  "conversation_id": "",
+  "planner_stage": "shadow",
+  "planner_mode": "llm_shadow",
+  "question": "请只概括附件里写了什么。",
+  "goal": "answer_artifact_grounded_question",
+  "accepted": false,
+  "status": "shadow_disabled",
+  "fallback_template": "answer_question",
+  "fallback_reason": "Current LLM client does not implement shadow planner proposals.",
+  "validation_errors": [],
+  "planned_steps": [],
+  "latency_ms": 0.0035101547837257385,
+  "created_at": "2026-06-03T08:12:41.865368+00:00"
+}

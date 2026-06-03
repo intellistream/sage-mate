@@ -1,0 +1,16 @@
+{
+  "record_id": "eb96fe51-44f3-4b67-ad11-87649e6f3d69",
+  "conversation_id": "memory-followup-recent-topic-followup",
+  "exchange_id": "6d1f9b96-9d16-4487-bd2f-fdf50ca441b5",
+  "workflow_action": "advise_only",
+  "question": "我最近在纠结大模型推理引擎和推理服务系统之间该先收窄哪个方向。",
+  "comparison_status": "equivalent",
+  "deterministic_goal": "answer_research_question",
+  "shadow_goal": "answer_research_question",
+  "same_goal": true,
+  "same_fallback_template": true,
+  "deterministic_only_steps": [],
+  "shadow_only_steps": [],
+  "summary": "Shadow planner matched the deterministic plan on goal, fallback, and ordered steps. Execution still follows the deterministic lane.",
+  "created_at": "2026-05-31T13:35:52.861087+00:00"
+}

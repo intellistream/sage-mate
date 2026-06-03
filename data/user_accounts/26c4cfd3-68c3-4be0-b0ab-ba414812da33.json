@@ -1,0 +1,9 @@
+{
+  "user_id": "26c4cfd3-68c3-4be0-b0ab-ba414812da33",
+  "name": "Preview User",
+  "email": "preview-1779808364@example.com",
+  "password_salt": "7cf871d227d606d90fb8ec0eaae658c1",
+  "password_hash": "f05eb94efc7678c0cfb99f592f5e17a649f0d1a30bade689e8bdd11d11d10b37f9f264799177ee5a72e97db0c2ca889df9e6fcecf23e675b44791dc2547f40be",
+  "created_at": "2026-05-26T15:12:45.048996+00:00",
+  "updated_at": "2026-05-26T15:12:45.048996+00:00"
+}

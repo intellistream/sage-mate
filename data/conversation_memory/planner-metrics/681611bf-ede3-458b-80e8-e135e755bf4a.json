@@ -1,0 +1,16 @@
+{
+  "record_id": "681611bf-ede3-458b-80e8-e135e755bf4a",
+  "conversation_id": "lamp-LaMP-Local-lamp-teaching-grounding",
+  "planner_stage": "shadow",
+  "planner_mode": "llm_shadow",
+  "question": "下面是一个 LaMP 风格的个性化回答任务。请结合学生画像，直接回答学生当前想请教老师的问题，只返回答案本身，不要解释。\nTask: LaMP-Local\n学生画像：\n- item 1: course: 推理引擎课程 | question: 为什么局部 kernel 优化不一定带来端到端收益\n- item 2: goal: 先把课上概念理解清楚 | constraint: 不是来问选题\n学生当前想请教老师的问题：按我的问题类型，您会建议我先理解哪一层？",
+  "goal": "answer_research_question",
+  "accepted": false,
+  "status": "shadow_disabled",
+  "fallback_template": "answer_question",
+  "fallback_reason": "Benchmark evaluation request skips shadow planner to keep latency and scoring focused on the main execution lane.",
+  "validation_errors": [],
+  "planned_steps": [],
+  "latency_ms": 0.002333894371986389,
+  "created_at": "2026-06-01T01:08:35.709879+00:00"
+}

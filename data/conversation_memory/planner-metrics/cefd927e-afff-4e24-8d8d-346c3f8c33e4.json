@@ -1,0 +1,24 @@
+{
+  "record_id": "cefd927e-afff-4e24-8d8d-346c3f8c33e4",
+  "conversation_id": "conv-follow-up",
+  "planner_stage": "deterministic",
+  "planner_mode": "deterministic",
+  "question": "我的邮箱是 alice@example.com",
+  "goal": "answer_course_question",
+  "accepted": true,
+  "status": "accepted",
+  "fallback_template": "answer_question",
+  "fallback_reason": null,
+  "validation_errors": [],
+  "planned_steps": [
+    "detect_profile_context",
+    "classify_intent",
+    "retrieve_hybrid_knowledge",
+    "assemble_prompt_context",
+    "answer_with_citations",
+    "score_memory_usefulness",
+    "render_user_response"
+  ],
+  "latency_ms": 0.1884177327156067,
+  "created_at": "2026-06-03T04:27:12.408865+00:00"
+}

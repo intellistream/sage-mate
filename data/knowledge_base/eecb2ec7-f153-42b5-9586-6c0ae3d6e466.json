@@ -1,0 +1,22 @@
+{
+  "document_id": "eecb2ec7-f153-42b5-9586-6c0ae3d6e466",
+  "title": "论文提炼｜Towards Concurrent Stateful Stream Processing on Multicore Processors",
+  "content": "论文名称：Towards Concurrent Stateful Stream Processing on Multicore Processors\n研究主题：流处理系统、共享状态与运行时调度\n发表 venue：ICDE - IEEE 36th International Conference on Data Engineering\n发表年份：2020\n作者：Shuhao Zhang, Yingjun Wu, Feng Zhang, Bingsheng He\n作者角色：你是第一作者\n一句话总结：Recent data stream processing systems (DSPSs) can achieve excellent performance when processing large volumes of data under tight latency constraints.\n核心内容：\nRecent data stream processing systems (DSPSs) can achieve excellent performance when processing large volumes of data under tight latency constraints. However, they sacrifice support for concurrent state access that eases the burden of developing stateful stream applications. Recently, some have proposed managing concurrent state access during stream processing by modeling state accesses as transactions. However, these are realized with locks involving serious contention overhead. The coarse-grained processing paradigm adopted in these proposals magnify contention issues and does not exploit modern multicore architectures to their full potential. This paper introduces TStream, a novel DSPS supporting efficient concurrent state access on multicore processors. Transactional semantics is employed like previous work, but scalability is greatly improved due to two novel designs: 1) dual-mode scheduling, which exposes more parallelism opportunities, 2) dynamic restructuring execution, which aggressively exploits the parallelism opportunities from dual-mode scheduling without centralized lock contentions. To validate our proposal, we evaluate TStream with a benchmark of four applications on a modern multicore machine. Experimental results show that 1) TStream achieves up to 4.8 times higher throughput with similar processing latency compared to the state-of-the-art and 2) unlike prior solutions, TStream is highly tolerant of varying application workloads such as key skewness and multi-partition state accesses.\n适合回答的问题：\n- 这篇论文主要解决什么问题，以及它为什么重要。\n- 这篇论文的核心方法、系统设计或算法思路是什么。\n- 这篇论文与 流处理系统、共享状态与运行时调度 这条研究主线的关系是什么。",
+  "tags": [
+    "homepage",
+    "research",
+    "publication",
+    "paper-digest",
+    "stream-processing",
+    "transactional-stream",
+    "multicore"
+  ],
+  "source_name": "homepage:contents/research_papers/publications_summary.md#3.4 Towards Concurrent Stateful Stream Processing on Multicore Processors",
+  "metadata": {
+    "domain": "research",
+    "identity": "pi",
+    "material_type": "paper-digest",
+    "source_kind": "homepage"
+  },
+  "created_at": "2026-05-28T01:19:22.842599Z"
+}

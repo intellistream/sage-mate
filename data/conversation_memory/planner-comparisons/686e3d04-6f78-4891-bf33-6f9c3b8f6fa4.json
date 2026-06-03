@@ -1,0 +1,16 @@
+{
+  "record_id": "686e3d04-6f78-4891-bf33-6f9c3b8f6fa4",
+  "conversation_id": "lamp-LaMP_Local-lamp-009",
+  "exchange_id": null,
+  "workflow_action": "ask_follow_up",
+  "question": "你正在参与一个 LaMP 风格的个性化生成评测。请结合给定用户画像，只返回任务答案本身，不要解释。\nTask: LaMP_Local\nUser profile:\n- item 1: identity: 本科三年级 | strength: 编码还可以\n- item 2: weakness: 阅读论文慢 | goal: 想尽快参与项目\nTask input: 按我现在的情况，如果想参与项目，最先应该补哪块？",
+  "comparison_status": "equivalent",
+  "deterministic_goal": "answer_course_question",
+  "shadow_goal": "answer_course_question",
+  "same_goal": true,
+  "same_fallback_template": true,
+  "deterministic_only_steps": [],
+  "shadow_only_steps": [],
+  "summary": "Shadow planner matched the deterministic plan on goal, fallback, and ordered steps. Execution still follows the deterministic lane.",
+  "created_at": "2026-05-30T18:21:52.499064+00:00"
+}

@@ -1,0 +1,21 @@
+{
+  "document_id": "89df05cd-6954-429d-9ce7-c6d89cf050a8",
+  "title": "论文提炼｜Payment Behavior Prediction on Shared Parking Lots with TR-GCN",
+  "content": "论文名称：Payment Behavior Prediction on Shared Parking Lots with TR-GCN\n研究主题：大模型推理、检索增强与记忆系统\n发表 venue：VLDBJ - The VLDB Journal\n发表年份：2022\n作者：Qingyu Xu, Feng Zhang, Mingde Zhang, Jidong Zhai, Bingsheng He, Cheng Yang, Shuhao Zhang, Jiazao Lin, Haidi Liu, Xiaoyong Du\n作者角色：合作作者或共同作者\n一句话总结：Shared parking lots are new types of sharing economy and generate a large social impact in our daily lives.\n核心内容：\nShared parking lots are new types of sharing economy and generate a large social impact in our daily lives. Post-use payment is a hallmark method in the shared parking lots: it reflects trust in users and brings convenience to everyone. Accordingly, payment behavior prediction via data science technology becomes extremely important. We cooperate with a real intelligent parking platform, ThsParking, which is one of the top smart parking platforms in China, to study payment prediction, and encounter three challenges. First, we need to process a large volume of data generated every day. Second, a variety of parking related data shall be utilized to build the prediction model. Third, we need to consider the temporal characteristics of input data. In response, we propose TR-GCN, a temporal relational graph convolutional network for payment behavior prediction on shared parking lots, and we build a reminder to remind unpaid users. TR-GCN addresses the aforementioned challenges with three modules. 1) We develop an efficient data preprocessing module to extract key information from big data. 2) We build a GCN-based module with user association graphs from three different perspectives to describe the diverse hidden relations among data, including relations between user profile, temporal relations between parking patterns, and spatial relations between different parking lots. 3) We build an LSTM-based module to capture the temporal information from historical events. Experiments based on 50 real parking lots show that our TR-GCN achieves 91.2% accuracy, which is about 7% higher than the state-of-the-art and the reminder service makes more than half of the late-payment users pay, saving 1.9% loss for shared parking lots.\n适合回答的问题：\n- 这篇论文主要解决什么问题，以及它为什么重要。\n- 这篇论文的核心方法、系统设计或算法思路是什么。\n- 这篇论文与 大模型推理、检索增强与记忆系统 这条研究主线的关系是什么。",
+  "tags": [
+    "homepage",
+    "research",
+    "publication",
+    "paper-digest",
+    "llm",
+    "graph"
+  ],
+  "source_name": "homepage:contents/research_papers/publications_summary.md#4.10 Payment Behavior Prediction on Shared Parking Lots with TR-GCN",
+  "metadata": {
+    "domain": "research",
+    "identity": "pi",
+    "material_type": "paper-digest",
+    "source_kind": "homepage"
+  },
+  "created_at": "2026-05-28T01:19:22.845122Z"
+}

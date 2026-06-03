@@ -1,0 +1,16 @@
+{
+  "record_id": "0d5f4a40-bebc-4a89-8815-608536b32eb7",
+  "conversation_id": "conv-analytics-1",
+  "planner_stage": "shadow",
+  "planner_mode": "llm_shadow",
+  "question": "和老师约时间前，我应该先准备什么？",
+  "goal": "prepare_booking_agenda",
+  "accepted": false,
+  "status": "shadow_disabled",
+  "fallback_template": "advise_only",
+  "fallback_reason": "Current LLM client does not implement shadow planner proposals.",
+  "validation_errors": [],
+  "planned_steps": [],
+  "latency_ms": 0.004803761839866638,
+  "created_at": "2026-06-01T13:38:59.981743+00:00"
+}

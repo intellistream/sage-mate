@@ -1,0 +1,25 @@
+{
+  "record_id": "1163debd-69c8-4e9e-89d3-1f88c1b9aa77",
+  "conversation_id": "conv-gap-Alice",
+  "exchange_id": "99639e4b-b39b-48eb-aecb-95c6565359ca",
+  "workflow_action": "advise_only",
+  "question": "和老师约时间前，我应该先准备什么？",
+  "comparison_status": "shadow_disabled",
+  "deterministic_goal": "prepare_booking_agenda",
+  "shadow_goal": null,
+  "same_goal": true,
+  "same_fallback_template": true,
+  "deterministic_only_steps": [
+    "detect_profile_context",
+    "classify_intent",
+    "retrieve_hybrid_knowledge",
+    "retrieve_recent_memory",
+    "assemble_prompt_context",
+    "answer_with_citations",
+    "score_memory_usefulness",
+    "render_user_response"
+  ],
+  "shadow_only_steps": [],
+  "summary": "Current LLM client does not implement shadow planner proposals.",
+  "created_at": "2026-06-03T04:25:46.664630+00:00"
+}

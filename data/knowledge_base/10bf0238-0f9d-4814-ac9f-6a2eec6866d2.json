@@ -1,0 +1,31 @@
+{
+  "document_id": "10bf0238-0f9d-4814-ac9f-6a2eec6866d2",
+  "title": "课件正文｜大模型推理基础设施课程材料｜第 2 讲 工作负载与评价指标（第2部分）",
+  "content": "何判断它是否更适合在线服 务。 2. 给出一个适用于 Agent 工作流的 SLO 组合，而不只写单个 TTFT 阈值。 3. 说明为什么指标解释必须回到 workload 与场景。 课堂讨论 核心结论 指标选择本身构成系统问题定义的重要组成部分。 ▶ 为什么以 TTFT 为核心的服务不会只优化峰值吞吐。 ▶ RAG 服务与对话服务的主指标为何不同。 ▶ 什么情况下应报告 goodput 而非 raw throughput。 课堂练习 核心结论 本讲练习采用“场景 - 指标 - 瓶颈”三列表格式，以训练问题刻画能力。 ▶ 每个场景至少写出两个主指标。 ▶ 每个指标至少写出一个可能冲突指标。 ▶ 每个冲突都要对应一个系统机制取舍。 本讲总结 核心结论 明确工作负载与评价指标，是后续讨论调度、KV 与执行优化问题的共同前提。 ▶ 不同场景对应不同瓶颈。 ▶ 指标定义决定优化方向与论文叙事边界。\n\n对应 Tutorial 核心结论 本讲对应 Tutorial 1。 建议先独立作答，再翻到下一页查看参考答案。 ▶ 文件：build/tutorials/Tutorial 01 工作负载与评价指标. pdf ▶ 动手运行、日志记录与提交要求统一查看 build/experiments/ 和对应 experiment 源目录下的 assignment spring-2026/。",
+  "tags": [
+    "homepage",
+    "teaching",
+    "courseware",
+    "pdf",
+    "material:pdf",
+    "identity:teacher",
+    "domain:teaching",
+    "audience:graduate",
+    "course:llm-inference",
+    "material:lecture",
+    "lecture:2",
+    "lecture"
+  ],
+  "source_name": "homepage:contents/teaching/intro-to-llm-inference-engines.md#讲义与导论::contents/teaching/intro-to-llm-inference-engines/2026/slides/lectures/大模型推理基础设施_第02讲_工作负载与评价指标.pdf::part-2",
+  "metadata": {
+    "material_type": "lecture",
+    "identity": "teacher",
+    "domain": "teaching",
+    "audience": "graduate",
+    "course_id": "llm-inference",
+    "ordinal_type": "lecture",
+    "ordinal": "2",
+    "source_kind": "homepage"
+  },
+  "created_at": "2026-05-28T01:19:22.832404Z"
+}

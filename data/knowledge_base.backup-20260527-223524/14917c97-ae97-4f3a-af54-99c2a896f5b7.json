@@ -1,0 +1,15 @@
+{
+  "document_id": "14917c97-ae97-4f3a-af54-99c2a896f5b7",
+  "title": "论文提炼｜A Survey on Transactional Stream Processing",
+  "content": "论文名称：A Survey on Transactional Stream Processing\n研究主题：流处理系统、共享状态与运行时调度\n发表 venue：VLDBJ - The International Journal on Very Large Data Bases Journal (VLDBJ)\n发表年份：2023\n作者：Shuhao Zhang, Juan Soto, Volker Markl\n作者角色：你是第一作者\n一句话总结：Transactional stream processing (TSP) strives to create a cohesive model that merges the advantages of both transactional and stream-oriented guarantees.\n核心内容：\nTransactional stream processing (TSP) strives to create a cohesive model that merges the advantages of both transactional and stream-oriented guarantees. Over the past decade, numerous endeavors have contributed to the evolution of TSP solutions, uncovering similarities and distinctions among them. Despite these advances, a universally accepted standard approach for integrating transactional functionality with stream processing remains to be established. Existing TSP solutions predominantly concentrate on specific application characteristics and involve complex design trade-offs. This survey intends to introduce TSP and present our perspective on its future progression. Our primary goals are twofold: to provide insights into the diverse TSP requirements and methodologies, and to inspire the design and development of groundbreaking TSP systems.\n适合回答的问题：\n- 这篇论文主要解决什么问题，以及它为什么重要。\n- 这篇论文的核心方法、系统设计或算法思路是什么。\n- 这篇论文与 流处理系统、共享状态与运行时调度 这条研究主线的关系是什么。",
+  "tags": [
+    "homepage",
+    "research",
+    "publication",
+    "paper-digest",
+    "stream-processing",
+    "transactional-stream"
+  ],
+  "source_name": "homepage:contents/research_papers/publications_summary.md#3.11 A Survey on Transactional Stream Processing",
+  "created_at": "2026-05-25T13:37:18.187319Z"
+}

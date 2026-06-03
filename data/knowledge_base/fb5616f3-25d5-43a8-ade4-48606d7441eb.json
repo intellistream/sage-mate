@@ -1,0 +1,20 @@
+{
+  "document_id": "fb5616f3-25d5-43a8-ade4-48606d7441eb",
+  "title": "论文提炼｜Detecting Hallucination in Large Language Models through Deep Internal Representation Analysis",
+  "content": "论文名称：Detecting Hallucination in Large Language Models through Deep Internal Representation Analysis\n研究主题：大模型推理、检索增强与记忆系统\n发表 venue：IJCAI - International Joint Conference on Artificial Intelligence\n发表年份：2025\n作者：Luan Zhang, Dandan Song, Zhijing Wu, Yuhang Tian, Changzhi Zhou, Jing Xu, Ziyi Yang, Shuhao Zhang\n作者角色：合作作者或共同作者\n一句话总结：Large language models (LLMs) have demonstrated exceptional performance across various domains.\n核心内容：\nLarge language models (LLMs) have demonstrated exceptional performance across various domains. However, LLMs are prone to hallucinate facts and generate non-factual responses, which can undermine their reliability in real-world applications. Current hallucinate detection methods suffer from external resource demands, substantial time overhead, difficulty overcoming LLMs' intrinsic limitation, and insufficient modeling. In this paper, we propose MHAD, a novel internal-representation-based hallucination detection method. MHAD utilizes linear probing to select neurons and layers within LLMs. The selected neurons and layers are demonstrated with significant awareness of hallucinations at the initial and final generation steps. By concatenating the outputs from these selected neurons of selected layers at the initial and final generation steps, a hallucination awareness vector is formed, enabling precise hallucination detection via a multi-layer perceptron (MLP). Additionally, we introduce SOQHD, a novel benchmark for evaluating hallucination detection in Open-Domain QA (ODQA). Extensive experiments show that MHAD outperforms existing hallucination detection methods across multiple LLMs, demonstrating superior effectiveness.\n适合回答的问题：\n- 这篇论文主要解决什么问题，以及它为什么重要。\n- 这篇论文的核心方法、系统设计或算法思路是什么。\n- 这篇论文与 大模型推理、检索增强与记忆系统 这条研究主线的关系是什么。",
+  "tags": [
+    "homepage",
+    "research",
+    "publication",
+    "paper-digest",
+    "llm"
+  ],
+  "source_name": "homepage:contents/research_papers/publications_summary.md#2.7 Detecting Hallucination in Large Language Models through Deep Internal Representation Analysis",
+  "metadata": {
+    "domain": "research",
+    "identity": "pi",
+    "material_type": "paper-digest",
+    "source_kind": "homepage"
+  },
+  "created_at": "2026-05-28T01:19:22.842087Z"
+}

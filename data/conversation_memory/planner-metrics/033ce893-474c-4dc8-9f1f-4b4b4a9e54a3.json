@@ -1,0 +1,25 @@
+{
+  "record_id": "033ce893-474c-4dc8-9f1f-4b4b4a9e54a3",
+  "conversation_id": "conv-review-queue",
+  "planner_stage": "deterministic",
+  "planner_mode": "deterministic",
+  "question": "能不能破例帮我把截止时间延期一天？",
+  "goal": "answer_course_question",
+  "accepted": true,
+  "status": "accepted",
+  "fallback_template": "answer_question",
+  "fallback_reason": null,
+  "validation_errors": [],
+  "planned_steps": [
+    "detect_profile_context",
+    "classify_intent",
+    "retrieve_hybrid_knowledge",
+    "retrieve_recent_memory",
+    "assemble_prompt_context",
+    "answer_with_citations",
+    "score_memory_usefulness",
+    "render_user_response"
+  ],
+  "latency_ms": 0.372578389942646,
+  "created_at": "2026-06-03T04:19:57.187345+00:00"
+}

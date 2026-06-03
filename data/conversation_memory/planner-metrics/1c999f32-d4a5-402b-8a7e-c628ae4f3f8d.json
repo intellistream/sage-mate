@@ -1,0 +1,24 @@
+{
+  "record_id": "1c999f32-d4a5-402b-8a7e-c628ae4f3f8d",
+  "conversation_id": "db52be5a-804e-42bb-9e43-af04d8494f65",
+  "planner_stage": "deterministic",
+  "planner_mode": "deterministic",
+  "question": "当前实验章节包括 canonical continuation、cross-workload regime coverage、Q1–Q3 mechanism analysis、ShareGPT weak-anchor boundary，以及后续可能的 load/drift sweep 和 reference rule。希望确认实验顺序是否合理，哪些实验是必须补充的，哪些可以移到 appendix 或作为 future work。",
+  "goal": "answer_course_question",
+  "accepted": true,
+  "status": "accepted",
+  "fallback_template": "answer_question",
+  "fallback_reason": null,
+  "validation_errors": [],
+  "planned_steps": [
+    "detect_profile_context",
+    "classify_intent",
+    "retrieve_hybrid_knowledge",
+    "assemble_prompt_context",
+    "answer_with_citations",
+    "score_memory_usefulness",
+    "render_user_response"
+  ],
+  "latency_ms": 0.6532417610287666,
+  "created_at": "2026-06-03T06:27:35.987615+00:00"
+}

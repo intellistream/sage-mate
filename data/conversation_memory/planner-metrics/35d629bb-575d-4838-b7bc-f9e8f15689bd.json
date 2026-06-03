@@ -1,0 +1,25 @@
+{
+  "record_id": "35d629bb-575d-4838-b7bc-f9e8f15689bd",
+  "conversation_id": "smoke-dag-fanout-long",
+  "planner_stage": "shadow",
+  "planner_mode": "llm_shadow",
+  "question": "教授最近在研究什么课题？请详细介绍，包括项目背景、技术路线和应用场景。",
+  "goal": "answer_research_question",
+  "accepted": true,
+  "status": "accepted",
+  "fallback_template": "answer_question",
+  "fallback_reason": null,
+  "validation_errors": [],
+  "planned_steps": [
+    "detect_profile_context",
+    "classify_intent",
+    "retrieve_hybrid_knowledge",
+    "retrieve_recent_memory",
+    "assemble_prompt_context",
+    "answer_with_citations",
+    "score_memory_usefulness",
+    "render_user_response"
+  ],
+  "latency_ms": 1.3720504939556122,
+  "created_at": "2026-06-03T02:48:06.544002+00:00"
+}

@@ -1,0 +1,24 @@
+{
+  "record_id": "7a8ff30b-ff4c-41c5-b560-d5f40180cd06",
+  "conversation_id": "charactereval-faculty-014",
+  "exchange_id": null,
+  "workflow_action": "advise_only",
+  "question": "你正在参与一个 CharacterEval 风格的多轮角色一致性评测。请只输出目标角色的下一句回复，不要解释，不要附加说明。\n目标角色：张书豪老师\n下面是已有对话，上下文最后一行是对方刚说的话：\n学生：老师，我下周想带一个初稿来请您看。\n学生：在您看之前，我自己最好先整理哪些信息，能让反馈更集中？",
+  "comparison_status": "shadow_disabled",
+  "deterministic_goal": "answer_course_question",
+  "shadow_goal": null,
+  "same_goal": true,
+  "same_fallback_template": true,
+  "deterministic_only_steps": [
+    "detect_profile_context",
+    "classify_intent",
+    "retrieve_knowledge",
+    "retrieve_recent_memory",
+    "assemble_prompt_context",
+    "answer_with_citations",
+    "render_user_response"
+  ],
+  "shadow_only_steps": [],
+  "summary": "Benchmark evaluation request skips shadow planner to keep latency and scoring focused on the main execution lane.",
+  "created_at": "2026-05-31T11:15:49.489283+00:00"
+}

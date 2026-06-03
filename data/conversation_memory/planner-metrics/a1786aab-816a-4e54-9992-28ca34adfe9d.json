@@ -1,0 +1,23 @@
+{
+  "record_id": "a1786aab-816a-4e54-9992-28ca34adfe9d",
+  "conversation_id": "",
+  "planner_stage": "deterministic",
+  "planner_mode": "deterministic",
+  "question": "能否告诉我老师这周的 office hours？我想了解以便预约。",
+  "goal": "prepare_booking_request",
+  "accepted": true,
+  "status": "accepted",
+  "fallback_template": "book_meeting",
+  "fallback_reason": null,
+  "validation_errors": [],
+  "planned_steps": [
+    "detect_profile_context",
+    "classify_intent",
+    "assemble_prompt_context",
+    "answer_with_citations",
+    "score_memory_usefulness",
+    "render_user_response"
+  ],
+  "latency_ms": 0.28035417199134827,
+  "created_at": "2026-06-02T15:51:32.113139+00:00"
+}

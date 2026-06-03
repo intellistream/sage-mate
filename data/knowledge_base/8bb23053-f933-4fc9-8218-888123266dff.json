@@ -1,0 +1,18 @@
+{
+  "document_id": "8bb23053-f933-4fc9-8218-888123266dff",
+  "title": "论文页面｜文档（第6部分）",
+  "content": "[35] Mahbod Tavallaee, Ebrahim Bagheri, Wei Lu, and Ali A. Ghorbani. 2009. A detailed analysis of the KDD CUP 99 data\n\nset. In IEEE Symposium on Computational Intelligence for Security and Defense Applications. 1–6.\n\n[36] Li Wan, Wee Keong Ng, Xuan Hong Dang, Philip S. Yu, and Kuan Zhang. 2009. Density-Based Clustering of Data\n\nStreams at Multiple Resolutions. ACM Trans. Knowl. Discov. Data 3, 3 (July 2009), 28.\n\n[37] Tian Zhang, Raghu Ramakrishnan, and Miron Livny. 1996. BIRCH: An Efficient Data Clustering Method for Very\n\nLarge Databases. SIGMOD Rec. 25, 2 (jun 1996), 103–114. https://doi.org/10.1145/235968.233324\n\n[38] Tian Zhang, Raghu Ramakrishnan, and Miron Livny. 1997. BIRCH: A new data clustering algorithm and its applications.\n\nData mining and knowledge discovery 1, 2 (1997), 141–182.\n\n[39] Aoying Zhou, Feng Cao, Weining Qian, and Cheqing Jin. 2008. Tracking clusters in evolving data streams over sliding\n\nwindows. Knowledge and Information Systems 15, 2 (2008), 181–214.\n\nReceived October 2022; revised January 2023; accepted February 2023\n\nProc. ACM Manag. Data., Vol. 1, No. 2, Article 162. Publication date: June 2023.",
+  "tags": [
+    "homepage",
+    "research",
+    "publication",
+    "paper-page"
+  ],
+  "source_name": "homepage:contents/research_papers/2023/2023_sesame_sigmod_2023.md#文档::part-6",
+  "metadata": {
+    "domain": "research",
+    "identity": "pi",
+    "source_kind": "homepage"
+  },
+  "created_at": "2026-05-28T01:19:22.877591Z"
+}

@@ -1,0 +1,25 @@
+{
+  "record_id": "419a2d32-ae81-4f2c-a8b0-f6752818ae31",
+  "conversation_id": "d3974f70-a16c-4121-9008-adebe98a9ed0",
+  "planner_stage": "deterministic",
+  "planner_mode": "deterministic",
+  "question": "有没有适合先看的公开资料？",
+  "goal": "answer_course_question",
+  "accepted": true,
+  "status": "accepted",
+  "fallback_template": "answer_question",
+  "fallback_reason": null,
+  "validation_errors": [],
+  "planned_steps": [
+    "detect_profile_context",
+    "classify_intent",
+    "retrieve_hybrid_knowledge",
+    "retrieve_recent_memory",
+    "assemble_prompt_context",
+    "answer_with_citations",
+    "score_memory_usefulness",
+    "render_user_response"
+  ],
+  "latency_ms": 0.9675761684775352,
+  "created_at": "2026-06-03T10:15:32.878689+00:00"
+}

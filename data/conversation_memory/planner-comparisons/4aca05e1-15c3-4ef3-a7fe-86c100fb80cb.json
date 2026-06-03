@@ -1,0 +1,16 @@
+{
+  "record_id": "4aca05e1-15c3-4ef3-a7fe-86c100fb80cb",
+  "conversation_id": "c5dcb3e8-2467-4af0-8fe5-edd45fd967c6",
+  "exchange_id": null,
+  "workflow_action": "advise_only",
+  "question": "能讲讲推理引擎这块你的具体工作吗",
+  "comparison_status": "equivalent",
+  "deterministic_goal": "answer_research_question",
+  "shadow_goal": "answer_research_question",
+  "same_goal": true,
+  "same_fallback_template": true,
+  "deterministic_only_steps": [],
+  "shadow_only_steps": [],
+  "summary": "Shadow planner matched the deterministic plan on goal, fallback, and ordered steps. Execution still follows the deterministic lane.",
+  "created_at": "2026-06-03T11:32:55.154146+00:00"
+}

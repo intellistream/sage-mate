@@ -1,0 +1,16 @@
+{
+  "record_id": "b2fa22e1-1e13-45e7-aa43-a1a573d594dc",
+  "conversation_id": "",
+  "planner_stage": "shadow",
+  "planner_mode": "llm_shadow",
+  "question": "能否告诉我老师这周的 office hours？我想了解以便预约。",
+  "goal": "prepare_booking_request",
+  "accepted": false,
+  "status": "shadow_disabled",
+  "fallback_template": "book_meeting",
+  "fallback_reason": "Current LLM client does not implement shadow planner proposals.",
+  "validation_errors": [],
+  "planned_steps": [],
+  "latency_ms": 0.005510635673999786,
+  "created_at": "2026-06-01T13:26:14.105891+00:00"
+}

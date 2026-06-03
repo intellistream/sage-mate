@@ -1,0 +1,15 @@
+{
+  "document_id": "7fd134ec-616e-4505-a106-f6896b5bf119",
+  "title": "论文提炼｜Scalable Machine Learning for Real-Time Fault Diagnosis in Industrial IoT Cooling Roller Systems",
+  "content": "论文名称：Scalable Machine Learning for Real-Time Fault Diagnosis in Industrial IoT Cooling Roller Systems\n研究主题：流处理系统、共享状态与运行时调度\n发表 venue：ICDE - IEEE 40rd International Conference on Data Engineering\n发表年份：2025\n作者：Dandan Zhao, Karthick Sharma, Yuxin Qi, Qixun Liu, Shuhao Zhang\n作者角色：你是通讯作者\n一句话总结：The CISDI Hot Rolled Strip Cooling Roller Health Monitoring System (HRSCR-HMS) is a platform widely deployed in hot rolled steel manufacturing, providing real-time monitoring, fault diagnosis, and health management for cooling rollers.\n核心内容：\nThe CISDI Hot Rolled Strip Cooling Roller Health Monitoring System (HRSCR-HMS) is a platform widely deployed in hot rolled steel manufacturing, providing real-time monitoring, fault diagnosis, and health management for cooling rollers. Operating in industrial IoT environments with high data velocity and volume, the system faces challenges in scaling real-time fault diagnosis due to evolving fault patterns, severe data imbalance, and the need for both diagnostic accuracy and efficiency. Evaluations of state-of-the-art fault diagnosis (FD) methods, including online continual learning (OCL) algorithms like Camel, reveal their limitations in meeting the real-time adaptability and data processing demands of HRSCR-HMS. To address these challenges, we propose SRTFD, a scalable framework tailored for real-time fault diagnosis in industrial IoT systems. SRTFD processes high-velocity data streams using three core innovations: Retrospect Coreset Selection (RCS) for optimizing training efficiency by reducing redundant data, Global Balance Technique (GBT) for robust performance with imbalanced data streams, and Confidence and Uncertainty-driven Pseudo-label Learning (CUPL) for adaptive updates with unlabeled data. Experiments on industrial datasets demonstrate that SRTFD outperforms competing methods, addressing challenges of imbalance, redundancy, and scalability. Integration within HRSCR-HMS validates SRTFD as a practical, scalable solution aligned with the stringent demands of stream data processing in industrial IoT environments.\n适合回答的问题：\n- 这篇论文主要解决什么问题，以及它为什么重要。\n- 这篇论文的核心方法、系统设计或算法思路是什么。\n- 这篇论文与 流处理系统、共享状态与运行时调度 这条研究主线的关系是什么。",
+  "tags": [
+    "homepage",
+    "research",
+    "publication",
+    "paper-digest",
+    "stream-processing",
+    "continual-learning"
+  ],
+  "source_name": "homepage:contents/research_papers/publications_summary.md#2.5 Scalable Machine Learning for Real-Time Fault Diagnosis in Industrial IoT Cooling Roller Systems",
+  "created_at": "2026-05-25T13:37:18.185468Z"
+}

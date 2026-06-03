@@ -1,0 +1,16 @@
+{
+  "record_id": "fa5b9fc3-c9b9-4b11-bb50-a65563199e28",
+  "conversation_id": "6635b062-774b-4dad-8db0-ea58a5eee292",
+  "exchange_id": "043f18e4-5c92-402e-bc8f-e8a6a2ace1c1",
+  "workflow_action": "advise_only",
+  "question": "教授最近在研究什么课题？请详细介绍，包括项目背景、技术路线和应用场景。",
+  "comparison_status": "equivalent",
+  "deterministic_goal": "answer_research_question",
+  "shadow_goal": "answer_research_question",
+  "same_goal": true,
+  "same_fallback_template": true,
+  "deterministic_only_steps": [],
+  "shadow_only_steps": [],
+  "summary": "Shadow planner matched the deterministic plan on goal, fallback, and ordered steps. Execution still follows the deterministic lane.",
+  "created_at": "2026-06-03T02:36:21.179651+00:00"
+}

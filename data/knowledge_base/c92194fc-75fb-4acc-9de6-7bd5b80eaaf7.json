@@ -1,0 +1,22 @@
+{
+  "document_id": "c92194fc-75fb-4acc-9de6-7bd5b80eaaf7",
+  "title": "论文提炼｜Predictive and Near-Optimal Sampling for View Materialization in Video Databases",
+  "content": "论文名称：Predictive and Near-Optimal Sampling for View Materialization in Video Databases\n研究主题：大模型推理、检索增强与记忆系统\n发表 venue：SIGMOD - International Conference on Management of Data\n发表年份：2024\n作者：Yanchao Xu, Dongxiang Zhang, Shuhao Zhang, Sai Wu, Zexu Feng, Gang Chen\n作者角色：合作作者或共同作者\n一句话总结：Scalable video query optimization has re-emerged as an attractive research topic in recent years.\n核心内容：\nScalable video query optimization has re-emerged as an attractive research topic in recent years. The OTIF system, a video database with cutting-edge efficiency, has introduced a new paradigm of utilizing view materialization to facilitate online query processing. Specifically, it stores the results of multi-object tracking queries to answer common video queries with sub-second latency. However, the cost associated with view materialization in OTIF is prohibitively high for supporting large-scale video streams.In this paper, we study efficient MOT-based view materialization in video databases. We first conduct a theoretical analysis and establish two types of optimality measures that serve as lower bounds for video frame sampling. In order to minimize the number of processed video frames, we propose a novel predictive sampling framework, namely LEAP, exhibits near-optimal sampling performance. Its efficacy relies on a data-driven motion manager that enables accurate trajectory prediction, a compact object detection model via knowledge distillation, and a robust cross-frame associator to connect moving objects in two frames with a large time gap.Extensive experiments are conducted in 7 real datasets, with 7 baselines and a comprehensive query set, including selection, aggregation and top-k queries. The results show that with comparable query accuracy to OTIF, our LEAP can reduce the number of processed video frames by up to 9× and achieve 5× speedup in query processing time. Moreover, LEAP demonstrates impressive throughput when handling large-scale video streams, as it leverages a single NVIDIA RTX 3090ti GPU to support real-time MOT-based view materialization from 160 video streams simultaneously.\n适合回答的问题：\n- 这篇论文主要解决什么问题，以及它为什么重要。\n- 这篇论文的核心方法、系统设计或算法思路是什么。\n- 这篇论文与 大模型推理、检索增强与记忆系统 这条研究主线的关系是什么。",
+  "tags": [
+    "homepage",
+    "research",
+    "publication",
+    "paper-digest",
+    "rag",
+    "stream-processing",
+    "gpu"
+  ],
+  "source_name": "homepage:contents/research_papers/publications_summary.md#1.7 Predictive and Near-Optimal Sampling for View Materialization in Video Databases",
+  "metadata": {
+    "domain": "research",
+    "identity": "pi",
+    "material_type": "paper-digest",
+    "source_kind": "homepage"
+  },
+  "created_at": "2026-05-28T01:19:22.841143Z"
+}

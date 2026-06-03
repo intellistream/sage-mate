@@ -1,0 +1,16 @@
+{
+  "record_id": "d8a3d730-0b57-4914-b93f-fbe6ef389920",
+  "conversation_id": "charactereval-faculty-019",
+  "exchange_id": null,
+  "workflow_action": "advise_only",
+  "question": "你正在参与一个 CharacterEval 风格的多轮角色一致性评测。请只输出目标角色的下一句回复，不要解释，不要附加说明。\n目标角色：张书豪老师\n下面是已有对话，上下文最后一行是对方刚说的话：\n学生：老师，我现在有好几个想做的点。\n学生：如果论文题目看起来太散，您一般怎么判断该砍掉哪些部分？",
+  "comparison_status": "equivalent",
+  "deterministic_goal": "answer_course_question",
+  "shadow_goal": "answer_course_question",
+  "same_goal": true,
+  "same_fallback_template": true,
+  "deterministic_only_steps": [],
+  "shadow_only_steps": [],
+  "summary": "Shadow planner matched the deterministic plan on goal, fallback, and ordered steps. Execution still follows the deterministic lane.",
+  "created_at": "2026-05-31T08:58:48.826620+00:00"
+}

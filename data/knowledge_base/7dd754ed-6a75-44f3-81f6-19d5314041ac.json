@@ -1,0 +1,18 @@
+{
+  "document_id": "7dd754ed-6a75-44f3-81f6-19d5314041ac",
+  "title": "论文页面｜Cores（第5部分）",
+  "content": "[40] S. M. Zahedi and B. C. Lee. Ref: Resource elasticity fairness with\nsharing incentives for multiprocessors. In ASPLOS’14, pages 145–160,\nNew York, NY, USA, 2014. ACM.\n\n[41] F. Zhang, J. Zhai, W. Chen, B. He, and S. Zhang. To co-run, or not to co-\nrun: A performance study on integrated architectures. In MASCOTS’15,\npages 89–92, Oct 2015.\n\n[42] J. Zhong and B. He. Kernelet: High-throughput gpu kernel executions\nwith dynamic slicing and scheduling. IEEE Trans. Parallel Distrib. Syst.,\n25(6):1522–1532, June 2014.",
+  "tags": [
+    "homepage",
+    "research",
+    "publication",
+    "paper-page"
+  ],
+  "source_name": "homepage:contents/research_papers/2016/2016_sc_paper_sc_2016.md#Cores::part-5",
+  "metadata": {
+    "domain": "research",
+    "identity": "pi",
+    "source_kind": "homepage"
+  },
+  "created_at": "2026-05-28T01:19:22.848907Z"
+}

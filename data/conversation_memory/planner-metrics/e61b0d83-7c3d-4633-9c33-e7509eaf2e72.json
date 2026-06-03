@@ -1,0 +1,22 @@
+{
+  "record_id": "e61b0d83-7c3d-4633-9c33-e7509eaf2e72",
+  "conversation_id": "",
+  "planner_stage": "deterministic",
+  "planner_mode": "deterministic",
+  "question": "你好",
+  "goal": "respond_simple_greeting",
+  "accepted": true,
+  "status": "accepted",
+  "fallback_template": "answer_question",
+  "fallback_reason": null,
+  "validation_errors": [],
+  "planned_steps": [
+    "detect_profile_context",
+    "classify_intent",
+    "assemble_prompt_context",
+    "answer_with_citations",
+    "render_user_response"
+  ],
+  "latency_ms": 0.15290826559066772,
+  "created_at": "2026-06-03T07:28:18.857376+00:00"
+}

@@ -1,0 +1,16 @@
+{
+  "record_id": "e960c0f6-ce04-4d03-bd5f-2f73d01e2e1e",
+  "conversation_id": "charactereval-memory-isolation",
+  "planner_stage": "shadow",
+  "planner_mode": "llm_shadow",
+  "question": "你正在参与一个 CharacterEval 风格的多轮角色一致性评测。请只输出目标角色的下一句回复。",
+  "goal": "answer_course_question",
+  "accepted": false,
+  "status": "shadow_disabled",
+  "fallback_template": "answer_question",
+  "fallback_reason": "Benchmark evaluation request skips shadow planner to keep latency and scoring focused on the main execution lane.",
+  "validation_errors": [],
+  "planned_steps": [],
+  "latency_ms": 0.004190951585769653,
+  "created_at": "2026-06-01T13:25:06.281542+00:00"
+}

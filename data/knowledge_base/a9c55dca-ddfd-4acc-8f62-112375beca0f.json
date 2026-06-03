@@ -1,0 +1,31 @@
+{
+  "document_id": "a9c55dca-ddfd-4acc-8f62-112375beca0f",
+  "title": "课件正文｜大模型推理基础设施课程材料｜Tutorial 5 状态管理与记忆组织",
+  "content": "TUTORIAL 5：状态管理与记忆组织 1 Tutorial 5：状态管理与记忆组织 题目 1. [单选题] KV、会话记忆和知识缓存能够放在统一视角下讨论，主要因为它们都属于哪一类对象？ A. 只在单轮请求内存在的临时变量 B. 跨阶段存在并需要维护的状态对象 C. 与系统执行无关的 元数据 D. 仅用于前端展示的缓存 2. [判断题] 只要某种状态“理论上能够复用”，它在系统中就一定值得复用。 3. [多选题] 下列哪些因素会影响“搬运状态”是否比“重新计算”更划算？A. 命中率 B. 迁移成本 C. 一致性维护成本 D. 是否看起来概念上更高级 4. [简答题] 为什么状态问题通常会牵出生命周期问题？ 5. [计算题] 某方案中，重新计算 100 次的总成本为 400ms；复用方案中，命中后成本为 1ms/次，未 命中成本为 4ms/次，命中率为 70%，额外维护成本为 80ms。请计算复用方案总成本，并判断是 否更划算。 6. [判断题] 状态一致性通常不需要额外代价，因此不会影响复用收益。 7. [简答题] 为什么状态放置位置会改变系统边界？ 8. [伪代码题] 请写出一个简短伪代码：若 hit rate 高且 maintenance cost 低，则选择复用；否则 TUTORIAL 5：状态管理与记忆组织 2 选择重算。 9. [多选题] 若要证明某种状态复用确实有效，至少需要哪些证据？A. 命中率 B. 端到端指标变化 C. 维护成本变化 D. 只说明“理论上可行” 10. [简答题] 应如何评价“减少计算但增加状态管理负担”的方案？ TUTORIAL 5：状态管理与记忆组织 3 参考答案 1. B。它们都属于跨阶段存在并需要维护的状态对象。 2. 错。技术可行性并不自动等于系统收益成立。 3. A、B、C。这些都是关键因素。 4. 因为状态总要经历生成、驻留、迁移和释放。 5. 复用方案总成本 = 70 x 1 + 30 x 4 + 80 = 270ms，因此复用方案更划算。 6. 错。一致性维护本身就会消耗额外资源。 7. 因为状态放置会改写模块分工、数据路径和控制关系。 8. 示例伪代码： function choose strategy(hit rate, maintenance cost): if hit rate > threshold and maintenance cost < limit: return \"reuse\" return \"recompute\" 9. A、B、C。仅说明“理论上可行”并不足够。 10. 应同时评估它节省了什么，又引入了什么新的系统负担。",
+  "tags": [
+    "homepage",
+    "teaching",
+    "courseware",
+    "pdf",
+    "material:pdf",
+    "identity:teacher",
+    "domain:teaching",
+    "audience:graduate",
+    "course:llm-inference",
+    "material:tutorial",
+    "tutorial:5",
+    "tutorial"
+  ],
+  "source_name": "homepage:contents/teaching/intro-to-llm-inference-engines.md#Tutorials::contents/teaching/intro-to-llm-inference-engines/2026/tutorials/Tutorial_05_状态管理与记忆组织.pdf",
+  "metadata": {
+    "material_type": "tutorial",
+    "identity": "teacher",
+    "domain": "teaching",
+    "audience": "graduate",
+    "course_id": "llm-inference",
+    "ordinal_type": "tutorial",
+    "ordinal": "5",
+    "source_kind": "homepage"
+  },
+  "created_at": "2026-05-28T01:19:22.836303Z"
+}

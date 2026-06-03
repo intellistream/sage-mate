@@ -1,0 +1,17 @@
+{
+  "document_id": "e714337d-debb-4eea-8a9c-9e53001305a9",
+  "title": "课程资料｜公开教学资源",
+  "content": "这里收录公开教学材料与研究综述下载入口。\n\n系统建设\n\n- 代表性系统建设信息已在主页系统板块中汇总，包括 SAGE、Neuromem 与 vLLM-HUST 等当前工作。\n\n教学材料\n\n目前公开两门课程：\n\n- 大模型推理基础设施：页面\n- 研究生论文写作：页面\n\n其中，2026 年研究生论文写作课程当前公开第 5 至第 8 讲课件，均为草稿版，仅供课程同学和相关读者参考，后续仍可能继续修订。\n\n公开综述材料\n\n- 并行与分布式系统中的高效状态管理综述（preprint）：PDF\n- 国产算力推理引擎综述（preprint）：PDF",
+  "tags": [
+    "homepage",
+    "teaching",
+    "resources"
+  ],
+  "source_name": "homepage:contents/resources.md#teaching-resources",
+  "metadata": {
+    "domain": "teaching",
+    "identity": "teacher",
+    "source_kind": "homepage"
+  },
+  "created_at": "2026-05-28T01:19:22.829099Z"
+}

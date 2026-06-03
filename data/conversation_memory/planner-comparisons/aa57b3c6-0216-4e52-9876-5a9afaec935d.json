@@ -1,0 +1,16 @@
+{
+  "record_id": "aa57b3c6-0216-4e52-9876-5a9afaec935d",
+  "conversation_id": "d3521c84-1a91-4df3-a539-eb44f82c9de9",
+  "exchange_id": "f8a0f380-5c98-4666-9b45-af4dd57875ba",
+  "workflow_action": "answer",
+  "question": "用一句话介绍张书豪 (n-1b8638)",
+  "comparison_status": "equivalent",
+  "deterministic_goal": "answer_grounded_question",
+  "shadow_goal": "answer_grounded_question",
+  "same_goal": true,
+  "same_fallback_template": true,
+  "deterministic_only_steps": [],
+  "shadow_only_steps": [],
+  "summary": "Shadow planner matched the deterministic plan on goal, fallback, and ordered steps. Execution still follows the deterministic lane.",
+  "created_at": "2026-06-03T10:01:19.112548+00:00"
+}

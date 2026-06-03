@@ -1,0 +1,25 @@
+{
+  "record_id": "d9349efd-204d-4e53-8d63-f6fb43d9f71f",
+  "conversation_id": "conv-greeting",
+  "planner_stage": "deterministic",
+  "planner_mode": "deterministic",
+  "question": "老师好。",
+  "goal": "answer_grounded_question",
+  "accepted": true,
+  "status": "accepted",
+  "fallback_template": "answer_question",
+  "fallback_reason": null,
+  "validation_errors": [],
+  "planned_steps": [
+    "detect_profile_context",
+    "classify_intent",
+    "retrieve_hybrid_knowledge",
+    "retrieve_recent_memory",
+    "assemble_prompt_context",
+    "answer_with_citations",
+    "score_memory_usefulness",
+    "render_user_response"
+  ],
+  "latency_ms": 0.4071928560733795,
+  "created_at": "2026-06-03T01:12:24.312881+00:00"
+}

@@ -1,0 +1,27 @@
+{
+  "record_id": "c4bd8758-85dc-4e3a-aecc-f64cc3f5ceda",
+  "conversation_id": "conv-artifact-preview",
+  "planner_stage": "deterministic",
+  "planner_mode": "deterministic",
+  "question": "我上传了 proposal draft，想继续讨论里面的实验计划和 agenda。",
+  "goal": "answer_research_artifact_question",
+  "accepted": true,
+  "status": "accepted",
+  "fallback_template": "answer_question",
+  "fallback_reason": null,
+  "validation_errors": [],
+  "planned_steps": [
+    "detect_profile_context",
+    "classify_intent",
+    "retrieve_hybrid_knowledge",
+    "retrieve_recent_memory",
+    "retrieve_artifact_memory",
+    "retrieve_profile_memory",
+    "assemble_prompt_context",
+    "answer_with_citations",
+    "score_memory_usefulness",
+    "render_user_response"
+  ],
+  "latency_ms": 0.5729682743549347,
+  "created_at": "2026-06-01T13:26:15.911877+00:00"
+}

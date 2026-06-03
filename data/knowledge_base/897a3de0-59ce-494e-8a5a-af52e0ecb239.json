@@ -1,0 +1,22 @@
+{
+  "document_id": "897a3de0-59ce-494e-8a5a-af52e0ecb239",
+  "title": "论文提炼｜Neuromem: A Granular Decomposition of the Streaming Lifecycle in External Memory for LLMs",
+  "content": "论文名称：Neuromem: A Granular Decomposition of the Streaming Lifecycle in External Memory for LLMs\n研究主题：大模型推理、检索增强与记忆系统\n发表 venue：ICML - International Conference on Machine Learning\n发表年份：2026\n作者：Ruicheng Zhang, Xinyi Li, Tianyi Xu, Shuhao Zhang, Xiaofei Liao, Hai Jin\n作者角色：你是通讯作者；Author PDF has been added to this repository; the structured abstract has not yet been extracted into this summary.\n一句话总结：This ICML 2026 paper studies granular decomposition of the streaming lifecycle in external memory for LLMs.\n核心内容：\nThis ICML 2026 paper studies granular decomposition of the streaming lifecycle in external memory for LLMs.\n适合回答的问题：\n- 这篇论文主要解决什么问题，以及它为什么重要。\n- 这篇论文的核心方法、系统设计或算法思路是什么。\n- 这篇论文与 大模型推理、检索增强与记忆系统 这条研究主线的关系是什么。",
+  "tags": [
+    "homepage",
+    "research",
+    "publication",
+    "paper-digest",
+    "llm",
+    "memory",
+    "stream-processing"
+  ],
+  "source_name": "homepage:contents/research_papers/publications_summary.md#0.2 Neuromem: A Granular Decomposition of the Streaming Lifecycle in External Memory for LLMs",
+  "metadata": {
+    "domain": "research",
+    "identity": "pi",
+    "material_type": "paper-digest",
+    "source_kind": "homepage"
+  },
+  "created_at": "2026-05-28T01:19:22.839488Z"
+}

@@ -1,0 +1,14 @@
+{
+  "document_id": "68f5983a-ec9a-4366-b37a-025285b4b693",
+  "title": "课件正文｜大模型推理基础设施课程材料｜Tutorial 11 开源系统实践",
+  "content": "TUTORIAL 11：开源系统实践 1 Tutorial 11：开源系统实践 题目 1. [单选题] 进入代码库的第一周，最值得先画出的“最小地图”通常是哪一类？A. 最短控制路径图 B. 所有文件扩展名统计图 C. 全部依赖的 logo 图 D. 所有注释字数分布图 2. [判断题] 只要读懂 README，就可以认为已经理解了整个系统。 3. [多选题] 下列哪些材料不应被视为边缘材料？A. 脚本 B. 日志 C. 配置文件 D. 结果文件 4. [简答题] 为什么先找最短控制路径，通常比先浏览目录更有效？ 5. [判断题] “能够跑通 demo”通常就等于“已经理解系统”。 6. [简答题] 为什么进入真实系统前，应先训练论文比较与实验方法能力？ 7. [多选题] 当你准备进入修改阶段时，通常至少应能够说明哪些内容？A. 控制点 B. 变量 C. 验证路 径 D. 随机挑一个文件先改 8. [伪代码题] 请写出一个简短伪代码：先从入口文件进入，再定位主控循环，随后定位调度器，最后 返回“ready to read more” 。 TUTORIAL 11：开源系统实践 2 9. [简答题] 为什么结果复核必须与代码阅读结合起来？ 10. [简答题] 在大型代码库中，哪类文件最适合作为第一跳？ TUTORIAL 11：开源系统实践 3 参考答案 1. A。最短控制路径图通常最值得先画出。 2. 错。README 通常不会替代对真实控制点的判断。 3. A、B、C、D。这些材料都属于系统实践的重要组成部分。 4. 因为目录较大时，最短路径最能避免失焦。 5. 错。跑通并不等于已经明确问题对象与证据链。 6. 因为真实系统实践需要边界判断和验证能力。 7. A、B、C。进入修改阶段前至少应明确这些内容。 8. 示例伪代码： function first week path(): open(entry file) locate(main loop) locate(scheduler) return \"ready to read more\" 9. 因为只有二者能够对应，才说明理解落实到了真实对象上。 10. 入口文件、主控循环、调度器以及教学脚本都适合作为第一跳。",
+  "tags": [
+    "homepage",
+    "teaching",
+    "courseware",
+    "pdf",
+    "tutorial"
+  ],
+  "source_name": "homepage:contents/teaching/intro-to-llm-inference-engines.md#Tutorials::contents/teaching/intro-to-llm-inference-engines/2026/tutorials/Tutorial_11_开源系统实践.pdf",
+  "created_at": "2026-05-25T13:37:18.179946Z"
+}

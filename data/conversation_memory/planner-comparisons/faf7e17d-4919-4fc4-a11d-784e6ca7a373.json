@@ -1,0 +1,16 @@
+{
+  "record_id": "faf7e17d-4919-4fc4-a11d-784e6ca7a373",
+  "conversation_id": "lamp-LaMP_Local-lamp-013",
+  "exchange_id": null,
+  "workflow_action": "advise_only",
+  "question": "你正在参与一个 LaMP 风格的个性化生成评测。请结合给定用户画像，只返回任务答案本身，不要解释。\nTask: LaMP_Local\nUser profile:\n- item 1: identity: 外部合作方 | topic: 也在做推理服务\n- item 2: goal: 判断目标是否对齐 | constraint: 暂时还没完全收敛需求\nTask input: 如果我想先和老师讨论有没有合作空间，最应该先准备哪几类信息？",
+  "comparison_status": "equivalent",
+  "deterministic_goal": "prepare_booking_agenda",
+  "shadow_goal": "prepare_booking_agenda",
+  "same_goal": true,
+  "same_fallback_template": true,
+  "deterministic_only_steps": [],
+  "shadow_only_steps": [],
+  "summary": "Shadow planner matched the deterministic plan on goal, fallback, and ordered steps. Execution still follows the deterministic lane.",
+  "created_at": "2026-05-30T18:24:57.660623+00:00"
+}

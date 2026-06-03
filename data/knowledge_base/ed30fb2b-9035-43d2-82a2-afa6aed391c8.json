@@ -1,0 +1,28 @@
+{
+  "document_id": "ed30fb2b-9035-43d2-82a2-afa6aed391c8",
+  "title": "课程附件正文｜数据库实验课｜Clone头歌平台代码到本地",
+  "content": "所有实验都开放了命令行 Clone 头歌平台代码到本地 头歌服务器： root@educoder :/data/workspace/ myshixun # git remote get- url origin https://git.educoder.net/prxpafhei/frcwhqxtla20230508210723.git 本地： $git clone https://git.educoder.net/prxpafhei/frcwhqxtla20230508210723.git",
+  "tags": [
+    "homepage",
+    "teaching",
+    "courseware",
+    "attachment",
+    "pptx",
+    "identity:teacher",
+    "domain:teaching",
+    "audience:undergraduate",
+    "course:database-lab",
+    "material:experiment",
+    "experiment"
+  ],
+  "source_name": "homepage:contents/teaching/database/Clone头歌平台代码到本地.pptx",
+  "metadata": {
+    "identity": "teacher",
+    "domain": "teaching",
+    "audience": "undergraduate",
+    "course_id": "database-lab",
+    "material_type": "experiment",
+    "source_kind": "homepage"
+  },
+  "created_at": "2026-05-28T01:19:22.838520Z"
+}

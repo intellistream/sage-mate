@@ -1,0 +1,26 @@
+{
+  "record_id": "8045baa0-e961-4656-b4c4-18bc42ca7e5d",
+  "conversation_id": "lamp-LaMP-Local-Full-lamp-014",
+  "exchange_id": null,
+  "workflow_action": "answer",
+  "question": "下面是一个 LaMP 风格的个性化回答任务。请结合学生画像，直接回答学生当前想请教老师的问题，只返回答案本身，不要解释。\nTask: LaMP-Local-Full\n学生画像：\n- item 1: background: 几乎没有论文阅读经验 | interest: 大模型系统\n- item 2: constraint: 本周只能用晚上时间 | goal: 先建立基本框架\n学生当前想请教老师的问题：按我现在的基础，如果第一次认真读这方向的论文，第一步更该做什么？",
+  "comparison_status": "shadow_disabled",
+  "deterministic_goal": "answer_research_question",
+  "shadow_goal": null,
+  "same_goal": true,
+  "same_fallback_template": true,
+  "deterministic_only_steps": [
+    "detect_profile_context",
+    "classify_intent",
+    "retrieve_hybrid_knowledge",
+    "retrieve_recent_memory",
+    "retrieve_profile_memory",
+    "assemble_prompt_context",
+    "answer_with_citations",
+    "score_memory_usefulness",
+    "render_user_response"
+  ],
+  "shadow_only_steps": [],
+  "summary": "Benchmark evaluation request skips shadow planner to keep latency and scoring focused on the main execution lane.",
+  "created_at": "2026-06-01T02:12:25.881985+00:00"
+}

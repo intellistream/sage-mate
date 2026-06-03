@@ -1,0 +1,24 @@
+{
+  "record_id": "8386d767-90a0-4276-a558-e3e4228cd5d0",
+  "conversation_id": "cc69890a-98ba-4cde-9bc4-9ca505ba756d",
+  "planner_stage": "shadow",
+  "planner_mode": "llm_shadow",
+  "question": "预约",
+  "goal": "prepare_booking_request",
+  "accepted": true,
+  "status": "accepted",
+  "fallback_template": "book_meeting",
+  "fallback_reason": null,
+  "validation_errors": [],
+  "planned_steps": [
+    "detect_profile_context",
+    "classify_intent",
+    "retrieve_recent_memory",
+    "assemble_prompt_context",
+    "answer_with_citations",
+    "score_memory_usefulness",
+    "render_user_response"
+  ],
+  "latency_ms": 14301.423595286906,
+  "created_at": "2026-06-02T11:04:43.811460+00:00"
+}

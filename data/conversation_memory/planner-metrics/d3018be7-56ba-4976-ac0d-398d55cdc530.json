@@ -1,0 +1,22 @@
+{
+  "record_id": "d3018be7-56ba-4976-ac0d-398d55cdc530",
+  "conversation_id": "",
+  "planner_stage": "shadow",
+  "planner_mode": "llm_shadow",
+  "question": "Hello",
+  "goal": "respond_simple_greeting",
+  "accepted": true,
+  "status": "accepted",
+  "fallback_template": "answer_question",
+  "fallback_reason": null,
+  "validation_errors": [],
+  "planned_steps": [
+    "detect_profile_context",
+    "classify_intent",
+    "assemble_prompt_context",
+    "answer_with_citations",
+    "render_user_response"
+  ],
+  "latency_ms": 12080.195100046694,
+  "created_at": "2026-06-02T12:39:11.829382+00:00"
+}

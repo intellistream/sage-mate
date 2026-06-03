@@ -1,0 +1,22 @@
+{
+  "document_id": "32bdcb81-ce64-4a4b-8f24-0c9e406d5645",
+  "title": "论文提炼｜MAST: Towards Efficient Analytical Query Processing on Point Cloud Data",
+  "content": "论文名称：MAST: Towards Efficient Analytical Query Processing on Point Cloud Data\n研究主题：大模型推理、检索增强与记忆系统\n发表 venue：SIGMOD - International Conference on Management of Data\n发表年份：2025\n作者：Jiangneng Li, Haitao Yuan, Gao Cong, Han Mao Kiah, Shuhao Zhang\n作者角色：合作作者或共同作者\n一句话总结：The proliferation of 3D scanning technology, particularly within autonomous driving, has led to an exponential increase in the volume of Point Cloud (PC) data.\n核心内容：\nThe proliferation of 3D scanning technology, particularly within autonomous driving, has led to an exponential increase in the volume of Point Cloud (PC) data. Given the rich semantic information contained in PC data, deep learning models are commonly employed for tasks such as object queries. However, current query systems that support PC data types do not process queries on semantic information. Consequently, there is a notable gap in research regarding the efficiency of invoking deep models for each PC data query, especially when dealing with large-scale models and datasets. To address this issue, this work aims to design an efficient approximate approach for supporting PC analysis queries, including PC retrieval and aggregate queries. In particular, we propose a novel framework that delivers approximate query results efficiently by sampling core PC frames within a constrained budget, thereby minimizing the reliance on deep learning models. This framework is underpinned by rigorous theoretical analysis, providing error-bound guarantees for the approximate results if the sampling policy is preferred. To achieve this, we incorporate a multi-agent reinforcement learning-based approach to optimize the sampling procedure, along with an innovative reward design leveraging spatio-temporal PC analysis. Furthermore, we exploit the spatio-temporal characteristics inherent in PC data to construct an index that accelerates the query process. Extensive experimental evaluations demonstrate that our proposed method, MAST, not only achieves accurate approximate query results but also maintains low query latency, ensuring high efficiency.\n适合回答的问题：\n- 这篇论文主要解决什么问题，以及它为什么重要。\n- 这篇论文的核心方法、系统设计或算法思路是什么。\n- 这篇论文与 大模型推理、检索增强与记忆系统 这条研究主线的关系是什么。",
+  "tags": [
+    "homepage",
+    "research",
+    "publication",
+    "paper-digest",
+    "rag",
+    "ann",
+    "approximate-computing"
+  ],
+  "source_name": "homepage:contents/research_papers/publications_summary.md#1.9 MAST: Towards Efficient Analytical Query Processing on Point Cloud Data",
+  "metadata": {
+    "domain": "research",
+    "identity": "pi",
+    "material_type": "paper-digest",
+    "source_kind": "homepage"
+  },
+  "created_at": "2026-05-28T01:19:22.841349Z"
+}

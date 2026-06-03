@@ -1,0 +1,14 @@
+{
+  "document_id": "791732dd-c694-424f-8c03-30e6b3b7d734",
+  "title": "课件正文｜大模型推理基础设施课程材料｜第 5 讲 KV 缓存（第2部分）",
+  "content": "token ids) free block ids used block ids hash to block id 代码例子：BlockManager 里最值得学生先看的对象（2） 核心结论 KV 讲义里的代码例子，应该从对象关系入手，而不是从论文术语入手。 课堂应追问 这些对象分别体现了分配、占用、共享和回收的哪一面？ 代码例子：BlockManager 里最值得学生先看的对象（3） 核心结论 KV 讲义里的代码例子，应该从对象关系入手，而不是从论文术语入手。 系统含义 读懂这些对象，才会知道 KV 管理讲的并不是“抽象缓存” ，而是明确的数据结构与 状态机。 代码例子：从 can allocate 到 allocate 的判断链（1） 核心结论 课堂最适合拿来解释的，不是整份代码，而是“能否分配 -> 如何分配”的判断链。 代码片段 num required blocks = seq.\n\nnum blocks - num computed blocks return num required blocks <= len(self. free block ids) seq. block table. append(block id) 代码例子：从 can allocate 到 allocate 的判断链（2） 核心结论 课堂最适合拿来解释的，不是整份代码，而是“能否分配 -> 如何分配”的判断链。 课堂应追问 为什么“还剩多少 free blocks”本身就已经在决定系统能否扩大并发？ 代码例子：从 can allocate 到 allocate 的判断链（3） 核心结论 课堂最适合拿来解释的，不是整份代码，而是“能否分配 -> 如何分配”的判断链。 结论 KV 不是调度的附属品，容量判断本身就在塑造调度器的可选动作空间。 例子：前缀复用为什么比普通缓存更复杂（1） 核心结论 一旦系统尝试前缀共享，KV 就从“每请求私有状态”变成“可能跨请求共享状态” 。 收益直觉 相同前缀意味着重复 prefill 可被避免，潜在节省显著。 例子：前缀复用为什么比普通缓存更复杂（2） 核心结论 一旦系统尝试前缀共享，KV 就从“每请求私有状态”变成“可能跨请求共享状态” 。 复杂性来源 共享需要元数据索引、引用计数和正确回收边界，否则收益可能变成一致性问题。 例子：前缀复用为什么比普通缓存更复杂（3） 核心结论 一旦系统尝试前缀共享，KV 就从“每请求私有状态”变成“可能跨请求共享状态” 。 课程边界 课堂里可以先讲 observe-only 的潜在命中，再逐步进入真实复用机制。 课堂练习：把 KV 问题翻译成系统因果链（1） 核心结论 KV 这一讲不应该只留下术语，而应该留下至少一条学生自己能复述的因果链。 练习一 用一句因果链解释：为什么长上下文会通过状态驻留拖慢短请求体验？ 课堂练习：把 KV 问题翻译成系统因果链（2） 核心结论 KV 这一讲不应该只留下术语，而应该留下至少一条学生自己能复述的因果链。 练习二 说明为什么分页/块管理的系统意义不只是“节省显存”。 课堂练习：把 KV 问题翻译成系统因果链（3） 核心结论 KV 这一讲不应该只留下术语，而应该留下至少一条学生自己能复述的因果链。 练习三 如果你要为 BlockManager 加第一条观测日志，你会放在 can allocate、allocate 还 是 deallocate？ 为什么？ 课堂讨论 核心结论 KV 管理不仅涉及显存节约，更直接关系到系统可扩展性。 ▶ 为什么 KV 不应被视为 attention 的临时中间量？ ▶ 为什么分块管理可以扩大系统控制空间？ ▶ 当前缀复用进入系统后，正确性与收益之间有什么张力？ 本讲总结 核心结论 理解 KV 管理机制，是分析 vLLM 一类系统如何将调度收益扩展到更高并发的前提。 ▶ KV 是容量问题，也是调度问题。 ▶ 后续状态统一视角会继续扩展这一点。 对应 Tutorial 核心结论 本讲对应 Tutorial 4。 先独立作答，再对照下一页参考答案。 ▶ 文件：build/tutorials/Tutorial 04 KV Cache 与状态组织. pdf ▶ 动手运行、日志记录与提交要求统一查看 build/experiments/ 和对应 experiment 源目录下的 assignment spring-2026/。",
+  "tags": [
+    "homepage",
+    "teaching",
+    "courseware",
+    "pdf",
+    "lecture"
+  ],
+  "source_name": "homepage:contents/teaching/intro-to-llm-inference-engines.md#讲义与导论::contents/teaching/intro-to-llm-inference-engines/2026/slides/lectures/大模型推理基础设施_第05讲_KV缓存.pdf::part-2",
+  "created_at": "2026-05-25T13:37:18.174764Z"
+}

@@ -1,0 +1,19 @@
+{
+  "document_id": "098a9e69-ebbd-44b0-83ac-68d687e8fbcf",
+  "title": "论文提炼｜Periodic Weather-Aware LSTM with Event Mechanism for Parking Behavior Prediction",
+  "content": "论文名称：Periodic Weather-Aware LSTM with Event Mechanism for Parking Behavior Prediction\n研究主题：数据系统与智能基础设施\n发表 venue：TKDE - IEEE Transactions on Knowledge and Data Engineering (TKDE)\n发表年份：2021\n作者：F. Zhang, Y. Liu, N. Feng, C. Yang, J. Zhai, Shuhao Zhang, B. He, J. Lin, X. Zhang, X. Du\n作者角色：合作作者或共同作者\n一句话总结：There are plenty of parking spaces in big cities, but we often find nowhere to park.\n核心内容：\nThere are plenty of parking spaces in big cities, but we often find nowhere to park. For example, New York has 1.4 million cars and 4.4 million on-street parking spaces, but it is still not easy to find a parking place near our destination, especially during peak hours. The reason is the lack of prediction of parking behavior. If we could provide parking behavior in advance, we can ease this parking problem that affects human well-being. We observe that parking lots have periodic parking patterns, which is an important factor for parking behavior prediction. Unfortunately, existing work ignores such periodic parking patterns in parking behavior prediction, and thus incurs low accuracy. To solve this problem, we propose PewLSTM, a novel periodic weather-aware LSTM model that successfully predicts the parking behavior based on historical records, weather, environments, weekdays, and events. PewLSTM includes a periodic weather-aware LSTM prediction module and an event prediction module, for predicting parking behaviors in regular days and events. PewLSTM is extremely useful for drivers and parking lot owners to improve customer experience. For example, the probability of parking space that will be available soon can be provided even if the parking lot is full. Based on 910,477 real parking records in 904 days from 13 parking lots, PewLSTM yields 93.84% parking prediction accuracy, which is about 30% higher than the state-of-the-art parking behavior prediction method. Additionally, we have analyzed parking behaviors in events like holidays and COVID-19. PewLSTM can handle parking behavior prediction in events and reaches 90.68 percent accuracy.\n适合回答的问题：\n- 这篇论文主要解决什么问题，以及它为什么重要。\n- 这篇论文的核心方法、系统设计或算法思路是什么。\n- 这篇论文与 数据系统与智能基础设施 这条研究主线的关系是什么。",
+  "tags": [
+    "homepage",
+    "research",
+    "publication",
+    "paper-digest"
+  ],
+  "source_name": "homepage:contents/research_papers/publications_summary.md#4.8 Periodic Weather-Aware LSTM with Event Mechanism for Parking Behavior Prediction",
+  "metadata": {
+    "domain": "research",
+    "identity": "pi",
+    "material_type": "paper-digest",
+    "source_kind": "homepage"
+  },
+  "created_at": "2026-05-28T01:19:22.844899Z"
+}

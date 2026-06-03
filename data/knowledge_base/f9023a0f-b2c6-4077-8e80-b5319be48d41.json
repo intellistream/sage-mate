@@ -1,0 +1,28 @@
+{
+  "document_id": "f9023a0f-b2c6-4077-8e80-b5319be48d41",
+  "title": "课程附件正文｜数据库实验课｜202605数据库系统原理实践任务书（第1部分）",
+  "content": "202 6 年数据库系统原理实践任务书 课程介绍 “数据库系统原理实践”是配合“数据库系统原理”课程独立开设的实践课，注重理论与实践相结合。 本课程以MySQL为例，系统性地设计了一系列的实训任务，基础内容涉及以下几个部分，并可结合实际对D BMS 原理的掌握情况向内核设计延伸： 数据库、表、索引、视图、约束、存储过程、函数、触发器、游标等数据对象的管理与编程； 数据查询，数据插入、删除与修改等数据处理相关任务； 数据库的安全性控制，完整性控制，恢复机制，并发控制机制等系统内核的实验； 数据库的设计与实现； 数据库应用系统的开发(JAVA 篇)。 课程依托头歌实践教学平台，实践课程url见相关课堂教师发布链接及其邀请码。 实验环境为Linux操作系统下的MySQL 8. 0. 2 8 （主要为8 . 028 版本，部分关卡使用8 . 022 版本，使用中基本无差别）。 在数据库应用开发环节，使用JAVA 1. 8。 在实践进行过程中，大部分时间同学们会面对着这样的界面： 同学们可以尽情在实践环境中大展身手，以提升个人能力，当然也要尽最大努力去完成本次实践的所有关卡。 如果学习过程中遇到问题，首先学会自己查资料解决，然后求助老师。 本课程相关资料网站： MYSQL手册： https://dev. mysql. com/doc/ JAVA手册： https://docs. oracle. com/javase/8/docs/api/index. html 课程开放资源： https://gitee. com/kylin8575543/db2022-spring 实践中遇到平台故障或其他问题，请及时联系各班老师及助教。 实践环节 2 . 1 任务组成及选题要求 登录头歌上的本课程平台后，将会看到总体任务由一系列实训任务构成，而进入每个实训后将会看到其由若干关卡组成，关卡依据其难易程度和工作量会有不同的分值。 依据每个关卡布置的任务，在头歌界面输入相应答题代码后运行头歌的测评试功能，系统会自动依据运行结果评判该关卡是否通过，并记录相应分值。 本次课程，若所有关卡全部完成，将会获得头歌平台总分超过1 00 分， 然而课程考核并不要求所有关卡全部完成， 一些 关卡同学们可依据自身兴趣和能力选择完成或者跳过不做（但对有些实训或者关卡则有具体的必做要求，本任务书接下来将会具体说明），最终程序检查满分只计头哥平台中的 100 分。 不允许整体跳过的实训（至少要完成该实训中的一个关卡任务）包括：前 4 个实训、第 12 个实训（MySQL-数据库设计与实现）。 此外，实训 13 “数据库应用开发(JAVA篇)”则规定最多跳过其中一个关卡。 实训任务概览 实训1 数据库、表与完整性约束的定义(Create) 本实训主要 考察 对 数据库对象或约束条件的创建语法的掌握情况，包括创建数据库、表基表的主码约束、外码约束、 CHECK约束DEFAULT约束和UNIQUE约束， 具体任务见 任务内 各个 关卡。 注意 头歌平台内每个 关卡 实践过程中包含了自测 运行 环境和 测评环境， 测评环境的重置 在 头歌平台 内 可能需要一定的时间。 实训2表结构与完整性约束的修改(ALTER) 本实训 要求 用Alter语句对表的定义进行修改（如更换/修改表名、列名、列的类型、列约束、表约束； 添加或删除列、约束等)。 同学们需要在每个关卡中在代码文件中完整给出代码。 在代码文件中，最好不要使用use指定数据库，以免评测出现问题。 实训3 基于火车运营系统的数据查询(Select) 本实训采用的是某 火车运营管理系统 的一个模拟数据库，测试库中有已有相应测试数据，请依据关卡任务需求完成相应查询动作。 数据库中表，表结构以及所有字段的说明如下： 本实训采用的是一个裁剪的列车运营场景的数据库，数据库中各表的结构以及所有字段的说明如下： 表1 district(行政区划表) (不含港、澳、台地区) 字段名 数据类型 是否为空 码 说明 id int NO PRI 编号 ac char(6) YES UNI 行政区域代码 v int YES 校验码 prov char(50) YES 省或直辖市 city char(50) YES 地市州 county char(50) YES 区县 大陆居民身份证号的前6位，就是来自行政区域代码。 表2 station(车站表) 字段名 数据类型 是否为空 码 说明 sid int NO PRI 编号 sname char(20) YES UNI 站名 city char(22) YES 所在城 内地各车站的取名是统筹考虑的，没有重名的车站。 为简化查询，我们适当增加了数据库的冗余，所有车站编号都替换成了站名。 省会和直辖市通常都有多个大型车站。 字段city标注了每个车站位于那个城市。 通常我们购买“北京”到“广州”的车票，不仅考虑“北京”站和“广州”站，“北京西”和“广州南”也是可能的选择。 注意：站名中一般都不含“站”字。 表3 passenger(乘车人员表) 字段名 数据类型 是否为空 码 说明 pid int NO PRI 编号 card no char(18) NO MUL 身份证号码 pname char(20) YES MUL 姓名 gender char(2) YES 性别 dob date YES 出生日期 addr char(100) YES 地址 乘车人员是购买车票时填写的个人和亲友的身份信息。 主码pid十个非业务数字编号。 表4 route(车次表) 字段名 数据类型 是否为空 码 说明 train no char(11) NO PRI 车次 start char(20) YES MUL 始发站 dest char(20) YES MUL 终到站 depart time YES 发车时间 arrival time YES 终到时间 day int YES 天数 mileage int YES 里程 始发站和终到站都取自车站表(station)的sname字段。 里程以公里为单位。 当天到达的天数为1，次日到达的为2，依此类推。 表5 timetable(列车运行时刻表) 字段名 数据类型 是否为空 码 说明 train no char(11) NO PRI 车次 stop seq smallint NO PRI 站序号 station name char(20) YES MUL 站名 arrival time time YES 到站时间 departure time time YES 离站时间 day int YES 天数 mileage int YES 里程 price int YES 票价 字段train no取自route(车次表)中的train no。 station name取自station(车站表)中的sname。 列车运行时刻表反映了每趟列车经停车站的顺序，到站时间，离站时间。 始发站没有到站时间(NULL)，终到站没有离站时间。 里程从始发站算起，票价也是。 如果从列车的经停站上车，票价 = 终到站的票价 - 上车站的票价。 我们对实际的系统做了简化，票价只有一个等次，比较接近中间价位(约等于动车二等座)，且舍去了小数部分。",
+  "tags": [
+    "homepage",
+    "teaching",
+    "courseware",
+    "attachment",
+    "docx",
+    "identity:teacher",
+    "domain:teaching",
+    "audience:undergraduate",
+    "course:database-lab",
+    "material:experiment",
+    "experiment"
+  ],
+  "source_name": "homepage:contents/teaching/database/202605数据库系统原理实践任务书.docx::part-1",
+  "metadata": {
+    "identity": "teacher",
+    "domain": "teaching",
+    "audience": "undergraduate",
+    "course_id": "database-lab",
+    "material_type": "experiment",
+    "source_kind": "homepage"
+  },
+  "created_at": "2026-05-28T01:19:22.838271Z"
+}

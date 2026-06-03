@@ -1,0 +1,18 @@
+{
+  "document_id": "3941400c-1189-4bf8-9919-2948906b0e12",
+  "title": "论文提炼｜Scalable Transactional Stream Processing on Multicore Processors",
+  "content": "论文名称：Scalable Transactional Stream Processing on Multicore Processors\n研究主题：流处理系统、共享状态与运行时调度\n发表 venue：TKDE - IEEE Transactions on Knowledge and Data Engineering (TKDE)\n发表年份：2025\n作者：Jianjun Zhao, Yancan Mao, Zhonghao Yang, Haikun Liu, Shuhao Zhang\n作者角色：你是通讯作者\n一句话总结：Transactional stream processing engines (TSPEs) are central to modern stream applications handling shared mutable states.\n核心内容：\nTransactional stream processing engines (TSPEs) are central to modern stream applications handling shared mutable states. However, their full potential, particularly in adaptive scheduling, remains largely unexplored. We present MorphStream, a TSPE designed to optimize parallelism and performance for transactional stream processing on multicores. Through a unique three-stage execution paradigm (i.e., planning, scheduling, and execution), MorphStream enables adaptive scheduling under varying workload characteristics. Building on this foundation, MorphStream is further enhanced with support for non-deterministic state access, employing a stateful task precedence graph to handle undefined read/write sets at runtime while guaranteeing transaction semantics. Additionally, MorphStream incorporates a generalized framework for managing window-based operations, enabling efficient tracking and maintenance of overlapping windows using multi-versioned state management. These extensions enhance the system’s ability to process dynamic and irregular workloads. Experimental results demonstrate up to 3.4 times higher throughput and 69.1% lower latency compared to state-of-the-art TSPEs, validating its scalability and adaptability in real-world streaming scenarios.\n适合回答的问题：\n- 这篇论文主要解决什么问题，以及它为什么重要。\n- 这篇论文的核心方法、系统设计或算法思路是什么。\n- 这篇论文与 流处理系统、共享状态与运行时调度 这条研究主线的关系是什么。",
+  "tags": [
+    "homepage",
+    "research",
+    "publication",
+    "paper-digest",
+    "stream-processing",
+    "transactional-stream",
+    "graph",
+    "ann",
+    "multicore"
+  ],
+  "source_name": "homepage:contents/research_papers/publications_summary.md#3.17 Scalable Transactional Stream Processing on Multicore Processors",
+  "created_at": "2026-05-25T13:37:18.188073Z"
+}

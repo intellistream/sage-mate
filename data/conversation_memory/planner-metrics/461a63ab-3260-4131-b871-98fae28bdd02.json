@@ -1,0 +1,25 @@
+{
+  "record_id": "461a63ab-3260-4131-b871-98fae28bdd02",
+  "conversation_id": "charactereval-memory-isolation",
+  "planner_stage": "deterministic",
+  "planner_mode": "deterministic",
+  "question": "你正在参与一个 CharacterEval 风格的多轮角色一致性评测。请只输出目标角色的下一句回复。",
+  "goal": "answer_course_question",
+  "accepted": true,
+  "status": "accepted",
+  "fallback_template": "answer_question",
+  "fallback_reason": null,
+  "validation_errors": [],
+  "planned_steps": [
+    "detect_profile_context",
+    "classify_intent",
+    "retrieve_hybrid_knowledge",
+    "retrieve_recent_memory",
+    "assemble_prompt_context",
+    "answer_with_citations",
+    "score_memory_usefulness",
+    "render_user_response"
+  ],
+  "latency_ms": 0.34637656062841415,
+  "created_at": "2026-06-02T17:26:07.233957+00:00"
+}

@@ -1,0 +1,21 @@
+{
+  "document_id": "8e572d01-493c-42e9-a211-aa792ac0604b",
+  "title": "论文提炼｜Spacker: Unified State Migration for Distributed Streaming",
+  "content": "论文名称：Spacker: Unified State Migration for Distributed Streaming\n研究主题：流处理系统、共享状态与运行时调度\n发表 venue：ICDCS - International Conference on Distributed Computing Systems\n发表年份：2025\n作者：Yancan Mao, Shuhao Zhang, Richard Ma\n作者角色：合作作者或共同作者\n一句话总结：State migration is a crucial aspect of managing stateful stream processing applications, enabling load balancing, fault tolerance, and dynamic scaling.\n核心内容：\nState migration is a crucial aspect of managing stateful stream processing applications, enabling load balancing, fault tolerance, and dynamic scaling. Existing state migration solutions make performance trade-offs between completion time, latency spike, and system overhead; however, they lack the flexibility to adjust these trade-offs across different application scenarios. In this paper, we propose Spacker, a unified framework that enables configurable state migration for flexible performance trade-offs. Spacker decomposes state migration into fine-grained key-level operations and introduces an abstraction of planning strategy, featuring three tuning knobs, that allow for flexible planning of operations. To further improve the efficiency, we design a non-disruptive migration protocol that minimizes the blocking of data processing during state migration. We have integrated Spacker with Apache Flink and implemented an adaptive planning strategy as an example that realizes the abstraction. Our results show that Spacker, with the planning strategy, can make adaptive planning decisions, based on analyzing the decision trade-offs under varying workload characteristics. It can reduce latency spikes while maintaining appropriate completion time and system overhead compared to statically configured migration solutions.\n适合回答的问题：\n- 这篇论文主要解决什么问题，以及它为什么重要。\n- 这篇论文的核心方法、系统设计或算法思路是什么。\n- 这篇论文与 流处理系统、共享状态与运行时调度 这条研究主线的关系是什么。",
+  "tags": [
+    "homepage",
+    "research",
+    "publication",
+    "paper-digest",
+    "stream-processing",
+    "ann"
+  ],
+  "source_name": "homepage:contents/research_papers/publications_summary.md#3.18 Spacker: Unified State Migration for Distributed Streaming",
+  "metadata": {
+    "domain": "research",
+    "identity": "pi",
+    "material_type": "paper-digest",
+    "source_kind": "homepage"
+  },
+  "created_at": "2026-05-28T01:19:22.844042Z"
+}

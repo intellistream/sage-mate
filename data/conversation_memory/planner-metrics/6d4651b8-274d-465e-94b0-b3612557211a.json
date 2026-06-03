@@ -1,0 +1,26 @@
+{
+  "record_id": "6d4651b8-274d-465e-94b0-b3612557211a",
+  "conversation_id": "live-planner-hard-context-20260601",
+  "planner_stage": "shadow",
+  "planner_mode": "llm_shadow",
+  "question": "我现在在推理引擎和推理服务系统之间摇摆。",
+  "goal": "answer_research_question",
+  "accepted": true,
+  "status": "accepted",
+  "fallback_template": "answer_question",
+  "fallback_reason": null,
+  "validation_errors": [],
+  "planned_steps": [
+    "detect_profile_context",
+    "classify_intent",
+    "retrieve_hybrid_knowledge",
+    "retrieve_recent_memory",
+    "retrieve_profile_memory",
+    "assemble_prompt_context",
+    "answer_with_citations",
+    "score_memory_usefulness",
+    "render_user_response"
+  ],
+  "latency_ms": 16037.531905807555,
+  "created_at": "2026-06-01T12:41:00.565981+00:00"
+}

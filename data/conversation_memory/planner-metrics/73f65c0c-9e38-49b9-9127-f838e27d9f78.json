@@ -1,0 +1,26 @@
+{
+  "record_id": "73f65c0c-9e38-49b9-9127-f838e27d9f78",
+  "conversation_id": "conv-research",
+  "planner_stage": "deterministic",
+  "planner_mode": "deterministic",
+  "question": "我想做一个图神经网络相关的研究，下一步该怎么推进？",
+  "goal": "answer_research_question",
+  "accepted": true,
+  "status": "accepted",
+  "fallback_template": "answer_question",
+  "fallback_reason": null,
+  "validation_errors": [],
+  "planned_steps": [
+    "detect_profile_context",
+    "classify_intent",
+    "retrieve_hybrid_knowledge",
+    "retrieve_recent_memory",
+    "retrieve_profile_memory",
+    "assemble_prompt_context",
+    "answer_with_citations",
+    "score_memory_usefulness",
+    "render_user_response"
+  ],
+  "latency_ms": 0.3787856549024582,
+  "created_at": "2026-06-03T04:19:59.279571+00:00"
+}

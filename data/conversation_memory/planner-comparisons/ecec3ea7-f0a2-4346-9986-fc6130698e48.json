@@ -1,0 +1,26 @@
+{
+  "record_id": "ecec3ea7-f0a2-4346-9986-fc6130698e48",
+  "conversation_id": "conv-research",
+  "exchange_id": "e1b14a18-69a9-4cc1-a6ed-83b5312cbeec",
+  "workflow_action": "advise_only",
+  "question": "我想做一个图神经网络相关的研究，下一步该怎么推进？",
+  "comparison_status": "shadow_disabled",
+  "deterministic_goal": "answer_research_question",
+  "shadow_goal": null,
+  "same_goal": true,
+  "same_fallback_template": true,
+  "deterministic_only_steps": [
+    "detect_profile_context",
+    "classify_intent",
+    "retrieve_hybrid_knowledge",
+    "retrieve_recent_memory",
+    "retrieve_profile_memory",
+    "assemble_prompt_context",
+    "answer_with_citations",
+    "score_memory_usefulness",
+    "render_user_response"
+  ],
+  "shadow_only_steps": [],
+  "summary": "Current LLM client does not implement shadow planner proposals.",
+  "created_at": "2026-06-03T04:19:59.556455+00:00"
+}

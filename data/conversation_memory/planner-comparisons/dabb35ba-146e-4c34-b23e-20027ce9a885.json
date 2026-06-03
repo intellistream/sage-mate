@@ -1,0 +1,16 @@
+{
+  "record_id": "dabb35ba-146e-4c34-b23e-20027ce9a885",
+  "conversation_id": "lamp-LaMP_Local-lamp-001",
+  "exchange_id": "12c128a4-7698-4ca3-933e-dad02af7ddc5",
+  "workflow_action": "ask_follow_up",
+  "question": "你正在参与一个 LaMP 风格的个性化生成评测。请结合给定用户画像，只返回任务答案本身，不要解释。\nTask: LaMP_Local\nUser profile:\n- item 1: identity: 华科计院本科二年级 | skill: Python 熟悉，系统基础一般\n- item 2: interest: 大模型推理系统 | constraint: 每周只有6小时\nTask input: 基于我的背景，接下来两周先学什么更合适？",
+  "comparison_status": "equivalent",
+  "deterministic_goal": "answer_course_question",
+  "shadow_goal": "answer_course_question",
+  "same_goal": true,
+  "same_fallback_template": true,
+  "deterministic_only_steps": [],
+  "shadow_only_steps": [],
+  "summary": "Shadow planner matched the deterministic plan on goal, fallback, and ordered steps. Execution still follows the deterministic lane.",
+  "created_at": "2026-05-30T17:39:34.631348+00:00"
+}

@@ -1,0 +1,16 @@
+{
+  "record_id": "70a10ec7-64cc-4f68-9b8a-18b4ed1e5a6a",
+  "conversation_id": "lamp-LaMP_Local-lamp-011",
+  "exchange_id": null,
+  "workflow_action": "advise_only",
+  "question": "你正在参与一个 LaMP 风格的个性化生成评测。请结合给定用户画像，只返回任务答案本身，不要解释。\nTask: LaMP_Local\nUser profile:\n- item 1: question_size: 现在只有两个比较具体的小问题 | style: 希望少占用老师时间\n- item 2: goal: 先确认方向没有跑偏\nTask input: 结合我现在的问题规模，您更建议我发邮件还是再攒一攒问题？",
+  "comparison_status": "equivalent",
+  "deterministic_goal": "answer_research_question",
+  "shadow_goal": "answer_research_question",
+  "same_goal": true,
+  "same_fallback_template": true,
+  "deterministic_only_steps": [],
+  "shadow_only_steps": [],
+  "summary": "Shadow planner matched the deterministic plan on goal, fallback, and ordered steps. Execution still follows the deterministic lane.",
+  "created_at": "2026-05-30T18:23:22.999239+00:00"
+}

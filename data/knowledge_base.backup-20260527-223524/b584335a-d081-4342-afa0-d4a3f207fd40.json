@@ -1,0 +1,15 @@
+{
+  "document_id": "b584335a-d081-4342-afa0-d4a3f207fd40",
+  "title": "论文提炼｜Scalable Online Interval Join on Modern Multicore Processors in OpenMLDB",
+  "content": "论文名称：Scalable Online Interval Join on Modern Multicore Processors in OpenMLDB\n研究主题：流处理系统、共享状态与运行时调度\n发表 venue：ICDE - IEEE 39rd International Conference on Data Engineering\n发表年份：2023\n作者：Hao Zhang, Xianzhi Zeng, Shuhao Zhang, Xinyi Liu, Mian Lu, Zhao Zheng\n作者角色：合作作者或共同作者\n一句话总结：OpenMLDB is an open-source machine learning database, that provides a feature platform computing consistent features for training and inference.\n核心内容：\nOpenMLDB is an open-source machine learning database, that provides a feature platform computing consistent features for training and inference. The online interval join(OIJ ), i.e., joining two input streams over relative time intervals,is becoming a core operation in OpenMLDB. Its costly natureand intrinsic parallelism opportunities have created significant interest in accelerating OIJ on modern multicore processors. In this work, we first present an in-depth empirical study on an existing parallel OIJ algorithm (Key-OIJ ), which applies a key-partitioned parallelization strategy. Key-OIJ has been implemented in Apache Flink and used in real-world applications. However, our study points out the limitations of Key-OIJ ,and reveals that Key-OIJ is not capable of fully exploiting modern multicore processors. Based on our analysis, we propose a new approach, the Scale-OIJ algorithm with a set of optimization techniques. Compared with Key-OIJ , Scale-OIJ is particularly efficient for handling workloads involving fewer keys, large time intervals, and large lateness configurations. The extensive experiments using real workloads have demonstrated the superior performance of Scale-OIJ . Furthermore, we have partially integrated and tested Scale-OIJ in the latest version of OpenMLDB, demonstrating its practicality in a machine learning database.\n适合回答的问题：\n- 这篇论文主要解决什么问题，以及它为什么重要。\n- 这篇论文的核心方法、系统设计或算法思路是什么。\n- 这篇论文与 流处理系统、共享状态与运行时调度 这条研究主线的关系是什么。",
+  "tags": [
+    "homepage",
+    "research",
+    "publication",
+    "paper-digest",
+    "stream-processing",
+    "multicore"
+  ],
+  "source_name": "homepage:contents/research_papers/publications_summary.md#3.10 Scalable Online Interval Join on Modern Multicore Processors in OpenMLDB",
+  "created_at": "2026-05-25T13:37:18.187188Z"
+}

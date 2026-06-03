@@ -1,0 +1,9 @@
+{
+  "user_id": "d169b8ae-b877-4f91-9250-e13895f5f0d0",
+  "name": "王明琪",
+  "email": "mingqiwang@hust.edu.cn",
+  "password_salt": "2769d34831098d77f2679706598b22fd",
+  "password_hash": "a4fb6ab523cc05684271548ed9e9aeec02493604bfd72b6819766608d63522376b5223a44aeaec41143c54a74459bb5fccdd1cb227cababeb21ec46a1611da23",
+  "created_at": "2026-05-27T03:37:25.794203+00:00",
+  "updated_at": "2026-05-27T03:37:25.794203+00:00"
+}

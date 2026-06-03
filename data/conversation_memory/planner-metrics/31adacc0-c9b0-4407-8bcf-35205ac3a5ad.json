@@ -1,0 +1,24 @@
+{
+  "record_id": "31adacc0-c9b0-4407-8bcf-35205ac3a5ad",
+  "conversation_id": "",
+  "planner_stage": "deterministic",
+  "planner_mode": "deterministic",
+  "question": "用一句话介绍SAGE系统 (nonce-6f9ba5)",
+  "goal": "answer_research_question",
+  "accepted": true,
+  "status": "accepted",
+  "fallback_template": "answer_question",
+  "fallback_reason": null,
+  "validation_errors": [],
+  "planned_steps": [
+    "detect_profile_context",
+    "classify_intent",
+    "retrieve_hybrid_knowledge",
+    "assemble_prompt_context",
+    "answer_with_citations",
+    "score_memory_usefulness",
+    "render_user_response"
+  ],
+  "latency_ms": 0.9497711434960365,
+  "created_at": "2026-06-03T09:33:14.290584+00:00"
+}

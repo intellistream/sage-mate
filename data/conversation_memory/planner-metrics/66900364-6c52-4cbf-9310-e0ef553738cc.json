@@ -1,0 +1,16 @@
+{
+  "record_id": "66900364-6c52-4cbf-9310-e0ef553738cc",
+  "conversation_id": "conv-human-handoff",
+  "planner_stage": "shadow",
+  "planner_mode": "llm_shadow",
+  "question": "我想正式投诉这次成绩处理有误，请你马上联系老师。",
+  "goal": "answer_course_question",
+  "accepted": false,
+  "status": "shadow_disabled",
+  "fallback_template": "answer_question",
+  "fallback_reason": "Current LLM client does not implement shadow planner proposals.",
+  "validation_errors": [],
+  "planned_steps": [],
+  "latency_ms": 0.003227032721042633,
+  "created_at": "2026-06-02T17:26:17.978932+00:00"
+}

@@ -1,0 +1,16 @@
+{
+  "record_id": "3ddb775c-3be5-4db9-81d5-39e7bbf5609c",
+  "conversation_id": "conv-research",
+  "planner_stage": "shadow",
+  "planner_mode": "llm_shadow",
+  "question": "我想做一个图神经网络相关的研究，下一步该怎么推进？",
+  "goal": "answer_research_question",
+  "accepted": false,
+  "status": "shadow_disabled",
+  "fallback_template": "answer_question",
+  "fallback_reason": "Current LLM client does not implement shadow planner proposals.",
+  "validation_errors": [],
+  "planned_steps": [],
+  "latency_ms": 0.0029867514967918396,
+  "created_at": "2026-06-03T04:19:59.279918+00:00"
+}

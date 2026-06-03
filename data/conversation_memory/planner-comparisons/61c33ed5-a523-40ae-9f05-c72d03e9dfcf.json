@@ -1,0 +1,16 @@
+{
+  "record_id": "61c33ed5-a523-40ae-9f05-c72d03e9dfcf",
+  "conversation_id": "live-followup-context-20260601",
+  "exchange_id": "458804d6-7e59-4d1b-a28c-2cf552f43435",
+  "workflow_action": "ask_follow_up",
+  "question": "我现在在推理引擎和推理服务系统之间摇摆。",
+  "comparison_status": "equivalent",
+  "deterministic_goal": "answer_research_question",
+  "shadow_goal": "answer_research_question",
+  "same_goal": true,
+  "same_fallback_template": true,
+  "deterministic_only_steps": [],
+  "shadow_only_steps": [],
+  "summary": "Shadow planner matched the deterministic plan on goal, fallback, and ordered steps. Execution still follows the deterministic lane.",
+  "created_at": "2026-06-01T05:49:18.596321+00:00"
+}

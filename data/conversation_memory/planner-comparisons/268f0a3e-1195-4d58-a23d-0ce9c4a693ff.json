@@ -1,0 +1,24 @@
+{
+  "record_id": "268f0a3e-1195-4d58-a23d-0ce9c4a693ff",
+  "conversation_id": "conv-booking",
+  "exchange_id": "b3db83ee-8b15-4117-bf52-5953ad57e1f2",
+  "workflow_action": "book_meeting",
+  "question": "请帮我预约 2026-05-26 15:00 讨论论文进展",
+  "comparison_status": "shadow_disabled",
+  "deterministic_goal": "prepare_booking_request",
+  "shadow_goal": null,
+  "same_goal": true,
+  "same_fallback_template": true,
+  "deterministic_only_steps": [
+    "detect_profile_context",
+    "classify_intent",
+    "retrieve_recent_memory",
+    "assemble_prompt_context",
+    "answer_with_citations",
+    "score_memory_usefulness",
+    "render_user_response"
+  ],
+  "shadow_only_steps": [],
+  "summary": "Current LLM client does not implement shadow planner proposals.",
+  "created_at": "2026-06-03T02:28:52.708883+00:00"
+}

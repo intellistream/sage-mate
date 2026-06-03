@@ -1,0 +1,16 @@
+{
+  "record_id": "73b51071-c2d6-44d1-83c6-9897be844a21",
+  "conversation_id": "conv-callback",
+  "planner_stage": "shadow",
+  "planner_mode": "llm_shadow",
+  "question": "请帮我预约 2026-05-26 15:00 讨论论文进展",
+  "goal": "prepare_booking_request",
+  "accepted": false,
+  "status": "shadow_disabled",
+  "fallback_template": "book_meeting",
+  "fallback_reason": "Current LLM client does not implement shadow planner proposals.",
+  "validation_errors": [],
+  "planned_steps": [],
+  "latency_ms": 0.003602355718612671,
+  "created_at": "2026-06-03T08:15:44.236635+00:00"
+}

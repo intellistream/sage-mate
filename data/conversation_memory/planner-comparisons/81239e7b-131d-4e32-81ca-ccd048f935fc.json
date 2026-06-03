@@ -1,0 +1,23 @@
+{
+  "record_id": "81239e7b-131d-4e32-81ca-ccd048f935fc",
+  "conversation_id": "6d9a2eb1-6a40-4511-bad1-28692b2497b8",
+  "exchange_id": "80471b31-a165-4e46-b904-dc9da25e5b45",
+  "workflow_action": "advise_only",
+  "question": "FlowRAG 主要做什么？",
+  "comparison_status": "shadow_disabled",
+  "deterministic_goal": "answer_course_question",
+  "shadow_goal": null,
+  "same_goal": true,
+  "same_fallback_template": true,
+  "deterministic_only_steps": [
+    "detect_profile_context",
+    "classify_intent",
+    "retrieve_knowledge",
+    "assemble_prompt_context",
+    "answer_with_citations",
+    "render_user_response"
+  ],
+  "shadow_only_steps": [],
+  "summary": "Current LLM client does not implement shadow planner proposals.",
+  "created_at": "2026-05-31T09:11:23.398042+00:00"
+}

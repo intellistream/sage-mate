@@ -1,0 +1,23 @@
+{
+  "record_id": "654db563-b751-4ae3-91f8-c2e5084e4e68",
+  "conversation_id": "conv-shadow-live",
+  "planner_stage": "shadow",
+  "planner_mode": "llm_shadow",
+  "question": "预约前我应该准备什么材料？",
+  "goal": "prepare_booking_agenda",
+  "accepted": true,
+  "status": "accepted",
+  "fallback_template": "advise_only",
+  "fallback_reason": null,
+  "validation_errors": [],
+  "planned_steps": [
+    "detect_profile_context",
+    "classify_intent",
+    "retrieve_knowledge",
+    "assemble_prompt_context",
+    "answer_with_citations",
+    "render_user_response"
+  ],
+  "latency_ms": 0.14997832477092743,
+  "created_at": "2026-06-01T13:25:13.009166+00:00"
+}

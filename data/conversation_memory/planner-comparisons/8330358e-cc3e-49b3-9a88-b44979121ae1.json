@@ -1,0 +1,16 @@
+{
+  "record_id": "8330358e-cc3e-49b3-9a88-b44979121ae1",
+  "conversation_id": "conv-1780282889736-b661cd564279d",
+  "exchange_id": "4f3bc2fb-9629-407b-a776-ffb0c9aa08fd",
+  "workflow_action": "advise_only",
+  "question": "关于agentdb有没有适合先看的公开资料？",
+  "comparison_status": "equivalent",
+  "deterministic_goal": "answer_course_question",
+  "shadow_goal": "answer_course_question",
+  "same_goal": true,
+  "same_fallback_template": true,
+  "deterministic_only_steps": [],
+  "shadow_only_steps": [],
+  "summary": "Shadow planner matched the deterministic plan on goal, fallback, and ordered steps. Execution still follows the deterministic lane.",
+  "created_at": "2026-06-01T03:02:09.342116+00:00"
+}

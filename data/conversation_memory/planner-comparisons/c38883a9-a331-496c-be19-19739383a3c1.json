@@ -1,0 +1,16 @@
+{
+  "record_id": "c38883a9-a331-496c-be19-19739383a3c1",
+  "conversation_id": "2504be07-8584-4853-9767-741f1273875e",
+  "exchange_id": null,
+  "workflow_action": "answer",
+  "question": "在30字内描述张书豪老师 (nonce-4a1f8f)",
+  "comparison_status": "equivalent",
+  "deterministic_goal": "answer_grounded_question",
+  "shadow_goal": "answer_grounded_question",
+  "same_goal": true,
+  "same_fallback_template": true,
+  "deterministic_only_steps": [],
+  "shadow_only_steps": [],
+  "summary": "Shadow planner matched the deterministic plan on goal, fallback, and ordered steps. Execution still follows the deterministic lane.",
+  "created_at": "2026-06-03T10:54:11.930610+00:00"
+}

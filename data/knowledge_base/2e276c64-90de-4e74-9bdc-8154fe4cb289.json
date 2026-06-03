@@ -1,0 +1,31 @@
+{
+  "document_id": "2e276c64-90de-4e74-9bdc-8154fe4cb289",
+  "title": "课件正文｜大模型推理基础设施课程材料｜第 3 讲 请求生命周期（第2部分）",
+  "content": "什么会影响生命周期分析（1） 核心结论 如果输入在真正进入 engine 前已经发生了长度膨胀，那么后面的阶段观察也会被一 并放大。 用户看到的是一条自然语言消息 但系统里常常先被改写为带角色标记、特殊 token 和 generation prompt 的模板串。 例子：chat template 为什么会影响生命周期分析（2） 核心结论 如果输入在真正进入 engine 前已经发生了长度膨胀，那么后面的阶段观察也会被一 并放大。 直接后果 prompt len 变化会影响 prefill 代价、KV 初始规模和后续排队行为。 例子：chat template 为什么会影响生命周期分析（3） 核心结论 如果输入在真正进入 engine 前已经发生了长度膨胀，那么后面的阶段观察也会被一 并放大。 教学意义 生命周期不是从“用户文本”开始算，而是从“真正进入系统的 token 序列”开始算。\n\n代码例子：多轮对话在入口处如何被组织（1） 核心结论 生命周期课程里的代码例子要回答：输入是怎样变成请求对象的。 入口片段 prompts = [tokenizer. apply chat template(. )] outputs = llm. generate(prompts, sampling params) 代码例子：多轮对话在入口处如何被组织（2） 核心结论 生命周期课程里的代码例子要回答：输入是怎样变成请求对象的。 课堂应追问 ‘generate()‘ 接到的是原始文本、token 序列，还是已经带运行时元数据的请求对象？ 代码例子：多轮对话在入口处如何被组织（3） 核心结论 生命周期课程里的代码例子要回答：输入是怎样变成请求对象的。 系统含义 入口处的数据形态，决定了后面 state object 该如何承载长度、状态和 block table。 代码例子：Sequence 为什么是生命周期里的关键对象（1） 核心结论 如果不能说清 Sequence 承载了哪些字段，就很难讲明请求是如何跨阶段存活的。 课堂应关注的字段 status num cached tokens block table last block num tokens 代码例子：Sequence 为什么是生命周期里的关键对象（2） 核心结论 如果不能说清 Sequence 承载了哪些字段，就很难讲明请求是如何跨阶段存活的。 对象视角 这些字段把“请求内容、调度状态、KV 元数据”压在了同一个生命周期对象上。 代码例子：Sequence 为什么是生命周期里的关键对象（3） 核心结论 如果不能说清 Sequence 承载了哪些字段，就很难讲明请求是如何跨阶段存活的。 结论 一次请求之所以是系统问题，关键就在于它不是一次函数调用，而是一个持续演化 的状态对象。 例子：prefill 和 decode 为什么应该拆开看（1） 核心结论 生命周期讲义里最重要的区分，就是 prefill 与 decode 的资源特征不同。 prefill 一次性处理更长输入，计算更密集，也更容易直接抬高 TTFT。 例子：prefill 和 decode 为什么应该拆开看（2） 核心结论 生命周期讲义里最重要的区分，就是 prefill 与 decode 的资源特征不同。 decode 每轮 token 较少，但会跨更多轮持续存在，更容易与调度和状态驻留绑定在一起。 例子：prefill 和 decode 为什么应该拆开看（3） 核心结论 生命周期讲义里最重要的区分，就是 prefill 与 decode 的资源特征不同。 误区 如果把二者都写成“模型生成阶段”，就会把关键的性能来源混在一起。 课堂练习：用时序图复述一次请求（1） 核心结论 课程练习的目的不是画复杂图，而是检验你是否知道控制权何时转移。 练习一 在时序图中标出：请求进入、prefill 开始、decode 开始、输出完成、状态释放五个 节点。 课堂练习：用时序图复述一次请求（2） 核心结论 课程练习的目的不是画复杂图，而是检验你是否知道控制权何时转移。 练习二 说明其中哪一个节点最适合插第一条日志，为什么。 课堂练习：用时序图复述一次请求（3） 核心结论 课程练习的目的不是画复杂图，而是检验你是否知道控制权何时转移。 练习三 用一句话回答：为什么生命周期图是后续调度和 KV 讨论的公共前提？ 本讲总结 核心结论 理解单个请求如何穿过系统，是分析后续调度、KV 与执行优化问题的基础。 ▶ 请求链路是系统问题的最小观察单元。 ▶ 生命周期分析先于机制设计。 对应 Tutorial 核心结论 本讲对应 Tutorial 2。 先独立作答，再对照下一页参考答案。 ▶ 文件：build/tutorials/Tutorial 02 请求生命周期与 PrefillDecode. pdf ▶ 动手运行、日志记录与提交要求统一查看 build/experiments/ 和对应 experiment 源目录下的 assignment spring-2026/。",
+  "tags": [
+    "homepage",
+    "teaching",
+    "courseware",
+    "pdf",
+    "material:pdf",
+    "identity:teacher",
+    "domain:teaching",
+    "audience:graduate",
+    "course:llm-inference",
+    "material:lecture",
+    "lecture:3",
+    "lecture"
+  ],
+  "source_name": "homepage:contents/teaching/intro-to-llm-inference-engines.md#讲义与导论::contents/teaching/intro-to-llm-inference-engines/2026/slides/lectures/大模型推理基础设施_第03讲_请求生命周期.pdf::part-2",
+  "metadata": {
+    "material_type": "lecture",
+    "identity": "teacher",
+    "domain": "teaching",
+    "audience": "graduate",
+    "course_id": "llm-inference",
+    "ordinal_type": "lecture",
+    "ordinal": "3",
+    "source_kind": "homepage"
+  },
+  "created_at": "2026-05-28T01:19:22.832661Z"
+}

@@ -1,0 +1,23 @@
+{
+  "record_id": "b5a324a9-2e8e-4006-872b-88462c88819f",
+  "conversation_id": "b31ef288-bda7-4613-a877-15604c59be85",
+  "exchange_id": "0f97749e-bef1-4771-81ab-aadd30e48583",
+  "workflow_action": "answer",
+  "question": "能否告诉我老师这周的 office hours？我想了解以便预约。",
+  "comparison_status": "shadow_disabled",
+  "deterministic_goal": "prepare_booking_request",
+  "shadow_goal": null,
+  "same_goal": true,
+  "same_fallback_template": true,
+  "deterministic_only_steps": [
+    "detect_profile_context",
+    "classify_intent",
+    "retrieve_recent_memory",
+    "assemble_prompt_context",
+    "answer_with_citations",
+    "render_user_response"
+  ],
+  "shadow_only_steps": [],
+  "summary": "Current LLM client does not implement shadow planner proposals.",
+  "created_at": "2026-05-31T09:05:57.660603+00:00"
+}

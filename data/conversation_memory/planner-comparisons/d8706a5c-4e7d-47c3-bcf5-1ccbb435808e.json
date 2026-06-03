@@ -1,0 +1,22 @@
+{
+  "record_id": "d8706a5c-4e7d-47c3-bcf5-1ccbb435808e",
+  "conversation_id": "537ac0c5-5156-4469-878b-37e7d1030b42",
+  "exchange_id": "ef48d1a5-090c-4dca-b48b-4d59c02374ec",
+  "workflow_action": "advise_only",
+  "question": "你好",
+  "comparison_status": "shadow_disabled",
+  "deterministic_goal": "respond_simple_greeting",
+  "shadow_goal": null,
+  "same_goal": true,
+  "same_fallback_template": true,
+  "deterministic_only_steps": [
+    "detect_profile_context",
+    "classify_intent",
+    "assemble_prompt_context",
+    "answer_with_citations",
+    "render_user_response"
+  ],
+  "shadow_only_steps": [],
+  "summary": "Current LLM client does not implement shadow planner proposals.",
+  "created_at": "2026-06-03T01:44:11.301954+00:00"
+}

@@ -1,0 +1,24 @@
+{
+  "record_id": "35260c4e-04e8-4929-bce7-8a13b2e44449",
+  "conversation_id": "conv-notify-fail",
+  "planner_stage": "deterministic",
+  "planner_mode": "deterministic",
+  "question": "请帮我预约 2026-05-26 15:00 讨论论文进展",
+  "goal": "prepare_booking_request",
+  "accepted": true,
+  "status": "accepted",
+  "fallback_template": "book_meeting",
+  "fallback_reason": null,
+  "validation_errors": [],
+  "planned_steps": [
+    "detect_profile_context",
+    "classify_intent",
+    "retrieve_recent_memory",
+    "assemble_prompt_context",
+    "answer_with_citations",
+    "score_memory_usefulness",
+    "render_user_response"
+  ],
+  "latency_ms": 0.21093245595693588,
+  "created_at": "2026-06-01T13:39:27.709962+00:00"
+}

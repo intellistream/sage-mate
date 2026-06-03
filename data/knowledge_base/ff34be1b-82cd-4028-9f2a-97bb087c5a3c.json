@@ -1,0 +1,20 @@
+{
+  "document_id": "ff34be1b-82cd-4028-9f2a-97bb087c5a3c",
+  "title": "论文提炼｜SAGE: A Dataflow-Native Framework for Modular, Controllable, and Transparent LLM-Augmented Reasoning",
+  "content": "论文名称：SAGE: A Dataflow-Native Framework for Modular, Controllable, and Transparent LLM-Augmented Reasoning\n研究主题：大模型推理、检索增强与记忆系统\n发表 venue：ICML - International Conference on Machine Learning\n发表年份：2026\n作者：Jun Liu, Peilin Liu, Ruicheng Zhang, Senlei Zhang, Yanbo Chen, Ziao Wang, Jinyun Yang, Mingqi Wang, Shuhao Zhang, Xiaofei Liao, Hai Jin\n作者角色：你是通讯作者；Author PDF has been added to this repository; the structured abstract has not yet been extracted into this summary.\n一句话总结：This ICML 2026 paper presents SAGE, a dataflow-native framework for modular, controllable, and transparent LLM-augmented reasoning.\n核心内容：\nThis ICML 2026 paper presents SAGE, a dataflow-native framework for modular, controllable, and transparent LLM-augmented reasoning.\n适合回答的问题：\n- 这篇论文主要解决什么问题，以及它为什么重要。\n- 这篇论文的核心方法、系统设计或算法思路是什么。\n- 这篇论文与 大模型推理、检索增强与记忆系统 这条研究主线的关系是什么。",
+  "tags": [
+    "homepage",
+    "research",
+    "publication",
+    "paper-digest",
+    "llm"
+  ],
+  "source_name": "homepage:contents/research_papers/publications_summary.md#0.1 SAGE: A Dataflow-Native Framework for Modular, Controllable, and Transparent LLM-Augmented Reasoning",
+  "metadata": {
+    "domain": "research",
+    "identity": "pi",
+    "material_type": "paper-digest",
+    "source_kind": "homepage"
+  },
+  "created_at": "2026-05-28T01:19:22.839381Z"
+}

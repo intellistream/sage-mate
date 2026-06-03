@@ -1,0 +1,17 @@
+{
+  "document_id": "33229b85-2823-4bac-ac51-c9eda4a67c5e",
+  "title": "论文提炼｜Scalable Transactional Stream Processing on Multicore Processors",
+  "content": "论文名称：Scalable Transactional Stream Processing on Multicore Processors\n研究主题：流处理系统、共享状态与运行时调度\n发表 venue：TKDE - IEEE Transactions on Knowledge and Data Engineering\n发表年份：2025\n作者：Jianjun Zhao, Yancan Mao, Zhonghao Yang, Haikun Liu, Shuhao Zhang\n作者角色：你是通讯作者\n一句话总结：This journal version further develops MorphStream into a more general transactional stream processing engine for multicores.\n核心内容：\nThis journal version further develops MorphStream into a more general transactional stream processing engine for multicores. In addition to adaptive scheduling, it supports non-deterministic state access through a stateful task precedence graph and incorporates a generalized framework for window-based operations via multi-versioned state management. These extensions broaden the applicability of transactional stream processing to dynamic and irregular workloads while preserving strong semantics. Experimental results show up to 3.4× higher throughput and 69.1% lower latency than state-of-the-art alternatives.\n适合回答的问题：\n- 这篇论文主要解决什么问题，以及它为什么重要。\n- 这篇论文的核心方法、系统设计或算法思路是什么。\n- 这篇论文与 流处理系统、共享状态与运行时调度 这条研究主线的关系是什么。",
+  "tags": [
+    "homepage",
+    "research",
+    "publication",
+    "paper-digest",
+    "stream-processing",
+    "transactional-stream",
+    "graph",
+    "multicore"
+  ],
+  "source_name": "homepage:contents/research_papers/publications_summary.md#0.6 Scalable Transactional Stream Processing on Multicore Processors",
+  "created_at": "2026-05-25T13:37:18.183093Z"
+}

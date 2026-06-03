@@ -1,0 +1,24 @@
+{
+  "record_id": "bfae96d8-eec1-47fc-84f3-dbd8eadbc28a",
+  "conversation_id": "c5dcb3e8-2467-4af0-8fe5-edd45fd967c6",
+  "planner_stage": "shadow",
+  "planner_mode": "llm_shadow",
+  "question": "能讲讲推理引擎这块你的具体工作吗",
+  "goal": "answer_research_question",
+  "accepted": true,
+  "status": "accepted",
+  "fallback_template": "answer_question",
+  "fallback_reason": null,
+  "validation_errors": [],
+  "planned_steps": [
+    "detect_profile_context",
+    "classify_intent",
+    "retrieve_hybrid_knowledge",
+    "assemble_prompt_context",
+    "answer_with_citations",
+    "score_memory_usefulness",
+    "render_user_response"
+  ],
+  "latency_ms": 7010.502713732421,
+  "created_at": "2026-06-03T11:32:43.859580+00:00"
+}

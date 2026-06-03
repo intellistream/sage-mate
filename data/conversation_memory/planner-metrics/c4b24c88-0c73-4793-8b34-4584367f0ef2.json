@@ -1,0 +1,25 @@
+{
+  "record_id": "c4b24c88-0c73-4793-8b34-4584367f0ef2",
+  "conversation_id": "",
+  "planner_stage": "deterministic",
+  "planner_mode": "deterministic",
+  "question": "请只概括附件里写了什么。",
+  "goal": "answer_artifact_grounded_question",
+  "accepted": true,
+  "status": "accepted",
+  "fallback_template": "answer_question",
+  "fallback_reason": null,
+  "validation_errors": [],
+  "planned_steps": [
+    "detect_profile_context",
+    "classify_intent",
+    "retrieve_hybrid_knowledge",
+    "retrieve_artifact_memory",
+    "assemble_prompt_context",
+    "answer_with_citations",
+    "score_memory_usefulness",
+    "render_user_response"
+  ],
+  "latency_ms": 0.2669673413038254,
+  "created_at": "2026-06-03T08:12:41.865155+00:00"
+}

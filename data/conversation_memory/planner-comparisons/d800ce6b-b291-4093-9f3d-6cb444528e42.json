@@ -1,0 +1,16 @@
+{
+  "record_id": "d800ce6b-b291-4093-9f3d-6cb444528e42",
+  "conversation_id": "49ac428f-6772-45b3-b16b-4fb15977e34c",
+  "exchange_id": "ea62760c-c52f-4247-ab2c-0fe6d6a225cf",
+  "workflow_action": "ask_follow_up",
+  "question": "我想确认我应该围绕什么问题阅读文献。我现在的研究课题是：当请求进入推理系统时，可能不复用或者部分复用会比全复用更好",
+  "comparison_status": "equivalent",
+  "deterministic_goal": "answer_research_question",
+  "shadow_goal": "answer_research_question",
+  "same_goal": true,
+  "same_fallback_template": true,
+  "deterministic_only_steps": [],
+  "shadow_only_steps": [],
+  "summary": "Shadow planner matched the deterministic plan on goal, fallback, and ordered steps. Execution still follows the deterministic lane.",
+  "created_at": "2026-06-01T01:30:55.969012+00:00"
+}

@@ -1,0 +1,16 @@
+{
+  "record_id": "7d99b40e-23d2-4f2f-8b1d-648ab26a6e63",
+  "conversation_id": "admin-knowledge-injection",
+  "exchange_id": null,
+  "workflow_action": "admin_add_knowledge",
+  "question": "加入知识库：\n标题：预约前准备清单\n标签：advising, booking\n内容：学生预约前需要先发送 agenda、当前 blocker 和相关 draft。",
+  "comparison_status": "equivalent",
+  "deterministic_goal": "prepare_booking_agenda",
+  "shadow_goal": "prepare_booking_agenda",
+  "same_goal": true,
+  "same_fallback_template": true,
+  "deterministic_only_steps": [],
+  "shadow_only_steps": [],
+  "summary": "Shadow planner matched the deterministic plan on goal, fallback, and ordered steps. Execution still follows the deterministic lane.",
+  "created_at": "2026-06-02T17:25:32.794904+00:00"
+}

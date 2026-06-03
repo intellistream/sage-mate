@@ -1,0 +1,22 @@
+{
+  "record_id": "57f52d10-1b70-4887-9f8a-8b4dea582f90",
+  "conversation_id": "smoke-dag-fanout",
+  "planner_stage": "deterministic",
+  "planner_mode": "deterministic",
+  "question": "你好",
+  "goal": "respond_simple_greeting",
+  "accepted": true,
+  "status": "accepted",
+  "fallback_template": "answer_question",
+  "fallback_reason": null,
+  "validation_errors": [],
+  "planned_steps": [
+    "detect_profile_context",
+    "classify_intent",
+    "assemble_prompt_context",
+    "answer_with_citations",
+    "render_user_response"
+  ],
+  "latency_ms": 0.25024544447660446,
+  "created_at": "2026-06-03T02:32:00.515250+00:00"
+}

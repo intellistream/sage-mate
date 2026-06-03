@@ -1,0 +1,24 @@
+{
+  "record_id": "e5ac09e4-444d-40df-a786-0ae0b9c1b8e3",
+  "conversation_id": "conv-cn-time",
+  "planner_stage": "deterministic",
+  "planner_mode": "deterministic",
+  "question": "请帮我预约明天下午三点讨论数据库实验课报告。",
+  "goal": "prepare_booking_request",
+  "accepted": true,
+  "status": "accepted",
+  "fallback_template": "book_meeting",
+  "fallback_reason": null,
+  "validation_errors": [],
+  "planned_steps": [
+    "detect_profile_context",
+    "classify_intent",
+    "retrieve_recent_memory",
+    "assemble_prompt_context",
+    "answer_with_citations",
+    "score_memory_usefulness",
+    "render_user_response"
+  ],
+  "latency_ms": 0.38742832839488983,
+  "created_at": "2026-06-02T17:23:09.559251+00:00"
+}

@@ -1,0 +1,13 @@
+{
+  "document_id": "2d836608-f153-4afe-aca7-a6215a4dc2a8",
+  "title": "课程资料｜大模型推理基础设施课程材料｜实验单与项目说明",
+  "content": "- 实验 1 最小运行与代码地图：PDF\n- 实验 2 请求生命周期观察：PDF\n- 实验 3 调度与连续批处理实验：PDF\n- 实验 4 KV 状态与缓存组织实验：PDF\n- 实验 5 指标观测与最小复现实验：PDF\n- 课程项目实验说明：PDF",
+  "tags": [
+    "homepage",
+    "teaching",
+    "courseware",
+    "experiment"
+  ],
+  "source_name": "homepage:contents/teaching/intro-to-llm-inference-engines.md#实验单与项目说明",
+  "created_at": "2026-05-25T13:37:18.180388Z"
+}

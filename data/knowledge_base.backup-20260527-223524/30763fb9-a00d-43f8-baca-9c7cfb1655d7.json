@@ -1,0 +1,15 @@
+{
+  "document_id": "30763fb9-a00d-43f8-baca-9c7cfb1655d7",
+  "title": "论文提炼｜To Co-run, or Not to Co-run: A Performance Study on Integrated Architectures",
+  "content": "论文名称：To Co-run, or Not to Co-run: A Performance Study on Integrated Architectures\n研究主题：大模型推理、检索增强与记忆系统\n发表 venue：MASCOTS - IEEE 23rd International Symposium on Modeling Analysis and Simulation of Computer and Telecommunication Systems (MASCOTS)\n发表年份：2015\n作者：Feng Zhang, Jidong Zhai, Wenguang Chen, Bingsheng He, Shuhao Zhang\n作者角色：合作作者或共同作者\n一句话总结：Architecture designers tend to integrate both CPUand GPU on the same chip to deliver energy-efﬁcient designs.To effectively leverage the power of both CPUs and GPUs onintegrated architectures, researchers have recently put substantialefforts into co-running a single application o\n核心内容：\nArchitecture designers tend to integrate both CPUand GPU on the same chip to deliver energy-efﬁcient designs.To effectively leverage the power of both CPUs and GPUs onintegrated architectures, researchers have recently put substantialefforts into co-running a single application on both the CPU andthe GPU of such architectures. However, few studies have beenperformed to analyze a wide range of parallel computation pat-terns on such architectures. In this paper, we port all programsin Rodinia benchmark suite and co-run these programs on theintegrated architecture. We ﬁnd that co-running results are notalways better than running the application on the CPU only orthe GPU only. Among the 20 programs, 3 programs can beneﬁtfrom co-running, 12 programs using GPU only and 2 programsusing CPU only achieve the best performance. The remaining 3programs show no performance preference for different devices.We also characterize the workload and summarize the patternsfor the system insights of co-running on integrated architectures.\n适合回答的问题：\n- 这篇论文主要解决什么问题，以及它为什么重要。\n- 这篇论文的核心方法、系统设计或算法思路是什么。\n- 这篇论文与 大模型推理、检索增强与记忆系统 这条研究主线的关系是什么。",
+  "tags": [
+    "homepage",
+    "research",
+    "publication",
+    "paper-digest",
+    "rag",
+    "gpu"
+  ],
+  "source_name": "homepage:contents/research_papers/publications_summary.md#4.3 To Co-run, or Not to Co-run: A Performance Study on Integrated Architectures",
+  "created_at": "2026-05-25T13:37:18.188588Z"
+}

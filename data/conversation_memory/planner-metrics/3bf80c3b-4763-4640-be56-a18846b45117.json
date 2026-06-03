@@ -1,0 +1,24 @@
+{
+  "record_id": "3bf80c3b-4763-4640-be56-a18846b45117",
+  "conversation_id": "",
+  "planner_stage": "shadow",
+  "planner_mode": "llm_shadow",
+  "question": "在30字内描述张书豪老师 (nonce-78e715)",
+  "goal": "answer_grounded_question",
+  "accepted": true,
+  "status": "accepted",
+  "fallback_template": "answer_question",
+  "fallback_reason": null,
+  "validation_errors": [],
+  "planned_steps": [
+    "detect_profile_context",
+    "classify_intent",
+    "retrieve_hybrid_knowledge",
+    "assemble_prompt_context",
+    "answer_with_citations",
+    "score_memory_usefulness",
+    "render_user_response"
+  ],
+  "latency_ms": 7110.944704152644,
+  "created_at": "2026-06-03T10:56:21.757235+00:00"
+}

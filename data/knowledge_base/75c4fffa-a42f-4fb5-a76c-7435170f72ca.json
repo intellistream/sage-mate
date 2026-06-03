@@ -1,0 +1,23 @@
+{
+  "document_id": "75c4fffa-a42f-4fb5-a76c-7435170f72ca",
+  "title": "论文提炼｜Ferret: An Efficient Online Continual Learning Framework under Varying Memory Constraints",
+  "content": "论文名称：Ferret: An Efficient Online Continual Learning Framework under Varying Memory Constraints\n研究主题：大模型推理、检索增强与记忆系统\n发表 venue：CVPR - Conference on Computer Vision and Pattern Recognition\n发表年份：2025\n作者：Yuhao Zhou, Yuxin Tian, Jindi Lv, Mingjia Shi, Yuanxi Li, Qing Ye, Shuhao Zhang, Jiancheng Lv\n作者角色：合作作者或共同作者\n一句话总结：In the realm of high-frequency data streams, achieving real-time learning within varying memory constraints is paramount.\n核心内容：\nIn the realm of high-frequency data streams, achieving real-time learning within varying memory constraints is paramount. This paper presents Ferret, a comprehensive framework designed to enhance online accuracy of Online Continual Learning (OCL) algorithms while dynamically adapting to varying memory budgets. Ferret employs a fine-grained pipeline parallelism strategy combined with an iterative gradient compensation algorithm, ensuring seamless handling of high-frequency data with minimal latency, and effectively counteracting the challenge of stale gradients in parallel training. To adapt to varying memory budgets, its automated model partitioning and pipeline planning optimizes performance regardless of memory limitations. Extensive experiments across 20 benchmarks and 5 integrated OCL algorithms show Ferret's remarkable efficiency, achieving up to 3.7\\times lower memory overhead to reach the same online accuracy compared to competing methods. Furthermore, Ferret consistently outperforms these methods across diverse memory budgets, underscoring its superior adaptability. These findings position Ferret as a premier solution for efficient and adaptive OCL framework in real-time environments.\n适合回答的问题：\n- 这篇论文主要解决什么问题，以及它为什么重要。\n- 这篇论文的核心方法、系统设计或算法思路是什么。\n- 这篇论文与 大模型推理、检索增强与记忆系统 这条研究主线的关系是什么。",
+  "tags": [
+    "homepage",
+    "research",
+    "publication",
+    "paper-digest",
+    "memory",
+    "stream-processing",
+    "ann",
+    "continual-learning"
+  ],
+  "source_name": "homepage:contents/research_papers/publications_summary.md#2.6 Ferret: An Efficient Online Continual Learning Framework under Varying Memory Constraints",
+  "metadata": {
+    "domain": "research",
+    "identity": "pi",
+    "material_type": "paper-digest",
+    "source_kind": "homepage"
+  },
+  "created_at": "2026-05-28T01:19:22.841978Z"
+}

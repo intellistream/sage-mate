@@ -1,0 +1,14 @@
+{
+  "document_id": "f50925d4-4786-4cbe-b764-c65e4e647403",
+  "title": "论文提炼｜Low-Latency Video Conferencing via Optimized Packet Routing and Reordering",
+  "content": "论文名称：Low-Latency Video Conferencing via Optimized Packet Routing and Reordering\n研究主题：动态数据管理、持续学习与智能分析\n发表 venue：IWQoS - IEEE International Symposium on Quality of Service\n发表年份：2024\n作者：Yao Xiao, Amelie Chi Zhou, Sitian Chen, Shuhao Zhang, Yi Wang, Rui Mao, Xuan Yang\n作者角色：合作作者或共同作者\n一句话总结：In the face of rising global demand for video meetings, managing traffic across geographically distributed (geo-distributed) data centers presents a significant challenge due to the dynamic and limited nature of inter-DC network performance.\n核心内容：\nIn the face of rising global demand for video meetings, managing traffic across geographically distributed (geo-distributed) data centers presents a significant challenge due to the dynamic and limited nature of inter-DC network performance. Facing these issues, this paper introduces two novel techniques, VCRoute and WMJitter, to optimize the performance of geo-distributed video conferencing systems. VCRoute is a routing method designed for audio data packets of video conferences. It treats the routing problem as a Multi-Armed Bandit issue, and utilizes a tailored Thompson Sampling algorithm for resolution. Unlike traditional approaches, VCRoute considers transmitting latency and its variance simultaneously by using Thompson Sampling algorithm, which leads to effective end-to-end latency optimization. In conjunction with VCRoute, we present WMJitter, a watermark-based mechanism for managing network jitter, which can further reduce the end-to-end delay and keep an improved balance between latency and loss rate. Evaluations based on real geo-distributed network performance demonstrate the effectiveness and scalability of VCRoute and WMJitter, offering robust solutions for optimizing video conferencing systems in geo-distributed settings.\n适合回答的问题：\n- 这篇论文主要解决什么问题，以及它为什么重要。\n- 这篇论文的核心方法、系统设计或算法思路是什么。\n- 这篇论文与 动态数据管理、持续学习与智能分析 这条研究主线的关系是什么。",
+  "tags": [
+    "homepage",
+    "research",
+    "publication",
+    "paper-digest",
+    "graph"
+  ],
+  "source_name": "homepage:contents/research_papers/publications_summary.md#3.16 Low-Latency Video Conferencing via Optimized Packet Routing and Reordering",
+  "created_at": "2026-05-25T13:37:18.187952Z"
+}

@@ -1,0 +1,16 @@
+{
+  "record_id": "6311c9f9-60f4-4450-8231-de5409b1f78c",
+  "conversation_id": "lamp-LaMP-Local-lamp-002",
+  "planner_stage": "shadow",
+  "planner_mode": "llm_shadow",
+  "question": "下面是一个 LaMP 风格的个性化回答任务。请结合学生画像，直接回答学生当前想请教老师的问题，只返回答案本身，不要解释。\nTask: LaMP-Local\n学生画像：\n- item 1: course: 研究生论文写作 | weakness: related work 很散\n- item 2: deadline: 两周后交摘要 | goal: 先把结构收拢\n学生当前想请教老师的问题：结合我的情况，下一步最值得补哪一块？",
+  "goal": "answer_research_question",
+  "accepted": false,
+  "status": "shadow_disabled",
+  "fallback_template": "answer_question",
+  "fallback_reason": "Benchmark evaluation request skips shadow planner to keep latency and scoring focused on the main execution lane.",
+  "validation_errors": [],
+  "planned_steps": [],
+  "latency_ms": 0.002100132405757904,
+  "created_at": "2026-06-01T01:00:39.593592+00:00"
+}

@@ -1,0 +1,31 @@
+{
+  "document_id": "d2cc75a9-c0d9-4703-b24b-6e2041376a13",
+  "title": "课件正文｜大模型推理基础设施课程材料｜第 9 讲 异构平台适配（第2部分）",
+  "content": "心结论 平台比较最容易犯的错误，是把环境差异、软件成熟度差异和机制差异混在一起。 不公平二 一方用了成熟 profiler 和手工优化，另一方仍停留在默认配置。 例子：公平实验为什么在异构平台上更难（3） 核心结论 平台比较最容易犯的错误，是把环境差异、软件成熟度差异和机制差异混在一起。 课程要求 异构平台实验必须先交代可比边界，再谈数字输赢。 例子：迁移一条 decode 热路径时会遇到什么（1） 核心结论 decode 热路径对平台差异特别敏感，因为它既要求低抖动，又持续依赖状态与调度 稳定性。 算子层 kernel、算子融合和内存布局可能都需要重新调优。 例子：迁移一条 decode 热路径时会遇到什么（2） 核心结论 decode 热路径对平台差异特别敏感，因为它既要求低抖动，又持续依赖状态与调度 稳定性。 运行时层 graph capture、同步语义和调度节拍可能与原平台不同。\n\n例子：迁移一条 decode 热路径时会遇到什么（3） 核心结论 decode 热路径对平台差异特别敏感，因为它既要求低抖动，又持续依赖状态与调度 稳定性。 研究层 如果不能解释是哪个层面出问题，适配工作就很难形成可发表的系统结论。 课堂练习：为跨平台实验写一页计划（1） 核心结论 平台适配课最适合训练的，是写出一份短而硬的验证计划。 练习一 指定两个平台、一个共同 workload 和三项必须控制的变量。 课堂练习：为跨平台实验写一页计划（2） 核心结论 平台适配课最适合训练的，是写出一份短而硬的验证计划。 练习二 指出你会优先观测的两个局部探针，以及它们为什么能帮助解释性能差异。 课堂练习：为跨平台实验写一页计划（3） 核心结论 平台适配课最适合训练的，是写出一份短而硬的验证计划。 练习三 用一句话回答：为什么“能跑起来”还不算完成平台适配？ 课堂讨论 核心结论 跨平台研究需要明确平台差异究竟改写了哪些系统假设。 ▶ 为什么“在平台 A 上有效”不自动说明方法具有普适性？ ▶ 怎样设计一个最小跨平台验证计划？ ▶ 什么结论最容易因为实验不公平而失真？ 本讲总结 核心结论 平台适配本身构成系统研究的重要组成部分。 ▶ 平台差异会重写瓶颈与最优策略。 ▶ 只有能验证，平台适配结论才有说服力。 对应 Tutorial 核心结论 本讲对应 Tutorial 8。 建议先独立作答，再翻到下一页查看参考答案。 ▶ 文件：build/tutorials/Tutorial 08 异构平台适配. pdf ▶ 动手运行、日志记录与提交要求统一查看 build/experiments/ 和对应 experiment 源目录下的 assignment spring-2026/。",
+  "tags": [
+    "homepage",
+    "teaching",
+    "courseware",
+    "pdf",
+    "material:pdf",
+    "identity:teacher",
+    "domain:teaching",
+    "audience:graduate",
+    "course:llm-inference",
+    "material:lecture",
+    "lecture:9",
+    "lecture"
+  ],
+  "source_name": "homepage:contents/teaching/intro-to-llm-inference-engines.md#讲义与导论::contents/teaching/intro-to-llm-inference-engines/2026/slides/lectures/大模型推理基础设施_第09讲_异构平台适配.pdf::part-2",
+  "metadata": {
+    "material_type": "lecture",
+    "identity": "teacher",
+    "domain": "teaching",
+    "audience": "graduate",
+    "course_id": "llm-inference",
+    "ordinal_type": "lecture",
+    "ordinal": "9",
+    "source_kind": "homepage"
+  },
+  "created_at": "2026-05-28T01:19:22.834205Z"
+}

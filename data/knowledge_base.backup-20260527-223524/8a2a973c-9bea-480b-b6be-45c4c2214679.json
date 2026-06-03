@@ -1,0 +1,14 @@
+{
+  "document_id": "8a2a973c-9bea-480b-b6be-45c4c2214679",
+  "title": "课件正文｜研究生论文写作课程材料｜第 5 讲 多维视角看论文写作（第5部分）",
+  "content": "map function that processes a key/value pair to generate a set of intermediate key/value pairs, and a reduce function that merges all intermediate values associated with the same intermediate key. Many real world tasks are expressible in this model, as shown in the paper. Programs written in this functional style are automatically parallelized and executed on a large cluster of commodity machines.\n\nThe run-time system takes care of the details of partitioning the input data, scheduling the program’s execution across a set of machines, handling machine failures, and managing the required inter-machine communication. This allows programmers without experience with parallel and distributed systems to easily utilize the resources of a large distributed system. 问题 如果你是审稿人，这段话里哪些地方还存在逻辑跳跃、适用边界不清，或者需要更多证据支持？ 课程讨论群：2026 年研究生写作课 群号：1092437119 欢迎进群自由发言； 课堂上的临时想法、不同意见和课后追问都可以继续在群里交流。 张书豪 (华中科技大学) 研究生论文写作课程第五讲：多维视角看论文写作 二〇二六年五月 53 / 59 课堂互动：研究者视角参考答案 参考答案 作者要解决的是大规模数据处理开发成本高、并行与容错门槛高的问题； 核心假设是很多 任务都能被抽象为 map 和 reduce 两步，从而由运行时系统接管调度与容错。 这是一种非常典型的问题定义 + 系统代偿假设。 研究者视角下，关键不是“它很强”，而是“它到底在替程序员解决哪一层复杂度”。 张书豪 (华中科技大学) 研究生论文写作课程第五讲：多维视角看论文写作 二〇二六年五月 54 / 59 课堂互动：审稿人视角参考答案 参考答案 需要进一步追问的是：哪些真实任务适合这种抽象？ 自动并行化的代价是什么？ 面对节点 异构、复杂 DAG 或实时场景时，这种模型的边界在哪里？ 审稿人并不是反对这个框架，而是要作者把适用边界讲清楚。 一篇论文越是声称“通用”，就越需要主动回答“不适用的地方是什么”。 张书豪 (华中科技大学) 研究生论文写作课程第五讲：多维视角看论文写作 二〇二六年五月 55 / 59 本节课课堂练习结果 读者视角：学会用标题、摘要和段首句去判断信息是否被快速传达。 审稿人视角：能识别主观词汇、模糊评估、缺失基线与复现性风险。 研究者视角：能把问题、假设、变量和证据链对齐来看。 未来研究者视角：知道好的“后续工作”不是空话，而是给后续研究留下入口。 本讲收获 本讲不是记住七个名词，而是开始形成“看到一句话就知道该从哪个视角挑问题”的能力。 张书豪 (华中科技大学) 研究生论文写作课程第五讲：多维视角看论文写作 二〇二六年五月 56 / 59 本讲小结 1 写作质量首先来自判断力，而不是修辞堆砌。 2 七个视角并不是背诵清单，而是诊断和改写论文的工作框架。 3 视角切换、案例拆解和课堂互动，都是把判断框架落到真实文本上的入口。 4 练习题要养成一个习惯：先自己判断，再对照答案看依据，而不是直接记结论。 张书豪 (华中科技大学) 研究生论文写作课程第五讲：多维视角看论文写作 二〇二六年五月 57 / 59 Q&A 问题讨论 课后也欢迎继续提问 课程讨论群：2026 年研究生写作课 群号：1092437119 欢迎进群自由发言； 课堂上的临时想法、不同意见和课后追问都可以继续在群里交流。 张书豪 (华中科技大学) 研究生论文写作课程第五讲：多维视角看论文写作 二〇二六年五月 58 / 59 谢谢 张书豪 (华中科技大学) 研究生论文写作课程第五讲：多维视角看论文写作 二〇二六年五月 59 / 59",
+  "tags": [
+    "homepage",
+    "teaching",
+    "courseware",
+    "pdf",
+    "lecture"
+  ],
+  "source_name": "homepage:contents/teaching/graduate-paper-writing-course.md#公开课件::contents/teaching/graduate-paper-writing-course/2026/lecture-5-beamer.pdf::part-5",
+  "created_at": "2026-05-25T13:37:18.170146Z"
+}

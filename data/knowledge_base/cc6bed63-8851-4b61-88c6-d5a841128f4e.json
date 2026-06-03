@@ -1,0 +1,18 @@
+{
+  "document_id": "cc6bed63-8851-4b61-88c6-d5a841128f4e",
+  "title": "主页配置｜config",
+  "content": "title: Shuhao Zhang's Homepage\npage-top-title: Shuhao Zhang\ntop-section-bg-text: State Management for LLM Serving Systems\nhome-subtitle: Shuhao Zhang &ensp;|&ensp; 张书豪",
+  "tags": [
+    "homepage",
+    "profile",
+    "config"
+  ],
+  "source_name": "homepage:contents/config.yml#full",
+  "metadata": {
+    "domain": "research",
+    "identity": "pi",
+    "material_type": "profile",
+    "source_kind": "homepage"
+  },
+  "created_at": "2026-05-28T01:19:22.845444Z"
+}

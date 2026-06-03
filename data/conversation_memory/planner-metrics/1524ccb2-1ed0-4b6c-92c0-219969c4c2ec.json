@@ -1,0 +1,16 @@
+{
+  "record_id": "1524ccb2-1ed0-4b6c-92c0-219969c4c2ec",
+  "conversation_id": "",
+  "planner_stage": "shadow",
+  "planner_mode": "llm_shadow",
+  "question": "你好",
+  "goal": "respond_simple_greeting",
+  "accepted": false,
+  "status": "shadow_disabled",
+  "fallback_template": "answer_question",
+  "fallback_reason": "Current LLM client does not implement shadow planner proposals.",
+  "validation_errors": [],
+  "planned_steps": [],
+  "latency_ms": 0.014458782970905304,
+  "created_at": "2026-06-03T02:28:35.224507+00:00"
+}

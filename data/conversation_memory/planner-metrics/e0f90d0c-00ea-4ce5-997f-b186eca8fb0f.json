@@ -1,0 +1,25 @@
+{
+  "record_id": "e0f90d0c-00ea-4ce5-997f-b186eca8fb0f",
+  "conversation_id": "conv-escalation-admin",
+  "planner_stage": "deterministic",
+  "planner_mode": "deterministic",
+  "question": "我想正式投诉这次成绩处理有误，请你马上联系老师。",
+  "goal": "answer_course_question",
+  "accepted": true,
+  "status": "accepted",
+  "fallback_template": "answer_question",
+  "fallback_reason": null,
+  "validation_errors": [],
+  "planned_steps": [
+    "detect_profile_context",
+    "classify_intent",
+    "retrieve_hybrid_knowledge",
+    "retrieve_recent_memory",
+    "assemble_prompt_context",
+    "answer_with_citations",
+    "score_memory_usefulness",
+    "render_user_response"
+  ],
+  "latency_ms": 0.23404043167829514,
+  "created_at": "2026-06-03T01:43:42.831153+00:00"
+}

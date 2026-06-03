@@ -1,0 +1,25 @@
+{
+  "record_id": "66452d0b-f724-4549-a5e9-fe803b9913ea",
+  "conversation_id": "conv-follow-up",
+  "exchange_id": "4205dbd1-79af-4dfe-8c4f-eb94c9440b75",
+  "workflow_action": "book_meeting",
+  "question": "我的邮箱是 alice@example.com",
+  "comparison_status": "shadow_disabled",
+  "deterministic_goal": "answer_course_question",
+  "shadow_goal": null,
+  "same_goal": true,
+  "same_fallback_template": true,
+  "deterministic_only_steps": [
+    "detect_profile_context",
+    "classify_intent",
+    "retrieve_hybrid_knowledge",
+    "retrieve_recent_memory",
+    "assemble_prompt_context",
+    "answer_with_citations",
+    "score_memory_usefulness",
+    "render_user_response"
+  ],
+  "shadow_only_steps": [],
+  "summary": "Current LLM client does not implement shadow planner proposals.",
+  "created_at": "2026-05-31T13:28:51.935961+00:00"
+}

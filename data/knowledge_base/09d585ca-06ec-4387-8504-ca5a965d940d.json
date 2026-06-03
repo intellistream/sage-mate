@@ -1,0 +1,22 @@
+{
+  "document_id": "09d585ca-06ec-4387-8504-ca5a965d940d",
+  "title": "论文提炼｜A Framework of Knowledge Graph-Enhanced Large Language Model Based on Global Planning",
+  "content": "论文名称：A Framework of Knowledge Graph-Enhanced Large Language Model Based on Global Planning\n研究主题：大模型推理、检索增强与记忆系统\n发表 venue：TKDE - IEEE Transactions on Knowledge and Data Engineering\n发表年份：2025\n作者：Yading Li, Dandan Song, Yuhang Tian, Hao Wang, Changzhi Zhou, Shuhao Zhang\n作者角色：合作作者或共同作者\n一句话总结：Knowledge graphs can provide structured support for large language model reasoning, but existing KG-enhanced LLM methods either rely on the original question alone or alternate retrieval and reasoning without sufficient planning.\n核心内容：\nKnowledge graphs can provide structured support for large language model reasoning, but existing KG-enhanced LLM methods either rely on the original question alone or alternate retrieval and reasoning without sufficient planning. This work proposes KELGoP, a framework of KG-enhanced LLM reasoning based on global planning. It introduces fine-grained question categorization and category-driven decomposition for complex questions, supports controllable atomic retrieval over KG subgraphs, and adapts reasoning strategies according to question-answering performance. Experiments on KGQA workloads show that the framework improves controllability, robustness, and answer quality over existing baselines.\n适合回答的问题：\n- 这篇论文主要解决什么问题，以及它为什么重要。\n- 这篇论文的核心方法、系统设计或算法思路是什么。\n- 这篇论文与 大模型推理、检索增强与记忆系统 这条研究主线的关系是什么。",
+  "tags": [
+    "homepage",
+    "research",
+    "publication",
+    "paper-digest",
+    "llm",
+    "graph",
+    "ann"
+  ],
+  "source_name": "homepage:contents/research_papers/publications_summary.md#2.8 A Framework of Knowledge Graph-Enhanced Large Language Model Based on Global Planning",
+  "metadata": {
+    "domain": "research",
+    "identity": "pi",
+    "material_type": "paper-digest",
+    "source_kind": "homepage"
+  },
+  "created_at": "2026-05-28T01:19:22.842191Z"
+}

@@ -1,0 +1,18 @@
+{
+  "document_id": "f0a9e807-a886-4a35-8ef7-684aea0ad6cc",
+  "title": "论文提炼｜FineStream: Fine-Grained Window-Based Stream Processing on CPU-GPU Integrated Architectures",
+  "content": "论文名称：FineStream: Fine-Grained Window-Based Stream Processing on CPU-GPU Integrated Architectures\n研究主题：大模型推理、检索增强与记忆系统\n发表 venue：USENIX ATC - USENIX Annual Technical Conference\n发表年份：2020\n作者：Feng Zhang, Lin Yang, Shuhao Zhang, Bingsheng He, Wei Lu, Xiaoyong Du\n作者角色：合作作者或共同作者\n一句话总结：Accelerating SQL queries on stream processing by utilizing heterogeneous coprocessors, such as GPUs, has shown to be an effective approach.\n核心内容：\nAccelerating SQL queries on stream processing by utilizing heterogeneous coprocessors, such as GPUs, has shown to be an effective approach. Most works show that heterogeneous coprocessors bring significant performance improvement because of their high parallelism and computation capacity. However, the discrete memory architectures with relatively low PCI-e bandwidth and high latency have dragged down the benefits of heterogeneous coprocessors. Recently, hardware vendors propose CPU-GPU integrated architectures that integrate CPU and GPU on the same chip. This integration provides new opportunities for fine-grained cooperation between CPU and GPU for optimizing SQL queries on stream processing. In this paper, we propose a data stream system, called FineStream, for efficient window-based stream processing on integrated architectures. Particularly, FineStream performs fine-grained workload scheduling between CPU and GPU to take advantage of both architectures, and it also provides efficient mechanism for handling dynamic stream queries. Our experimental results show that 1) on integrated architectures, FineStream achieves an average 52% throughput improvement and 36% lower latency over the state-of-the-art stream processing engine; 2) compared to the stream processing engine on the discrete architecture, FineStream on the integrated architecture achieves 10.4x price-throughput ratio, 1.8x energy efficiency, and can enjoy lower latency benefits.\n适合回答的问题：\n- 这篇论文主要解决什么问题，以及它为什么重要。\n- 这篇论文的核心方法、系统设计或算法思路是什么。\n- 这篇论文与 大模型推理、检索增强与记忆系统 这条研究主线的关系是什么。",
+  "tags": [
+    "homepage",
+    "research",
+    "publication",
+    "paper-digest",
+    "rag",
+    "memory",
+    "stream-processing",
+    "ann",
+    "gpu"
+  ],
+  "source_name": "homepage:contents/research_papers/publications_summary.md#3.7 FineStream: Fine-Grained Window-Based Stream Processing on CPU-GPU Integrated Architectures",
+  "created_at": "2026-05-25T13:37:18.186778Z"
+}

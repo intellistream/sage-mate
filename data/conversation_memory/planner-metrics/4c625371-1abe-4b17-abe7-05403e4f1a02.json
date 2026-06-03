@@ -1,0 +1,25 @@
+{
+  "record_id": "4c625371-1abe-4b17-abe7-05403e4f1a02",
+  "conversation_id": "297bf24d-4901-47ef-8c63-188831a01025",
+  "planner_stage": "deterministic",
+  "planner_mode": "deterministic",
+  "question": "如果想预约一次讨论，我需要先准备什么？",
+  "goal": "prepare_booking_agenda",
+  "accepted": true,
+  "status": "accepted",
+  "fallback_template": "advise_only",
+  "fallback_reason": null,
+  "validation_errors": [],
+  "planned_steps": [
+    "detect_profile_context",
+    "classify_intent",
+    "retrieve_hybrid_knowledge",
+    "retrieve_recent_memory",
+    "assemble_prompt_context",
+    "answer_with_citations",
+    "score_memory_usefulness",
+    "render_user_response"
+  ],
+  "latency_ms": 0.54915901273489,
+  "created_at": "2026-06-03T06:19:53.507631+00:00"
+}

@@ -1,0 +1,24 @@
+{
+  "record_id": "72302f5e-7c68-4d9d-988e-7a8e53432d29",
+  "conversation_id": "",
+  "planner_stage": "deterministic",
+  "planner_mode": "deterministic",
+  "question": "在30字内描述张书豪老师 (nonce-4b2e63)",
+  "goal": "answer_grounded_question",
+  "accepted": true,
+  "status": "accepted",
+  "fallback_template": "answer_question",
+  "fallback_reason": null,
+  "validation_errors": [],
+  "planned_steps": [
+    "detect_profile_context",
+    "classify_intent",
+    "retrieve_hybrid_knowledge",
+    "assemble_prompt_context",
+    "answer_with_citations",
+    "score_memory_usefulness",
+    "render_user_response"
+  ],
+  "latency_ms": 0.8065830916166306,
+  "created_at": "2026-06-03T09:41:14.231974+00:00"
+}

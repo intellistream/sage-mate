@@ -1,0 +1,25 @@
+{
+  "record_id": "9468efe3-bec1-4689-a09c-2b3a00d6311c",
+  "conversation_id": "b7fa9be8-c505-41ae-9693-d287fe6fafc9",
+  "planner_stage": "shadow",
+  "planner_mode": "llm_shadow",
+  "question": "我问的是张老师的资料",
+  "goal": "answer_course_question",
+  "accepted": true,
+  "status": "accepted",
+  "fallback_template": "answer_question",
+  "fallback_reason": null,
+  "validation_errors": [],
+  "planned_steps": [
+    "detect_profile_context",
+    "classify_intent",
+    "retrieve_hybrid_knowledge",
+    "retrieve_recent_memory",
+    "assemble_prompt_context",
+    "answer_with_citations",
+    "score_memory_usefulness",
+    "render_user_response"
+  ],
+  "latency_ms": 9786.07408888638,
+  "created_at": "2026-06-01T05:41:39.225508+00:00"
+}
