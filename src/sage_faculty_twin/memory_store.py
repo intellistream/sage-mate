@@ -1,15 +1,23 @@
 from __future__ import annotations
 
-from collections import Counter
 import json
 import re
 import shutil
 import time
+from collections import Counter
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 from uuid import uuid4
+
+from sage.neuromem import (
+    MemoryEntry,
+    QueryRequest,
+    RetrievalResult,
+    ServiceStats,
+    TelemetryEvent,
+)
 
 from .config import AppSettings
 from .models import BookingResponse, ChatAttachment, ChatRequest
@@ -38,9 +46,7 @@ class AttachmentMemoryRecord:
             media_type=str(payload.get("media_type") or "application/octet-stream"),
             text_excerpt=str(payload.get("text_excerpt") or ""),
             size_bytes=(
-                int(payload["size_bytes"])
-                if payload.get("size_bytes") is not None
-                else None
+                int(payload["size_bytes"]) if payload.get("size_bytes") is not None else None
             ),
         )
 
@@ -84,27 +90,19 @@ class ConversationMemoryRecord:
             memory_id=str(payload["memory_id"]),
             conversation_id=str(payload["conversation_id"]),
             student_name=str(payload["student_name"]),
-            student_email=(
-                str(payload["student_email"]) if payload.get("student_email") else None
-            ),
+            student_email=(str(payload["student_email"]) if payload.get("student_email") else None),
             course_context=(
-                str(payload["course_context"])
-                if payload.get("course_context")
-                else None
+                str(payload["course_context"]) if payload.get("course_context") else None
             ),
             question=str(payload["question"]),
             answer=str(payload["answer"]),
             workflow_action=str(payload["workflow_action"]),
             interaction_domain=(
-                str(payload["interaction_domain"])
-                if payload.get("interaction_domain")
-                else None
+                str(payload["interaction_domain"]) if payload.get("interaction_domain") else None
             ),
             knowledge_hit_count=int(payload.get("knowledge_hit_count", 0)),
             booking_summary=(
-                str(payload["booking_summary"])
-                if payload.get("booking_summary")
-                else None
+                str(payload["booking_summary"]) if payload.get("booking_summary") else None
             ),
             created_at=datetime.fromisoformat(str(payload["created_at"])),
             attachments=[
@@ -131,9 +129,7 @@ class ConversationMemoryRecord:
         if self.booking_summary:
             parts.append(f"booking {self.booking_summary}")
         if self.attachments:
-            attachment_labels = ", ".join(
-                attachment.file_name for attachment in self.attachments
-            )
+            attachment_labels = ", ".join(attachment.file_name for attachment in self.attachments)
             parts.append(f"attachments {attachment_labels}")
         return " ".join(parts)
 
@@ -180,9 +176,7 @@ class ProfileMemoryRecord:
             profile_id=str(payload["profile_id"]),
             student_key=str(payload["student_key"]),
             student_name=str(payload["student_name"]),
-            student_email=(
-                str(payload["student_email"]) if payload.get("student_email") else None
-            ),
+            student_email=(str(payload["student_email"]) if payload.get("student_email") else None),
             category=str(payload["category"]),
             summary=str(payload["summary"]),
             evidence=str(payload["evidence"]),
@@ -223,12 +217,8 @@ class NeuroMemConversationStore:
         self._base_dir.mkdir(parents=True, exist_ok=True)
         self._collections_dir = self._base_dir / "collections"
         self._collections_dir.mkdir(parents=True, exist_ok=True)
-        self._conversation_collection_dir = (
-            self._collections_dir / "conversation-memory"
-        )
-        self._profile_collection_dir = (
-            self._collections_dir / "conversation-profile-memory"
-        )
+        self._conversation_collection_dir = self._collections_dir / "conversation-memory"
+        self._profile_collection_dir = self._collections_dir / "conversation-profile-memory"
         self._records: dict[str, ConversationMemoryRecord] = {}
         self._profiles: dict[str, ProfileMemoryRecord] = {}
         self._conversation_timelines: dict[str, list[str]] = {}
@@ -280,9 +270,7 @@ class NeuroMemConversationStore:
         self._records[record.memory_id] = record
         self._prepend_conversation_timeline(record)
         self._store_conversation_entry(record)
-        self._persist_collection(
-            self._conversation_collection, self._conversation_collection_dir
-        )
+        self._persist_collection(self._conversation_collection, self._conversation_collection_dir)
         self._record_telemetry_event(
             "write_conversation",
             collection_name=self._conversation_collection.name,
@@ -302,9 +290,7 @@ class NeuroMemConversationStore:
         for profile in profiles:
             self._upsert_profile(profile)
         if profiles:
-            self._persist_collection(
-                self._profile_collection, self._profile_collection_dir
-            )
+            self._persist_collection(self._profile_collection, self._profile_collection_dir)
             self._record_telemetry_event(
                 "write_profile",
                 collection_name=self._profile_collection.name,
@@ -342,9 +328,7 @@ class NeuroMemConversationStore:
             else []
         )
         long_term_hits = (
-            self._search_long_term(request, limit=plan.long_term_limit)
-            if include_long_term
-            else []
+            self._search_long_term(request, limit=plan.long_term_limit) if include_long_term else []
         )
         hits = short_term_hits + long_term_hits
         self._record_telemetry_event(
@@ -404,9 +388,7 @@ class NeuroMemConversationStore:
                 ConversationMemoryHit(
                     memory_id=f"{record.memory_id}:artifact:{attachment_index + 1}",
                     conversation_id=record.conversation_id,
-                    summary=self._format_attachment_summary(
-                        record, attachment, attachment_index
-                    ),
+                    summary=self._format_attachment_summary(record, attachment, attachment_index),
                     score=score,
                     created_at=record.created_at,
                     memory_type="short_term",
@@ -427,9 +409,7 @@ class NeuroMemConversationStore:
             if not memory_id or attachment_index < 0:
                 continue
             record = self._records.get(memory_id)
-            if record is None or not self._should_include_record(
-                record, request, conversation_id
-            ):
+            if record is None or not self._should_include_record(record, request, conversation_id):
                 continue
             if attachment_index >= len(record.attachments):
                 continue
@@ -442,14 +422,8 @@ class NeuroMemConversationStore:
                 ConversationMemoryHit(
                     memory_id=f"{memory_id}:artifact:{attachment_index + 1}",
                     conversation_id=record.conversation_id,
-                    summary=self._format_attachment_summary(
-                        record, attachment, attachment_index
-                    ),
-                    score=float(
-                        result.score
-                        if result.score is not None
-                        else (1.0 / float(rank))
-                    ),
+                    summary=self._format_attachment_summary(record, attachment, attachment_index),
+                    score=float(result.score if result.score is not None else (1.0 / float(rank))),
                     created_at=record.created_at,
                     memory_type="short_term",
                     source="attachment_excerpt",
@@ -478,12 +452,8 @@ class NeuroMemConversationStore:
     def get_record(self, memory_id: str) -> ConversationMemoryRecord | None:
         return self._records.get(memory_id)
 
-    def list_records(
-        self, *, since: datetime | None = None
-    ) -> list[ConversationMemoryRecord]:
-        records = sorted(
-            self._records.values(), key=lambda record: record.created_at, reverse=True
-        )
+    def list_records(self, *, since: datetime | None = None) -> list[ConversationMemoryRecord]:
+        records = sorted(self._records.values(), key=lambda record: record.created_at, reverse=True)
         if since is not None:
             records = [record for record in records if record.created_at >= since]
         return records
@@ -537,21 +507,14 @@ class NeuroMemConversationStore:
             reverse=True,
         )
         if normalized_category:
-            profiles = [
-                profile
-                for profile in profiles
-                if profile.category == normalized_category
-            ]
+            profiles = [profile for profile in profiles if profile.category == normalized_category]
         if normalized_query:
             profiles = [
                 profile
                 for profile in profiles
                 if normalized_query in profile.student_name.lower()
                 or normalized_query in profile.student_key.lower()
-                or (
-                    profile.student_email
-                    and normalized_query in profile.student_email.lower()
-                )
+                or (profile.student_email and normalized_query in profile.student_email.lower())
             ]
         return profiles[: max(1, limit)]
 
@@ -566,9 +529,7 @@ class NeuroMemConversationStore:
         if student_key is None:
             return []
         profiles = [
-            profile
-            for profile in self._profiles.values()
-            if profile.student_key == student_key
+            profile for profile in self._profiles.values() if profile.student_key == student_key
         ]
         profiles.sort(key=lambda profile: profile.updated_at, reverse=True)
         return profiles[: max(1, limit)]
@@ -609,21 +570,15 @@ class NeuroMemConversationStore:
         )
         last_usefulness_event = usefulness_events[-1] if usefulness_events else None
         last_usefulness_attributes = (
-            dict(last_usefulness_event.get("attributes") or {})
-            if last_usefulness_event
-            else {}
+            dict(last_usefulness_event.get("attributes") or {}) if last_usefulness_event else {}
         )
         return {
             "event_count": len(self._telemetry_events),
             "query_count": query_count,
             "write_count": write_count,
             "recent_event_count": len(recent_events),
-            "last_event_type": str(last_event.get("event_type") or "")
-            if last_event
-            else "",
-            "last_event_at": float(last_event.get("timestamp") or 0.0)
-            if last_event
-            else 0.0,
+            "last_event_type": str(last_event.get("event_type") or "") if last_event else "",
+            "last_event_at": float(last_event.get("timestamp") or 0.0) if last_event else 0.0,
             "by_type": by_type,
             "memory_usefulness": {
                 "score_count": len(usefulness_events),
@@ -664,24 +619,16 @@ class NeuroMemConversationStore:
             "recent_events": self.get_telemetry_events(limit=8),
         }
 
-    def _select_search_plan(
-        self, request: ChatRequest, top_k: int | None
-    ) -> MemorySearchPlan:
+    def _select_search_plan(self, request: ChatRequest, top_k: int | None) -> MemorySearchPlan:
         limit = top_k or self._settings.conversation_memory_top_k
         question = request.question.lower()
-        if any(
-            keyword in question
-            for keyword in ("预约", "meeting", "schedule", "book", "时间")
-        ):
+        if any(keyword in question for keyword in ("预约", "meeting", "schedule", "book", "时间")):
             return MemorySearchPlan(
                 policy_name="booking-first",
                 short_term_limit=max(2, limit),
                 long_term_limit=1,
             )
-        if any(
-            keyword in question
-            for keyword in ("之前", "上次", "记得", "偏好", "邮箱", "名字")
-        ):
+        if any(keyword in question for keyword in ("之前", "上次", "记得", "偏好", "邮箱", "名字")):
             return MemorySearchPlan(
                 policy_name="profile-aware",
                 short_term_limit=max(2, limit // 2 + 1),
@@ -742,9 +689,7 @@ class NeuroMemConversationStore:
             if not memory_id or memory_id in seen_memory_ids:
                 continue
             record = self._records.get(memory_id)
-            if record is None or not self._should_include_record(
-                record, request, conversation_id
-            ):
+            if record is None or not self._should_include_record(record, request, conversation_id):
                 continue
             seen_memory_ids.add(memory_id)
             hits.append(
@@ -752,11 +697,7 @@ class NeuroMemConversationStore:
                     memory_id=record.memory_id,
                     conversation_id=record.conversation_id,
                     summary=self._format_summary(record),
-                    score=float(
-                        result.score
-                        if result.score is not None
-                        else (1.0 / float(rank))
-                    ),
+                    score=float(result.score if result.score is not None else (1.0 / float(rank))),
                     created_at=record.created_at,
                     memory_type="short_term",
                     source=str(metadata.get("source") or "user_message"),
@@ -768,9 +709,7 @@ class NeuroMemConversationStore:
                 break
         return hits
 
-    def _search_long_term(
-        self, request: ChatRequest, *, limit: int
-    ) -> list[ConversationMemoryHit]:
+    def _search_long_term(self, request: ChatRequest, *, limit: int) -> list[ConversationMemoryHit]:
         student_key = self._student_key(request.student_name, request.student_email)
         if limit <= 0 or student_key is None or not self._profiles:
             return []
@@ -838,11 +777,7 @@ class NeuroMemConversationStore:
                     memory_id=profile.profile_id,
                     conversation_id="profile",
                     summary=self._format_profile_summary(profile),
-                    score=float(
-                        result.score
-                        if result.score is not None
-                        else (1.0 / float(rank))
-                    ),
+                    score=float(result.score if result.score is not None else (1.0 / float(rank))),
                     created_at=profile.updated_at,
                     memory_type="long_term",
                     source=str(metadata.get("source") or "system_event"),
@@ -898,9 +833,7 @@ class NeuroMemConversationStore:
 
     def _load_collection_snapshot(self, name: str, snapshot_dir: Path):
         collection = self._initialize_collection(name)
-        raw_data = json.loads(
-            (snapshot_dir / "raw_data.json").read_text(encoding="utf-8")
-        )
+        raw_data = json.loads((snapshot_dir / "raw_data.json").read_text(encoding="utf-8"))
         config_path = snapshot_dir / "config.json"
         if config_path.exists():
             collection.config = json.loads(config_path.read_text(encoding="utf-8"))
@@ -917,9 +850,7 @@ class NeuroMemConversationStore:
         from sage.neuromem.memory_collection.indexes import IndexFactory
 
         for index_name, metadata in collection.index_metadata.items():
-            index = IndexFactory.create(
-                str(metadata["type"]), dict(metadata.get("config") or {})
-            )
+            index = IndexFactory.create(str(metadata["type"]), dict(metadata.get("config") or {}))
             index_path = snapshot_dir / f"index_{index_name}"
             if index_path.exists():
                 index.load(index_path)
@@ -1029,9 +960,7 @@ class NeuroMemConversationStore:
             self._persist_collection(
                 self._conversation_collection, self._conversation_collection_dir
             )
-            self._persist_collection(
-                self._profile_collection, self._profile_collection_dir
-            )
+            self._persist_collection(self._profile_collection, self._profile_collection_dir)
         return migrated
 
     def _legacy_conversation_record_paths(self) -> list[Path]:
@@ -1059,9 +988,7 @@ class NeuroMemConversationStore:
         if not path.exists():
             return
         if any(path.iterdir()):
-            raise RuntimeError(
-                f"Legacy memory directory must be empty after migration: {path}"
-            )
+            raise RuntimeError(f"Legacy memory directory must be empty after migration: {path}")
         path.rmdir()
 
     def _record_telemetry_event(
@@ -1072,8 +999,6 @@ class NeuroMemConversationStore:
         duration_ms: float | None = None,
         attributes: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
-        from sage.neuromem.runtime.schema import TelemetryEvent
-
         event = TelemetryEvent(
             event_type=event_type,
             service_type=self.__class__.__name__,
@@ -1085,10 +1010,7 @@ class NeuroMemConversationStore:
         payload = event.to_dict()
         self._telemetry_events.append(payload)
         self._telemetry_type_counts[event_type] += 1
-        if (
-            self._telemetry_limit > 0
-            and len(self._telemetry_events) > self._telemetry_limit
-        ):
+        if self._telemetry_limit > 0 and len(self._telemetry_events) > self._telemetry_limit:
             overflow = len(self._telemetry_events) - self._telemetry_limit
             if overflow > 0:
                 removed = self._telemetry_events[:overflow]
@@ -1139,18 +1061,15 @@ class NeuroMemConversationStore:
             },
         )
 
-    def _build_service_stats(
-        self, collection: Any, *, memory_scope: str
-    ) -> dict[str, Any]:
-        from sage.neuromem.runtime.schema import ServiceStats
-
+    def _build_service_stats(self, collection: Any, *, memory_scope: str) -> dict[str, Any]:
+        storage_stats: dict[str, Any] = dict(collection.get_storage_stats())
         stats = ServiceStats(
             service_type=self.__class__.__name__,
             collection_name=collection.name,
             total_entries=collection.size(),
             index_count=len(collection.indexes),
             indexes=collection.list_indexes(),
-            storage=collection.get_storage_stats(),
+            storage=storage_stats,
             extra={
                 "memory_scope": memory_scope,
                 "telemetry": self.get_telemetry_summary(),
@@ -1172,9 +1091,7 @@ class NeuroMemConversationStore:
             return False
         return record.student_name == request.student_name
 
-    def _derive_profiles(
-        self, record: ConversationMemoryRecord
-    ) -> list[ProfileMemoryRecord]:
+    def _derive_profiles(self, record: ConversationMemoryRecord) -> list[ProfileMemoryRecord]:
         student_key = self._student_key(record.student_name, record.student_email)
         if student_key is None:
             return []
@@ -1202,9 +1119,7 @@ class NeuroMemConversationStore:
     def _append_conversation_timeline(self, record: ConversationMemoryRecord) -> None:
         timeline = self._conversation_timelines.setdefault(record.conversation_id, [])
         timeline.append(record.memory_id)
-        timeline.sort(
-            key=lambda memory_id: self._records[memory_id].created_at, reverse=True
-        )
+        timeline.sort(key=lambda memory_id: self._records[memory_id].created_at, reverse=True)
 
     def _prepend_conversation_timeline(self, record: ConversationMemoryRecord) -> None:
         timeline = self._conversation_timelines.setdefault(record.conversation_id, [])
@@ -1213,8 +1128,6 @@ class NeuroMemConversationStore:
         timeline.insert(0, record.memory_id)
 
     def _build_conversation_memory_entry(self, record: ConversationMemoryRecord):
-        from sage.neuromem import MemoryEntry
-
         metadata = {
             "entry_kind": "conversation_record",
             "memory_id": record.memory_id,
@@ -1222,9 +1135,7 @@ class NeuroMemConversationStore:
             "student_name": record.student_name,
             "student_email": record.student_email or "",
             "source": "user_message",
-            "topic": record.interaction_domain
-            or record.workflow_action
-            or "conversation_exchange",
+            "topic": record.interaction_domain or record.workflow_action or "conversation_exchange",
             "session_id": record.conversation_id,
             "importance": self._conversation_importance(record),
             "timestamp": record.created_at.isoformat(),
@@ -1244,8 +1155,6 @@ class NeuroMemConversationStore:
         )
 
     def _build_attachment_memory_entries(self, record: ConversationMemoryRecord):
-        from sage.neuromem import MemoryEntry
-
         entries = []
         for index, attachment in enumerate(record.attachments):
             metadata = {
@@ -1278,8 +1187,6 @@ class NeuroMemConversationStore:
         return entries
 
     def _build_profile_memory_entry(self, profile: ProfileMemoryRecord):
-        from sage.neuromem import MemoryEntry
-
         metadata = {
             "entry_kind": "profile_record",
             "profile_id": profile.profile_id,
@@ -1305,9 +1212,7 @@ class NeuroMemConversationStore:
 
     def _store_conversation_entry(self, record: ConversationMemoryRecord) -> None:
         entry = self._build_conversation_memory_entry(record)
-        self._conversation_collection.insert(
-            entry.text, entry.metadata, index_names=["search"]
-        )
+        self._conversation_collection.insert(entry.text, entry.metadata, index_names=["search"])
         for attachment_entry in self._build_attachment_memory_entries(record):
             self._conversation_collection.insert(
                 attachment_entry.text, attachment_entry.metadata, index_names=["search"]
@@ -1315,13 +1220,9 @@ class NeuroMemConversationStore:
 
     def _store_profile_entry(self, profile: ProfileMemoryRecord) -> None:
         entry = self._build_profile_memory_entry(profile)
-        self._profile_collection.insert(
-            entry.text, entry.metadata, index_names=["search"]
-        )
+        self._profile_collection.insert(entry.text, entry.metadata, index_names=["search"])
 
-    def _delete_profile_entries(
-        self, profile_id: str, *, keep_data_id: str | None = None
-    ) -> int:
+    def _delete_profile_entries(self, profile_id: str, *, keep_data_id: str | None = None) -> int:
         deleted = 0
         for data_id in list(self._profile_collection.storage.keys()):
             payload = self._profile_collection.storage.get(data_id)
@@ -1375,8 +1276,6 @@ class NeuroMemConversationStore:
         conversation_id: str,
         limit: int,
     ):
-        from sage.neuromem import QueryRequest
-
         query_parts = [request.question]
         if request.course_context:
             query_parts.append(request.course_context)
@@ -1401,8 +1300,6 @@ class NeuroMemConversationStore:
         )
 
     def _build_artifact_query_request(self, request: ChatRequest, *, limit: int):
-        from sage.neuromem import QueryRequest
-
         query_parts = [request.question]
         if request.course_context:
             query_parts.append(request.course_context)
@@ -1431,8 +1328,6 @@ class NeuroMemConversationStore:
         student_key: str,
         limit: int,
     ):
-        from sage.neuromem import QueryRequest
-
         query_parts = [request.question, request.student_name]
         if request.course_context:
             query_parts.append(request.course_context)
@@ -1448,23 +1343,17 @@ class NeuroMemConversationStore:
             },
             hints={
                 "purpose": "stable_profile_recall",
-                "preferred_categories": self._preferred_profile_categories(
-                    request.question
-                ),
+                "preferred_categories": self._preferred_profile_categories(request.question),
             },
         )
 
     def _coerce_retrieval_results(self, results: list[dict[str, Any]]):
-        from sage.neuromem import RetrievalResult
-
         coerced = []
         for rank, result in enumerate(results, start=1):
             payload = dict(result)
             metadata = dict(payload.get("metadata") or {})
             if "id" not in payload:
-                payload["id"] = (
-                    metadata.get("memory_id") or metadata.get("profile_id") or ""
-                )
+                payload["id"] = metadata.get("memory_id") or metadata.get("profile_id") or ""
             coerced.append(RetrievalResult.from_service_record(payload, rank=rank))
         return coerced
 
@@ -1475,11 +1364,7 @@ class NeuroMemConversationStore:
             "human_handoff",
         }:
             return "high"
-        if (
-            record.student_email
-            or record.course_context
-            or record.knowledge_hit_count > 0
-        ):
+        if record.student_email or record.course_context or record.knowledge_hit_count > 0:
             return "medium"
         return "low"
 
@@ -1507,9 +1392,7 @@ class NeuroMemConversationStore:
         return normalized_name
 
     def _profile_id(self, student_key: str, category: str) -> str:
-        safe_key = (
-            re.sub(r"[^a-z0-9]+", "-", student_key.lower()).strip("-") or "profile"
-        )
+        safe_key = re.sub(r"[^a-z0-9]+", "-", student_key.lower()).strip("-") or "profile"
         return f"{safe_key}-{category}"
 
     def _extract_attachment_records(
@@ -1565,9 +1448,7 @@ class NeuroMemConversationStore:
         conversation_id: str,
     ) -> list[tuple[float, ConversationMemoryRecord, int, AttachmentMemoryRecord]]:
         query_tokens = self._artifact_tokens(request.question)
-        candidates: list[
-            tuple[float, ConversationMemoryRecord, int, AttachmentMemoryRecord]
-        ] = []
+        candidates: list[tuple[float, ConversationMemoryRecord, int, AttachmentMemoryRecord]] = []
 
         for record in self._records.values():
             if not record.attachments or not self._should_include_record(
@@ -1580,9 +1461,7 @@ class NeuroMemConversationStore:
                     continue
                 candidates.append((score, record, attachment_index, attachment))
 
-        candidates.sort(
-            key=lambda item: (item[0], item[1].created_at.timestamp()), reverse=True
-        )
+        candidates.sort(key=lambda item: (item[0], item[1].created_at.timestamp()), reverse=True)
         return candidates
 
     def _artifact_overlap_score(

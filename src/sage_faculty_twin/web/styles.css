@@ -381,6 +381,15 @@ body.history-rail-collapsed .history-rail:focus-within::after {
     opacity: 0;
 }
 
+/* When the settings drawer is pinned open, fully hide the history rail so
+   it cannot peek out behind the drawer. The rail is `position: absolute`
+   relative to `.chat-layout`, which itself shifts right with the app-shell
+   padding, so a transform-only fix would still leave its right edge poking
+   out next to the drawer. */
+body.drawer-pinned .history-rail {
+    display: none !important;
+}
+
 @media (hover: none),
 (pointer: coarse) {
     body.history-rail-collapsed .chat-layout {
@@ -1141,7 +1150,74 @@ body.history-rail-collapsed .history-rail:focus-within::after {
 .message-workflow-chip-row {
     display: flex;
     flex-wrap: wrap;
+    align-items: flex-start;
     gap: 8px;
+}
+
+.workflow-step-chip-group {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 8px 10px 10px;
+    border-radius: 14px;
+    border: 1px dashed rgba(36, 90, 166, 0.28);
+    background: rgba(232, 240, 251, 0.42);
+    box-shadow: inset 3px 0 0 rgba(36, 90, 166, 0.32);
+}
+
+.workflow-step-chip-group-compact {
+    padding: 6px 8px 8px;
+    border-radius: 12px;
+    background: rgba(232, 240, 251, 0.5);
+}
+
+.workflow-step-chip-group-post_answer {
+    border-color: rgba(184, 107, 56, 0.32);
+    background: rgba(244, 232, 218, 0.5);
+    box-shadow: inset 3px 0 0 rgba(184, 107, 56, 0.36);
+}
+
+.workflow-step-chip-group-head {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.72rem;
+    color: var(--accent-deep);
+    font-weight: 700;
+    letter-spacing: 0.04em;
+}
+
+.workflow-step-chip-group-post_answer .workflow-step-chip-group-head {
+    color: rgba(132, 71, 32, 0.95);
+}
+
+.workflow-step-chip-group-icon {
+    font-size: 0.85rem;
+    line-height: 1;
+}
+
+.workflow-step-chip-group-count {
+    color: var(--muted);
+    font-weight: 600;
+    letter-spacing: 0.02em;
+}
+
+.workflow-step-chip-group-branches {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    align-items: flex-start;
+}
+
+@media (max-width: 720px) {
+    .workflow-step-chip-group {
+        width: 100%;
+    }
+
+    .workflow-step-chip-group-branches>.workflow-step-chip {
+        width: 100%;
+    }
 }
 
 .workflow-step-chip {
@@ -3318,5 +3394,19 @@ body.workflow-shell-collapsed #workflow-toggle {
 
     .drawer-status-group {
         gap: 6px;
+    }
+
+    /* Lock the page behind a full-screen drawer on small screens so the
+       chat below does not scroll while the drawer is open. */
+    body.drawer-pinned {
+        overflow: hidden;
+    }
+
+    body.drawer-pinned .app-shell {
+        pointer-events: none;
+    }
+
+    body.drawer-pinned .side-drawer {
+        pointer-events: auto;
     }
 }

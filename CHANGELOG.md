@@ -1,5 +1,31 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+
+- Rewired the chat workflow as a SAGE `DataStream` DAG instead of a 13-stage linear
+  chain. Memory and knowledge retrieval now run in parallel through a 2-way
+  `connect`/`comap` join, and the four post-answer side-effect stages
+  (`memory_persist`, `memory_profile_consolidate`, `follow_up_plan`,
+  `memory_usefulness_score`) fan out through a 4-way `connect`/`comap` join.
+  The legacy linear `_run_pipeline` is preserved for the admin / auth /
+  booking single-stage callers. The `workflow_trace` contract (canonical key
+  order and statuses) is unchanged: a deterministic post-processing pass in
+  `ChatResponseRenderStage` re-sorts the trace into
+  `_CANONICAL_TRACE_ORDER` so any out-of-order arrivals from parallel
+  branches are normalised before the response leaves the service.
+
+### Fixed
+
+- (SAGE) `PipelineCompiler._normalize_outputs` no longer fragments arbitrary
+  iterable results from `Map`/`CoMap` transformations. It now flattens only
+  when the caller opts in (`flatten=True`), which is correct for `FlatMap`
+  and `Join` (whose contracts emit zero-or-more items per input) but wrong
+  for `Map`/`CoMap` (single output per input). Previously a `Map` returning
+  a Pydantic `BaseModel` (e.g. `ChatResponse`) was shredded into one packet
+  per `(field_name, value)` pair downstream of any non-linear topology.
+
 ## v2.0.1 - 2026-05-29
 
 `v2.0.1` is the pre-v3 stabilization baseline. It keeps the `v2` operations-console scope but

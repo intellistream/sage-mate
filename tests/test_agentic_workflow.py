@@ -3,8 +3,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 
 from sage_faculty_twin.benchmark_adapter import LampQuestionSample, build_lamp_request
-from sage_faculty_twin.config import AppSettings
-from sage_faculty_twin.config import settings
+from sage_faculty_twin.config import AppSettings, settings
 from sage_faculty_twin.models import (
     ChatRequest,
     InteractionIntent,
@@ -95,9 +94,7 @@ class RecordingLLMClient(IntentAwareLLMClient):
 
 
 class ShadowPlanningLLMClient(RecordingLLMClient):
-    def __init__(
-        self, booking_intent: bool, answer: str, shadow_plan_candidate: dict
-    ) -> None:
+    def __init__(self, booking_intent: bool, answer: str, shadow_plan_candidate: dict) -> None:
         super().__init__(booking_intent=booking_intent, answer=answer)
         self.shadow_prompts: list[str] = []
         self._shadow_plan_candidate = shadow_plan_candidate
@@ -206,9 +203,7 @@ class RecordingNotifier:
         self.rejected_bookings.append(booking)
         return booking.student_email
 
-    def send_follow_up_email(
-        self, recipient: str, subject: str, lines: list[str]
-    ) -> str:
+    def send_follow_up_email(self, recipient: str, subject: str, lines: list[str]) -> str:
         self.follow_up_emails.append(
             {"recipient": recipient, "subject": subject, "lines": list(lines)}
         )
@@ -257,10 +252,7 @@ def test_chat_books_meeting_when_details_are_complete(tmp_path: Path) -> None:
     assert response.booking_result.booking.status == "待确认"
     assert response.booking_result.notification is not None
     assert response.booking_result.notification.status == "sent"
-    assert (
-        response.booking_result.notification.recipient
-        == settings.booking_notification_email
-    )
+    assert response.booking_result.notification.recipient == settings.booking_notification_email
     assert [step.key for step in response.workflow_trace] == [
         "bootstrap",
         "workflow_plan_preview",
@@ -280,8 +272,7 @@ def test_chat_books_meeting_when_details_are_complete(tmp_path: Path) -> None:
     assert response.workflow_trace[1].status == "completed"
     assert all(step.duration_ms is not None for step in response.workflow_trace)
     assert (
-        response.workflow_trace[1].summary
-        == "已生成 deterministic 规划：prepare_booking_request。"
+        response.workflow_trace[1].summary == "已生成 deterministic 规划：prepare_booking_request。"
     )
     assert "planned steps" in response.workflow_trace[1].detail
     assert response.planner_preview is not None
@@ -319,17 +310,12 @@ def test_chat_books_meeting_when_details_are_complete(tmp_path: Path) -> None:
         "score_memory_usefulness",
         "render_user_response",
     ]
-    assert (
-        response.workflow_trace[2].summary
-        == "已识别当前交互意图：book_meeting/booking。"
-    )
+    assert response.workflow_trace[2].summary == "已识别当前交互意图：book_meeting/booking。"
     assert response.workflow_trace[3].summary == "预约字段已经齐备。"
     assert response.workflow_trace[4].summary == "预约申请已提交，等待管理员确认。"
     assert settings.booking_notification_email in response.workflow_trace[4].detail
     assert any(item.basis_label == "预约规则与时段" for item in response.answer_basis)
-    assert any(
-        item.source_label == "当前预约安排配置" for item in response.answer_basis
-    )
+    assert any(item.source_label == "当前预约安排配置" for item in response.answer_basis)
     assert len(notifier.request_bookings) == 1
     assert settings.booking_notification_email in response.answer
     assert "待确认" in response.answer
@@ -392,9 +378,7 @@ def test_benchmark_requests_skip_memory_retrieval_and_persistence(
         "Benchmark evaluation request skips shadow planner to keep latency and scoring focused on the main execution lane."
     )
     usefulness_step = next(
-        step
-        for step in response.workflow_trace
-        if step.key == "memory_usefulness_score"
+        step for step in response.workflow_trace if step.key == "memory_usefulness_score"
     )
     assert usefulness_step.status == "completed"
     assert "低置信度" in usefulness_step.summary
@@ -406,9 +390,7 @@ def test_benchmark_requests_skip_memory_retrieval_and_persistence(
 def test_simple_greeting_plan_skips_live_retrieval_stages(tmp_path: Path) -> None:
     settings = AppSettings(knowledge_base_dir=tmp_path)
     service = DigitalTwinService(settings)
-    service._llm_client = RecordingLLMClient(
-        booking_intent=False, answer="你好，我可以继续帮你。"
-    )
+    service._llm_client = RecordingLLMClient(booking_intent=False, answer="你好，我可以继续帮你。")
 
     response = asyncio.run(
         service.answer(
@@ -440,7 +422,10 @@ def test_simple_greeting_plan_skips_live_retrieval_stages(tmp_path: Path) -> Non
 
 
 def test_chat_books_meeting_with_chinese_relative_time(tmp_path: Path) -> None:
-    settings = AppSettings(knowledge_base_dir=tmp_path)
+    settings = AppSettings(
+        knowledge_base_dir=tmp_path,
+        availability_schedule_path=tmp_path / "availability.json",
+    )
     service = DigitalTwinService(settings)
     service._llm_client = FailingLLMClient()
     service._email_notifier = RecordingNotifier()
@@ -687,12 +672,9 @@ def test_chat_uses_llm_intent_to_avoid_false_booking_positive(tmp_path: Path) ->
     assert response.decision_mode == "advise_only"
     assert response.pending_fields == []
     assert response.booking_result is None
+    assert any(action.action_type == "todo_review" for action in response.follow_up_actions)
     assert any(
-        action.action_type == "todo_review" for action in response.follow_up_actions
-    )
-    assert any(
-        action.action_type == "office_hour_recommendation"
-        for action in response.follow_up_actions
+        action.action_type == "office_hour_recommendation" for action in response.follow_up_actions
     )
     assert "agenda" in response.answer
     interaction_step = _trace_step(response, "interaction_understand")
@@ -702,9 +684,7 @@ def test_chat_uses_llm_intent_to_avoid_false_booking_positive(tmp_path: Path) ->
     assert interaction_step.status == "completed"
     assert booking_prepare_step.status == "skipped"
     assert all(step.duration_ms is not None for step in response.workflow_trace)
-    assert (
-        interaction_step.summary == "已识别当前交互意图：answer/advising，仅提供建议。"
-    )
+    assert interaction_step.summary == "已识别当前交互意图：answer/advising，仅提供建议。"
     assert booking_prepare_step.summary == "未进入预约流程。"
 
 
@@ -759,9 +739,7 @@ def test_chat_emits_trace_steps_via_callback(tmp_path: Path) -> None:
         )
     )
 
-    assert [step.key for step in emitted_steps] == [
-        step.key for step in response.workflow_trace
-    ]
+    assert [step.key for step in emitted_steps] == [step.key for step in response.workflow_trace]
     assert emitted_steps[0].summary == "已建立当前会话。"
     assert emitted_steps[1].key == "workflow_plan_preview"
     assert response.planner_preview is not None
@@ -1010,14 +988,9 @@ def test_chat_records_artifact_memory_draft_for_explicit_archive_request(
     assert len(drafts) == 1
     assert drafts[0].artifact_names == ["proposal-draft.md"]
     assert drafts[0].artifact_excerpt_count >= 1
-    assert any(
-        source.startswith("historical_artifact:")
-        for source in drafts[0].artifact_sources
-    )
+    assert any(source.startswith("historical_artifact:") for source in drafts[0].artifact_sources)
     draft_trace = next(
-        step
-        for step in response.workflow_trace
-        if step.key == "artifact_memory_writeback"
+        step for step in response.workflow_trace if step.key == "artifact_memory_writeback"
     )
     assert draft_trace.status == "completed"
     assert "材料记忆草稿" in draft_trace.summary
@@ -1075,9 +1048,7 @@ def test_chat_reuses_neuromem_conversation_memory_in_follow_up_prompt(
     assert any(item.source_label == "同会话上下文" for item in follow_up.retrieved_items)
     assert all(item.entry_id for item in follow_up.retrieved_items)
     usefulness_step = next(
-        step
-        for step in follow_up.workflow_trace
-        if step.key == "memory_usefulness_score"
+        step for step in follow_up.workflow_trace if step.key == "memory_usefulness_score"
     )
     assert usefulness_step.status == "completed"
     assert "有帮助" in usefulness_step.summary
@@ -1101,9 +1072,7 @@ def test_chat_includes_immediate_session_context_even_without_memory_hits(
         conversation_memory_dir=tmp_path / "conversation-memory",
     )
     service = DigitalTwinService(settings)
-    llm = RecordingLLMClient(
-        booking_intent=False, answer="我会接着刚才的话题继续回答。"
-    )
+    llm = RecordingLLMClient(booking_intent=False, answer="我会接着刚才的话题继续回答。")
     service._llm_client = llm
 
     asyncio.run(
@@ -1182,9 +1151,7 @@ def test_chat_answers_previous_question_recall_without_asking_user_to_repeat(
         step for step in response.workflow_trace if step.key == "interaction_understand"
     )
     assert "直接读取同会话最近一轮内容" in interaction_step.summary
-    prompt_step = next(
-        step for step in response.workflow_trace if step.key == "prompt_build"
-    )
+    prompt_step = next(step for step in response.workflow_trace if step.key == "prompt_build")
     assert prompt_step.status == "skipped"
 
 
@@ -1204,9 +1171,7 @@ def test_chat_answers_previous_question_recall_even_when_classifier_wants_clarif
             course_context: str | None = None,
         ) -> InteractionIntent:
             if question != "我刚刚问的是什么问题":
-                return super().classify_interaction_intent_sync(
-                    question, course_context
-                )
+                return super().classify_interaction_intent_sync(question, course_context)
             return InteractionIntent(
                 action="ask_followup",
                 domain="advising",
@@ -1292,9 +1257,7 @@ def test_chat_answers_previous_answer_recall_from_same_conversation(
         step for step in response.workflow_trace if step.key == "interaction_understand"
     )
     assert "直接读取同会话最近一轮内容" in interaction_step.summary
-    prompt_step = next(
-        step for step in response.workflow_trace if step.key == "prompt_build"
-    )
+    prompt_step = next(step for step in response.workflow_trace if step.key == "prompt_build")
     assert prompt_step.status == "skipped"
 
 
@@ -1309,9 +1272,7 @@ def test_chat_passes_recent_session_context_into_intent_classification(
 
     class FollowUpContextAwareLLM(RecordingLLMClient):
         def __init__(self) -> None:
-            super().__init__(
-                booking_intent=False, answer="建议先把需求边界和系统职责拆开。"
-            )
+            super().__init__(booking_intent=False, answer="建议先把需求边界和系统职责拆开。")
             self.classification_contexts: list[str | None] = []
 
         def classify_interaction_intent_sync(
@@ -1323,8 +1284,7 @@ def test_chat_passes_recent_session_context_into_intent_classification(
             if question == "那如果按刚才那个继续，下一步我先做哪块？":
                 if (
                     course_context
-                    and "Immediate session context (same conversation):"
-                    in course_context
+                    and "Immediate session context (same conversation):" in course_context
                 ):
                     return InteractionIntent(
                         action="answer",
@@ -1382,18 +1342,13 @@ def test_chat_passes_recent_session_context_into_intent_classification(
 
     assert len(llm.classification_contexts) >= 2
     assert llm.classification_contexts[-1] is not None
-    assert (
-        "Immediate session context (same conversation):"
-        in llm.classification_contexts[-1]
-    )
+    assert "Immediate session context (same conversation):" in llm.classification_contexts[-1]
     assert response.answer == "建议先把需求边界和系统职责拆开。"
     interaction_step = next(
         step for step in response.workflow_trace if step.key == "interaction_understand"
     )
     assert "ask_followup" not in interaction_step.summary
-    prompt_step = next(
-        step for step in response.workflow_trace if step.key == "prompt_build"
-    )
+    prompt_step = next(step for step in response.workflow_trace if step.key == "prompt_build")
     assert prompt_step.status == "completed"
     assert "Immediate session context (same conversation):" in llm.prompts[-1]
 
@@ -1471,8 +1426,7 @@ def test_natural_follow_up_phrasings_reuse_recent_session_context(
             if question in follow_up_questions:
                 if (
                     course_context
-                    and "Immediate session context (same conversation):"
-                    in course_context
+                    and "Immediate session context (same conversation):" in course_context
                 ):
                     self._answer = follow_up_questions[question]
                     return InteractionIntent(
@@ -1547,9 +1501,7 @@ def test_natural_follow_up_phrasings_reuse_recent_session_context(
 
         assert response.answer == expected_answer
         interaction_step = next(
-            step
-            for step in response.workflow_trace
-            if step.key == "interaction_understand"
+            step for step in response.workflow_trace if step.key == "interaction_understand"
         )
         assert "ask_followup" not in interaction_step.summary
         assert "Immediate session context (same conversation):" in llm.prompts[-1]
@@ -1966,9 +1918,7 @@ def test_service_normalizes_published_gap_documents_on_boot(tmp_path: Path) -> N
 
     reloaded = DigitalTwinService(settings)
     documents = reloaded.list_knowledge()
-    normalized = next(
-        item for item in documents if item.document_id == legacy_document.document_id
-    )
+    normalized = next(item for item in documents if item.document_id == legacy_document.document_id)
     assert normalized.source_name.startswith("knowledge-gap:advising:")
     assert normalized.title.startswith("常见问题：")
     assert "faq-draft" not in normalized.tags
@@ -2015,14 +1965,10 @@ def test_publish_gap_document_upserts_same_semantic_topic(tmp_path: Path) -> Non
     second_published = service.publish_knowledge_gap_draft(second.draft_id)
 
     documents = [
-        document
-        for document in service.list_knowledge()
-        if "knowledge-gap" in document.tags
+        document for document in service.list_knowledge() if "knowledge-gap" in document.tags
     ]
     assert len(documents) == 1
-    assert (
-        second_published.published_document_id == first_published.published_document_id
-    )
+    assert second_published.published_document_id == first_published.published_document_id
     assert documents[0].document_id == first_published.published_document_id
     assert documents[0].source_name.startswith("knowledge-gap:advising:")
 
@@ -2048,9 +1994,7 @@ def test_service_normalizes_duplicate_published_gap_documents_on_startup(
 
     reloaded = DigitalTwinService(settings)
     documents = [
-        document
-        for document in reloaded.list_knowledge()
-        if "knowledge-gap" in document.tags
+        document for document in reloaded.list_knowledge() if "knowledge-gap" in document.tags
     ]
     assert len(documents) == 1
     assert documents[0].source_name.startswith("knowledge-gap:advising:")
@@ -2080,9 +2024,7 @@ def test_service_normalizes_repeated_gap_title_prefixes_on_startup(
 
     reloaded = DigitalTwinService(settings)
     documents = [
-        document
-        for document in reloaded.list_knowledge()
-        if "knowledge-gap" in document.tags
+        document for document in reloaded.list_knowledge() if "knowledge-gap" in document.tags
     ]
     assert len(documents) == 1
     assert documents[0].title == "常见问题：和老师约时间前，我应该先准备什么"
@@ -2110,9 +2052,7 @@ def test_service_normalizes_truncated_gap_titles_on_startup(tmp_path: Path) -> N
 
     reloaded = DigitalTwinService(settings)
     documents = [
-        document
-        for document in reloaded.list_knowledge()
-        if "knowledge-gap" in document.tags
+        document for document in reloaded.list_knowledge() if "knowledge-gap" in document.tags
     ]
     assert len(documents) == 1
     assert documents[0].title == "常见问题：和老师约时间前，我应该先准备什么"
@@ -2201,6 +2141,7 @@ def test_dispatch_due_follow_ups_sends_email(tmp_path: Path) -> None:
         knowledge_base_dir=tmp_path / "knowledge-base",
         conversation_memory_dir=tmp_path / "conversation-memory",
         follow_up_queue_dir=tmp_path / "follow-ups",
+        availability_schedule_path=tmp_path / "availability.json",
     )
     service = DigitalTwinService(settings)
     notifier = RecordingNotifier()
@@ -2221,9 +2162,7 @@ def test_dispatch_due_follow_ups_sends_email(tmp_path: Path) -> None:
     dispatch = service.dispatch_due_follow_ups()
     assert dispatch.sent_count >= 2
     assert len(notifier.follow_up_emails) >= 2
-    assert all(
-        item.status == "sent" for item in service.list_follow_up_actions(status="sent")
-    )
+    assert all(item.status == "sent" for item in service.list_follow_up_actions(status="sent"))
 
 
 def test_health_does_not_dispatch_follow_ups(tmp_path: Path) -> None:

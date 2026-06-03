@@ -692,7 +692,7 @@ chatForm.addEventListener("submit", async (event) => {
         const data = await apiRequest(`/chat?request_id=${encodeURIComponent(workflowRequestId)}`, {
             method: "POST",
             body: requestBody,
-            timeoutMs: 45000,
+            timeoutMs: 120000,
         });
         activeConversationId = data.conversation_id || activeConversationId;
         stopWorkflowTraceStream();
@@ -3987,7 +3987,7 @@ function buildWorkflowStatusSummaryHtml(workflowTrace) {
             </button>
             <div class="message-section-content" hidden>
                 <div class="message-workflow-chip-row">
-                    ${workflowTrace.map((step, index) => buildWorkflowStepChipHtml(step, index)).join("")}
+                    ${buildWorkflowChipRowHtml(workflowTrace)}
                 </div>
             </div>
         </section>
@@ -4204,12 +4204,87 @@ function buildPendingWorkflowTraceCompactHtml(steps, options = {}) {
             </div>
             <p class="thinking-trace-compact-copy">${escapeHtml(latestStep?.summary || latestStep?.detail || "正在继续推进这次请求。")}</p>
             <div class="thinking-trace-chip-row">
-                ${steps.map((step, index) => buildWorkflowStepChipHtml(step, index, { compact: true, current: index === currentStepIndex })).join("")}
+                ${buildWorkflowChipRowHtml(steps, { compact: true, currentIndex: currentStepIndex })}
             </div>
             ${completedSteps.length ? `<p class="thinking-trace-compact-history">已完成 ${completedSteps.length} 个实际步骤，后续会继续补齐剩余环节。</p>` : ""}
         </div>
     `;
 }
+
+function buildWorkflowChipRowHtml(steps, options = {}) {
+    if (!Array.isArray(steps) || !steps.length) {
+        return "";
+    }
+    const compact = Boolean(options.compact);
+    const currentIndex = Number.isInteger(options.currentIndex) ? options.currentIndex : -1;
+    const groups = groupWorkflowChipsByParallel(steps);
+    return groups
+        .map((entry) => {
+            if (entry.type === "single") {
+                const { step, index } = entry;
+                return buildWorkflowStepChipHtml(step, index, {
+                    compact,
+                    current: index === currentIndex,
+                });
+            }
+            const branchCount = entry.items.length;
+            const branchLabel = `并行 ${branchCount} 路`;
+            const groupLabel = WORKFLOW_PARALLEL_GROUP_LABELS[entry.groupId] || "并行分支";
+            const chips = entry.items
+                .map((item) =>
+                    buildWorkflowStepChipHtml(item.step, item.index, {
+                        compact,
+                        current: item.index === currentIndex,
+                    })
+                )
+                .join("");
+            const containerClasses = [
+                "workflow-step-chip-group",
+                compact ? "workflow-step-chip-group-compact" : "",
+                `workflow-step-chip-group-${escapeHtml(entry.groupId)}`,
+            ]
+                .filter(Boolean)
+                .join(" ");
+            return `
+                <div class="${containerClasses}" role="group" aria-label="${escapeHtml(`${groupLabel}（${branchCount} 路并行）`)}">
+                    <div class="workflow-step-chip-group-head">
+                        <span class="workflow-step-chip-group-icon" aria-hidden="true">⇄</span>
+                        <span class="workflow-step-chip-group-label">${escapeHtml(groupLabel)}</span>
+                        <span class="workflow-step-chip-group-count">${escapeHtml(branchLabel)}</span>
+                    </div>
+                    <div class="workflow-step-chip-group-branches">${chips}</div>
+                </div>
+            `;
+        })
+        .join("");
+}
+
+function groupWorkflowChipsByParallel(steps) {
+    const groups = [];
+    let cursor = null;
+    steps.forEach((step, index) => {
+        const groupId = typeof step?.parallel_group === "string" && step.parallel_group
+            ? step.parallel_group
+            : null;
+        if (!groupId) {
+            groups.push({ type: "single", step, index });
+            cursor = null;
+            return;
+        }
+        if (cursor && cursor.groupId === groupId) {
+            cursor.items.push({ step, index });
+            return;
+        }
+        cursor = { type: "group", groupId, items: [{ step, index }] };
+        groups.push(cursor);
+    });
+    return groups;
+}
+
+const WORKFLOW_PARALLEL_GROUP_LABELS = {
+    retrieval: "上下文检索",
+    post_answer: "答后处理",
+};
 
 function buildWorkflowStepChipHtml(step, index, options = {}) {
     const title = step?.title || `步骤 ${index + 1}`;

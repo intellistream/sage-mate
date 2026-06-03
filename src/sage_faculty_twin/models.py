@@ -3,8 +3,7 @@ from __future__ import annotations
 from datetime import date, datetime
 from typing import Any
 
-from pydantic import BaseModel, Field
-from pydantic import field_validator
+from pydantic import BaseModel, Field, field_validator
 
 
 class ChatAttachment(BaseModel):
@@ -33,9 +32,7 @@ class InteractionIntent(BaseModel):
         default="answer",
         pattern="^(answer|book_meeting|ask_followup|review_queue|human_handoff|admin_add_knowledge)$",
     )
-    domain: str = Field(
-        default="general", pattern="^(general|research|teaching|advising|booking)$"
-    )
+    domain: str = Field(default="general", pattern="^(general|research|teaching|advising|booking)$")
     retrieval_scopes: list[str] = Field(default_factory=list)
     exclude_scopes: list[str] = Field(default_factory=list)
     decision_mode: str = Field(
@@ -55,6 +52,14 @@ class WorkflowTraceStep(BaseModel):
     detail: str = Field(min_length=1, max_length=512)
     status: str = Field(default="completed", pattern="^(completed|skipped)$")
     duration_ms: int | None = Field(default=None, ge=0)
+    # Identifies the DAG fan-out branch this step belongs to. ``None`` means
+    # the step is part of the linear backbone and renders as a single chip in
+    # the workflow rail. Steps that share the same non-null ``parallel_group``
+    # ran concurrently in the chat DAG (e.g. memory + knowledge retrieval, or
+    # the four post-answer side-effect stages) and are visualised together as
+    # a vertical fan-out cluster on the client. Kept short so it round-trips
+    # cheaply in streaming partial traces.
+    parallel_group: str | None = Field(default=None, max_length=32)
 
 
 class AnswerBasisItem(BaseModel):
@@ -71,9 +76,7 @@ class FollowUpAction(BaseModel):
     title: str = Field(min_length=1, max_length=256)
     detail: str = Field(min_length=1, max_length=512)
     channel: str = Field(default="chat", pattern="^(chat|email)$")
-    status: str = Field(
-        default="suggested", pattern="^(suggested|queued|pending|sent|skipped)$"
-    )
+    status: str = Field(default="suggested", pattern="^(suggested|queued|pending|sent|skipped)$")
     source_label: str | None = Field(default=None, max_length=256)
     due_at: datetime | None = None
 
@@ -418,9 +421,7 @@ class QuestionAnalyticsReportResponse(BaseModel):
     window_end: datetime
     overview: QuestionAnalyticsOverview
     top_clusters: list[QuestionClusterSummary] = Field(default_factory=list)
-    knowledge_gap_suggestions: list[KnowledgeGapSuggestion] = Field(
-        default_factory=list
-    )
+    knowledge_gap_suggestions: list[KnowledgeGapSuggestion] = Field(default_factory=list)
     unresolved_questions: list[UnresolvedQuestionItem] = Field(default_factory=list)
     handoff_categories: list[HandoffCategorySummary] = Field(default_factory=list)
 
@@ -471,12 +472,8 @@ class OperationsOverviewResponse(BaseModel):
     totals: dict[str, int] = Field(default_factory=dict)
     queues: list[OperationsQueueSummary] = Field(default_factory=list)
     question_analytics: QuestionAnalyticsOverview
-    neuromem: NeuroMemOperationsSnapshot = Field(
-        default_factory=NeuroMemOperationsSnapshot
-    )
-    planner_metrics: PlannerMetricsSnapshot = Field(
-        default_factory=PlannerMetricsSnapshot
-    )
+    neuromem: NeuroMemOperationsSnapshot = Field(default_factory=NeuroMemOperationsSnapshot)
+    planner_metrics: PlannerMetricsSnapshot = Field(default_factory=PlannerMetricsSnapshot)
 
 
 class StudentOperationsProfile(BaseModel):
@@ -495,9 +492,7 @@ class StudentOperationsProfile(BaseModel):
 
 
 class OperationsTaskStateUpdateRequest(BaseModel):
-    status: str | None = Field(
-        default=None, pattern="^(open|in_progress|done|deferred)$"
-    )
+    status: str | None = Field(default=None, pattern="^(open|in_progress|done|deferred)$")
     assigned_to: str | None = Field(default=None, max_length=128)
     note: str | None = Field(default=None, max_length=1000)
 
@@ -561,12 +556,8 @@ class OperationsWorkbenchResponse(BaseModel):
     satisfaction: OperationsSatisfactionSummary
     pending_bookings: list[BookingRecord] = Field(default_factory=list)
     student_profiles: list[StudentOperationsProfile] = Field(default_factory=list)
-    artifact_memory_drafts: list[ArtifactMemoryDraftRecordResponse] = Field(
-        default_factory=list
-    )
-    knowledge_gap_drafts: list[KnowledgeGapDraftRecordResponse] = Field(
-        default_factory=list
-    )
+    artifact_memory_drafts: list[ArtifactMemoryDraftRecordResponse] = Field(default_factory=list)
+    knowledge_gap_drafts: list[KnowledgeGapDraftRecordResponse] = Field(default_factory=list)
     escalations: list[EscalationRecord] = Field(default_factory=list)
     follow_up_actions: list[FollowUpQueueRecord] = Field(default_factory=list)
     anonymous_suggestions: list[AnonymousSuggestionRecord] = Field(default_factory=list)

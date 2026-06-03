@@ -4,15 +4,15 @@ import asyncio
 import hashlib
 import re
 import threading
-from time import perf_counter
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field
 from datetime import UTC, date, datetime, time, timedelta
-from collections.abc import Callable, Iterable
+from time import perf_counter
 from typing import Any
 from uuid import uuid4
 
 from fastapi import HTTPException, status
-from sage.foundation import MapFunction, SinkFunction
+from sage.foundation import BaseCoMapFunction, MapFunction, SinkFunction
 from sage.runtime import FlowNetEnvironment
 
 from .analytics_store import ConversationAnalyticsStore
@@ -30,23 +30,23 @@ from .auth import (
 from .config import AppSettings
 from .escalation_store import EscalationQueueStore
 from .follow_up_store import FollowUpQueueStore
-from .knowledge_gap_draft_store import KnowledgeGapDraftStore
 from .knowledge_base import LocalKnowledgeStore
+from .knowledge_gap_draft_store import KnowledgeGapDraftStore
 from .light_agent import LightweightActionPlanner
 from .llm_client import VllmChatClient
+from .meeting import MeetingService
 from .memory_store import (
     ConversationMemoryHit,
     ConversationMemoryRecord,
     NeuroMemConversationStore,
     ProfileMemoryRecord,
 )
-from .meeting import MeetingService
 from .models import (
-    AnswerBasisItem,
     AdminLoginRequest,
     AdminSessionResponse,
     AnonymousSuggestionCreate,
     AnonymousSuggestionRecord,
+    AnswerBasisItem,
     ArtifactMemoryDraftRecordResponse,
     AvailabilitySchedule,
     BookingDecisionRequest,
@@ -54,14 +54,14 @@ from .models import (
     BookingRequest,
     BookingResponse,
     ChatAttachment,
-    ConversationExchangeResponse,
-    ConversationHistoryItemResponse,
-    ConversationHistoryListResponse,
-    ConversationTranscriptResponse,
     ChatFeedbackRequest,
     ChatFeedbackResponse,
     ChatRequest,
     ChatResponse,
+    ConversationExchangeResponse,
+    ConversationHistoryItemResponse,
+    ConversationHistoryListResponse,
+    ConversationTranscriptResponse,
     EscalationDecisionRequest,
     EscalationRecord,
     FollowUpAction,
@@ -69,11 +69,11 @@ from .models import (
     FollowUpQueueRecord,
     HandoffCategorySummary,
     InteractionIntent,
+    KnowledgeDocumentCreate,
+    KnowledgeDocumentRecord,
     KnowledgeGapDraftCreateRequest,
     KnowledgeGapDraftRecordResponse,
     KnowledgeGapSuggestion,
-    KnowledgeDocumentRecord,
-    KnowledgeDocumentCreate,
     KnowledgeSearchHit,
     KnowledgeSearchResponse,
     MemoryAuditItem,
@@ -94,10 +94,10 @@ from .models import (
     QuestionClusterSummary,
     ServiceControlResponse,
     StudentOperationsProfile,
+    UnresolvedQuestionItem,
     UserLoginRequest,
     UserRegisterRequest,
     UserSessionResponse,
-    UnresolvedQuestionItem,
     WorkflowPlanComparison,
     WorkflowPlanPreview,
     WorkflowTraceStep,
@@ -114,21 +114,87 @@ from .workflow_context import WorkflowRequestContext
 from .workflow_planner import DeterministicWorkflowPlanner, PlannerDecision
 
 _FLOWNET_TICK = "__flownet_tick__"
+# Number of user-defined chat-workflow stages (the operator classes derived
+# from `_StageBase`). The DAG pipeline introduced by Task 4 adds two
+# internal `_ChatContextMergeN` co-map operators on top of these stages,
+# but those are infrastructure and are excluded from this count so the
+# `chat_pipeline_stages` runtime telemetry tag stays comparable across
+# the linear and DAG runtime paths.
 _CHAT_PIPELINE_STAGE_COUNT = 13
+# Canonical order of chat-workflow trace keys. The linear pipeline emits
+# them in this order; the DAG pipeline (Task 4 of the Faculty Twin DAG
+# Pipeline plan) parallelises some stages and therefore needs an explicit
+# post-processing pass to keep `[step.key for step in workflow_trace]`
+# byte-identical with the linear baseline. `artifact_memory_writeback` is
+# emitted by `MemoryPersistStage` only when attachments are present, so it
+# is sorted between `memory_persist` and `memory_profile_consolidate` when
+# it does appear. Repeated keys keep their relative order (stable sort).
+_CANONICAL_TRACE_ORDER: tuple[str, ...] = (
+    "bootstrap",
+    "workflow_plan_preview",
+    "interaction_understand",
+    "booking_prepare",
+    "booking_execute",
+    "memory_retrieve",
+    "knowledge_retrieve",
+    "prompt_build",
+    "llm_answer",
+    "memory_persist",
+    "artifact_memory_writeback",
+    "memory_profile_consolidate",
+    "follow_up_plan",
+    "memory_usefulness_score",
+    "response_render",
+)
+_CANONICAL_TRACE_INDEX: dict[str, int] = {
+    key: idx for idx, key in enumerate(_CANONICAL_TRACE_ORDER)
+}
+
+# Maps canonical trace keys to the DAG fan-out branch they belong to. Steps
+# sharing the same group ran concurrently in the chat DAG pipeline (Task 4 of
+# the Faculty Twin DAG Pipeline plan) and the UI renders them as a stacked
+# fan-out cluster instead of a flat sequence. Keys not in this map remain on
+# the linear backbone (``parallel_group=None``).
+_PARALLEL_TRACE_GROUPS: dict[str, str] = {
+    "memory_retrieve": "retrieval",
+    "knowledge_retrieve": "retrieval",
+    "memory_persist": "post_answer",
+    "artifact_memory_writeback": "post_answer",
+    "memory_profile_consolidate": "post_answer",
+    "follow_up_plan": "post_answer",
+    "memory_usefulness_score": "post_answer",
+}
+
+
+def _canonicalize_workflow_trace(
+    trace: list["WorkflowTraceStep"],
+) -> list["WorkflowTraceStep"]:
+    """Stable-sort a workflow trace into canonical chat-pipeline order.
+
+    Operators in the chat DAG run in parallel and may append trace steps in
+    arrival order rather than canonical order. This helper restores the
+    deterministic ordering that downstream tests and the UI rail rely on.
+    Steps whose key is not in `_CANONICAL_TRACE_ORDER` (defensive case) are
+    placed after all known keys in their original relative order.
+    """
+
+    fallback_index = len(_CANONICAL_TRACE_ORDER)
+    return sorted(
+        trace,
+        key=lambda step: _CANONICAL_TRACE_INDEX.get(step.key, fallback_index),
+    )
+
+
 _RECENT_SESSION_QUERY_NORMALIZER = re.compile(
     r"[\s，。！？?!.、：:；;“”\"'‘’（）()【】\[\]{}<>《》\-]+"
 )
 _PREVIOUS_QUESTION_QUERY_PATTERNS = (
-    re.compile(
-        r"^(我)?(刚刚|刚才|上一条|上一个|前一个|前面)(问的|问了)?(是什么)?问题$"
-    ),
+    re.compile(r"^(我)?(刚刚|刚才|上一条|上一个|前一个|前面)(问的|问了)?(是什么)?问题$"),
     re.compile(r"^(我)?(上一条|上一个|前一个|前面)问题是什么$"),
     re.compile(r"^(我)?之前问了什么(问题)?$"),
 )
 _PREVIOUS_ANSWER_QUERY_PATTERNS = (
-    re.compile(
-        r"^(你)?(刚刚|刚才|上一条|上一个|前一个|前面)(回答|回复)(的内容|的)?是什么$"
-    ),
+    re.compile(r"^(你)?(刚刚|刚才|上一条|上一个|前一个|前面)(回答|回复)(的内容|的)?是什么$"),
     re.compile(r"^(我)?上一条(收到)?的回答是什么$"),
 )
 
@@ -168,9 +234,7 @@ class ChatWorkflowContext:
     added_knowledge_record: KnowledgeDocumentRecord | None = None
     follow_up_actions: list[FollowUpAction] = field(default_factory=list)
     persisted_memory_record: ConversationMemoryRecord | None = None
-    persisted_artifact_drafts: list[ArtifactMemoryDraftRecord] = field(
-        default_factory=list
-    )
+    persisted_artifact_drafts: list[ArtifactMemoryDraftRecord] = field(default_factory=list)
     planner_decision: PlannerDecision | None = None
     shadow_planner_decision: PlannerDecision | None = None
     shadow_planner_status: str = "shadow_disabled"
@@ -269,10 +333,7 @@ class FacultyTwinWorkflowSupport:
             used_model=self._settings.model_name,
             is_admin_request=self._admin_session_payload is not None,
             admin_username=(
-                str(
-                    self._admin_session_payload.get("sub")
-                    or self._settings.admin_username
-                )
+                str(self._admin_session_payload.get("sub") or self._settings.admin_username)
                 if self._admin_session_payload is not None
                 else None
             ),
@@ -315,18 +376,14 @@ class FacultyTwinWorkflowSupport:
             )[:512]
 
         fallback_reason = (
-            decision.fallback.reason
-            if decision.fallback is not None
-            else "plan validation failed"
+            decision.fallback.reason if decision.fallback is not None else "plan validation failed"
         )
         return (
             f"规划未直接接受，将回退到 {decision.plan.fallback_template}；"
             f"原因：{fallback_reason}；planned steps：{steps}"
         )[:512]
 
-    def understand_interaction(
-        self, context: ChatWorkflowContext
-    ) -> ChatWorkflowContext:
+    def understand_interaction(self, context: ChatWorkflowContext) -> ChatWorkflowContext:
         started_at = perf_counter()
         direct_session_answer = self._build_recent_session_meta_answer(context.request)
         if direct_session_answer is not None:
@@ -350,8 +407,7 @@ class FacultyTwinWorkflowSupport:
         if intent.action == "ask_followup" and intent.needs_clarification:
             context.workflow_action = "ask_follow_up"
             context.answer = (
-                intent.clarification_message
-                or "你是想了解研究方向、课程内容，还是想直接发起预约？"
+                intent.clarification_message or "你是想了解研究方向、课程内容，还是想直接发起预约？"
             )
             context.route = "done"
             summary = "问题存在歧义，先向用户澄清。"
@@ -386,9 +442,7 @@ class FacultyTwinWorkflowSupport:
                 context.workflow_action = "advise_only"
             summary = f"已识别当前交互意图：{intent.action}/{intent.domain}。"
             if intent.decision_mode == "advise_only":
-                summary = (
-                    f"已识别当前交互意图：{intent.action}/{intent.domain}，仅提供建议。"
-                )
+                summary = f"已识别当前交互意图：{intent.action}/{intent.domain}，仅提供建议。"
             detail = (
                 f"当前理解来源：{source}；检索范围：{', '.join(intent.retrieval_scopes) or '默认'}；"
                 f"排除范围：{', '.join(intent.exclude_scopes) or '无'}；"
@@ -409,9 +463,8 @@ class FacultyTwinWorkflowSupport:
         started_at = perf_counter()
         request = context.request
         existing_state = self._booking_workflows.get(context.conversation_id)
-        interaction_intent = (
-            context.interaction_intent
-            or self._build_fallback_interaction_intent(request)
+        interaction_intent = context.interaction_intent or self._build_fallback_interaction_intent(
+            request
         )
         if existing_state is None and interaction_intent.action != "book_meeting":
             self._append_trace(
@@ -425,9 +478,7 @@ class FacultyTwinWorkflowSupport:
             )
             return context
 
-        state = existing_state or BookingWorkflowState(
-            student_name=request.student_name
-        )
+        state = existing_state or BookingWorkflowState(student_name=request.student_name)
         state.student_name = request.student_name
         if request.student_email:
             state.student_email = request.student_email.strip()
@@ -440,8 +491,7 @@ class FacultyTwinWorkflowSupport:
         if extracted_start is not None:
             state.preferred_start = extracted_start
             state.preferred_end = extracted_end or (
-                extracted_start
-                + timedelta(minutes=self._settings.meeting_duration_minutes)
+                extracted_start + timedelta(minutes=self._settings.meeting_duration_minutes)
             )
 
         extracted_topic = self._extract_topic(request.question, request.course_context)
@@ -510,9 +560,7 @@ class FacultyTwinWorkflowSupport:
             self._booking_workflows.pop(context.conversation_id, None)
             context.pending_fields = []
             context.workflow_action = "book_meeting"
-            context.booking_result = self._attach_booking_request_notification(
-                booking_response
-            )
+            context.booking_result = self._attach_booking_request_notification(booking_response)
             context.booking_notification = context.booking_result.notification
             context.answer = self._build_booking_success_message(context.booking_result)
             self._append_trace(
@@ -591,10 +639,7 @@ class FacultyTwinWorkflowSupport:
 
     def retrieve_knowledge(self, context: ChatWorkflowContext) -> ChatWorkflowContext:
         started_at = perf_counter()
-        if (
-            context.is_admin_request
-            and context.workflow_action == "admin_add_knowledge"
-        ):
+        if context.is_admin_request and context.workflow_action == "admin_add_knowledge":
             knowledge_request = self._build_admin_knowledge_request(context.request)
             if knowledge_request is None:
                 context.answer = self._build_admin_knowledge_guidance_message()
@@ -651,30 +696,21 @@ class FacultyTwinWorkflowSupport:
             )
             return context
 
-        interaction_intent = (
-            context.interaction_intent
-            or self._build_fallback_interaction_intent(context.request)
+        interaction_intent = context.interaction_intent or self._build_fallback_interaction_intent(
+            context.request
         )
-        retrieval_query = self._build_knowledge_query(
-            context.request, interaction_intent
-        )
+        retrieval_query = self._build_knowledge_query(context.request, interaction_intent)
         raw_hits = self._knowledge_store.search(
             retrieval_query,
             visitor_profile=context.request.visitor_profile,
         )
-        context.knowledge_hits = self._filter_knowledge_hits_by_intent(
-            raw_hits, interaction_intent
-        )
+        context.knowledge_hits = self._filter_knowledge_hits_by_intent(raw_hits, interaction_intent)
         hit_count = len(context.knowledge_hits)
         self._append_trace(
             context,
             key="knowledge_retrieve",
             title="知识检索",
-            summary=(
-                f"命中 {hit_count} 条相关资料。"
-                if hit_count
-                else "没有命中直接相关资料。"
-            ),
+            summary=(f"命中 {hit_count} 条相关资料。" if hit_count else "没有命中直接相关资料。"),
             detail=(
                 f"检索到 {hit_count} 条相关材料，意图域为 {interaction_intent.domain}，准备构造回答上下文。"
                 if hit_count
@@ -686,10 +722,7 @@ class FacultyTwinWorkflowSupport:
 
     def retrieve_memory(self, context: ChatWorkflowContext) -> ChatWorkflowContext:
         started_at = perf_counter()
-        if (
-            context.is_admin_request
-            and context.workflow_action == "admin_add_knowledge"
-        ):
+        if context.is_admin_request and context.workflow_action == "admin_add_knowledge":
             self._append_trace(
                 context,
                 key="memory_retrieve",
@@ -725,15 +758,9 @@ class FacultyTwinWorkflowSupport:
             )
             return context
 
-        include_short_term = self._planner_requests_any_step(
-            context, "retrieve_recent_memory"
-        )
-        include_long_term = self._planner_requests_any_step(
-            context, "retrieve_profile_memory"
-        )
-        include_artifact = self._planner_requests_any_step(
-            context, "retrieve_artifact_memory"
-        )
+        include_short_term = self._planner_requests_any_step(context, "retrieve_recent_memory")
+        include_long_term = self._planner_requests_any_step(context, "retrieve_profile_memory")
+        include_artifact = self._planner_requests_any_step(context, "retrieve_artifact_memory")
         if not include_short_term and not include_long_term and not include_artifact:
             self._append_trace(
                 context,
@@ -761,18 +788,14 @@ class FacultyTwinWorkflowSupport:
             else []
         )
         current_attachment_hits = (
-            self._build_attachment_artifact_hits(context.request)
-            if include_artifact
-            else []
+            self._build_attachment_artifact_hits(context.request) if include_artifact else []
         )
         if historical_artifact_hits:
             context.memory_hits.extend(historical_artifact_hits)
         if current_attachment_hits:
             context.memory_hits.extend(current_attachment_hits)
         hit_count = len(context.memory_hits)
-        artifact_hit_count = len(historical_artifact_hits) + len(
-            current_attachment_hits
-        )
+        artifact_hit_count = len(historical_artifact_hits) + len(current_attachment_hits)
         self._append_trace(
             context,
             key="memory_retrieve",
@@ -795,9 +818,7 @@ class FacultyTwinWorkflowSupport:
         )
         return context
 
-    def _planner_requests_any_step(
-        self, context: ChatWorkflowContext, *step_ids: str
-    ) -> bool:
+    def _planner_requests_any_step(self, context: ChatWorkflowContext, *step_ids: str) -> bool:
         decision = context.planner_decision
         if decision is None or not decision.accepted:
             return True
@@ -894,10 +915,7 @@ class FacultyTwinWorkflowSupport:
 
     def persist_memory(self, context: ChatWorkflowContext) -> ChatWorkflowContext:
         started_at = perf_counter()
-        if (
-            context.is_admin_request
-            and context.workflow_action == "admin_add_knowledge"
-        ):
+        if context.is_admin_request and context.workflow_action == "admin_add_knowledge":
             self._append_trace(
                 context,
                 key="memory_persist",
@@ -1004,9 +1022,7 @@ class FacultyTwinWorkflowSupport:
             question=context.request.question,
             answer=context.answer or "",
             artifact_names=artifact_names,
-            artifact_sources=self._collect_artifact_sources(
-                context.request, artifact_hits
-            ),
+            artifact_sources=self._collect_artifact_sources(context.request, artifact_hits),
             artifact_excerpt_count=len(artifact_hits),
             provenance_note=provenance_note,
         )
@@ -1020,9 +1036,7 @@ class FacultyTwinWorkflowSupport:
             duration_ms=self._elapsed_ms(started_at),
         )
 
-    def consolidate_profile_memory(
-        self, context: ChatWorkflowContext
-    ) -> ChatWorkflowContext:
+    def consolidate_profile_memory(self, context: ChatWorkflowContext) -> ChatWorkflowContext:
         started_at = perf_counter()
         if context.persisted_memory_record is None:
             self._append_trace(
@@ -1071,9 +1085,7 @@ class FacultyTwinWorkflowSupport:
             )
             return context
         if context.system_prompt is None or context.user_prompt is None:
-            raise RuntimeError(
-                "chat workflow reached llm stage without a prepared prompt"
-            )
+            raise RuntimeError("chat workflow reached llm stage without a prepared prompt")
 
         context.answer = self._llm_client.answer_question_sync(
             context.system_prompt,
@@ -1100,14 +1112,9 @@ class FacultyTwinWorkflowSupport:
         )
         return context
 
-    def plan_follow_up_actions(
-        self, context: ChatWorkflowContext
-    ) -> ChatWorkflowContext:
+    def plan_follow_up_actions(self, context: ChatWorkflowContext) -> ChatWorkflowContext:
         started_at = perf_counter()
-        if (
-            context.is_admin_request
-            and context.workflow_action == "admin_add_knowledge"
-        ):
+        if context.is_admin_request and context.workflow_action == "admin_add_knowledge":
             self._append_trace(
                 context,
                 key="follow_up_plan",
@@ -1163,9 +1170,7 @@ class FacultyTwinWorkflowSupport:
         )
         return context
 
-    def score_memory_usefulness(
-        self, context: ChatWorkflowContext
-    ) -> ChatWorkflowContext:
+    def score_memory_usefulness(self, context: ChatWorkflowContext) -> ChatWorkflowContext:
         started_at = perf_counter()
         if context.answer is None:
             self._append_trace(
@@ -1246,6 +1251,11 @@ class FacultyTwinWorkflowSupport:
             duration_ms=self._elapsed_ms(started_at),
         )
 
+        # Restore deterministic order in case operators ran in parallel and
+        # appended trace entries out of canonical sequence.
+        canonical_trace = _canonicalize_workflow_trace(context.workflow_trace)
+        context.workflow_trace = canonical_trace
+
         return ChatResponse(
             answer=context.answer,
             owner_name=context.owner_name,
@@ -1272,7 +1282,7 @@ class FacultyTwinWorkflowSupport:
                 context.shadow_planner_message,
             ),
             planner_comparison=context.planner_comparison,
-            workflow_trace=context.workflow_trace,
+            workflow_trace=canonical_trace,
             memory_used=bool(context.memory_hits) or bool(context.recent_session_context.strip()),
             memory_write_back=context.persisted_memory_record is not None,
             retrieved_items=self._build_memory_audit_items(
@@ -1282,15 +1292,11 @@ class FacultyTwinWorkflowSupport:
             ),
         )
 
-    def _evaluate_memory_usefulness(
-        self, context: ChatWorkflowContext
-    ) -> tuple[str, str]:
+    def _evaluate_memory_usefulness(self, context: ChatWorkflowContext) -> tuple[str, str]:
         memory_hits = context.memory_hits
         knowledge_hits = context.knowledge_hits
         recent_session_attached = bool(context.recent_session_context.strip())
-        short_term_hits = [
-            hit for hit in memory_hits if hit.memory_type == "short_term"
-        ]
+        short_term_hits = [hit for hit in memory_hits if hit.memory_type == "short_term"]
         long_term_hits = [hit for hit in memory_hits if hit.memory_type == "long_term"]
         top_memory_score = max((hit.score for hit in memory_hits), default=0.0)
         if recent_session_attached:
@@ -1393,14 +1399,10 @@ class FacultyTwinWorkflowSupport:
     ) -> WorkflowPlanPreview | None:
         if shadow_status == "shadow_disabled":
             fallback_template = (
-                decision.plan.fallback_template
-                if decision is not None
-                else "answer_question"
+                decision.plan.fallback_template if decision is not None else "answer_question"
             )
             return WorkflowPlanPreview(
-                planner_version=decision.plan.planner_version
-                if decision is not None
-                else "v3.0.0",
+                planner_version=decision.plan.planner_version if decision is not None else "v3.0.0",
                 policy_version=decision.plan.policy_version
                 if decision is not None
                 else "faculty-default-2026-05",
@@ -1419,14 +1421,10 @@ class FacultyTwinWorkflowSupport:
 
         if shadow_status == "shadow_error":
             fallback_template = (
-                decision.plan.fallback_template
-                if decision is not None
-                else "answer_question"
+                decision.plan.fallback_template if decision is not None else "answer_question"
             )
             return WorkflowPlanPreview(
-                planner_version=decision.plan.planner_version
-                if decision is not None
-                else "v3.0.0",
+                planner_version=decision.plan.planner_version if decision is not None else "v3.0.0",
                 policy_version=decision.plan.policy_version
                 if decision is not None
                 else "faculty-default-2026-05",
@@ -1506,9 +1504,7 @@ class FacultyTwinWorkflowSupport:
         deterministic_only_steps = [
             step for step in deterministic_steps if step not in shadow_steps
         ]
-        shadow_only_steps = [
-            step for step in shadow_steps if step not in deterministic_steps
-        ]
+        shadow_only_steps = [step for step in shadow_steps if step not in deterministic_steps]
         same_goal = decision.plan.goal == shadow_decision.plan.goal
         same_fallback_template = (
             decision.plan.fallback_template == shadow_decision.plan.fallback_template
@@ -1595,9 +1591,7 @@ class FacultyTwinWorkflowSupport:
         all_profiles = self._conversation_store.list_profiles(limit=1000)
         category_counts: dict[str, int] = {}
         for profile in all_profiles:
-            category_counts[profile.category] = (
-                category_counts.get(profile.category, 0) + 1
-            )
+            category_counts[profile.category] = category_counts.get(profile.category, 0) + 1
 
         profiles = self._conversation_store.list_profiles(
             category=category,
@@ -1622,9 +1616,7 @@ class FacultyTwinWorkflowSupport:
             ],
         )
 
-    def submit_chat_feedback(
-        self, request: ChatFeedbackRequest
-    ) -> ChatFeedbackResponse:
+    def submit_chat_feedback(self, request: ChatFeedbackRequest) -> ChatFeedbackResponse:
         try:
             feedback = self._analytics_store.submit_feedback(
                 exchange_id=request.exchange_id,
@@ -1653,20 +1645,14 @@ class FacultyTwinWorkflowSupport:
     ) -> AnonymousSuggestionRecord:
         return self._suggestion_store.create_suggestion(request)
 
-    def list_anonymous_suggestions(
-        self, *, limit: int = 50
-    ) -> list[AnonymousSuggestionRecord]:
+    def list_anonymous_suggestions(self, *, limit: int = 50) -> list[AnonymousSuggestionRecord]:
         return self._suggestion_store.list_suggestions(limit=limit)
 
-    def get_question_analytics_report(
-        self, *, days: int = 7
-    ) -> QuestionAnalyticsReportResponse:
+    def get_question_analytics_report(self, *, days: int = 7) -> QuestionAnalyticsReportResponse:
         report = self._analytics_store.build_weekly_report(days=days)
         enriched_gap_suggestions = []
         for item in report["knowledge_gap_suggestions"]:
-            draft = self._knowledge_gap_draft_store.get_by_cluster_id(
-                str(item["cluster_id"])
-            )
+            draft = self._knowledge_gap_draft_store.get_by_cluster_id(str(item["cluster_id"]))
             enriched_item = dict(item)
             if draft is not None:
                 enriched_item["draft_id"] = draft.draft_id
@@ -1677,15 +1663,12 @@ class FacultyTwinWorkflowSupport:
             window_start=report["window_start"],
             window_end=report["window_end"],
             overview=QuestionAnalyticsOverview(**report["overview"]),
-            top_clusters=[
-                QuestionClusterSummary(**item) for item in report["top_clusters"]
-            ],
+            top_clusters=[QuestionClusterSummary(**item) for item in report["top_clusters"]],
             knowledge_gap_suggestions=[
                 KnowledgeGapSuggestion(**item) for item in enriched_gap_suggestions
             ],
             unresolved_questions=[
-                UnresolvedQuestionItem(**item)
-                for item in report["unresolved_questions"]
+                UnresolvedQuestionItem(**item) for item in report["unresolved_questions"]
             ],
             handoff_categories=[
                 HandoffCategorySummary(**item) for item in report["handoff_categories"]
@@ -1711,14 +1694,9 @@ class FacultyTwinWorkflowSupport:
         return self._knowledge_gap_draft_store.list_drafts()
 
     def list_artifact_memory_drafts(self) -> list[ArtifactMemoryDraftRecordResponse]:
-        return [
-            record.to_response()
-            for record in self._artifact_memory_draft_store.list_drafts()
-        ]
+        return [record.to_response() for record in self._artifact_memory_draft_store.list_drafts()]
 
-    def accept_artifact_memory_draft(
-        self, draft_id: str
-    ) -> ArtifactMemoryDraftRecordResponse:
+    def accept_artifact_memory_draft(self, draft_id: str) -> ArtifactMemoryDraftRecordResponse:
         draft = self._artifact_memory_draft_store.get_draft(draft_id)
         if draft is None:
             raise HTTPException(
@@ -1726,18 +1704,14 @@ class FacultyTwinWorkflowSupport:
                 detail="找不到对应的材料草稿。",
             )
         try:
-            return self._artifact_memory_draft_store.mark_accepted(
-                draft_id
-            ).to_response()
+            return self._artifact_memory_draft_store.mark_accepted(draft_id).to_response()
         except ValueError as exc:
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
                 detail=f"材料草稿当前状态为 {draft.status}，无法再次审核。",
             ) from exc
 
-    def reject_artifact_memory_draft(
-        self, draft_id: str
-    ) -> ArtifactMemoryDraftRecordResponse:
+    def reject_artifact_memory_draft(self, draft_id: str) -> ArtifactMemoryDraftRecordResponse:
         draft = self._artifact_memory_draft_store.get_draft(draft_id)
         if draft is None:
             raise HTTPException(
@@ -1745,18 +1719,14 @@ class FacultyTwinWorkflowSupport:
                 detail="找不到对应的材料草稿。",
             )
         try:
-            return self._artifact_memory_draft_store.mark_rejected(
-                draft_id
-            ).to_response()
+            return self._artifact_memory_draft_store.mark_rejected(draft_id).to_response()
         except ValueError as exc:
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
                 detail=f"材料草稿当前状态为 {draft.status}，无法再次审核。",
             ) from exc
 
-    def publish_knowledge_gap_draft(
-        self, draft_id: str
-    ) -> KnowledgeGapDraftRecordResponse:
+    def publish_knowledge_gap_draft(self, draft_id: str) -> KnowledgeGapDraftRecordResponse:
         draft = self._knowledge_gap_draft_store.get_draft(draft_id)
         if draft is None:
             raise HTTPException(
@@ -1820,9 +1790,7 @@ class FacultyTwinWorkflowSupport:
         status: str | None = None,
         action_type: str | None = None,
     ) -> list[FollowUpQueueRecord]:
-        return self._follow_up_store.list_actions(
-            status=status, action_type=action_type
-        )
+        return self._follow_up_store.list_actions(status=status, action_type=action_type)
 
     def dispatch_due_follow_ups(self) -> FollowUpDispatchResponse:
         due_entries = self._follow_up_store.list_due_actions()
@@ -1849,11 +1817,7 @@ class FacultyTwinWorkflowSupport:
             notify=self._email_notifier.send_booking_approved_notification,
         )
         booking = notified_response.booking
-        if (
-            notified_response.accepted
-            and booking is not None
-            and booking.status == "已确认"
-        ):
+        if notified_response.accepted and booking is not None and booking.status == "已确认":
             profiles = self._conversation_store.list_profiles_for_student(
                 student_name=booking.student_name,
                 student_email=booking.student_email,
@@ -1891,9 +1855,7 @@ class FacultyTwinWorkflowSupport:
             notify=self._email_notifier.send_booking_rejected_notification,
         )
 
-    def read_admin_session(
-        self, request: AdminSessionTokenInput
-    ) -> AdminSessionResponse:
+    def read_admin_session(self, request: AdminSessionTokenInput) -> AdminSessionResponse:
         payload = decode_admin_session_token(request.session_token, self._settings)
         return self._build_admin_session_response(payload)
 
@@ -1936,23 +1898,17 @@ class FacultyTwinWorkflowSupport:
             user_id=account.user_id, email=account.email, settings=self._settings
         )
         return UserAuthWorkflowResult(
-            session=UserSessionResponse(
-                is_authenticated=True, mode="user", account=account
-            ),
+            session=UserSessionResponse(is_authenticated=True, mode="user", account=account),
             session_token=token,
         )
 
     def login_user(self, request: UserLoginRequest) -> UserAuthWorkflowResult:
-        account = self._user_store.authenticate_user(
-            email=request.email, password=request.password
-        )
+        account = self._user_store.authenticate_user(email=request.email, password=request.password)
         token = build_user_session_token(
             user_id=account.user_id, email=account.email, settings=self._settings
         )
         return UserAuthWorkflowResult(
-            session=UserSessionResponse(
-                is_authenticated=True, mode="user", account=account
-            ),
+            session=UserSessionResponse(is_authenticated=True, mode="user", account=account),
             session_token=token,
         )
 
@@ -1968,22 +1924,14 @@ class FacultyTwinWorkflowSupport:
         recent_session_context: str | None = None,
     ) -> str:
         course_hint = (
-            f"Course context: {request.course_context}.\n"
-            if request.course_context
-            else ""
+            f"Course context: {request.course_context}.\n" if request.course_context else ""
         )
         visitor_profile = getattr(request, "visitor_profile", None)
-        visitor_hint = (
-            f"Visitor profile: {visitor_profile}.\n" if visitor_profile else ""
-        )
-        attachment_context = self._format_attachment_context(
-            getattr(request, "attachments", None)
-        )
+        visitor_hint = f"Visitor profile: {visitor_profile}.\n" if visitor_profile else ""
+        attachment_context = self._format_attachment_context(getattr(request, "attachments", None))
         resolved_recent_session_context = recent_session_context
         if resolved_recent_session_context is None:
-            resolved_recent_session_context = self._format_recent_session_context(
-                request
-            )
+            resolved_recent_session_context = self._format_recent_session_context(request)
         memory_context = self._format_memory_context(memory_hits or [])
         prompt_hits = self._select_prompt_knowledge_hits(
             request.question, knowledge_hits, interaction_intent
@@ -2027,9 +1975,7 @@ class FacultyTwinWorkflowSupport:
             "Use retrieved knowledge only when it directly answers this question; ignore adjacent topics and do not add unasked facts just because they appear in context."
         )
 
-    def _format_recent_session_context(
-        self, request: ChatRequest, limit: int = 2
-    ) -> str:
+    def _format_recent_session_context(self, request: ChatRequest, limit: int = 2) -> str:
         conversation_id = str(getattr(request, "conversation_id", "") or "").strip()
         if not conversation_id or limit <= 0:
             return ""
@@ -2044,9 +1990,7 @@ class FacultyTwinWorkflowSupport:
 
         sections = ["Immediate session context (same conversation):"]
         for index, record in enumerate(reversed(recent_records), start=1):
-            sections.append(
-                f"{index}. User: {record.question}\nAssistant: {record.answer}"
-            )
+            sections.append(f"{index}. User: {record.question}\nAssistant: {record.answer}")
         return "\n".join(sections) + "\n"
 
     def _build_recent_session_meta_answer(self, request: ChatRequest) -> str | None:
@@ -2080,15 +2024,9 @@ class FacultyTwinWorkflowSupport:
 
     def _detect_recent_session_meta_query(self, question: str) -> str | None:
         normalized_question = _RECENT_SESSION_QUERY_NORMALIZER.sub("", question).lower()
-        if any(
-            pattern.match(normalized_question)
-            for pattern in _PREVIOUS_QUESTION_QUERY_PATTERNS
-        ):
+        if any(pattern.match(normalized_question) for pattern in _PREVIOUS_QUESTION_QUERY_PATTERNS):
             return "previous_question"
-        if any(
-            pattern.match(normalized_question)
-            for pattern in _PREVIOUS_ANSWER_QUERY_PATTERNS
-        ):
+        if any(pattern.match(normalized_question) for pattern in _PREVIOUS_ANSWER_QUERY_PATTERNS):
             return "previous_answer"
         return None
 
@@ -2115,9 +2053,7 @@ class FacultyTwinWorkflowSupport:
             "少占用老师时间",
             "不是来问选题",
         )
-        if not any(
-            marker in question or marker in lowered for marker in profile_markers
-        ):
+        if not any(marker in question or marker in lowered for marker in profile_markers):
             return ""
 
         guidance = (
@@ -2126,26 +2062,18 @@ class FacultyTwinWorkflowSupport:
             "Do not drop concrete constraints, weaknesses, progress markers, or communication preferences just because the high-level answer already seems clear.\n"
         )
 
-        if (
-            request.course_context == "LaMP personalization benchmark"
-            or "学生画像：" in question
-        ):
+        if request.course_context == "LaMP personalization benchmark" or "学生画像：" in question:
             guidance += (
                 "LaMP profile grounding: For benchmark-style profile questions, mention at least one concrete fact from the student profile block and one concrete need from the current question. "
                 "Prefer near-copy wording for details such as time budget, current stage, stated pain point, '不是来问选题', or '少占用老师时间' when they appear.\n"
             )
 
-        if (
-            interaction_intent is not None
-            and interaction_intent.decision_mode == "advise_only"
-        ):
+        if interaction_intent is not None and interaction_intent.decision_mode == "advise_only":
             guidance += "Advice phrasing guidance: Prefer a first sentence that directly gives the recommendation, for example '建议你先...' or '按你现在的情况，更适合先...'.\n"
 
         return guidance
 
-    def _format_attachment_context(
-        self, attachments: list[ChatAttachment] | None
-    ) -> str:
+    def _format_attachment_context(self, attachments: list[ChatAttachment] | None) -> str:
         if not attachments:
             return ""
 
@@ -2198,9 +2126,7 @@ class FacultyTwinWorkflowSupport:
             return UserSessionResponse(is_authenticated=False, mode="guest")
         return UserSessionResponse(is_authenticated=True, mode="user", account=account)
 
-    def _format_knowledge_context(
-        self, knowledge_hits: list[KnowledgeSearchHit]
-    ) -> str:
+    def _format_knowledge_context(self, knowledge_hits: list[KnowledgeSearchHit]) -> str:
         if not knowledge_hits:
             return ""
 
@@ -2221,9 +2147,7 @@ class FacultyTwinWorkflowSupport:
         if not knowledge_hits:
             return []
         if interaction_intent is not None:
-            scoped_hits = self._filter_knowledge_hits_by_intent(
-                knowledge_hits, interaction_intent
-            )
+            scoped_hits = self._filter_knowledge_hits_by_intent(knowledge_hits, interaction_intent)
             if interaction_intent.domain == "research":
                 research_hits = [
                     hit
@@ -2246,9 +2170,7 @@ class FacultyTwinWorkflowSupport:
         if research_hits:
             return research_hits
 
-        return [
-            hit for hit in knowledge_hits if not self._is_teaching_hit(hit)
-        ] or knowledge_hits
+        return [hit for hit in knowledge_hits if not self._is_teaching_hit(hit)] or knowledge_hits
 
     def _is_research_question(self, question: str) -> bool:
         lowered = question.lower()
@@ -2279,9 +2201,7 @@ class FacultyTwinWorkflowSupport:
             return True
         source_name = (hit.source_name or "").lower()
         return (
-            "研究" in hit.title
-            or "publications" in source_name
-            or "research_papers" in source_name
+            "研究" in hit.title or "publications" in source_name or "research_papers" in source_name
         )
 
     def _is_teaching_hit(self, hit: KnowledgeSearchHit) -> bool:
@@ -2299,9 +2219,7 @@ class FacultyTwinWorkflowSupport:
             }
         )
 
-    def _build_intent_guidance(
-        self, interaction_intent: InteractionIntent | None
-    ) -> str:
+    def _build_intent_guidance(self, interaction_intent: InteractionIntent | None) -> str:
         if interaction_intent is None:
             return ""
         if interaction_intent.domain == "research":
@@ -2356,9 +2274,7 @@ class FacultyTwinWorkflowSupport:
             "meeting prep",
             "agenda",
         )
-        if not any(
-            marker in question or marker in lowered for marker in preparation_markers
-        ):
+        if not any(marker in question or marker in lowered for marker in preparation_markers):
             return ""
 
         return (
@@ -2431,9 +2347,7 @@ class FacultyTwinWorkflowSupport:
 
         if (
             any(marker in question or marker in lowered for marker in ("课程", "作业"))
-            and any(
-                marker in question or marker in lowered for marker in ("研究", "科研")
-            )
+            and any(marker in question or marker in lowered for marker in ("研究", "科研"))
             and any(
                 marker in question or marker in lowered
                 for marker in ("分开准备", "一次都问完", "分开", "分别")
@@ -2615,9 +2529,7 @@ class FacultyTwinWorkflowSupport:
                 "admin_command",
             )
 
-        classify_sync = getattr(
-            self._llm_client, "classify_interaction_intent_sync", None
-        )
+        classify_sync = getattr(self._llm_client, "classify_interaction_intent_sync", None)
         if callable(classify_sync):
             try:
                 intent = classify_sync(
@@ -2628,9 +2540,7 @@ class FacultyTwinWorkflowSupport:
                 )
                 if not isinstance(intent, InteractionIntent):
                     intent = InteractionIntent.model_validate(intent)
-                guarded_intent, guarded = self._apply_policy_guardrails(
-                    context.request, intent
-                )
+                guarded_intent, guarded = self._apply_policy_guardrails(context.request, intent)
                 return guarded_intent, "llm+policy" if guarded else "llm"
             except Exception:
                 pass
@@ -2663,9 +2573,7 @@ class FacultyTwinWorkflowSupport:
                     intent.model_copy(
                         update={
                             "action": "answer",
-                            "domain": intent.domain
-                            if intent.domain != "general"
-                            else "advising",
+                            "domain": intent.domain if intent.domain != "general" else "advising",
                             "needs_clarification": False,
                             "clarification_message": None,
                             "decision_mode": "advise_only"
@@ -2702,9 +2610,8 @@ class FacultyTwinWorkflowSupport:
                 True,
             )
 
-        if (
-            intent.action == "book_meeting"
-            and self._looks_like_booking_information_request(request.question)
+        if intent.action == "book_meeting" and self._looks_like_booking_information_request(
+            request.question
         ):
             return (
                 InteractionIntent(
@@ -2762,9 +2669,7 @@ class FacultyTwinWorkflowSupport:
             confidence=1.0,
         )
 
-    def _build_fallback_interaction_intent(
-        self, request: ChatRequest
-    ) -> InteractionIntent:
+    def _build_fallback_interaction_intent(self, request: ChatRequest) -> InteractionIntent:
         if self._should_force_human_handoff(request.question):
             return InteractionIntent(
                 action="human_handoff",
@@ -2827,10 +2732,7 @@ class FacultyTwinWorkflowSupport:
                 confidence=0.6,
             )
 
-        if any(
-            marker in request.question
-            for marker in ("准备什么", "提前准备", "怎么准备")
-        ):
+        if any(marker in request.question for marker in ("准备什么", "提前准备", "怎么准备")):
             return InteractionIntent(
                 action="answer",
                 domain="advising",
@@ -2874,9 +2776,7 @@ class FacultyTwinWorkflowSupport:
         if interaction_intent is None or not knowledge_hits:
             return knowledge_hits
 
-        guidance_hits = self._prioritize_guidance_hits(
-            knowledge_hits, interaction_intent
-        )
+        guidance_hits = self._prioritize_guidance_hits(knowledge_hits, interaction_intent)
         if guidance_hits:
             return guidance_hits
 
@@ -2914,9 +2814,7 @@ class FacultyTwinWorkflowSupport:
             if self._matches_intent_scopes(hit, ["preparation", "meeting_policy"])
         ]
 
-    def _matches_intent_scopes(
-        self, hit: KnowledgeSearchHit, scopes: list[str]
-    ) -> bool:
+    def _matches_intent_scopes(self, hit: KnowledgeSearchHit, scopes: list[str]) -> bool:
         if not scopes:
             return True
         hit_tags = {tag.lower() for tag in hit.tags}
@@ -2979,9 +2877,7 @@ class FacultyTwinWorkflowSupport:
 
         return "\n".join(sections) + "\n"
 
-    def _build_answer_basis(
-        self, context: ChatWorkflowContext
-    ) -> list[AnswerBasisItem]:
+    def _build_answer_basis(self, context: ChatWorkflowContext) -> list[AnswerBasisItem]:
         basis_items: list[AnswerBasisItem] = []
 
         if context.added_knowledge_record is not None:
@@ -3001,11 +2897,7 @@ class FacultyTwinWorkflowSupport:
         prioritized_memory_hits = sorted(
             context.memory_hits,
             key=lambda hit: (
-                0
-                if (
-                    hit.topic == "artifact_memory" or hit.source == "attachment_excerpt"
-                )
-                else 1,
+                0 if (hit.topic == "artifact_memory" or hit.source == "attachment_excerpt") else 1,
                 0 if hit.memory_type == "long_term" else 1,
                 -float(hit.score or 0.0),
             ),
@@ -3047,26 +2939,20 @@ class FacultyTwinWorkflowSupport:
                 basis_label="上传材料",
                 title="本轮上传或显式引用的材料",
                 source_label=hit.source_label,
-                detail=self._clip_basis_text(
-                    self._format_memory_basis_detail(hit.summary), 1000
-                ),
+                detail=self._clip_basis_text(self._format_memory_basis_detail(hit.summary), 1000),
             )
         if hit.memory_type == "long_term":
             return AnswerBasisItem(
                 basis_label="学生长期记录",
                 title="过往交流里提到过的长期偏好",
                 source_label="长期记录",
-                detail=self._clip_basis_text(
-                    self._format_memory_basis_detail(hit.summary), 1000
-                ),
+                detail=self._clip_basis_text(self._format_memory_basis_detail(hit.summary), 1000),
             )
         return AnswerBasisItem(
             basis_label="近期交流记录",
             title="这轮对话前后提到过的相关内容",
             source_label="近期对话",
-            detail=self._clip_basis_text(
-                self._format_memory_basis_detail(hit.summary), 1000
-            ),
+            detail=self._clip_basis_text(self._format_memory_basis_detail(hit.summary), 1000),
         )
 
     def _build_memory_audit_items(
@@ -3077,9 +2963,7 @@ class FacultyTwinWorkflowSupport:
         conversation_id: str = "",
     ) -> list[MemoryAuditItem]:
         audit_items: list[MemoryAuditItem] = []
-        recent_session_summary = self._normalize_recent_session_context(
-            recent_session_context
-        )
+        recent_session_summary = self._normalize_recent_session_context(recent_session_context)
         if recent_session_summary:
             audit_items.append(
                 MemoryAuditItem(
@@ -3115,9 +2999,7 @@ class FacultyTwinWorkflowSupport:
             normalized = normalized[len(header) :].strip()
         return self._clip_basis_text(normalized, 1200)
 
-    def _build_attachment_artifact_hits(
-        self, request: ChatRequest
-    ) -> list[ConversationMemoryHit]:
+    def _build_attachment_artifact_hits(self, request: ChatRequest) -> list[ConversationMemoryHit]:
         attachments = list(getattr(request, "attachments", []) or [])
         if not attachments:
             return []
@@ -3150,9 +3032,7 @@ class FacultyTwinWorkflowSupport:
         if self._looks_like_gap_draft_hit(hit):
             return AnswerBasisItem(
                 basis_label="常见问题整理",
-                title=self._clip_basis_text(
-                    self._format_gap_draft_basis_title(hit.title), 256
-                ),
+                title=self._clip_basis_text(self._format_gap_draft_basis_title(hit.title), 256),
                 source_label="近期高频问题整理",
                 detail=self._clip_basis_text(
                     self._format_gap_draft_basis_detail(hit.excerpt), 1000
@@ -3168,9 +3048,7 @@ class FacultyTwinWorkflowSupport:
             detail=self._clip_basis_text(self._format_basis_detail(hit.excerpt), 1000),
         )
 
-    def _build_added_knowledge_basis_item(
-        self, record: KnowledgeDocumentRecord
-    ) -> AnswerBasisItem:
+    def _build_added_knowledge_basis_item(self, record: KnowledgeDocumentRecord) -> AnswerBasisItem:
         detail = (
             f"已通过管理员对话写入知识库，标签：{', '.join(record.tags) or '未设置'}。"
             "后续管理员检索和普通问答都可以立即复用这条资料。"
@@ -3195,13 +3073,9 @@ class FacultyTwinWorkflowSupport:
         if not normalized:
             return "相关材料"
 
-        parts = [
-            part.strip() for part in re.split(r"[|｜]", normalized) if part.strip()
-        ]
+        parts = [part.strip() for part in re.split(r"[|｜]", normalized) if part.strip()]
         meaningful_parts = [
-            part
-            for part in parts
-            if not self._looks_like_fragmented_title_segment(part)
+            part for part in parts if not self._looks_like_fragmented_title_segment(part)
         ]
         if meaningful_parts:
             return " · ".join(meaningful_parts[:2])
@@ -3219,9 +3093,7 @@ class FacultyTwinWorkflowSupport:
         question_match = re.search(r"问：\s*(.+?)(?:\n|$)", normalized, re.DOTALL)
         answer_match = re.search(r"答：\s*(.+)", normalized, re.DOTALL)
 
-        question = (
-            _normalize_whitespace(question_match.group(1)) if question_match else ""
-        )
+        question = _normalize_whitespace(question_match.group(1)) if question_match else ""
         answer = (
             _normalize_whitespace(answer_match.group(1))
             if answer_match
@@ -3253,9 +3125,7 @@ class FacultyTwinWorkflowSupport:
 
     def _format_gap_draft_basis_title(self, title: str | None) -> str:
         normalized = self._format_basis_title(title)
-        parts = [
-            part.strip() for part in re.split(r"[·|｜]", normalized) if part.strip()
-        ]
+        parts = [part.strip() for part in re.split(r"[·|｜]", normalized) if part.strip()]
         topic = next((part for part in parts if part != "FAQ草稿"), normalized)
         return f"{topic}"
 
@@ -3293,8 +3163,7 @@ class FacultyTwinWorkflowSupport:
             preview: list[str] = []
             for day in schedule.days[:3]:
                 windows = (
-                    "、".join(f"{window.start}-{window.end}" for window in day.windows)
-                    or "不开放"
+                    "、".join(f"{window.start}-{window.end}" for window in day.windows) or "不开放"
                 )
                 preview.append(f"{day.date.isoformat()}: {windows}")
             detail = (
@@ -3344,9 +3213,7 @@ class FacultyTwinWorkflowSupport:
             return "常见问题补充条目"
         parts = normalized.split("::")
         primary_source = parts[0]
-        attachment_source = next(
-            (part for part in parts[1:] if part.endswith(".pdf")), None
-        )
+        attachment_source = next((part for part in parts[1:] if part.endswith(".pdf")), None)
 
         if primary_source.startswith("homepage:"):
             primary_path = primary_source.removeprefix("homepage:")
@@ -3370,9 +3237,9 @@ class FacultyTwinWorkflowSupport:
                     if fragment
                     else "个人主页 / 研究论文汇总"
                 )
-            if primary_file.startswith(
-                "contents/research_papers/"
-            ) and primary_file.endswith(".pdf"):
+            if primary_file.startswith("contents/research_papers/") and primary_file.endswith(
+                ".pdf"
+            ):
                 return f"个人主页 / 研究论文 PDF / {primary_file.split('/')[-1]}"
             if primary_file == "contents/resources.md":
                 return "个人主页 / 教学资源页"
@@ -3414,6 +3281,7 @@ class FacultyTwinWorkflowSupport:
             detail=detail,
             status=status,
             duration_ms=duration_ms,
+            parallel_group=_PARALLEL_TRACE_GROUPS.get(key),
         )
         context.workflow_trace.append(step)
         if self._trace_callback is not None:
@@ -3483,9 +3351,9 @@ class FacultyTwinWorkflowSupport:
         has_info_marker = any(marker in lowered for marker in info_markers) or any(
             marker in question for marker in info_markers
         )
-        has_booking_context = any(
-            marker in lowered for marker in booking_context_markers
-        ) or any(marker in question for marker in booking_context_markers)
+        has_booking_context = any(marker in lowered for marker in booking_context_markers) or any(
+            marker in question for marker in booking_context_markers
+        )
         return has_info_marker and has_booking_context
 
     def _needs_booking_intent_classification(self, question: str) -> bool:
@@ -3546,8 +3414,7 @@ class FacultyTwinWorkflowSupport:
 
         if context.interaction_intent.action == "human_handoff":
             reason = (
-                context.interaction_intent.escalation_reason
-                or "这类问题不能由数字人代替老师处理。"
+                context.interaction_intent.escalation_reason or "这类问题不能由数字人代替老师处理。"
             )
             return (
                 f"这个问题需要由 {context.owner_name} 本人直接处理，我不能代为决定或表态。\n"
@@ -3557,8 +3424,7 @@ class FacultyTwinWorkflowSupport:
             )
 
         reason = (
-            context.interaction_intent.escalation_reason
-            or "这类请求需要老师审核后才能正式答复。"
+            context.interaction_intent.escalation_reason or "这类请求需要老师审核后才能正式答复。"
         )
         return (
             "这个请求需要人工审核后才能给出正式结论，我先不替老师做决定。\n"
@@ -3650,9 +3516,7 @@ class FacultyTwinWorkflowSupport:
             "内容：学生预约前需要先发送 agenda、当前 blocker 和相关 draft。"
         )
 
-    def _build_admin_knowledge_success_message(
-        self, record: KnowledgeDocumentRecord
-    ) -> str:
+    def _build_admin_knowledge_success_message(self, record: KnowledgeDocumentRecord) -> str:
         tags_text = "、".join(record.tags) if record.tags else "未设置"
         source_text = record.source_name or "管理员手动录入"
         return (
@@ -3722,16 +3586,12 @@ class FacultyTwinWorkflowSupport:
             fallback_lines.append(raw_line.rstrip())
 
         parsed = {
-            key: "\n".join(value).strip()
-            if key == "content"
-            else " ".join(value).strip()
+            key: "\n".join(value).strip() if key == "content" else " ".join(value).strip()
             for key, value in result.items()
             if any(part.strip() for part in value)
         }
         if "content" not in parsed:
-            fallback_content = "\n".join(
-                line for line in fallback_lines if line.strip()
-            ).strip()
+            fallback_content = "\n".join(line for line in fallback_lines if line.strip()).strip()
             if fallback_content:
                 parsed["content"] = fallback_content
         return parsed
@@ -3746,9 +3606,7 @@ class FacultyTwinWorkflowSupport:
                 normalized.append(cleaned)
         return normalized
 
-    def _derive_admin_knowledge_title(
-        self, content: str, course_context: str | None
-    ) -> str:
+    def _derive_admin_knowledge_title(self, content: str, course_context: str | None) -> str:
         if course_context and course_context.strip():
             return _summarize_text(course_context.strip(), limit=64)
 
@@ -3782,9 +3640,7 @@ class FacultyTwinWorkflowSupport:
         if state.student_email:
             known_parts.append(f"邮箱：{state.student_email}")
         if state.preferred_start:
-            known_parts.append(
-                f"时间：{state.preferred_start.strftime('%Y-%m-%d %H:%M')}"
-            )
+            known_parts.append(f"时间：{state.preferred_start.strftime('%Y-%m-%d %H:%M')}")
         if state.topic:
             known_parts.append(f"主题：{state.topic}")
 
@@ -3875,9 +3731,7 @@ class FacultyTwinWorkflowSupport:
             return None
         return match.group(0)
 
-    def _extract_time_window(
-        self, text: str
-    ) -> tuple[datetime | None, datetime | None]:
+    def _extract_time_window(self, text: str) -> tuple[datetime | None, datetime | None]:
         explicit = self._extract_explicit_datetime_window(text)
         if explicit != (None, None):
             return explicit
@@ -3895,9 +3749,7 @@ class FacultyTwinWorkflowSupport:
         if not time_matches:
             return None, None
 
-        start_prefix, start_hour, start_minute = self._normalize_time_match(
-            time_matches[0]
-        )
+        start_prefix, start_hour, start_minute = self._normalize_time_match(time_matches[0])
         start_at = datetime.combine(base_date, time(start_hour, start_minute))
 
         if len(time_matches) > 1:
@@ -3907,9 +3759,7 @@ class FacultyTwinWorkflowSupport:
             )
             end_at = datetime.combine(base_date, time(end_hour, end_minute))
         else:
-            end_at = start_at + timedelta(
-                minutes=self._settings.meeting_duration_minutes
-            )
+            end_at = start_at + timedelta(minutes=self._settings.meeting_duration_minutes)
 
         return start_at, end_at
 
@@ -3929,9 +3779,7 @@ class FacultyTwinWorkflowSupport:
         if end_text:
             end_at = datetime.strptime(f"{day_text} {end_text}", "%Y-%m-%d %H:%M")
         else:
-            end_at = start_at + timedelta(
-                minutes=self._settings.meeting_duration_minutes
-            )
+            end_at = start_at + timedelta(minutes=self._settings.meeting_duration_minutes)
         return start_at, end_at
 
     def _extract_relative_date(self, text: str) -> date | None:
@@ -4258,9 +4106,7 @@ class SearchKnowledgeStage(MapFunction):
         self._support = support
 
     def execute(self, data: KnowledgeSearchInput) -> KnowledgeSearchResponse:
-        return self._support.search_knowledge(
-            data.query, visitor_profile=data.visitor_profile
-        )
+        return self._support.search_knowledge(data.query, visitor_profile=data.visitor_profile)
 
 
 class CreateBookingStage(MapFunction):
@@ -4281,15 +4127,95 @@ class ListBookingsStage(MapFunction):
         return self._support.list_bookings(status=status)
 
 
+class ChatContextMergeFunction(BaseCoMapFunction):
+    """Fan-in operator for the chat DAG.
+
+    The chat DAG fans out into N parallel branches that all share the same
+    `ChatWorkflowContext` Python object (each branch only mutates disjoint
+    fields). When every branch has reported for a given conversation, this
+    operator emits the context exactly once. Subsequent branch arrivals for
+    the same conversation also emit nothing.
+
+    SAGE's `comap()` operator validates the presence of `map0`..`mapN`
+    methods at the **class** level (see
+    `sage.stream.connected_streams.ConnectedStreams.comap`), so we cannot use
+    dynamic `setattr` in `__init__`. Instead, this base class provides the
+    shared dispatch logic and concrete subclasses (`_ChatContextMerge2`,
+    `_ChatContextMerge4`) declare the required `mapN` methods explicitly.
+
+    The implementation is deliberately defensive: it dispatches arrivals via
+    the conversation_id rather than relying on object identity, so the same
+    helper works whether branches mutate-in-place or return clones.
+    """
+
+    # Concrete subclasses override this with the actual fan-in width.
+    n_inputs: int = 2
+
+    def __init__(self) -> None:
+        super().__init__()
+        if self.n_inputs < 2:
+            raise ValueError("ChatContextMergeFunction requires at least 2 input streams.")
+        # conversation_id -> set of input indices that have already arrived.
+        self._arrivals: dict[str, set[int]] = {}
+
+    def _conversation_key(self, context: ChatWorkflowContext) -> str:
+        # Fall back to id() so we still merge correctly if a request lacks a
+        # conversation_id (e.g. unit tests using bare contexts).
+        return getattr(context, "conversation_id", "") or f"obj-{id(context)}"
+
+    def _on_branch(
+        self, input_index: int, context: ChatWorkflowContext | None
+    ) -> ChatWorkflowContext | None:
+        if context is None:
+            return None
+        key = self._conversation_key(context)
+        seen = self._arrivals.setdefault(key, set())
+        seen.add(input_index)
+        if len(seen) >= self.n_inputs:
+            # All branches reported. Emit exactly once and reset state so the
+            # operator can be reused for subsequent requests.
+            self._arrivals.pop(key, None)
+            return context
+        return None
+
+
+class _ChatContextMerge2(ChatContextMergeFunction):
+    """Two-way fan-in (e.g. memory + knowledge retrieval branches)."""
+
+    n_inputs = 2
+
+    def map0(self, data: ChatWorkflowContext | None) -> ChatWorkflowContext | None:
+        return self._on_branch(0, data)
+
+    def map1(self, data: ChatWorkflowContext | None) -> ChatWorkflowContext | None:
+        return self._on_branch(1, data)
+
+
+class _ChatContextMerge4(ChatContextMergeFunction):
+    """Four-way fan-in (e.g. post-answer parallel branches)."""
+
+    n_inputs = 4
+
+    def map0(self, data: ChatWorkflowContext | None) -> ChatWorkflowContext | None:
+        return self._on_branch(0, data)
+
+    def map1(self, data: ChatWorkflowContext | None) -> ChatWorkflowContext | None:
+        return self._on_branch(1, data)
+
+    def map2(self, data: ChatWorkflowContext | None) -> ChatWorkflowContext | None:
+        return self._on_branch(2, data)
+
+    def map3(self, data: ChatWorkflowContext | None) -> ChatWorkflowContext | None:
+        return self._on_branch(3, data)
+
+
 class DigitalTwinService:
     def __init__(self, settings: AppSettings) -> None:
         self._settings = settings
         self._llm_client = VllmChatClient(settings)
         self._knowledge_store = LocalKnowledgeStore(settings)
         self._conversation_store = NeuroMemConversationStore(settings)
-        self._analytics_store = ConversationAnalyticsStore(
-            settings, self._conversation_store
-        )
+        self._analytics_store = ConversationAnalyticsStore(settings, self._conversation_store)
         self._artifact_memory_draft_store = ArtifactMemoryDraftStore(settings)
         self._knowledge_gap_draft_store = KnowledgeGapDraftStore(settings)
         self._escalation_store = EscalationQueueStore(settings)
@@ -4320,9 +4246,7 @@ class DigitalTwinService:
         for document in self._knowledge_store.list_documents():
             if not _is_legacy_gap_document(document.source_name, document.tags):
                 continue
-            draft = _match_gap_draft_for_document(
-                document=document, drafts=published_drafts
-            )
+            draft = _match_gap_draft_for_document(document=document, drafts=published_drafts)
             formalized = (
                 _build_published_gap_document(draft)
                 if draft is not None
@@ -4372,9 +4296,7 @@ class DigitalTwinService:
         trace_callback: WorkflowTraceCallback | None,
         use_runtime_pipeline: bool,
     ) -> ChatResponse:
-        admin_session_payload = decode_admin_session_token(
-            admin_session_token, self._settings
-        )
+        admin_session_payload = decode_admin_session_token(admin_session_token, self._settings)
         recent_session_context = self._build_recent_session_context(request)
         workflow_context = WorkflowRequestContext.from_chat_request(
             request,
@@ -4435,11 +4357,9 @@ class DigitalTwinService:
         ]
         if use_runtime_pipeline:
             response = await asyncio.to_thread(
-                self._run_pipeline,
-                "faculty-twin-chat",
-                [request],
-                stages,
-                "SAGE runtime completed without producing a chat response.",
+                self._run_chat_dag_pipeline,
+                request,
+                support,
             )
         else:
             response = await asyncio.to_thread(self._run_stage_chain, request, stages)
@@ -4452,9 +4372,7 @@ class DigitalTwinService:
         *,
         admin_session_token: str | None = None,
     ) -> PlannerDecision:
-        admin_session_payload = decode_admin_session_token(
-            admin_session_token, self._settings
-        )
+        admin_session_payload = decode_admin_session_token(admin_session_token, self._settings)
         recent_session_context = self._build_recent_session_context(request)
         context = WorkflowRequestContext.from_chat_request(
             request,
@@ -4502,9 +4420,7 @@ class DigitalTwinService:
         if not self._settings.shadow_planner_enabled:
             return None, "shadow_disabled", "LLM shadow planner not enabled yet."
 
-        proposal_method = getattr(
-            self._llm_client, "propose_shadow_plan_candidate_sync", None
-        )
+        proposal_method = getattr(self._llm_client, "propose_shadow_plan_candidate_sync", None)
         if proposal_method is None:
             return (
                 None,
@@ -4514,9 +4430,7 @@ class DigitalTwinService:
 
         try:
             candidate = proposal_method(context, planner_decision.plan)
-            shadow_decision = self._workflow_planner.evaluate_shadow_candidate(
-                candidate, context
-            )
+            shadow_decision = self._workflow_planner.evaluate_shadow_candidate(candidate, context)
         except Exception as exc:
             return None, "shadow_error", str(exc)[:256]
 
@@ -4601,9 +4515,7 @@ class DigitalTwinService:
             "SAGE runtime completed without producing a user logout response.",
         )
 
-    def add_knowledge(
-        self, request: KnowledgeDocumentCreate
-    ) -> KnowledgeDocumentRecord:
+    def add_knowledge(self, request: KnowledgeDocumentCreate) -> KnowledgeDocumentRecord:
         support = self._build_support()
         return self._run_pipeline_blocking(
             "faculty-twin-knowledge-add",
@@ -4707,9 +4619,7 @@ class DigitalTwinService:
             )
 
         conversations.sort(key=lambda item: item.last_message_at, reverse=True)
-        return ConversationHistoryListResponse(
-            conversations=conversations[: max(1, limit)]
-        )
+        return ConversationHistoryListResponse(conversations=conversations[: max(1, limit)])
 
     def get_chat_conversation(
         self,
@@ -4795,9 +4705,7 @@ class DigitalTwinService:
             else AnonymousSuggestionCreate.model_validate(request)
         )
         record = self._build_support().submit_anonymous_suggestion(normalized_request)
-        return self._mask_suggestion_record(
-            record, admin_session_token=admin_session_token
-        )
+        return self._mask_suggestion_record(record, admin_session_token=admin_session_token)
 
     def list_anonymous_suggestions(
         self,
@@ -4807,9 +4715,7 @@ class DigitalTwinService:
     ) -> list[AnonymousSuggestionRecord]:
         records = self._build_support().list_anonymous_suggestions(limit=limit)
         return [
-            self._mask_suggestion_record(
-                record, admin_session_token=admin_session_token
-            )
+            self._mask_suggestion_record(record, admin_session_token=admin_session_token)
             for record in records
         ]
 
@@ -4823,9 +4729,7 @@ class DigitalTwinService:
             return record
         return record.model_copy(update={"message": "***"})
 
-    def get_question_analytics_report(
-        self, *, days: int = 7
-    ) -> QuestionAnalyticsReportResponse:
+    def get_question_analytics_report(self, *, days: int = 7) -> QuestionAnalyticsReportResponse:
         return self._build_support().get_question_analytics_report(days=days)
 
     def _build_student_operations_profiles(
@@ -4839,9 +4743,7 @@ class DigitalTwinService:
         recent_records = self._conversation_store.list_records(since=window_start)
         records_by_student: dict[str, list[ConversationMemoryRecord]] = {}
         for record in recent_records:
-            student_key = self._student_operations_key(
-                record.student_name, record.student_email
-            )
+            student_key = self._student_operations_key(record.student_name, record.student_email)
             if student_key is None:
                 continue
             records_by_student.setdefault(student_key, []).append(record)
@@ -4858,9 +4760,7 @@ class DigitalTwinService:
                 key=lambda item: item.created_at,
                 reverse=True,
             )
-            categories = sorted(
-                {profile.category for profile in student_profile_records}
-            )
+            categories = sorted({profile.category for profile in student_profile_records})
             latest_profile_at = student_profile_records[0].updated_at
             latest_interaction_at = records[0].created_at if records else None
             representative = student_profile_records[0]
@@ -4905,9 +4805,7 @@ class DigitalTwinService:
         )
         return student_profiles[: max(1, limit)]
 
-    def _student_operations_key(
-        self, student_name: str, student_email: str | None
-    ) -> str | None:
+    def _student_operations_key(self, student_name: str, student_email: str | None) -> str | None:
         if student_email:
             return student_email.strip().lower()
         normalized_name = student_name.strip().lower()
@@ -4915,9 +4813,7 @@ class DigitalTwinService:
             return None
         return normalized_name
 
-    def _student_operations_segment(
-        self, *, categories: list[str], interaction_count: int
-    ) -> str:
+    def _student_operations_segment(self, *, categories: list[str], interaction_count: int) -> str:
         if interaction_count >= 3:
             return "高互动学生"
         if "booking_preference" in categories:
@@ -5044,9 +4940,7 @@ class DigitalTwinService:
                 )
             )
 
-        for comparison in self._planner_comparison_store.list_records(
-            actionable_only=True
-        ):
+        for comparison in self._planner_comparison_store.list_records(actionable_only=True):
             tasks.append(
                 self._with_operations_task_state(
                     OperationsTaskItem(
@@ -5056,9 +4950,7 @@ class DigitalTwinService:
                         detail=_format_planner_comparison_task_detail(comparison),
                         source_status=comparison.comparison_status,
                         operations_status="open",
-                        priority=_planner_comparison_priority(
-                            comparison.comparison_status
-                        ),
+                        priority=_planner_comparison_priority(comparison.comparison_status),
                         action_url="/operations/workbench",
                         created_at=comparison.created_at,
                     )
@@ -5092,9 +4984,7 @@ class DigitalTwinService:
         )
         return tasks[: max(1, limit)]
 
-    def _with_operations_task_state(
-        self, task: OperationsTaskItem
-    ) -> OperationsTaskItem:
+    def _with_operations_task_state(self, task: OperationsTaskItem) -> OperationsTaskItem:
         state = self._operations_task_state_store.get_state(task.task_key)
         if state is None:
             return task
@@ -5128,12 +5018,8 @@ class DigitalTwinService:
         suggestion_count = self._suggestion_store.count_suggestions()
         health = self.health()
 
-        pending_bookings = [
-            booking for booking in bookings if booking.status == "待确认"
-        ]
-        open_artifact_drafts = [
-            draft for draft in artifact_drafts if draft.status == "draft"
-        ]
+        pending_bookings = [booking for booking in bookings if booking.status == "待确认"]
+        open_artifact_drafts = [draft for draft in artifact_drafts if draft.status == "draft"]
         open_gap_drafts = [draft for draft in gap_drafts if draft.status != "published"]
         open_escalations = [item for item in escalations if item.status == "待处理"]
         queued_follow_ups = [item for item in follow_ups if item.status == "queued"]
@@ -5151,22 +5037,16 @@ class DigitalTwinService:
             totals={
                 "bookings": len(bookings),
                 "knowledge_documents": _health_int(health, "knowledge_documents"),
-                "conversation_records": _health_int(
-                    health, "conversation_memory_records"
-                ),
+                "conversation_records": _health_int(health, "conversation_memory_records"),
                 "memory_profiles": _health_int(health, "conversation_memory_profiles"),
                 "artifact_memory_drafts": len(artifact_drafts),
                 "student_profiles": len(
                     {
                         profile.student_key
-                        for profile in self._conversation_store.list_profiles(
-                            limit=1000
-                        )
+                        for profile in self._conversation_store.list_profiles(limit=1000)
                     }
                 ),
-                "feedback_records": _health_int(
-                    health, "conversation_feedback_records"
-                ),
+                "feedback_records": _health_int(health, "conversation_feedback_records"),
                 "planner_requests": planner_metrics.deterministic_total,
                 "planner_comparisons": planner_comparison_count,
                 "planner_fallbacks": planner_metrics.deterministic_fallbacks,
@@ -5239,18 +5119,12 @@ class DigitalTwinService:
             satisfaction=OperationsSatisfactionSummary(
                 **self._analytics_store.build_satisfaction_report(days=days)
             ),
-            pending_bookings=self._meeting_service.list_bookings(status="待确认")[
-                :limit
-            ],
-            student_profiles=self._build_student_operations_profiles(
-                days=days, limit=limit
-            ),
+            pending_bookings=self._meeting_service.list_bookings(status="待确认")[:limit],
+            student_profiles=self._build_student_operations_profiles(days=days, limit=limit),
             artifact_memory_drafts=self.list_artifact_memory_drafts()[:limit],
             knowledge_gap_drafts=self._knowledge_gap_draft_store.list_drafts()[:limit],
             escalations=self._escalation_store.list_requests(status="待处理")[:limit],
-            follow_up_actions=self._follow_up_store.list_actions(status="queued")[
-                :limit
-            ],
+            follow_up_actions=self._follow_up_store.list_actions(status="queued")[:limit],
             anonymous_suggestions=self._suggestion_store.list_suggestions(limit=limit),
             question_analytics=self.get_question_analytics_report(days=days),
         )
@@ -5272,19 +5146,13 @@ class DigitalTwinService:
     def list_artifact_memory_drafts(self) -> list[ArtifactMemoryDraftRecordResponse]:
         return self._build_support().list_artifact_memory_drafts()
 
-    def accept_artifact_memory_draft(
-        self, draft_id: str
-    ) -> ArtifactMemoryDraftRecordResponse:
+    def accept_artifact_memory_draft(self, draft_id: str) -> ArtifactMemoryDraftRecordResponse:
         return self._build_support().accept_artifact_memory_draft(draft_id)
 
-    def reject_artifact_memory_draft(
-        self, draft_id: str
-    ) -> ArtifactMemoryDraftRecordResponse:
+    def reject_artifact_memory_draft(self, draft_id: str) -> ArtifactMemoryDraftRecordResponse:
         return self._build_support().reject_artifact_memory_draft(draft_id)
 
-    def publish_knowledge_gap_draft(
-        self, draft_id: str
-    ) -> KnowledgeGapDraftRecordResponse:
+    def publish_knowledge_gap_draft(self, draft_id: str) -> KnowledgeGapDraftRecordResponse:
         return self._build_support().publish_knowledge_gap_draft(draft_id)
 
     def list_escalations(
@@ -5308,9 +5176,7 @@ class DigitalTwinService:
         status: str | None = None,
         action_type: str | None = None,
     ) -> list[FollowUpQueueRecord]:
-        return self._build_support().list_follow_up_actions(
-            status=status, action_type=action_type
-        )
+        return self._build_support().list_follow_up_actions(status=status, action_type=action_type)
 
     def dispatch_due_follow_ups(self) -> FollowUpDispatchResponse:
         return self._build_support().dispatch_due_follow_ups()
@@ -5341,9 +5207,7 @@ class DigitalTwinService:
     ) -> AvailabilitySchedule:
         return self._meeting_service.get_previous_week_availability_template(week_of)
 
-    def update_availability_schedule(
-        self, schedule: AvailabilitySchedule
-    ) -> AvailabilitySchedule:
+    def update_availability_schedule(self, schedule: AvailabilitySchedule) -> AvailabilitySchedule:
         return self._meeting_service.update_availability_schedule(schedule)
 
     def get_managed_services(self) -> ServiceControlResponse:
@@ -5370,9 +5234,7 @@ class DigitalTwinService:
         top_rejection_reason = next(
             iter((planner_metrics.get("rejection_reasons") or {}).keys()), ""
         )
-        top_rejected_step = next(
-            iter((planner_metrics.get("rejected_steps") or {}).keys()), ""
-        )
+        top_rejected_step = next(iter((planner_metrics.get("rejected_steps") or {}).keys()), "")
         payload = {
             "status": "ok",
             "owner_name": self._settings.owner_name,
@@ -5384,21 +5246,11 @@ class DigitalTwinService:
             "knowledge_embedding_backend": self._knowledge_store.embedding_backend_name(),
             "knowledge_documents": str(self._knowledge_store.count_documents()),
             "conversation_memory_backend": self._conversation_store.backend_name(),
-            "conversation_memory_records": str(
-                self._conversation_store.count_records()
-            ),
-            "conversation_memory_profiles": str(
-                self._conversation_store.count_profiles()
-            ),
-            "artifact_memory_drafts": str(
-                self._artifact_memory_draft_store.count_drafts()
-            ),
-            "conversation_feedback_records": str(
-                self._analytics_store.count_feedback()
-            ),
-            "planner_comparison_records": str(
-                self._planner_comparison_store.count_records()
-            ),
+            "conversation_memory_records": str(self._conversation_store.count_records()),
+            "conversation_memory_profiles": str(self._conversation_store.count_profiles()),
+            "artifact_memory_drafts": str(self._artifact_memory_draft_store.count_drafts()),
+            "conversation_feedback_records": str(self._analytics_store.count_feedback()),
+            "planner_comparison_records": str(self._planner_comparison_store.count_records()),
             "planner_shadow_actionable_records": str(
                 self._planner_comparison_store.count_actionable_records()
             ),
@@ -5409,9 +5261,7 @@ class DigitalTwinService:
                 self._planner_comparison_store.count_status("equivalent")
             ),
             "planner_metric_records": str(planner_metrics.get("record_count") or 0),
-            "planner_deterministic_total": str(
-                planner_metrics.get("deterministic_total") or 0
-            ),
+            "planner_deterministic_total": str(planner_metrics.get("deterministic_total") or 0),
             "planner_deterministic_accepted": str(
                 planner_metrics.get("deterministic_accepted") or 0
             ),
@@ -5445,9 +5295,7 @@ class DigitalTwinService:
                 conversation_stats.get("service_type")
                 or self._conversation_store.__class__.__name__
             ),
-            "neuromem_collection_name": str(
-                conversation_stats.get("collection_name") or ""
-            ),
+            "neuromem_collection_name": str(conversation_stats.get("collection_name") or ""),
             "neuromem_total_entries": str(conversation_stats.get("total_entries") or 0),
             "neuromem_index_count": str(conversation_stats.get("index_count") or 0),
             "neuromem_event_count": str(telemetry.get("event_count") or 0),
@@ -5558,9 +5406,7 @@ class DigitalTwinService:
             status="accepted" if planner_decision.accepted else "fallback",
             fallback_template=planner_decision.plan.fallback_template,
             fallback_reason=(
-                planner_decision.fallback.reason
-                if planner_decision.fallback is not None
-                else None
+                planner_decision.fallback.reason if planner_decision.fallback is not None else None
             ),
             validation_errors=list(planner_decision.validation_errors),
             planned_steps=[step.step_id for step in planner_decision.plan.steps],
@@ -5653,6 +5499,71 @@ class DigitalTwinService:
 
         if not results:
             raise RuntimeError(empty_result_message)
+        return results[-1]
+
+    def _run_chat_dag_pipeline(
+        self,
+        request: ChatRequest,
+        support: FacultyTwinWorkflowSupport,
+    ) -> ChatResponse:
+        """Run the chat workflow as a SAGE DAG with parallel branches.
+
+        Topology::
+
+            bootstrap -> understand -> booking_prep -> booking_exec
+                |
+                +--> memory_retrieve  ----+
+                |                         +--> merge2 -> prompt_build -> llm_answer
+                +--> knowledge_retrieve --+                                    |
+                                                                               v
+                +-- memory_persist ----------+
+                +-- memory_profile ----------+
+                +-- follow_up_plan ----------+ -> merge4 -> response_render -> sink
+                +-- memory_usefulness -------+
+
+        Both fan-outs share a single mutable ``ChatWorkflowContext`` object;
+        SAGE's in-memory router delivers the same packet to each downstream
+        branch by reference. Each branch mutates disjoint fields, so the
+        merge operators only need to wait for all branches to arrive before
+        forwarding the (already-merged) context downstream.
+        """
+        env = FlowNetEnvironment("faculty-twin-chat")
+        results: list[ChatResponse] = []
+
+        head = (
+            env.from_batch([request])
+            .map(BootstrapChatContextStage, support)
+            .map(InteractionUnderstandingStage, support)
+            .map(BookingPreparationStage, support)
+            .map(BookingExecutionStage, support)
+        )
+
+        # Fan-out 1: memory + knowledge retrieval run in parallel.
+        after_retrieval = (
+            head.map(MemoryRetrievalStage, support)
+            .connect(head.map(KnowledgeRetrievalStage, support))
+            .comap(_ChatContextMerge2)
+        )
+
+        # Linear: prompt build then LLM answer.
+        after_llm = after_retrieval.map(PromptBuildStage, support).map(LlmAnswerStage, support)
+
+        # Fan-out 2: four post-answer side-effect stages run in parallel.
+        after_post = (
+            after_llm.map(MemoryPersistStage, support)
+            .connect(after_llm.map(MemoryProfileConsolidationStage, support))
+            .connect(after_llm.map(FollowUpPlanningStage, support))
+            .connect(after_llm.map(MemoryUsefulnessScoringStage, support))
+            .comap(_ChatContextMerge4)
+        )
+
+        # Linear tail: render and collect.
+        after_post.map(ChatResponseRenderStage, support).sink(ResultCollector, results)
+
+        env.submit(autostop=True)
+
+        if not results:
+            raise RuntimeError("SAGE runtime completed without producing a chat response.")
         return results[-1]
 
     def _run_stage_chain(
@@ -5762,8 +5673,7 @@ def _is_legacy_gap_document(source_name: str | None, tags: list[str]) -> bool:
         bool(
             source_name
             and (
-                source_name.startswith("analytics-gap:")
-                or source_name.startswith("knowledge-gap:")
+                source_name.startswith("analytics-gap:") or source_name.startswith("knowledge-gap:")
             )
         )
         or "faq-draft" in normalized_tags
@@ -5836,14 +5746,12 @@ def _build_published_gap_document_from_legacy(
 
 
 def _build_gap_document_source_name(*, title: str, interaction_domain: str) -> str:
-    normalized_title = re.sub(r"\s+", " ", str(title or "").strip().lower()).strip(
-        " ：:|｜"
-    )
+    normalized_title = re.sub(r"\s+", " ", str(title or "").strip().lower()).strip(" ：:|｜")
     if not normalized_title:
         normalized_title = _domain_label(interaction_domain).strip().lower()
-    digest = hashlib.sha1(
-        f"{interaction_domain}|{normalized_title}".encode("utf-8")
-    ).hexdigest()[:16]
+    digest = hashlib.sha1(f"{interaction_domain}|{normalized_title}".encode("utf-8")).hexdigest()[
+        :16
+    ]
     return f"knowledge-gap:{interaction_domain}:{digest}"
 
 
@@ -5881,9 +5789,7 @@ def _build_gap_document_content_from_parts(
     reason: str,
 ) -> str:
     question_lines = [
-        f"- {str(question).strip()}"
-        for question in sample_questions[:3]
-        if str(question).strip()
+        f"- {str(question).strip()}" for question in sample_questions[:3] if str(question).strip()
     ]
     if not question_lines:
         question_lines = ["- 暂无代表性问题样例"]
@@ -5908,11 +5814,7 @@ def _parse_legacy_gap_document(
         else document.document_id
     )
     interaction_domain = next(
-        (
-            tag
-            for tag in document.tags
-            if tag not in {"analytics-gap", "draft", "faq-draft"}
-        ),
+        (tag for tag in document.tags if tag not in {"analytics-gap", "draft", "faq-draft"}),
         "general",
     )
     sample_questions = re.findall(r"^-\s+(.+)$", document.content, re.MULTILINE)
@@ -5991,9 +5893,7 @@ def _extract_numbered_highlights(text: str) -> list[str]:
     return highlights
 
 
-def _allow_draft_write_for_request(
-    request: ChatRequest, is_admin_request: bool
-) -> bool:
+def _allow_draft_write_for_request(request: ChatRequest, is_admin_request: bool) -> bool:
     if not (is_admin_request or bool(request.student_email)):
         return False
     question = request.question.lower()
