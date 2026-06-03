@@ -3,6 +3,20 @@
 This document describes the generic deployment shape for `sage-faculty-twin` after moving the
 repository into the IntelliStream organization.
 
+For a fresh-machine bring-up, the fastest path is:
+
+```bash
+git clone https://github.com/intellistream/sage-faculty-twin.git
+cd sage-faculty-twin
+./quickstart.sh                  # env + deps + .env + systemd units
+./quickstart.sh --with-vllm      # also pull and editable-install vllm-hust
+./quickstart.sh --start          # install + start the three user services
+```
+
+`quickstart.sh` is idempotent and never overwrites an existing `.env` value—it only fills in
+missing keys. See §7 below for the chunked-transfer / streaming gotcha that the latency
+rollout uncovered.
+
 ## 1. Application Server
 
 Start the FastAPI app directly:
@@ -157,3 +171,49 @@ support long-running answers either:
    `/chat/workflow-events` SSE stream is already exempt from the 100s cap as
    long as bytes flow regularly), or
 3. Use a Cloudflare plan that supports custom timeouts.
+
+## 7. LLM Streaming and the chunked-transfer gotcha
+
+Faculty-twin can stream LLM tokens to the browser per-token via SSE
+(`answer_delta` / `answer_done` events) when
+`DIGITAL_TWIN_STREAM_CHAT_ANSWER=true`. For this to work end-to-end the
+upstream OpenAI-compatible endpoint MUST emit `Transfer-Encoding: chunked`.
+
+Reproduction recipe to verify any candidate `LLM_BASE_URL`:
+
+```bash
+curl -N -i -H "Authorization: Bearer $KEY" \
+     -H 'Content-Type: application/json' \
+     --data '{"model":"<model>","stream":true,"max_tokens":50,
+              "messages":[{"role":"user","content":"hi"}]}' \
+     "$LLM_BASE_URL/chat/completions" | head -c 400
+```
+
+Look for these headers:
+
+* `HTTP/1.1 200 OK`  — NOT `HTTP/1.0`
+* `Content-Type: text/event-stream; charset=utf-8`
+* `Transfer-Encoding: chunked`
+
+**Common foot-gun.** A custom OpenAI router built on Python's stdlib
+`http.server.BaseHTTPRequestHandler` defaults to `HTTP/1.0`, which has no
+chunked transfer encoding. Such routers buffer the entire response and
+flush at the end of generation, defeating per-token streaming even though
+vllm itself behaves correctly. Either:
+
+* **point `DIGITAL_TWIN_LLM_BASE_URL` directly at vllm-hust** (recommended),
+  or
+* fix the proxy to set `protocol_version = "HTTP/1.1"` and forward the
+  upstream response with explicit `Transfer-Encoding: chunked` framing.
+
+### .env must be in the process environment, not just the file
+
+The streaming flag and the latency knobs (`DIGITAL_TWIN_STREAM_CHAT_ANSWER`,
+`DIGITAL_TWIN_CHAT_REQUEST_TIMEOUT_SECONDS`,
+`DIGITAL_TWIN_CHAT_SSE_KEEPALIVE_SECONDS`,
+`DIGITAL_TWIN_CHAT_PROMPT_SOFT_CAP_CHARS`) are read at module import time
+via `os.environ.get(...)`. They are *not* loaded by pydantic-settings.
+`tools/run_app_server.sh` therefore exports `.env` into the process
+environment immediately before launching uvicorn so these values reach the
+app. If you write your own launcher, do the same — a value that lives only
+inside `.env` will be invisible to those code paths.
