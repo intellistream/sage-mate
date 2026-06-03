@@ -28,6 +28,19 @@ export PYTHONPATH="${PYTHONPATH:-$pythonpath_default}"
 mkdir -p "$runtime_dir"
 cd "$repo_root"
 
+# Load .env so module-level os.environ.get(...) calls (e.g. DIGITAL_TWIN_STREAM_CHAT_ANSWER)
+# see the same values pydantic-settings reads via env_file=".env". Existing process-env
+# entries take precedence over .env file lines.
+if [[ -f "$repo_root/.env" ]]; then
+	while IFS= read -r line || [[ -n "$line" ]]; do
+		[[ -z "$line" || "$line" =~ ^[[:space:]]*# ]] && continue
+		key="${line%%=*}"
+		key="${key// /}"
+		[[ -z "$key" || -n "${!key:-}" ]] && continue
+		export "$line"
+	done < "$repo_root/.env"
+fi
+
 if [[ ! -x "$python_bin" ]]; then
 	echo "Python interpreter not found or not executable: $python_bin" >&2
 	exit 1
