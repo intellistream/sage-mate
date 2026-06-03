@@ -1,31 +1,28 @@
 import asyncio
 import json
+import os
 import threading
 from collections.abc import AsyncIterator
 from datetime import date
 from io import BytesIO
 from pathlib import Path
 
-from fastapi import Depends
-from fastapi import FastAPI
-from fastapi import HTTPException
-from fastapi import Request
-from fastapi import Query
-from fastapi import Response
+from fastapi import Depends, FastAPI, HTTPException, Query, Request, Response
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
-from fastapi.responses import StreamingResponse
+from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import ValidationError
 from sage.edge.app import create_app as create_edge_app
 
-from .auth import ADMIN_COOKIE_NAME
-from .auth import clear_admin_session_cookie
-from .auth import clear_user_session_cookie
-from .auth import set_admin_session_cookie
-from .auth import set_user_session_cookie
-from .auth import USER_COOKIE_NAME
+from .auth import (
+    ADMIN_COOKIE_NAME,
+    USER_COOKIE_NAME,
+    clear_admin_session_cookie,
+    clear_user_session_cookie,
+    set_admin_session_cookie,
+    set_user_session_cookie,
+)
 from .config import settings
 from .models import (
     AdminLoginRequest,
@@ -38,21 +35,21 @@ from .models import (
     BookingRecord,
     BookingRequest,
     BookingResponse,
+    ChatAttachment,
     ChatFeedbackRequest,
     ChatFeedbackResponse,
-    ChatAttachment,
-    ConversationHistoryListResponse,
-    ConversationTranscriptResponse,
     ChatRequest,
     ChatResponse,
+    ConversationHistoryListResponse,
+    ConversationTranscriptResponse,
     EscalationDecisionRequest,
     EscalationRecord,
     FollowUpDispatchResponse,
     FollowUpQueueRecord,
-    KnowledgeGapDraftCreateRequest,
-    KnowledgeGapDraftRecordResponse,
     KnowledgeDocumentCreate,
     KnowledgeDocumentRecord,
+    KnowledgeGapDraftCreateRequest,
+    KnowledgeGapDraftRecordResponse,
     KnowledgeSearchResponse,
     MemoryProfileListResponse,
     OperationsOverviewResponse,
@@ -88,6 +85,14 @@ NO_STORE_HEADERS = {"Cache-Control": "no-store, no-cache, must-revalidate"}
 MAX_CHAT_ATTACHMENTS = 4
 MAX_CHAT_ATTACHMENT_BYTES = 5 * 1024 * 1024
 MAX_CHAT_ATTACHMENT_TEXT_CHARS = 12000
+# Hard upper bound for one /chat round-trip. Slightly under Cloudflare's free
+# tier 100s edge-timeout so we can return a structured 504 with workflow
+# trace progress before the proxy gives up. Tune via
+# ``DIGITAL_TWIN_CHAT_REQUEST_TIMEOUT_SECONDS`` if the upstream LLM is
+# consistently slower than this budget.
+CHAT_REQUEST_TIMEOUT_SECONDS = float(
+    os.environ.get("DIGITAL_TWIN_CHAT_REQUEST_TIMEOUT_SECONDS", "95")
+)
 SUPPORTED_CHAT_ATTACHMENT_SUFFIXES = {
     ".pdf",
     ".txt",
@@ -189,22 +194,16 @@ def _extract_pdf_text(content: bytes, file_name: str) -> str:
     try:
         from pypdf import PdfReader
     except ImportError as exc:
-        raise HTTPException(
-            status_code=500, detail="当前环境缺少 PDF 解析依赖 pypdf。"
-        ) from exc
+        raise HTTPException(status_code=500, detail="当前环境缺少 PDF 解析依赖 pypdf。") from exc
 
     try:
         reader = PdfReader(BytesIO(content))
     except Exception as exc:
-        raise HTTPException(
-            status_code=400, detail=f"无法读取 PDF 文件：{file_name}"
-        ) from exc
+        raise HTTPException(status_code=400, detail=f"无法读取 PDF 文件：{file_name}") from exc
 
     text = "\n".join((page.extract_text() or "") for page in reader.pages).strip()
     if not text:
-        raise HTTPException(
-            status_code=400, detail=f"PDF 文件没有可提取的文本内容：{file_name}"
-        )
+        raise HTTPException(status_code=400, detail=f"PDF 文件没有可提取的文本内容：{file_name}")
     return _truncate_attachment_text(text)
 
 
@@ -218,15 +217,11 @@ def _extract_text_attachment(content: bytes, file_name: str) -> str:
 
     text = text.strip()
     if not text:
-        raise HTTPException(
-            status_code=400, detail=f"附件没有可用文本内容：{file_name}"
-        )
+        raise HTTPException(status_code=400, detail=f"附件没有可用文本内容：{file_name}")
     return _truncate_attachment_text(text)
 
 
-def _extract_chat_attachment_text(
-    file_name: str, media_type: str, content: bytes
-) -> str:
+def _extract_chat_attachment_text(file_name: str, media_type: str, content: bytes) -> str:
     suffix = Path(file_name).suffix.lower()
     normalized_media_type = (media_type or "application/octet-stream").lower()
 
@@ -248,9 +243,7 @@ def _extract_chat_attachment_text(
 
 async def _parse_chat_attachments(files: list[object]) -> list[ChatAttachment]:
     if len(files) > MAX_CHAT_ATTACHMENTS:
-        raise HTTPException(
-            status_code=400, detail=f"一次最多上传 {MAX_CHAT_ATTACHMENTS} 个附件。"
-        )
+        raise HTTPException(status_code=400, detail=f"一次最多上传 {MAX_CHAT_ATTACHMENTS} 个附件。")
 
     attachments: list[ChatAttachment] = []
     for upload in files:
@@ -269,9 +262,7 @@ async def _parse_chat_attachments(files: list[object]) -> list[ChatAttachment]:
         if not content:
             raise HTTPException(status_code=400, detail=f"附件为空：{file_name}")
         if len(content) > MAX_CHAT_ATTACHMENT_BYTES:
-            raise HTTPException(
-                status_code=400, detail=f"附件超过 5MB 限制：{file_name}"
-            )
+            raise HTTPException(status_code=400, detail=f"附件超过 5MB 限制：{file_name}")
 
         media_type = (
             upload.content_type or "application/octet-stream"
@@ -315,9 +306,7 @@ async def _parse_chat_request(raw_request: Request) -> ChatRequest:
     try:
         payload = await raw_request.json()
     except json.JSONDecodeError as exc:
-        raise HTTPException(
-            status_code=400, detail="聊天请求体不是合法 JSON。"
-        ) from exc
+        raise HTTPException(status_code=400, detail="聊天请求体不是合法 JSON。") from exc
 
     try:
         return ChatRequest.model_validate(payload)
@@ -407,9 +396,7 @@ async def control_managed_services(
 
 
 @llm_app.post("/auth/admin/login", response_model=AdminSessionResponse)
-async def admin_login(
-    payload: AdminLoginRequest, response: Response
-) -> AdminSessionResponse:
+async def admin_login(payload: AdminLoginRequest, response: Response) -> AdminSessionResponse:
     result = service.login_admin(payload)
     set_admin_session_cookie(response, result.session_token, settings)
     return result.session
@@ -422,18 +409,14 @@ async def admin_logout(response: Response) -> AdminSessionResponse:
 
 
 @llm_app.post("/auth/user/register", response_model=UserSessionResponse)
-async def user_register(
-    payload: UserRegisterRequest, response: Response
-) -> UserSessionResponse:
+async def user_register(payload: UserRegisterRequest, response: Response) -> UserSessionResponse:
     result = service.register_user(payload)
     set_user_session_cookie(response, result.session_token, settings)
     return result.session
 
 
 @llm_app.post("/auth/user/login", response_model=UserSessionResponse)
-async def user_login(
-    payload: UserLoginRequest, response: Response
-) -> UserSessionResponse:
+async def user_login(payload: UserLoginRequest, response: Response) -> UserSessionResponse:
     result = service.login_user(payload)
     set_user_session_cookie(response, result.session_token, settings)
     return result.session
@@ -499,20 +482,34 @@ async def chat(
     request_id: str | None = Query(default=None, min_length=1, max_length=128),
 ) -> ChatResponse:
     payload = await _parse_chat_request(raw_request)
+    admin_session_token = raw_request.cookies.get(ADMIN_COOKIE_NAME)
+    timeout_seconds = CHAT_REQUEST_TIMEOUT_SECONDS
+
     if request_id is None:
-        return await service.answer(
-            payload,
-            admin_session_token=raw_request.cookies.get(ADMIN_COOKIE_NAME),
-        )
+        try:
+            return await asyncio.wait_for(
+                service.answer(payload, admin_session_token=admin_session_token),
+                timeout=timeout_seconds,
+            )
+        except asyncio.TimeoutError as exc:
+            raise HTTPException(
+                status_code=504,
+                detail=(f"后端在 {int(timeout_seconds)} 秒内未完成响应，请稍后重试。"),
+            ) from exc
 
     try:
-        response = await service.answer(
-            payload,
-            admin_session_token=raw_request.cookies.get(ADMIN_COOKIE_NAME),
-            trace_callback=lambda step: workflow_event_broker.publish_step(
-                request_id, step
+        response = await asyncio.wait_for(
+            service.answer(
+                payload,
+                admin_session_token=admin_session_token,
+                trace_callback=lambda step: workflow_event_broker.publish_step(request_id, step),
             ),
+            timeout=timeout_seconds,
         )
+    except asyncio.TimeoutError as exc:
+        message = f"后端在 {int(timeout_seconds)} 秒内未完成响应，请稍后重试。"
+        workflow_event_broker.publish_error(request_id, message)
+        raise HTTPException(status_code=504, detail=message) from exc
     except Exception as exc:
         workflow_event_broker.publish_error(request_id, str(exc))
         raise
@@ -616,9 +613,7 @@ async def list_memory_profiles(
     limit: int = Query(default=50, ge=1, le=200),
     _: dict = Depends(require_admin_session),
 ) -> MemoryProfileListResponse:
-    return service.list_memory_profiles(
-        category=category, student_query=student_query, limit=limit
-    )
+    return service.list_memory_profiles(category=category, student_query=student_query, limit=limit)
 
 
 @llm_app.get("/analytics/questions", response_model=QuestionAnalyticsReportResponse)
@@ -665,9 +660,7 @@ async def list_knowledge_gap_drafts(
     return service.list_knowledge_gap_drafts()
 
 
-@llm_app.get(
-    "/memory/artifact-drafts", response_model=list[ArtifactMemoryDraftRecordResponse]
-)
+@llm_app.get("/memory/artifact-drafts", response_model=list[ArtifactMemoryDraftRecordResponse])
 async def list_artifact_memory_drafts(
     _: dict = Depends(require_admin_session),
 ) -> list[ArtifactMemoryDraftRecordResponse]:
@@ -696,9 +689,7 @@ async def reject_artifact_memory_draft(
     return service.reject_artifact_memory_draft(draft_id)
 
 
-@llm_app.post(
-    "/analytics/questions/gap-drafts", response_model=KnowledgeGapDraftRecordResponse
-)
+@llm_app.post("/analytics/questions/gap-drafts", response_model=KnowledgeGapDraftRecordResponse)
 async def create_knowledge_gap_draft(
     request: KnowledgeGapDraftCreateRequest,
     _: dict = Depends(require_admin_session),

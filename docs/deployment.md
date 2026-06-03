@@ -89,3 +89,71 @@ For this deployment, the canonical public homepage is `https://home.shuhao.sage.
 If the variable is empty, the top-bar homepage link falls back to the app-local `/home/` route.
 That fallback is useful for local development, but it should not be treated as the public-facing
 homepage URL.
+
+## 6. Upstream Proxy: Body Size and Timeouts
+
+When the deployment chain is `Cloudflare → host nginx → uvicorn`, two
+proxy-side knobs commonly cause student-visible failures:
+
+- **HTTP 413 “Request Entity Too Large”** when uploading multi-page PDFs to
+  `/chat`. The application accepts up to `MAX_CHAT_ATTACHMENT_BYTES = 5 MB`,
+  but stock nginx defaults to `client_max_body_size 1m`, so larger uploads
+  are rejected at the proxy before reaching FastAPI.
+- **HTTP 504 “Gateway time-out”** when the LLM takes longer than the proxy's
+  read timeout. Cloudflare's free tier caps end-to-end requests at
+  approximately **100 seconds**; uvicorn typically completes within ~60s but
+  occasionally exceeds 90s under load.
+
+### nginx (host) settings
+
+Match or exceed the application limits in the production nginx server block,
+for example in `/etc/nginx/sites-available/sage-faculty-twin`:
+
+```nginx
+http {
+    # Allow chat attachments up to slightly above the 5MB application limit.
+    client_max_body_size 8m;
+    client_body_timeout 120s;
+
+    # Long LLM responses can take 30-60 seconds; do not truncate them.
+    proxy_read_timeout 180s;
+    proxy_send_timeout 180s;
+    proxy_connect_timeout 30s;
+    proxy_buffering off;
+}
+```
+
+The repo-local template at `tools/nginx-local.conf` already ships with these
+values. After editing the production config:
+
+```bash
+sudo nginx -t
+sudo systemctl reload nginx
+```
+
+### Application-side timeout guard
+
+The FastAPI `/chat` route wraps `service.answer(...)` in
+`asyncio.wait_for(...)` with a default budget of **95 seconds** so that the
+app returns a structured `504` with a Chinese message before Cloudflare's
+edge times out. Override the budget by exporting:
+
+```bash
+export DIGITAL_TWIN_CHAT_REQUEST_TIMEOUT_SECONDS=95
+```
+
+Keep this value comfortably below Cloudflare's 100s cap. If the upstream LLM
+is consistently slower than this budget, lower
+`DIGITAL_TWIN_LLM_TIMEOUT_SECONDS` (default 90s) first so the model abandons
+before the request budget fires.
+
+### Cloudflare
+
+Cloudflare's edge timeout cannot be increased on free / Pro plans. To
+support long-running answers either:
+
+1. Reduce the answer budget (smaller LLM, shorter prompts), or
+2. Move long-running endpoints behind WebSocket / Server-Sent Events (the
+   `/chat/workflow-events` SSE stream is already exempt from the 100s cap as
+   long as bytes flow regularly), or
+3. Use a Cloudflare plan that supports custom timeouts.

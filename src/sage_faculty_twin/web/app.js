@@ -43,6 +43,8 @@ const drawerModeTitle = document.getElementById("drawer-mode-title");
 const userAuthPanel = document.getElementById("user-auth-panel");
 const userSessionPanel = document.getElementById("user-session-panel");
 const userSessionCopy = document.getElementById("user-session-copy");
+const topbarUserBadge = document.getElementById("topbar-user-badge");
+const topbarUserBadgeName = document.getElementById("topbar-user-badge-name");
 const adminAuthPanel = document.getElementById("admin-auth-panel");
 const adminSessionPanel = document.getElementById("admin-session-panel");
 const adminSessionCopy = document.getElementById("admin-session-copy");
@@ -410,6 +412,7 @@ document.getElementById("identity-admin-login")?.addEventListener("click", () =>
 });
 
 document.getElementById("open-drawer").addEventListener("click", openDrawer);
+topbarUserBadge?.addEventListener("click", openDrawer);
 document.querySelectorAll("[data-close-drawer]").forEach((button) => {
     button.addEventListener("click", closeDrawer);
 });
@@ -1408,6 +1411,24 @@ function applyUserSession(session) {
     if (authenticated) {
         const account = session.account;
         userSessionCopy.textContent = `当前账号：${account.name} · ${account.email}`;
+        if (topbarUserBadge) {
+            topbarUserBadge.classList.remove("hidden");
+            const profileLabel = VISITOR_PROFILE_CONFIGS[account.visitor_profile]?.label || "已登录";
+            topbarUserBadge.title = `${account.name} · ${account.email}`;
+            topbarUserBadge.setAttribute("aria-label", `当前账号：${account.name}，${profileLabel}`);
+            const labelEl = topbarUserBadge.querySelector(".topbar-user-badge-label");
+            if (labelEl) {
+                labelEl.textContent = profileLabel;
+            }
+            const avatarEl = topbarUserBadge.querySelector(".topbar-user-badge-avatar");
+            if (avatarEl) {
+                const initial = (account.name || "?").trim().charAt(0).toUpperCase() || "U";
+                avatarEl.textContent = initial;
+            }
+        }
+        if (topbarUserBadgeName) {
+            topbarUserBadgeName.textContent = account.name;
+        }
         studentNameInput.value = account.name;
         studentEmailInput.value = account.email;
         bookingStudentNameInput.value = account.name;
@@ -1424,6 +1445,14 @@ function applyUserSession(session) {
     }
 
     userSessionCopy.textContent = "当前未登录用户账号。";
+    if (topbarUserBadge) {
+        topbarUserBadge.classList.add("hidden");
+        topbarUserBadge.title = "当前账号";
+        topbarUserBadge.setAttribute("aria-label", "当前账号");
+    }
+    if (topbarUserBadgeName) {
+        topbarUserBadgeName.textContent = "--";
+    }
     studentNameInput.readOnly = false;
     studentEmailInput.readOnly = false;
 
@@ -3242,10 +3271,41 @@ async function apiRequest(path, options = {}) {
 
     if (!response.ok) {
         const text = await response.text();
-        throw new Error(`请求失败（${response.status}）：${text}`);
+        const friendly = friendlyHttpErrorMessage(response.status, text);
+        const error = new Error(friendly);
+        error.status = response.status;
+        error.responseBody = text;
+        throw error;
     }
 
     return response.json();
+}
+
+function friendlyHttpErrorMessage(status, body) {
+    const trimmed = typeof body === "string" ? body.trim() : "";
+    const looksLikeHtml = trimmed.startsWith("<");
+    const detail = looksLikeHtml || trimmed.length > 240 ? "" : trimmed;
+    if (status === 413) {
+        return "附件超过服务允许的大小。单份附件请控制在 5MB 以内；如果是长 PDF，可以先发主要章节或转成文本后再上传。";
+    }
+    if (status === 504 || status === 502) {
+        return "服务在 LLM 响应期间超时（错误码 " + status + "）。请稍后重试；如果问题较复杂，可以拆成更小的问题再问。";
+    }
+    if (status === 503) {
+        return "后端临时不可用（503），请稍后重试。";
+    }
+    if (status === 401 || status === 403) {
+        return detail || `请求被拒绝（${status}），请重新登录后重试。`;
+    }
+    if (status >= 500) {
+        return detail
+            ? `服务内部错误（${status}）：${detail}`
+            : `服务内部错误（${status}），请稍后重试。`;
+    }
+    if (detail) {
+        return `请求失败（${status}）：${detail}`;
+    }
+    return `请求失败（${status}）。`;
 }
 
 function setResponse(element, text, state) {

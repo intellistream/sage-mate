@@ -10,7 +10,7 @@
     <link
         href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@500;700&display=swap"
         rel="stylesheet" />
-    <link rel="stylesheet" href="./styles.css?v=20260602-dag-fanout" />
+    <link rel="stylesheet" href="./styles.css?v=20260603-login-badge" />
 </head>
 
 <body>
@@ -31,6 +31,14 @@
                 <span id="topbar-model-status" class="topbar-live-item"><small>模型请求</small><strong>检查中</strong></span>
             </div>
             <div class="topbar-actions">
+                <button type="button" id="topbar-user-badge" class="topbar-user-badge hidden" aria-label="当前账号"
+                    title="当前账号">
+                    <span class="topbar-user-badge-avatar" aria-hidden="true"></span>
+                    <span class="topbar-user-badge-copy">
+                        <small class="topbar-user-badge-label">已登录</small>
+                        <strong id="topbar-user-badge-name" class="topbar-user-badge-name">--</strong>
+                    </span>
+                </button>
                 <button type="button" id="open-suggestions" class="icon-button">匿名留言</button>
                 <button type="button" id="open-drawer" class="icon-button">状态与设置</button>
                 <a id="homepage-link" href="/home/" target="_blank" rel="noreferrer"
@@ -653,7 +661,7 @@
         </div>
     </section>
 
-    <script src="./app.js?v=20260602-dag-fanout"></script>
+    <script src="./app.js?v=20260603-login-badge"></script>
 </body>
 
 </html>

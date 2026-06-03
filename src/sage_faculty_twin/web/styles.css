@@ -109,6 +109,98 @@ body.drawer-pinned .app-shell {
     text-decoration: none;
 }
 
+.topbar-user-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 12px 6px 6px;
+    border: 1px solid rgba(48, 110, 214, 0.28);
+    border-radius: 999px;
+    background: linear-gradient(135deg, rgba(48, 110, 214, 0.12), rgba(255, 255, 255, 0.92));
+    color: var(--accent-deep);
+    font-family: inherit;
+    font-size: 0.78rem;
+    line-height: 1.2;
+    cursor: pointer;
+    transition: background 120ms ease, border-color 120ms ease, transform 120ms ease;
+    max-width: 220px;
+}
+
+.topbar-user-badge:hover {
+    background: linear-gradient(135deg, rgba(48, 110, 214, 0.18), rgba(255, 255, 255, 0.98));
+    border-color: rgba(48, 110, 214, 0.45);
+    transform: translateY(-1px);
+}
+
+.topbar-user-badge.hidden {
+    display: none;
+}
+
+.topbar-user-badge-avatar {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #4072d6, #6a92e8);
+    color: #fff;
+    font-family: "Space Grotesk", "IBM Plex Sans", sans-serif;
+    font-weight: 700;
+    font-size: 0.85rem;
+    flex-shrink: 0;
+}
+
+.topbar-user-badge-copy {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: flex-start;
+    min-width: 0;
+    line-height: 1.15;
+}
+
+.topbar-user-badge-label {
+    color: var(--muted);
+    font-size: 0.66rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    text-transform: none;
+    white-space: nowrap;
+}
+
+.topbar-user-badge-name {
+    color: var(--accent-deep);
+    font-family: "Space Grotesk", "IBM Plex Sans", sans-serif;
+    font-weight: 700;
+    font-size: 0.92rem;
+    max-width: 140px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+@media (max-width: 720px) {
+    .topbar-user-badge {
+        padding: 5px 10px 5px 5px;
+        max-width: 168px;
+    }
+
+    .topbar-user-badge-avatar {
+        width: 24px;
+        height: 24px;
+        font-size: 0.78rem;
+    }
+
+    .topbar-user-badge-label {
+        display: none;
+    }
+
+    .topbar-user-badge-name {
+        font-size: 0.84rem;
+        max-width: 110px;
+    }
+}
+
 .topbar-brand {
     min-width: 0;
     display: flex;
