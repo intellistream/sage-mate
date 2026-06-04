@@ -1,0 +1,25 @@
+{
+  "record_id": "78ea32ef-d764-4800-bb95-42a109102e51",
+  "conversation_id": "6dc26525-ff35-431e-8d43-e1b60ba5f086",
+  "planner_stage": "deterministic",
+  "planner_mode": "deterministic",
+  "question": "张老师主要研究什么方向？",
+  "goal": "answer_research_question",
+  "accepted": true,
+  "status": "accepted",
+  "fallback_template": "answer_question",
+  "fallback_reason": null,
+  "validation_errors": [],
+  "planned_steps": [
+    "detect_profile_context",
+    "classify_intent",
+    "retrieve_hybrid_knowledge",
+    "retrieve_recent_memory",
+    "assemble_prompt_context",
+    "answer_with_citations",
+    "score_memory_usefulness",
+    "render_user_response"
+  ],
+  "latency_ms": 1.2627211399376392,
+  "created_at": "2026-06-03T15:47:01.375714+00:00"
+}

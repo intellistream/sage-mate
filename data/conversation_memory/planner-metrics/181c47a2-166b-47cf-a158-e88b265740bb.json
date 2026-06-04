@@ -1,0 +1,24 @@
+{
+  "record_id": "181c47a2-166b-47cf-a158-e88b265740bb",
+  "conversation_id": "",
+  "planner_stage": "deterministic",
+  "planner_mode": "deterministic",
+  "question": "请回复一个简短的健康检查结果，只输出一句话。",
+  "goal": "answer_grounded_question",
+  "accepted": true,
+  "status": "accepted",
+  "fallback_template": "answer_question",
+  "fallback_reason": null,
+  "validation_errors": [],
+  "planned_steps": [
+    "detect_profile_context",
+    "classify_intent",
+    "retrieve_hybrid_knowledge",
+    "assemble_prompt_context",
+    "answer_with_citations",
+    "score_memory_usefulness",
+    "render_user_response"
+  ],
+  "latency_ms": 0.38769422098994255,
+  "created_at": "2026-06-04T03:01:40.623003+00:00"
+}

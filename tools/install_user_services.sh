@@ -29,11 +29,12 @@ for unit in "$source_dir"/*.service; do
 done
 
 systemctl --user daemon-reload
-systemctl --user enable sage-faculty-twin-app.service sage-faculty-twin-site.service sage-faculty-twin-tunnel.service
+systemctl --user enable sage-faculty-twin-app.service sage-faculty-twin-site.service sage-faculty-twin-vllm-openai-proxy.service sage-faculty-twin-tunnel.service
 
 if [[ "${1:-}" == "--start" ]]; then
-    systemctl --user restart sage-faculty-twin-app.service sage-faculty-twin-site.service sage-faculty-twin-tunnel.service
+    systemctl --user restart sage-faculty-twin-vllm-openai-proxy.service sage-faculty-twin-app.service sage-faculty-twin-site.service sage-faculty-twin-tunnel.service
     systemctl --user --no-pager --full status \
+        sage-faculty-twin-vllm-openai-proxy.service \
         sage-faculty-twin-app.service \
         sage-faculty-twin-site.service \
         sage-faculty-twin-tunnel.service

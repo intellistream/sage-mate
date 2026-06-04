@@ -1,0 +1,16 @@
+{
+  "record_id": "37ab0055-d74e-4224-9aef-407625070602",
+  "conversation_id": "7fe77f96-eb4f-4a07-bdaf-d8be0b084416",
+  "exchange_id": null,
+  "workflow_action": "answer",
+  "question": "芯片有效算力如何计算？华为昇腾910B的有效算力理论峰值是多少的？",
+  "comparison_status": "equivalent",
+  "deterministic_goal": "answer_course_question",
+  "shadow_goal": "answer_course_question",
+  "same_goal": true,
+  "same_fallback_template": true,
+  "deterministic_only_steps": [],
+  "shadow_only_steps": [],
+  "summary": "Shadow planner matched the deterministic plan on goal, fallback, and ordered steps. Execution still follows the deterministic lane.",
+  "created_at": "2026-06-04T01:46:08.437860+00:00"
+}

@@ -31,6 +31,7 @@ if [[ "${2:-}" == "--json" ]]; then
 fi
 
 readonly services=(
+    "模型代理:sage-faculty-twin-vllm-openai-proxy.service"
     "应用服务:sage-faculty-twin-app.service"
     "本地代理:sage-faculty-twin-site.service"
     "公网隧道:sage-faculty-twin-tunnel.service"

@@ -1,0 +1,58 @@
+{
+  "77f59f428a5989f7b2be06d8a987f9ff04b8e9822480663ac83346f2dc8fa22f": {
+    "text": "student 测试同学 category identity 用户身份 姓名 邮箱 联系方式 该用户名称为：测试同学 Latest conversation id: 0020a86e-e774-49cc-8951-7fec6cb9eab3",
+    "metadata": {
+      "entry_kind": "profile_record",
+      "profile_id": "profile-identity",
+      "student_key": "测试同学",
+      "student_name": "测试同学",
+      "student_email": "",
+      "category": "identity",
+      "source": "system_event",
+      "topic": "identity",
+      "session_id": "测试同学",
+      "importance": "high",
+      "timestamp": "2026-06-03T17:14:27.409399+00:00",
+      "memory_scope": "long_term",
+      "profile_payload": {
+        "profile_id": "profile-identity",
+        "student_key": "测试同学",
+        "student_name": "测试同学",
+        "student_email": null,
+        "category": "identity",
+        "summary": "该用户名称为：测试同学",
+        "evidence": "Latest conversation id: 0020a86e-e774-49cc-8951-7fec6cb9eab3",
+        "updated_at": "2026-06-03T17:14:27.409399+00:00"
+      }
+    },
+    "created_at": 1780506867.4144535
+  },
+  "806dd24671af8cdc9a4894b8db469b531b7896419943085c529cf83de841750c": {
+    "text": "student 测试同学 category recent_topic 近期话题 关注主题 讨论重点 该用户近期反复关注的话题：用一句话介绍你自己 Question: 请用一句话介绍你自己",
+    "metadata": {
+      "entry_kind": "profile_record",
+      "profile_id": "profile-recent_topic",
+      "student_key": "测试同学",
+      "student_name": "测试同学",
+      "student_email": "",
+      "category": "recent_topic",
+      "source": "system_event",
+      "topic": "recent_topic",
+      "session_id": "测试同学",
+      "importance": "medium",
+      "timestamp": "2026-06-03T17:14:27.409399+00:00",
+      "memory_scope": "long_term",
+      "profile_payload": {
+        "profile_id": "profile-recent_topic",
+        "student_key": "测试同学",
+        "student_name": "测试同学",
+        "student_email": null,
+        "category": "recent_topic",
+        "summary": "该用户近期反复关注的话题：用一句话介绍你自己",
+        "evidence": "Question: 请用一句话介绍你自己",
+        "updated_at": "2026-06-03T17:14:27.409399+00:00"
+      }
+    },
+    "created_at": 1780506867.4156098
+  }
+}
