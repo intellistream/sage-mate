@@ -10,7 +10,7 @@
     <link
         href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@500;700&display=swap"
         rel="stylesheet" />
-    <link rel="stylesheet" href="./styles.css?v=20260603-chat-latency-opts" />
+    <link rel="stylesheet" href="./styles.css?v=20260604-deep-thinking-toggle" />
 </head>
 
 <body>
@@ -99,6 +99,10 @@
                             </svg>
                             <span class="sr-only">上传材料</span>
                         </button>
+                        <label class="deep-thinking-toggle" title="开启后模型会先推理再回答，质量更高但更慢">
+                            <input type="checkbox" id="deep-thinking-checkbox" checked />
+                            <span class="toggle-label">深度思考</span>
+                        </label>
                         <button type="submit" class="send-button">发送</button>
                     </div>
                     <p id="composer-upload-hint" class="composer-upload-hint">支持 PDF、TXT、MD、CSV、JSON、PY、YAML、LOG，最多 4
@@ -302,6 +306,7 @@
             <button type="button" data-close-modal class="icon-button">关闭</button>
         </div>
         <form id="user-register-form" class="stack-form">
+            <input type="hidden" id="user-register-profile" name="visitor_profile" value="general_visitor" />
             <label>
                 <span>姓名</span>
                 <input id="user-register-name" name="name" autocomplete="name" required />
@@ -661,7 +666,7 @@
         </div>
     </section>
 
-    <script src="./app.js?v=20260603-chat-latency-opts"></script>
+    <script src="./app.js?v=20260604-deep-thinking-toggle"></script>
 </body>
 
 </html>

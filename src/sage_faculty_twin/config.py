@@ -19,6 +19,8 @@ class AppSettings(BaseSettings):
     model_name: str = Field(default="meta-llama/Llama-3.1-8B-Instruct")
     llm_base_url: str = Field(default="http://127.0.0.1:8000/v1")
     api_key: str = Field(default="EMPTY")
+    intent_model_name: str = Field(default="")
+    intent_llm_base_url: str = Field(default="")
     llm_timeout_seconds: int = Field(default=60, ge=1, le=300)
     llm_retry_attempts: int = Field(default=2, ge=0, le=5)
     llm_retry_backoff_seconds: float = Field(default=1.0, ge=0.0, le=30.0)
@@ -49,6 +51,11 @@ class AppSettings(BaseSettings):
     smtp_timeout_seconds: int = Field(default=15, ge=1, le=120)
     knowledge_base_dir: Path = Field(default=Path("data/knowledge_base"))
     knowledge_backend: str = Field(default="neuromem")
+    # Neuromem search index choice. "bm25" keeps the lexical baseline; "faiss"
+    # switches to dense retrieval using the embedding model below (faiss-cpu).
+    neuromem_index_type: str = Field(default="bm25")
+    neuromem_embedding_model: str = Field(default="BAAI/bge-small-zh-v1.5")
+    neuromem_embedding_dim: int = Field(default=512, ge=32, le=4096)
     retrieval_top_k: int = Field(default=3, ge=1, le=10)
     conversation_memory_dir: Path = Field(default=Path("data/conversation_memory"))
     artifact_memory_draft_dir: Path = Field(default=Path("data/artifact_memory_drafts"))

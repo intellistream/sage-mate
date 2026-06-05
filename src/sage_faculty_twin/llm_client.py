@@ -61,6 +61,18 @@ class VllmChatClient:
             timeout=float(self._settings.llm_timeout_seconds),
             limits=httpx.Limits(max_connections=20, max_keepalive_connections=10),
         )
+        # Intent classification client: use a smaller/faster model when configured.
+        intent_base_url = self._settings.intent_llm_base_url or self._settings.llm_base_url
+        self._intent_client = httpx.Client(
+            base_url=intent_base_url,
+            headers={
+                "Authorization": f"Bearer {self._settings.api_key}",
+                "Content-Type": "application/json",
+            },
+            timeout=30.0,
+            limits=httpx.Limits(max_connections=10, max_keepalive_connections=5),
+        )
+        self._intent_model_name = self._settings.intent_model_name or self._settings.model_name
         self._cache_lock = threading.Lock()
         self._response_cache: OrderedDict[str, tuple[float, str]] = OrderedDict()
         self._metrics_lock = threading.Lock()
@@ -75,6 +87,7 @@ class VllmChatClient:
 
     def close(self) -> None:
         self._client.close()
+        self._intent_client.close()
 
     async def aclose(self) -> None:
         await asyncio.to_thread(self.close)
@@ -106,7 +119,11 @@ class VllmChatClient:
         self,
         question: str,
         course_context: str | None = None,
+        recent_session_context: str | None = None,
     ) -> InteractionIntent:
+        # Goal: stop the model from reflexively choosing ask_followup. Default
+        # to ``answer`` for any question that has even a thin academic anchor.
+        # ask_followup is reserved for genuinely unintelligible inputs.
         system_prompt = (
             "Classify the student's request for a faculty digital twin. "
             "Return JSON only with keys: action, domain, retrieval_scopes, exclude_scopes, decision_mode, needs_clarification, clarification_message, escalation_reason. "
@@ -115,37 +132,58 @@ class VllmChatClient:
             'Allowed decision_mode values: "direct_answer", "advise_only", "review_queue", "human_handoff". '
             'Allowed retrieval scopes: "publications", "profile", "courseware", "preparation", "meeting_policy". '
             'Allowed exclude scopes: "publications", "profile", "courseware", "preparation", "meeting_policy". '
-            "Use book_meeting only when the student is actually asking to schedule or submit a meeting request now. "
-            "Questions about what to prepare before booking are advising, not booking. "
-            "Use advise_only when the assistant may give suggestions, checklists, draft ideas, or options but must not make the final decision for the owner or the student. "
-            "Use review_queue when the student is asking for approval, exception, endorsement, recommendation, commitment, or another action that must be reviewed before the avatar can respond formally. "
-            "Use human_handoff when the topic is sensitive, urgent, grievance-related, confidential, safety-related, or otherwise requires the real owner to respond personally. "
-            "Use research for research direction, papers, projects, or publication questions. "
-            "Use teaching for course lectures, tutorials, experiments, or teaching materials. "
-            "Use advising for preparation, expectations, communication style, or meeting-readiness guidance. "
-            "If the request is genuinely ambiguous and you need clarification, set action to ask_followup, needs_clarification to true, and provide a short clarification_message in Chinese."
+            "DEFAULT BEHAVIOR: choose action=answer. The downstream pipeline retrieves the owner's papers, course slides and biography and grounds the answer; you do NOT need to ask the student for more info before classifying. "
+            "Use ask_followup ONLY as a last resort and ONLY when ALL of the following are true: "
+            "(a) the question contains no concrete academic anchor (no paper title, system name, course term, KV/TTFT/batching/scheduling/inference keyword, no '论文/文献/汇报/写作/研究方向/招生/课题'), "
+            "(b) the recent_session_context block is empty (so we cannot resolve references like '具体内容', '这个', '上面那个'), "
+            "(c) without clarification, no reasonable answer can be drafted at all. "
+            "If the question is short but recent_session_context exists, RESOLVE the reference against that prior turn and choose action=answer with the appropriate domain. "
+            "Use book_meeting only when the student is actually asking to schedule or submit a meeting request now. Questions about what to prepare before booking are advising, not booking. "
+            "Use advise_only when you may give suggestions, checklists, draft ideas, or options but must not make the final decision for the owner or the student. "
+            "Use review_queue ONLY for requests for approval, exception, endorsement, recommendation, or commitment that must be reviewed before the avatar can respond formally. Open academic questions like '顶会论文叙事是什么样', '怎么整理文献', '如何选研究方向' are NOT review_queue \u2014 they are answer/advise_only with domain=research or advising. "
+            "Use human_handoff only when the topic is sensitive, urgent, grievance-related, confidential, or safety-related. "
+            "Use research for research direction, papers, projects, publications, or system-building questions (SAGE / Neuromem / vLLM-HUST / KV cache / TTFT / batching / scheduling / inference engine). "
+            "Use teaching for course lectures, tutorials, experiments, or teaching-material questions. "
+            "Use advising for preparation, expectations, communication style, meeting-readiness, or paper-writing-process guidance. "
+            "Positive examples (all must be answer, not ask_followup): "
+            "'我已经整理了十篇文献，然后进行汇报，汇报的内容应该包括什么' -> answer / advising / advise_only. "
+            "'研究目标是降低TTFT，希望得到怎么整理相关文献的建议' -> answer / research / advise_only. "
+            "'我的研究思路是当kv可复用时重计算也比复用更快...' -> answer / research / advise_only. "
+            "'你能帮我看论文吗' -> answer / advising / advise_only (do NOT ask which paper before retrieval). "
+            "'kvpr这篇' (with prior turn mentioning a paper) -> answer / research. "
+            "'一篇好的顶会论文应该是什么样的叙事' -> answer / advising / advise_only. "
+            "'你的学术背景' / '你的主要研究方向' -> answer / research / direct_answer. "
+            "If you do choose ask_followup, the clarification_message must be one short Chinese sentence asking ONE specific missing fact, never a generic '能否提供更多信息'."
         )
         context_line = course_context or ""
-        user_prompt = f"context: {context_line}\nquestion: {question}"
-        content = self.answer_question_sync(
-            system_prompt,
-            user_prompt,
-            temperature=0.0,
-            max_tokens=160,
-        )
+        recent_block = (recent_session_context or "").strip()
+        user_prompt_parts: list[str] = []
+        if context_line:
+            user_prompt_parts.append(f"course_context: {context_line}")
+        if recent_block:
+            user_prompt_parts.append(f"recent_session_context (use to resolve short references):\n{recent_block}")
+        else:
+            user_prompt_parts.append("recent_session_context: <empty>")
+        user_prompt_parts.append(f"current_question: {question}")
+        user_prompt = "\n".join(user_prompt_parts)
+        content = self._request_intent_classification(system_prompt, user_prompt)
         payload = self._parse_interaction_intent_payload(content)
         raw_intent = self._coerce_interaction_intent(payload)
-        return self._normalize_interaction_intent(question, course_context, raw_intent)
+        return self._normalize_interaction_intent(
+            question, course_context, raw_intent, recent_session_context=recent_block
+        )
 
     async def classify_interaction_intent(
         self,
         question: str,
         course_context: str | None = None,
+        recent_session_context: str | None = None,
     ) -> InteractionIntent:
         return await asyncio.to_thread(
             self.classify_interaction_intent_sync,
             question,
             course_context,
+            recent_session_context,
         )
 
     def classify_booking_intent_sync(
@@ -222,14 +260,44 @@ class VllmChatClient:
             deterministic_plan,
         )
 
+    def _request_intent_classification(self, system_prompt: str, user_prompt: str) -> str:
+        """Run intent classification on the dedicated (smaller) model."""
+        payload: dict[str, Any] = {
+            "model": self._intent_model_name,
+            "messages": [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt},
+            ],
+            "temperature": 0.0,
+            "max_tokens": 160,
+            "chat_template_kwargs": {"enable_thinking": False},
+        }
+        self._record_request_start()
+        try:
+            response = self._intent_client.post("/chat/completions", json=payload)
+            response.raise_for_status()
+            data = response.json()
+            choices = data.get("choices", [])
+            if not choices:
+                raise RuntimeError("Intent model returned no choices")
+            content = choices[0].get("message", {}).get("content", "")
+            if not content:
+                raise RuntimeError("Intent model returned empty content")
+            self._record_request_success()
+            return str(content)
+        except Exception as exc:
+            self._record_request_error(exc)
+            raise
+
     def answer_question_sync(
         self,
         system_prompt: str,
         user_prompt: str,
         *,
         temperature: float = 0.2,
-        max_tokens: int | None = 256,
+        max_tokens: int | None = 2048,
         token_callback: Callable[[str], None] | None = None,
+        enable_thinking: bool = True,
     ) -> str:
         payload: dict[str, Any] = {
             "model": self._settings.model_name,
@@ -239,6 +307,11 @@ class VllmChatClient:
             ],
             "temperature": temperature,
         }
+        if not enable_thinking:
+            payload["chat_template_kwargs"] = {"enable_thinking": False}
+            # Without thinking, we don't need as many tokens
+            if max_tokens is not None and max_tokens > 1024:
+                max_tokens = 1024
         if max_tokens is not None:
             payload["max_tokens"] = max_tokens
 
@@ -485,9 +558,78 @@ class VllmChatClient:
         question: str,
         course_context: str | None,
         intent: InteractionIntent,
+        *,
+        recent_session_context: str | None = None,
     ) -> InteractionIntent:
         lowered = question.lower()
         course_context_text = (course_context or "").lower()
+        recent_block = (recent_session_context or "").strip()
+
+        # Task 2 guardrails: undo the model's reflexive ask_followup choice when
+        # we have enough material to answer. These run BEFORE every other
+        # specialized branch so a demoted intent flows through the normal
+        # research / advising / teaching dispatch below.
+        if intent.action == "ask_followup":
+            if recent_block and len(question.strip()) < 25:
+                intent = intent.model_copy(
+                    update={
+                        "action": "answer",
+                        "decision_mode": "direct_answer"
+                        if intent.decision_mode in {"", "review_queue"}
+                        else intent.decision_mode,
+                        "needs_clarification": False,
+                        "clarification_message": None,
+                        "confidence": max(intent.confidence, 0.7),
+                    }
+                )
+            elif _has_research_anchor(lowered, question):
+                intent = intent.model_copy(
+                    update={
+                        "action": "answer",
+                        "domain": "research",
+                        "retrieval_scopes": ["publications", "profile"],
+                        "exclude_scopes": ["courseware"],
+                        "decision_mode": "direct_answer"
+                        if intent.decision_mode == ""
+                        else intent.decision_mode,
+                        "needs_clarification": False,
+                        "clarification_message": None,
+                        "confidence": max(intent.confidence, 0.78),
+                    }
+                )
+            elif _has_advising_anchor(lowered, question):
+                intent = intent.model_copy(
+                    update={
+                        "action": "answer",
+                        "domain": "advising",
+                        "retrieval_scopes": ["preparation", "meeting_policy", "profile"],
+                        "exclude_scopes": ["courseware"],
+                        "decision_mode": "advise_only",
+                        "needs_clarification": False,
+                        "clarification_message": None,
+                        "confidence": max(intent.confidence, 0.75),
+                    }
+                )
+
+        # Task 2: demote review_queue to advise_only when the topic is a
+        # clearly answerable academic question.
+        if intent.decision_mode == "review_queue" or intent.action == "review_queue":
+            if _looks_like_answerable_academic_question(lowered, question):
+                intent = intent.model_copy(
+                    update={
+                        "action": "answer",
+                        "domain": "advising"
+                        if intent.domain in {"", "general"}
+                        else intent.domain,
+                        "retrieval_scopes": ["preparation", "profile", "publications"],
+                        "exclude_scopes": ["courseware"],
+                        "decision_mode": "advise_only",
+                        "needs_clarification": False,
+                        "clarification_message": None,
+                        "escalation_reason": None,
+                        "confidence": max(intent.confidence, 0.8),
+                    }
+                )
 
         if _looks_like_booking_request(lowered, question):
             return intent.model_copy(
@@ -1016,4 +1158,95 @@ def _looks_like_research_question(lowered: str, question: str) -> bool:
     )
     return any(marker in lowered for marker in research_markers) or any(
         marker in question for marker in research_markers
+    )
+
+
+_RESEARCH_ANCHOR_TOKENS: tuple[str, ...] = (
+    "kv",
+    "kv cache",
+    "kvpr",
+    "ttft",
+    "vllm",
+    "sage",
+    "neuromem",
+    "sagevdb",
+    "batching",
+    "scheduling",
+    "inference",
+    "prefill",
+    "decoding",
+    "throughput",
+    "latency",
+    "flowrag",
+    "libamm",
+    "论文",
+    "文献",
+    "汇报",
+    "研究",
+    "写作",
+    "推理",
+    "复用",
+    "重计算",
+    "开题",
+    "组会",
+    "投稿",
+    "实验",
+    "benchmark",
+)
+
+
+_ADVISING_ANCHOR_TOKENS: tuple[str, ...] = (
+    "准备",
+    "如何整理",
+    "怎么整理",
+    "看论文",
+    "读论文",
+    "选研究",
+    "选方向",
+    "选课题",
+    "叙事",
+    "招生",
+    "招什么",
+    "meeting",
+    "office hour",
+)
+
+
+_ANSWERABLE_ACADEMIC_TOKENS: tuple[str, ...] = (
+    "顶会",
+    "叙事",
+    "如何整理",
+    "怎么整理",
+    "如何选",
+    "怎么选",
+    "研究方向",
+    "研究目标",
+    "研究方法",
+    "文献阅读",
+    "读论文",
+    "看论文",
+    "写论文",
+    "论文写作",
+    "论文叙事",
+    "组会",
+    "开题",
+    "汇报",
+)
+
+
+def _has_research_anchor(lowered: str, question: str) -> bool:
+    return any(token in lowered for token in _RESEARCH_ANCHOR_TOKENS) or any(
+        token in question for token in _RESEARCH_ANCHOR_TOKENS
+    )
+
+
+def _has_advising_anchor(lowered: str, question: str) -> bool:
+    return any(token in lowered for token in _ADVISING_ANCHOR_TOKENS) or any(
+        token in question for token in _ADVISING_ANCHOR_TOKENS
+    )
+
+
+def _looks_like_answerable_academic_question(lowered: str, question: str) -> bool:
+    return any(token in lowered for token in _ANSWERABLE_ACADEMIC_TOKENS) or any(
+        token in question for token in _ANSWERABLE_ACADEMIC_TOKENS
     )

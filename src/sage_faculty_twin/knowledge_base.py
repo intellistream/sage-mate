@@ -75,6 +75,49 @@ class SentenceTransformerTextEmbedder:
         return array
 
 
+class NeuromemBgeEmbedder:
+    """Sentence-transformers wrapper used by the neuromem 'faiss' index branch.
+
+    Reads ``settings.neuromem_embedding_model`` (default BAAI/bge-small-zh-v1.5,
+    dim=512) and produces L2-normalised float32 vectors suitable for cosine
+    similarity in faiss-cpu's IndexFlatIP.
+    """
+
+    def __init__(self, settings: AppSettings, np_module) -> None:
+        try:
+            from sentence_transformers import SentenceTransformer
+        except ImportError as exc:
+            raise RuntimeError(
+                "DIGITAL_TWIN_NEUROMEM_INDEX_TYPE=faiss requires the sentence-transformers package. "
+                "Install with: python -m pip install sentence-transformers"
+            ) from exc
+
+        self._np = np_module
+        self._model_name = settings.neuromem_embedding_model
+        self._model = SentenceTransformer(self._model_name)
+        reported = self._model.get_sentence_embedding_dimension()
+        if not reported:
+            raise RuntimeError(
+                f"Embedding model '{self._model_name}' did not report a dimension."
+            )
+        self.dimension = int(reported)
+
+    def encode(self, text: str):
+        vector = self._model.encode(
+            text,
+            convert_to_numpy=True,
+            normalize_embeddings=True,
+        )
+        array = self._np.asarray(vector, dtype=self._np.float32)
+        if array.ndim != 1:
+            array = array.reshape(-1)
+        if int(array.shape[0]) != self.dimension:
+            raise RuntimeError(
+                f"Neuromem embedder dimension mismatch: returned {array.shape[0]}, expected {self.dimension}."
+            )
+        return array
+
+
 class LocalKnowledgeStore:
     def __init__(self, settings: AppSettings) -> None:
         self._settings = settings
@@ -84,6 +127,8 @@ class LocalKnowledgeStore:
         self._backend = settings.knowledge_backend.lower()
         self._sagevdb = None
         self._neuromem_collection = None
+        self._neuromem_index_type = (settings.neuromem_index_type or "bm25").strip().lower()
+        self._neuromem_embedder = None
         self._np = None
         self._text_embedder = None
         self._document_id_to_vector_id: dict[str, int] = {}
@@ -395,6 +440,8 @@ class LocalKnowledgeStore:
     def embedding_backend_name(self) -> str:
         if self._backend != "sagevdb":
             if self._backend == "neuromem":
+                if self._neuromem_index_type == "faiss":
+                    return f"faiss:{self._settings.neuromem_embedding_model}"
                 return "bm25"
             return "none"
         return self._settings.sagevdb_embedding_backend.lower()
@@ -410,11 +457,68 @@ class LocalKnowledgeStore:
 
         collection_name = f"{self._base_dir.name}-owner-materials"
         self._neuromem_collection = UnifiedCollection(collection_name)
+        if self._neuromem_index_type == "faiss":
+            try:
+                import numpy as np
+            except ImportError as exc:
+                raise RuntimeError(
+                    "neuromem 'faiss' index requires numpy."
+                ) from exc
+            self._np = np
+            self._neuromem_embedder = NeuromemBgeEmbedder(self._settings, np)
+            dim = int(self._neuromem_embedder.dimension)
+            self._neuromem_collection.add_index(
+                "search",
+                "faiss",
+                {"dim": dim, "metric": "cosine"},
+            )
+            self._batch_index_documents_with_faiss()
+            return
+
         self._neuromem_collection.add_index("search", "bm25", {})
         if self._build_neuromem_search_index_batch():
             return
         for document in self.list_documents():
             self._add_to_neuromem(document)
+
+    def _batch_index_documents_with_faiss(self) -> None:
+        """Encode all documents in a single batch and add them to the FAISS index.
+
+        Sequential per-document encoding is ~50x slower than batched encode
+        when the model runs on CPU, so we precompute every vector up-front and
+        feed each (data_id, text, metadata-with-vector) triple to the index.
+        """
+        if (
+            self._neuromem_collection is None
+            or self._neuromem_embedder is None
+        ):
+            return
+        documents = self.list_documents()
+        if not documents:
+            return
+        texts = [
+            self._expand_retrieval_text(self._compose_retrieval_text(document))
+            for document in documents
+        ]
+        # Single batched forward pass; sentence-transformers picks a sensible
+        # default batch size internally.
+        batch_vectors = self._neuromem_embedder._model.encode(
+            texts,
+            convert_to_numpy=True,
+            normalize_embeddings=True,
+            show_progress_bar=False,
+        )
+        np = self._np
+        for document, text, vector in zip(documents, texts, batch_vectors):
+            array = np.asarray(vector, dtype=np.float32).reshape(-1)
+            metadata: dict[str, object] = {
+                "document_id": document.document_id,
+                "title": document.title,
+                "tags": document.tags,
+                "source_name": document.source_name or "",
+                "vector": array.tolist(),
+            }
+            self._neuromem_collection.insert(text, metadata, index_names=["search"])
 
     def _build_neuromem_search_index_batch(self) -> bool:
         if self._neuromem_collection is None:
@@ -451,14 +555,18 @@ class LocalKnowledgeStore:
         if self._neuromem_collection is None:
             return
 
+        text = self._expand_retrieval_text(self._compose_retrieval_text(document))
+        metadata: dict[str, object] = {
+            "document_id": document.document_id,
+            "title": document.title,
+            "tags": document.tags,
+            "source_name": document.source_name or "",
+        }
+        if self._neuromem_index_type == "faiss" and self._neuromem_embedder is not None:
+            metadata["vector"] = self._neuromem_embedder.encode(text).tolist()
         self._neuromem_collection.insert(
-            self._expand_retrieval_text(self._compose_retrieval_text(document)),
-            {
-                "document_id": document.document_id,
-                "title": document.title,
-                "tags": document.tags,
-                "source_name": document.source_name or "",
-            },
+            text,
+            metadata,
             index_names=["search"],
         )
 
@@ -474,8 +582,12 @@ class LocalKnowledgeStore:
 
         limit = top_k or self._settings.retrieval_top_k
         expanded_query = self._expand_retrieval_text(query)
+        if self._neuromem_index_type == "faiss" and self._neuromem_embedder is not None:
+            query_payload = self._neuromem_embedder.encode(expanded_query).tolist()
+        else:
+            query_payload = expanded_query
         results = self._neuromem_collection.retrieve(
-            "search", expanded_query, top_k=max(limit * 5, limit + 8)
+            "search", query_payload, top_k=max(limit * 5, limit + 8)
         )
         query_tokens = self._tokenize(query)
         query_profile = _build_query_profile(query, visitor_profile=visitor_profile)
@@ -655,12 +767,16 @@ class LocalKnowledgeStore:
         tag_overlap = len(query_tokens & tag_tokens)
 
         base_score = float((title_overlap * 3) + (tag_overlap * 2) + content_overlap)
-        return (
+        raw = (
             base_score
             + self._document_intent_boost(document, query_profile)
             + self._document_visitor_profile_boost(document, query_profile)
             + self._document_course_scope_boost(document, query_profile)
         )
+        if raw < 1.5 and query_profile.topic_domains & frozenset({"research", "general"}):
+            if tag_tokens & {"profile", "overview"}:
+                return max(raw, 1.5)
+        return raw
 
     def _document_course_scope_boost(
         self,

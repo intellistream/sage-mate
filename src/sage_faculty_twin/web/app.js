@@ -378,6 +378,7 @@ if (workflowTrace) {
 
 chatStream?.addEventListener("click", handleMessageSectionToggle);
 chatStream?.addEventListener("click", handleIntroQuickActionClick);
+chatStream?.addEventListener("click", handleCopyAnswerClick);
 historyList?.addEventListener("click", handleConversationHistoryClick);
 historyRailToggleButton?.addEventListener("click", toggleHistoryRail);
 historyNewChatButton?.addEventListener("click", () => {
@@ -666,6 +667,7 @@ chatForm.addEventListener("submit", async (event) => {
         visitor_profile: visitorProfileInput?.value || null,
         question,
         conversation_id: activeConversationId,
+        deep_thinking: document.getElementById("deep-thinking-checkbox")?.checked ?? true,
     };
     const submittedFiles = [...pendingChatAttachments];
     const submittedAttachments = submittedFiles.map((file) => ({
@@ -3375,12 +3377,18 @@ function appendMessage(role, label, text, options = {}) {
             </div>
         `
         : "";
+    const avatarLabel = role === "user" ? "你" : "S";
     article.className = `message message-${role}${stateClass}${emphasisClass}`;
     article.innerHTML = `
-    <div class="message-role">${escapeHtml(label)}</div>
-    <div class="message-frame">
-        ${attachmentsHtml}
-        <div class="message-body">${escapeHtml(text)}</div>
+    <div class="message-bubble-row">
+        <div class="message-avatar" aria-hidden="true">${avatarLabel}</div>
+        <div class="message-bubble">
+            <div class="message-role">${escapeHtml(label)}</div>
+            <div class="message-frame">
+                ${attachmentsHtml}
+                <div class="message-body">${formatMessageContent(text)}</div>
+            </div>
+        </div>
     </div>
   `;
     chatStream.appendChild(article);
@@ -3896,21 +3904,35 @@ function syncConversationMode() {
 
 function renderPendingAssistantMessage(container, currentStage = "理解问题", workflowSteps = []) {
     container.innerHTML = `
-        <div class="message-role">${escapeHtml(assistantLabel)}</div>
-        <div class="message-frame message-pending-frame">
-            <div class="thinking-panel">
-                <div class="thinking-panel-head">
-                    <span class="thinking-orb" aria-hidden="true"></span>
-                    <div>
-                        <strong>正在处理</strong>
-                        <p id="pending-stage-label" class="thinking-stage-label">${escapeHtml(currentStage)}</p>
+        <div class="message-bubble-row">
+            <div class="message-avatar" aria-hidden="true">S</div>
+            <div class="message-bubble">
+                <div class="message-role">${escapeHtml(assistantLabel)}</div>
+                <div class="message-frame message-pending-frame">
+                    <div class="typing-dots" id="pending-typing-dots">
+                        <span class="dot"></span>
+                        <span class="dot"></span>
+                        <span class="dot"></span>
                     </div>
-                </div>
-                <div class="thinking-phase-rail" aria-live="polite">
-                    ${buildWorkflowPhaseRailHtml({ currentStage, workflowSteps, complete: false })}
-                </div>
-                <div class="thinking-trace" aria-label="实时处理过程">
-                    <div class="thinking-trace-list"></div>
+                    <div class="thinking-panel">
+                        <div class="thinking-panel-head">
+                            <span class="thinking-orb" aria-hidden="true"></span>
+                            <div>
+                                <strong>正在处理</strong>
+                                <p id="pending-stage-label" class="thinking-stage-label">${escapeHtml(currentStage)}</p>
+                            </div>
+                        </div>
+                        <div class="thinking-phase-rail" aria-live="polite">
+                            ${buildWorkflowPhaseRailHtml({ currentStage, workflowSteps, complete: false })}
+                        </div>
+                        <div class="thinking-trace" aria-label="实时处理过程">
+                            <div class="thinking-trace-list"></div>
+                        </div>
+                    </div>
+                    <div class="thinking-text-section" id="pending-thinking-text" data-collapsed="false" hidden>
+                        <button type="button" class="thinking-text-toggle" onclick="this.parentElement.dataset.collapsed = this.parentElement.dataset.collapsed === 'true' ? 'false' : 'true'">思考过程</button>
+                        <div class="thinking-text-body"></div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -3947,7 +3969,11 @@ function renderAssistantMessage(
     workflowTrace = []
 ) {
     const bodyClass = isError ? "message-body" : "message-body";
-    const cleanedText = stripNotificationText(text, bookingResult?.notification || null);
+    const afterNotification = stripNotificationText(text, bookingResult?.notification || null);
+    // Strip <think>...</think> from the final answer and optionally display it
+    const thinkParsed = parseStreamingThinkContent(afterNotification);
+    const cleanedText = thinkParsed.main.trimStart() || (thinkParsed.think ? "" : afterNotification);
+    const thinkContent = thinkParsed.think.trim();
     container.classList.remove("message-pending");
     container.classList.add("message-ready");
     const notificationHtml = buildNotificationStatusHtml(bookingResult?.notification || null, { title: "邮件通知状态" });
@@ -4005,22 +4031,37 @@ function renderAssistantMessage(
     const workflowTraceHtml = Array.isArray(workflowTrace) && workflowTrace.length
         ? buildWorkflowStatusSummaryHtml(workflowTrace)
         : "";
+    const thinkSectionHtml = thinkContent
+        ? `<div class="thinking-text-section" data-collapsed="true">
+               <button type="button" class="thinking-text-toggle" onclick="this.parentElement.dataset.collapsed = this.parentElement.dataset.collapsed === 'true' ? 'false' : 'true'">思考过程</button>
+               <div class="thinking-text-body">${escapeHtml(thinkContent)}</div>
+           </div>`
+        : "";
     container.innerHTML = `
-        <div class="message-role">${escapeHtml(assistantLabel)}</div>
-    <div class="message-frame">
-        <div class="message-main-copy">
-            <div class="message-reply-block">
-                <span class="message-section-kicker">Reply</span>
-                <div class="${bodyClass}">${escapeHtml(cleanedText)}</div>
+        <div class="message-bubble-row">
+            <div class="message-avatar" aria-hidden="true">S</div>
+            <div class="message-bubble">
+                <div class="message-role">${escapeHtml(assistantLabel)}</div>
+                <div class="message-frame">
+                    <div class="message-main-copy">
+                        <div class="message-reply-block">
+                            <span class="message-section-kicker">Reply</span>
+                            <div class="${bodyClass}">${formatMessageContent(cleanedText)}</div>
+                            <button type="button" class="message-copy-button" data-copy-answer title="复制回答">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                            </button>
+                        </div>
+                        ${thinkSectionHtml}
+                        ${workflowTraceHtml}
+                    </div>
+                    ${notificationHtml}
+                    ${basisHtml}
+                    ${followUpHtml}
+                    ${buildFeedbackSectionHtml(exchangeId, isError)}
+                </div>
             </div>
-            ${workflowTraceHtml}
         </div>
-        ${notificationHtml}
-        ${basisHtml}
-        ${followUpHtml}
-        ${buildFeedbackSectionHtml(exchangeId, isError)}
-    </div>
-  `;
+    `;
     if (isError) {
         container.style.background = "var(--error)";
     }
@@ -5280,24 +5321,92 @@ function stopWorkflowTraceStream() {
 // final ChatResponse from the /chat POST replaces the entire pending
 // bubble via renderAssistantMessage.
 let streamingAnswerBuffer = "";
+let streamingThinkBuffer = "";
 
 function appendStreamingAnswerDelta(delta) {
     if (!delta) return;
     streamingAnswerBuffer += delta;
     const pending = chatStream && chatStream.querySelector(".message-pending");
     if (!pending) return;
-    let body = pending.querySelector(".streaming-answer-body");
-    if (!body) {
-        body = document.createElement("div");
-        body.className = "streaming-answer-body message-body";
-        const frame = pending.querySelector(".message-frame") || pending;
-        frame.appendChild(body);
+    // Hide typing dots on first content
+    const dots = pending.querySelector("#pending-typing-dots");
+    if (dots) dots.hidden = true;
+
+    // Parse <think>...</think> from the accumulated buffer
+    const parsed = parseStreamingThinkContent(streamingAnswerBuffer);
+
+    // Show thinking text if present
+    if (parsed.think) {
+        const section = pending.querySelector("#pending-thinking-text");
+        if (section) {
+            section.hidden = false;
+            const thinkBody = section.querySelector(".thinking-text-body");
+            if (thinkBody) {
+                thinkBody.textContent = parsed.think;
+                thinkBody.scrollTop = thinkBody.scrollHeight;
+            }
+        }
     }
-    body.textContent = streamingAnswerBuffer;
+
+    // Show main content (excluding think tags)
+    const mainContent = parsed.main.trimStart();
+    if (mainContent) {
+        let body = pending.querySelector(".streaming-answer-body");
+        if (!body) {
+            body = document.createElement("div");
+            body.className = "streaming-answer-body message-body";
+            const frame = pending.querySelector(".message-frame") || pending;
+            frame.appendChild(body);
+        }
+        body.textContent = mainContent;
+    }
+}
+
+// Parse <think>...</think> from raw streaming content.
+// Handles incomplete tags (still streaming inside <think>).
+function parseStreamingThinkContent(raw) {
+    const openTag = "<think>";
+    const closeTag = "</think>";
+    const openIdx = raw.indexOf(openTag);
+    if (openIdx === -1) {
+        return { think: "", main: raw };
+    }
+    const closeIdx = raw.indexOf(closeTag, openIdx);
+    if (closeIdx === -1) {
+        // Still inside <think> block (not yet closed)
+        return {
+            think: raw.slice(openIdx + openTag.length),
+            main: raw.slice(0, openIdx),
+        };
+    }
+    // Closed <think> block — extract and rejoin
+    return {
+        think: raw.slice(openIdx + openTag.length, closeIdx),
+        main: raw.slice(0, openIdx) + raw.slice(closeIdx + closeTag.length),
+    };
+}
+
+function appendStreamingThinkDelta(delta) {
+    if (!delta) return;
+    streamingThinkBuffer += delta;
+    const pending = chatStream && chatStream.querySelector(".message-pending");
+    if (!pending) return;
+    // Hide typing dots on first content
+    const dots = pending.querySelector("#pending-typing-dots");
+    if (dots) dots.hidden = true;
+    const section = pending.querySelector("#pending-thinking-text");
+    if (!section) return;
+    section.hidden = false;
+    const body = section.querySelector(".thinking-text-body");
+    if (body) {
+        body.textContent = streamingThinkBuffer;
+        body.scrollTop = body.scrollHeight;
+    }
 }
 
 function clearStreamingAnswerBuffer() {
     streamingAnswerBuffer = "";
+    streamingThinkBuffer = "";
 }
 
 function handleWorkflowStreamEvent(payload) {
@@ -5314,6 +5423,9 @@ function handleWorkflowStreamEvent(payload) {
 
     if (payload.type === "trace-step" && payload.step) {
         activeWorkflowSteps = [...activeWorkflowSteps, payload.step];
+        // Hide typing dots on first trace-step
+        const dots = chatStream?.querySelector(".message-pending #pending-typing-dots");
+        if (dots) dots.hidden = true;
         updatePendingAssistantMessage(payload.step.title || "处理中", activeWorkflowSteps);
         renderWorkflowTrace(activeWorkflowSteps, {
             workflowAction: latestWorkflowMeta.workflowAction,
@@ -5334,6 +5446,12 @@ function handleWorkflowStreamEvent(payload) {
     // perceived-latency feedback while the LLM is decoding.
     if (payload.type === "answer_delta" && typeof payload.text === "string") {
         appendStreamingAnswerDelta(payload.text);
+        return;
+    }
+
+    // Task 3: Stream reasoning/thinking tokens to the thinking-text panel
+    if (payload.type === "reasoning_delta" && typeof payload.text === "string") {
+        appendStreamingThinkDelta(payload.text);
         return;
     }
 
@@ -5402,6 +5520,26 @@ function handleMessageSectionToggle(event) {
     if (chevron) {
         chevron.textContent = nextExpanded ? openLabel : closedLabel;
     }
+}
+
+// Task 4: Copy-to-clipboard handler (delegated on chatStream)
+function handleCopyAnswerClick(event) {
+    const button = event.target.closest("[data-copy-answer]");
+    if (!button || !chatStream || !chatStream.contains(button)) {
+        return;
+    }
+    const replyBlock = button.closest(".message-reply-block");
+    const body = replyBlock?.querySelector(".message-body");
+    if (!body) return;
+    const text = body.innerText || body.textContent || "";
+    navigator.clipboard.writeText(text).then(() => {
+        button.classList.add("copied");
+        button.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
+        globalThis.setTimeout(() => {
+            button.classList.remove("copied");
+            button.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
+        }, 2000);
+    }).catch(() => { });
 }
 
 function workflowStatusLabel(status) {
@@ -6130,6 +6268,19 @@ function escapeHtml(value) {
         .replaceAll(">", "&gt;")
         .replaceAll('"', "&quot;")
         .replaceAll("'", "&#39;");
+}
+
+// Task 5: Basic markdown formatting (code blocks + inline code).
+// Processes escaped HTML so XSS-safe output is preserved.
+function formatMessageContent(rawText) {
+    const escaped = escapeHtml(rawText);
+    // Replace triple-backtick code blocks
+    let formatted = escaped.replace(/```(\w*)\n?([\s\S]*?)```/g, (_, lang, code) => {
+        return `<pre>${code.trim()}</pre>`;
+    });
+    // Replace inline backtick code
+    formatted = formatted.replace(/`([^`]+)`/g, '<code>$1</code>');
+    return formatted;
 }
 
 function seedBookingDefaults() {

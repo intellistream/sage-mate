@@ -857,12 +857,25 @@ body.drawer-pinned .history-rail {
 @keyframes message-enter {
     from {
         opacity: 0;
-        transform: translateY(10px) scale(0.985);
+        transform: translateY(8px);
     }
 
     to {
         opacity: 1;
-        transform: translateY(0) scale(1);
+        transform: translateY(0);
+    }
+}
+
+@keyframes bounce-dot {
+
+    0%,
+    80%,
+    100% {
+        transform: translateY(0);
+    }
+
+    40% {
+        transform: translateY(-6px);
     }
 }
 
@@ -907,7 +920,7 @@ body.drawer-pinned .history-rail {
     border-radius: 0;
     border: 0;
     box-shadow: none;
-    animation: message-enter 220ms ease both;
+    animation: message-enter 220ms ease-out both;
 }
 
 .message-assistant {
@@ -920,9 +933,217 @@ body.drawer-pinned .history-rail {
     background: transparent;
 }
 
+/* --- Bubble layout with avatars --- */
+.message-bubble-row {
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+}
+
+.message-user .message-bubble-row {
+    flex-direction: row-reverse;
+}
+
+.message-avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    font-size: 0.72rem;
+    font-weight: 700;
+    margin-top: 2px;
+}
+
+.message-user .message-avatar {
+    background: var(--surface-muted);
+    color: var(--muted);
+}
+
+.message-assistant .message-avatar {
+    background: var(--accent-soft);
+    color: var(--accent-deep);
+}
+
+.message-bubble {
+    max-width: min(100%, 720px);
+    min-width: 0;
+}
+
+.message-user .message-bubble {
+    padding: 10px 16px;
+    border-radius: 20px 20px 4px 20px;
+    background: var(--user);
+    border: 1px solid rgba(32, 33, 35, 0.06);
+}
+
+.message-assistant .message-bubble {
+    max-width: min(100%, 760px);
+}
+
 .message-frame {
     display: grid;
     gap: 14px;
+}
+
+/* --- Bouncing dots typing indicator --- */
+.typing-dots {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 10px 16px;
+    background: var(--surface-soft);
+    border-radius: 20px 20px 20px 4px;
+    border: 1px solid var(--line);
+    width: fit-content;
+}
+
+.typing-dots .dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--muted);
+    opacity: 0.5;
+    animation: bounce-dot 1.2s ease-in-out infinite;
+}
+
+.typing-dots .dot:nth-child(2) {
+    animation-delay: 150ms;
+}
+
+.typing-dots .dot:nth-child(3) {
+    animation-delay: 300ms;
+}
+
+/* --- Copy button on messages --- */
+.message-copy-button {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    width: 28px;
+    height: 28px;
+    border-radius: 8px;
+    border: 1px solid var(--line);
+    background: var(--surface);
+    color: var(--muted);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 160ms ease, background 120ms ease;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+}
+
+.message-reply-block {
+    position: relative;
+}
+
+.message-reply-block:hover .message-copy-button {
+    opacity: 1;
+}
+
+.message-copy-button:hover {
+    background: var(--surface-soft);
+    color: var(--ink);
+}
+
+.message-copy-button.copied {
+    opacity: 1;
+    color: var(--accent);
+}
+
+/* --- Markdown-lite formatting --- */
+.message-body pre {
+    margin: 8px 0;
+    padding: 10px 12px;
+    background: #1e1e2e;
+    color: #a6e3a1;
+    border-radius: 10px;
+    font-family: "SF Mono", "Fira Code", "Cascadia Code", monospace;
+    font-size: 0.82rem;
+    line-height: 1.5;
+    overflow-x: auto;
+    white-space: pre;
+}
+
+.message-body code {
+    padding: 2px 6px;
+    background: rgba(47, 111, 237, 0.08);
+    color: var(--accent-deep);
+    border-radius: 5px;
+    font-family: "SF Mono", "Fira Code", "Cascadia Code", monospace;
+    font-size: 0.85em;
+}
+
+/* --- Reasoning/thinking text display --- */
+.thinking-text-section {
+    margin-top: 8px;
+    border-radius: 12px;
+    border: 1px dashed rgba(36, 90, 166, 0.18);
+    background: rgba(239, 246, 255, 0.5);
+    overflow: hidden;
+    transition: max-height 300ms ease;
+}
+
+.thinking-text-toggle {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    width: 100%;
+    padding: 8px 12px;
+    border: 0;
+    background: transparent;
+    color: var(--muted);
+    font-size: 0.78rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: color 120ms ease;
+}
+
+.thinking-text-toggle:hover {
+    color: var(--ink);
+}
+
+.thinking-text-toggle::before {
+    content: "";
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--accent);
+    opacity: 0.5;
+    animation: workflow-breathe 2.4s ease-in-out infinite;
+}
+
+.thinking-text-section[data-collapsed="true"] .thinking-text-body {
+    display: none;
+}
+
+.thinking-text-body {
+    padding: 0 12px 10px;
+    max-height: 200px;
+    overflow-y: auto;
+    font-family: "SF Mono", "Fira Code", monospace;
+    font-size: 0.78rem;
+    line-height: 1.6;
+    color: #35516f;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+/* --- Streaming answer body --- */
+.streaming-answer-body {
+    margin-top: 8px;
+    padding: 10px 14px;
+    border-radius: 12px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    white-space: pre-wrap;
+    line-height: 1.65;
+    animation: message-enter 200ms ease-out both;
 }
 
 .message-emphasis-user {
@@ -961,12 +1182,7 @@ body.drawer-pinned .history-rail {
 }
 
 .message-user .message-main-copy {
-    justify-self: end;
     max-width: min(100%, 720px);
-    padding: 12px 16px;
-    border-radius: 22px;
-    background: var(--user);
-    border: 1px solid rgba(32, 33, 35, 0.06);
 }
 
 .message-assistant .message-main-copy {
@@ -1794,6 +2010,37 @@ body.conversation-active .intro-card .message-body {
     margin: 0 auto;
 }
 
+.deep-thinking-toggle {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-shrink: 0;
+    cursor: pointer;
+    user-select: none;
+    padding: 4px 8px;
+    border-radius: 14px;
+    font-size: 12px;
+    color: #64748b;
+    transition: background 0.15s;
+}
+
+.deep-thinking-toggle:hover {
+    background: rgba(99, 102, 241, 0.06);
+}
+
+.deep-thinking-toggle input[type="checkbox"] {
+    width: 14px;
+    height: 14px;
+    accent-color: #6366f1;
+    margin: 0;
+    cursor: pointer;
+}
+
+.deep-thinking-toggle .toggle-label {
+    white-space: nowrap;
+    font-weight: 500;
+}
+
 .composer-upload-hint {
     width: min(100%, 820px);
     margin: 10px auto 0;
@@ -1890,6 +2137,9 @@ textarea {
 }
 
 .composer-row textarea {
+    flex: 1 1 0;
+    width: 0;
+    min-width: 0;
     border: 0;
     background: transparent;
     box-shadow: none;
@@ -2461,14 +2711,13 @@ label span {
 
 @media (max-width: 720px) {
     .topbar {
-        padding: 12px 14px;
-        gap: 12px;
-        border-radius: 18px;
+        padding: 6px 2px;
+        gap: 8px;
     }
 
     .topbar-brand {
-        align-items: flex-start;
-        gap: 12px;
+        align-items: center;
+        gap: 10px;
     }
 
     .topbar-brand-mark {
@@ -2483,14 +2732,8 @@ label span {
         line-height: 1.25;
     }
 
-    .topbar-subtitle {
-        font-size: 0.84rem;
-        line-height: 1.5;
-    }
-
     .topbar-actions {
-        width: 100%;
-        justify-content: space-between;
+        width: auto;
     }
 
     .topbar-live-status {
@@ -2532,13 +2775,6 @@ label span {
         gap: 8px;
         margin-top: 12px;
         padding-top: 12px;
-    }
-
-    .intro-quick-actions .intro-chip-button {
-        width: 100%;
-        justify-content: center;
-        padding: 11px 12px;
-        text-align: center;
     }
 
     .pill {
@@ -2677,9 +2913,6 @@ label span {
         grid-template-columns: 1fr;
     }
 
-    .intro-quick-actions {
-        flex-direction: column;
-    }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -3296,16 +3529,16 @@ body.workflow-shell-collapsed #workflow-toggle {
     }
 
     .topbar {
-        align-items: start;
-        flex-direction: column;
+        align-items: center;
+        flex-direction: row;
     }
 
     .topbar-brand {
-        width: 100%;
+        min-width: 0;
     }
 
     .topbar-actions {
-        margin-left: 0;
+        margin-left: auto;
     }
 
     .chat-layout {
@@ -3388,8 +3621,22 @@ body.workflow-shell-collapsed #workflow-toggle {
     }
 
     .chat-shell {
-        min-height: calc(100dvh - 220px);
+        min-height: 0;
         height: auto;
+    }
+
+    .composer-shell {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        z-index: 10;
+        padding: 10px 12px calc(10px + var(--safe-bottom));
+        background: linear-gradient(180deg, rgba(247, 247, 248, 0) 0%, rgba(247, 247, 248, 0.96) 18%, rgba(247, 247, 248, 1) 100%);
+    }
+
+    .chat-stream {
+        padding-bottom: calc(80px + var(--safe-bottom));
     }
 
     .message {
@@ -3431,23 +3678,20 @@ body.workflow-shell-collapsed #workflow-toggle {
         padding-bottom: 16px;
     }
 
-    .composer-shell {
-        padding: 10px 10px calc(10px + var(--safe-bottom));
-    }
-
     .app-powered-by {
         justify-content: flex-start;
         gap: 8px;
     }
 
     .composer-row {
-        align-items: flex-end;
-        flex-direction: row;
+        flex-wrap: wrap;
+        align-items: center;
         padding: 8px 10px;
     }
 
     .composer-row textarea {
-        flex: 1;
+        flex: 1 1 100%;
+        width: 100%;
         min-height: 20px;
     }
 
@@ -3508,5 +3752,98 @@ body.workflow-shell-collapsed #workflow-toggle {
 
     body.drawer-pinned .side-drawer {
         pointer-events: auto;
+    }
+
+    /* === Mobile simplification: ChatGPT-style clean layout === */
+
+    /* 1. Topbar: single row, only name + drawer button */
+    .topbar {
+        padding: 8px 4px;
+        gap: 8px;
+    }
+
+    .topbar-subtitle {
+        display: none;
+    }
+
+    .topbar-actions {
+        flex-wrap: nowrap;
+        width: auto;
+        margin-left: auto;
+    }
+
+    #open-suggestions {
+        display: none;
+    }
+
+    /* 2. History rail: tighter collapsed state */
+    body.history-rail-collapsed .history-rail {
+        padding: 4px 8px;
+    }
+
+    body.history-rail-collapsed .history-rail-actions {
+        gap: 8px;
+    }
+
+    body.history-rail-collapsed .history-rail-toggle,
+    body.history-rail-collapsed .history-new-chat {
+        min-height: 36px;
+        padding: 0 10px;
+        font-size: 0.84rem;
+    }
+
+    /* 3. Intro card: compact, horizontal scrolling chips */
+    .intro-card .message-role {
+        font-size: 0.82rem;
+        margin-bottom: 2px;
+    }
+
+    .intro-card .message-body {
+        font-size: 0.9rem;
+        line-height: 1.5;
+    }
+
+    .intro-quick-actions {
+        flex-direction: row;
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        gap: 8px;
+        margin-top: 10px;
+        padding-top: 10px;
+        padding-bottom: 4px;
+        scrollbar-width: none;
+    }
+
+    .intro-quick-actions::-webkit-scrollbar {
+        display: none;
+    }
+
+    .intro-quick-actions .intro-chip-button {
+        width: auto;
+        flex-shrink: 0;
+        white-space: nowrap;
+        padding: 8px 14px;
+        font-size: 0.84rem;
+        text-align: center;
+        justify-content: center;
+    }
+
+    .intro-quick-actions .intro-chip-button::after {
+        display: none;
+    }
+
+    /* 4. Hide upload hint and footer */
+    .composer-upload-hint {
+        display: none;
+    }
+
+    .app-powered-by {
+        display: none;
+    }
+
+    /* 5. Tighten overall spacing */
+    .chat-layout {
+        gap: 8px;
     }
 }

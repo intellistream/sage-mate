@@ -17,8 +17,6 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from pathlib import Path
 
-import pytest
-
 from sage_faculty_twin.config import AppSettings
 from sage_faculty_twin.memory_store import ConversationMemoryHit
 from sage_faculty_twin.models import (
@@ -128,7 +126,6 @@ def test_prompt_truncates_oversized_attachments(tmp_path: Path) -> None:
     # Each attachment body in the rendered prompt is capped at the
     # configured budget (+1 for the ellipsis marker).
     assert fat_body not in context.user_prompt
-    truncated_marker = "A" * (_ATTACHMENT_BODY_CAP - 1) + "…"
     # Truncation marker may not appear verbatim because of formatting; just
     # assert the original 10k run is gone.
     assert "A" * (_ATTACHMENT_BODY_CAP + 100) not in context.user_prompt

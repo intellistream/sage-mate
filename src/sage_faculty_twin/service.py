@@ -268,6 +268,7 @@ class ChatWorkflowContext:
     prompt_truncated: bool = False
     recent_session_context: str = ""
     interaction_intent: InteractionIntent | None = None
+    pending_clarification_message: str | None = None
     pending_fields: list[str] = field(default_factory=list)
     knowledge_hits: list[KnowledgeSearchHit] = field(default_factory=list)
     memory_hits: list[ConversationMemoryHit] = field(default_factory=list)
@@ -451,15 +452,20 @@ class FacultyTwinWorkflowSupport:
         context.decision_mode = intent.decision_mode
 
         if intent.action == "ask_followup" and intent.needs_clarification:
+            # Task 3: defer clarification. Stash the planned message but keep
+            # route="answer" so KB retrieval still runs. retrieve_knowledge will
+            # decide whether to demote to answer (KB hit was strong enough) or
+            # actually emit the clarification (with retrieved titles attached).
             context.workflow_action = "ask_follow_up"
-            context.answer = (
-                intent.clarification_message or "你是想了解研究方向、课程内容，还是想直接发起预约？"
+            context.pending_clarification_message = (
+                intent.clarification_message
+                or "你是想了解研究方向、课程内容，还是想直接发起预约？"
             )
-            context.route = "done"
-            summary = "问题存在歧义，先向用户澄清。"
+            context.route = "answer"
+            summary = "意图存在歧义，先打开检索再判断是否需要澄清。"
             detail = (
-                f"已识别为 {intent.domain} 场景，但需要进一步澄清；"
-                f"当前理解来源：{source}，置信度 {intent.confidence:.2f}。"
+                f"识别为 {intent.domain} 场景但初步需要澄清；已暂存澄清话术，"
+                f"先运行知识检索再决定是否发出。来源：{source}，置信度 {intent.confidence:.2f}。"
             )
         elif intent.action in {"review_queue", "human_handoff"}:
             context.workflow_action = intent.action
@@ -745,20 +751,89 @@ class FacultyTwinWorkflowSupport:
         interaction_intent = context.interaction_intent or self._build_fallback_interaction_intent(
             context.request
         )
-        retrieval_query = self._build_knowledge_query(context.request, interaction_intent)
+        retrieval_query = self._build_knowledge_query(
+            context.request, interaction_intent, context.recent_session_context
+        )
         raw_hits = self._knowledge_store.search(
             retrieval_query,
             visitor_profile=context.request.visitor_profile,
         )
         context.knowledge_hits = self._filter_knowledge_hits_by_intent(raw_hits, interaction_intent)
         hit_count = len(context.knowledge_hits)
+        top_score = context.knowledge_hits[0].score if context.knowledge_hits else 0.0
+
+        # Task 3 post-retrieval revisit: if the classifier originally wanted to
+        # ask a follow-up but retrieval surfaced a strong hit, demote to answer
+        # so the downstream prompt builder grounds on KB. Otherwise emit the
+        # clarification with the top-3 titles attached, so the student gets
+        # something concrete back instead of a blind reflection loop.
+        if context.pending_clarification_message is not None:
+            if hit_count > 0 and top_score >= 12.0:
+                context.pending_clarification_message = None
+                if context.workflow_action == "ask_follow_up":
+                    context.workflow_action = "answer"
+                if context.interaction_intent is not None:
+                    context.interaction_intent = context.interaction_intent.model_copy(
+                        update={
+                            "action": "answer",
+                            "needs_clarification": False,
+                            "clarification_message": None,
+                        }
+                    )
+                self._append_trace(
+                    context,
+                    key="knowledge_retrieve",
+                    title="知识检索",
+                    summary=(
+                        f"命中 {hit_count} 条相关资料，已取消澄清，直接依据 KB 回答。"
+                    ),
+                    detail=(
+                        f"top-1 得分 {top_score:.1f} 超过阈值 12，"
+                        f"将 ask_followup 降级为 answer。意图域：{interaction_intent.domain}。"
+                    ),
+                    duration_ms=self._elapsed_ms(started_at),
+                )
+                return context
+
+            top_titles = [hit.title for hit in context.knowledge_hits[:3] if hit.title]
+            clarification = context.pending_clarification_message
+            if top_titles:
+                titles_block = "\n".join(f"- {title}" for title in top_titles)
+                context.answer = (
+                    f"{clarification}\n\n"
+                    "我大致检索到这些相关材料，可一起说明你想聚焦哪一块：\n"
+                    f"{titles_block}"
+                )
+            else:
+                context.answer = clarification
+            context.workflow_action = "ask_follow_up"
+            context.route = "done"
+            context.pending_clarification_message = None
+            self._append_trace(
+                context,
+                key="knowledge_retrieve",
+                title="知识检索",
+                summary=(
+                    f"命中 {hit_count} 条相关资料，但 top 得分 {top_score:.1f} 不足，附上标题后发出澄清。"
+                    if hit_count
+                    else "未检索到直接相关资料，发出澄清。"
+                ),
+                detail=(
+                    f"已将 top-{min(hit_count, 3)} 标题附在澄清中，避免盲反思循环。"
+                    if top_titles
+                    else "本轮检索未命中，仅发送澄清话术。"
+                ),
+                duration_ms=self._elapsed_ms(started_at),
+            )
+            return context
+
         self._append_trace(
             context,
             key="knowledge_retrieve",
             title="知识检索",
             summary=(f"命中 {hit_count} 条相关资料。" if hit_count else "没有命中直接相关资料。"),
             detail=(
-                f"检索到 {hit_count} 条相关材料，意图域为 {interaction_intent.domain}，准备构造回答上下文。"
+                f"检索到 {hit_count} 条相关材料，意图域为 {interaction_intent.domain}，top得分 {top_score:.1f}，准备构造回答上下文。"
                 if hit_count
                 else "未检索到直接相关材料，将基于角色设定直接回答。"
             ),
@@ -1232,16 +1307,19 @@ class FacultyTwinWorkflowSupport:
         # workflow-events SSE channel as it arrives. The full string is
         # still returned so the rest of the pipeline (trace, render,
         # post-answer fan-out) sees the same final answer.
+        enable_thinking = getattr(context.request, "deep_thinking", True)
         if self._answer_chunk_callback is not None:
             context.answer = self._llm_client.answer_question_sync(
                 context.system_prompt,
                 context.user_prompt,
                 token_callback=self._answer_chunk_callback,
+                enable_thinking=enable_thinking,
             )
         else:
             context.answer = self._llm_client.answer_question_sync(
                 context.system_prompt,
                 context.user_prompt,
+                enable_thinking=enable_thinking,
             )
         context.workflow_action = (
             "advise_only" if context.decision_mode == "advise_only" else "answer"
@@ -2290,14 +2368,59 @@ class FacultyTwinWorkflowSupport:
             )
         return "\n".join(sections) + "\n"
 
+    _IDENTITY_QUESTION_PATTERN = re.compile(
+        r"你是谁|介绍.{0,4}你|个人简介|个人介绍|学术背景|主要研究|研究方向|招什么样|招生|你的学术|你主要|你是做|你是什么样的老师"
+    )
+    _IDENTITY_FLOOR_TITLES: tuple[str, ...] = (
+        "主页资料｜张书豪",
+        "主页资料｜当前系统建设",
+        "主页资料｜招生与合作",
+        "研究总览｜一、共享状态访问、调度与运行时管理",
+    )
+
+    def _identity_floor_hits(self, question: str) -> list[KnowledgeSearchHit]:
+        if not question or not self._IDENTITY_QUESTION_PATTERN.search(question):
+            return []
+        hits: list[KnowledgeSearchHit] = []
+        for record in self._knowledge_store.list_documents():
+            if record.title in self._IDENTITY_FLOOR_TITLES:
+                excerpt = record.content[:600]
+                hits.append(
+                    KnowledgeSearchHit(
+                        document_id=record.document_id,
+                        title=record.title,
+                        excerpt=excerpt,
+                        score=99.0,
+                        tags=list(record.tags),
+                        source_name=record.source_name,
+                        metadata=dict(record.metadata),
+                    )
+                )
+        # Preserve the order declared in _IDENTITY_FLOOR_TITLES so the bio
+        # always appears first.
+        ordering = {title: idx for idx, title in enumerate(self._IDENTITY_FLOOR_TITLES)}
+        hits.sort(key=lambda h: ordering.get(h.title, 999))
+        return hits
+
     def _select_prompt_knowledge_hits(
         self,
         question: str,
         knowledge_hits: list[KnowledgeSearchHit],
         interaction_intent: InteractionIntent | None = None,
     ) -> list[KnowledgeSearchHit]:
-        if not knowledge_hits:
+        # Task 5: identity-floor force-include. When the student is clearly
+        # asking about who the owner is / what the lab studies / admissions,
+        # always inject the homepage bio + research overview at the top so the
+        # answer never falls back to inventing `[具体研究方向]` placeholders.
+        floor_hits = self._identity_floor_hits(question)
+        if not knowledge_hits and not floor_hits:
             return []
+        if floor_hits:
+            seen_ids = {hit.document_id for hit in floor_hits}
+            merged = list(floor_hits) + [
+                hit for hit in knowledge_hits if hit.document_id not in seen_ids
+            ]
+            knowledge_hits = merged
         if interaction_intent is not None:
             scoped_hits = self._filter_knowledge_hits_by_intent(knowledge_hits, interaction_intent)
             if interaction_intent.domain == "research":
@@ -2684,11 +2807,15 @@ class FacultyTwinWorkflowSupport:
         classify_sync = getattr(self._llm_client, "classify_interaction_intent_sync", None)
         if callable(classify_sync):
             try:
+                course_context_block: str | None = None
+                if context.request.course_context and context.request.course_context.strip():
+                    course_context_block = (
+                        f"Course context: {context.request.course_context.strip()}"
+                    )
                 intent = classify_sync(
                     context.request.question,
-                    self._build_interaction_context(
-                        context.request, context.recent_session_context
-                    ),
+                    course_context_block,
+                    recent_session_context=context.recent_session_context,
                 )
                 if not isinstance(intent, InteractionIntent):
                     intent = InteractionIntent.model_validate(intent)
@@ -2910,15 +3037,57 @@ class FacultyTwinWorkflowSupport:
         return InteractionIntent(action="answer", domain="general", confidence=0.5)
 
     def _build_knowledge_query(
-        self, request: ChatRequest, interaction_intent: InteractionIntent
+        self,
+        request: ChatRequest,
+        interaction_intent: InteractionIntent,
+        recent_session_context: str | None = None,
     ) -> str:
+        question = request.question
+        # Task 4: short follow-ups (具体/那个/这个/这篇/那篇/继续/然后/展开/详细/细节) cannot
+        # be matched on their own. Prepend the prior student turn(s) so the BM25
+        # query carries the resolved topic anchor (e.g. "kvpr 这篇" stays linked
+        # to the previous KV-cache discussion).
+        expanded_question = self._expand_followup_question(question, recent_session_context)
         if request.course_context and interaction_intent.domain in {
             "research",
             "teaching",
             "advising",
         }:
-            return f"{request.question}\n{request.course_context}".strip()
-        return request.question
+            return f"{expanded_question}\n{request.course_context}".strip()
+        return expanded_question
+
+    _SHORT_FOLLOWUP_PATTERN = re.compile(
+        r"^(具体|那个|这个|这篇|那篇|继续|然后|展开|详细|细节|还有|接着|其他|另外|呢|么|哦|能否|可以)"
+    )
+
+    def _expand_followup_question(
+        self, question: str, recent_session_context: str | None
+    ) -> str:
+        normalized = (question or "").strip()
+        if not normalized or not recent_session_context:
+            return question
+        if len(normalized) >= 25 and not self._SHORT_FOLLOWUP_PATTERN.match(normalized):
+            return question
+        # Pull up to two most-recent user turns out of the formatted context.
+        prior_user_turns: list[str] = []
+        for raw_line in recent_session_context.splitlines():
+            line = raw_line.strip()
+            # _format_recent_session_context emits lines like
+            #   "1. User: 你能帮我看论文吗"
+            # so we only keep the user-side sentences.
+            if not line:
+                continue
+            marker = line.find("User:")
+            if marker == -1:
+                continue
+            extracted = line[marker + len("User:"):].strip()
+            if extracted:
+                prior_user_turns.append(extracted)
+        if not prior_user_turns:
+            return question
+        # Keep the two most recent (already chronological in the formatted text).
+        prior = " ".join(prior_user_turns[-2:])
+        return f"{prior} {question}".strip()
 
     def _filter_knowledge_hits_by_intent(
         self,
@@ -4830,7 +4999,8 @@ class DigitalTwinService:
         grouped_records: dict[str, list[ConversationMemoryRecord]] = {}
         for record in reversed(self._conversation_store.list_records()):
             record_email = (record.student_email or "").strip().lower()
-            if not record_email or record_email != normalized_email:
+            # Match records belonging to this user OR records with no email (legacy/anonymous)
+            if record_email and record_email != normalized_email:
                 continue
             grouped_records.setdefault(record.conversation_id, []).append(record)
 
@@ -4875,7 +5045,10 @@ class DigitalTwinService:
             record
             for record in self._conversation_store.list_records()
             if record.conversation_id == conversation_id
-            and (record.student_email or "").strip().lower() == normalized_email
+            and (
+                not (record.student_email or "").strip()
+                or (record.student_email or "").strip().lower() == normalized_email
+            )
         ]
         records.sort(key=lambda record: record.created_at)
         if not records:
