@@ -1,0 +1,16 @@
+{
+  "record_id": "fa912fe2-9ee2-40e0-9690-50fcc77cd3c3",
+  "conversation_id": "b1fd0a51-2adb-45e0-b7fa-90caf48e7dfd",
+  "planner_stage": "shadow",
+  "planner_mode": "llm_shadow",
+  "question": "张老师主要研究什么方向？",
+  "goal": "answer_research_question",
+  "accepted": false,
+  "status": "shadow_error",
+  "fallback_template": "answer_question",
+  "fallback_reason": "vllm-hust did not return JSON for booking intent classification",
+  "validation_errors": [],
+  "planned_steps": [],
+  "latency_ms": 1.2581120245158672,
+  "created_at": "2026-06-04T07:13:15.114650+00:00"
+}

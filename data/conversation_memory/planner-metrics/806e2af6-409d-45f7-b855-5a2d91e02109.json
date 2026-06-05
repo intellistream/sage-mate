@@ -1,0 +1,24 @@
+{
+  "record_id": "806e2af6-409d-45f7-b855-5a2d91e02109",
+  "conversation_id": "replay-90dd69167e5b",
+  "planner_stage": "deterministic",
+  "planner_mode": "deterministic",
+  "question": "我现在就是不知道哪些文献是相关文献",
+  "goal": "answer_course_question",
+  "accepted": true,
+  "status": "accepted",
+  "fallback_template": "answer_question",
+  "fallback_reason": null,
+  "validation_errors": [],
+  "planned_steps": [
+    "detect_profile_context",
+    "classify_intent",
+    "retrieve_hybrid_knowledge",
+    "assemble_prompt_context",
+    "answer_with_citations",
+    "score_memory_usefulness",
+    "render_user_response"
+  ],
+  "latency_ms": 0.3532329574227333,
+  "created_at": "2026-06-04T15:55:48.029301+00:00"
+}

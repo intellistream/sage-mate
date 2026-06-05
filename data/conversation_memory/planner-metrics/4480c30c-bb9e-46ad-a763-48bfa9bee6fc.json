@@ -1,0 +1,16 @@
+{
+  "record_id": "4480c30c-bb9e-46ad-a763-48bfa9bee6fc",
+  "conversation_id": "replay-fdac87ee4ac4",
+  "planner_stage": "shadow",
+  "planner_mode": "llm_shadow",
+  "question": "在吗",
+  "goal": "answer_course_question",
+  "accepted": false,
+  "status": "shadow_error",
+  "fallback_template": "answer_question",
+  "fallback_reason": "vllm-hust did not return JSON for booking intent classification",
+  "validation_errors": [],
+  "planned_steps": [],
+  "latency_ms": 0.8895779028534889,
+  "created_at": "2026-06-04T16:55:50.622592+00:00"
+}

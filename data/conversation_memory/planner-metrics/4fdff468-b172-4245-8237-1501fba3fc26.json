@@ -1,0 +1,16 @@
+{
+  "record_id": "4fdff468-b172-4245-8237-1501fba3fc26",
+  "conversation_id": "replay-fdac87ee4ac4",
+  "planner_stage": "shadow",
+  "planner_mode": "llm_shadow",
+  "question": "当前我的论文定位为一个面向 continuation-anchored LLM serving 的 request dispatch benchmark，核心目标是系统性评测不同请求调度策略在 locality-load tradeoff 下的行为，而不是单纯提出一个新调度算法。希望确认这一定位是否足够明确、是否符合顶会论文的叙事方式。",
+  "goal": "answer_course_question",
+  "accepted": false,
+  "status": "shadow_error",
+  "fallback_template": "answer_question",
+  "fallback_reason": "vllm-hust did not return JSON for booking intent classification",
+  "validation_errors": [],
+  "planned_steps": [],
+  "latency_ms": 0.916867982596159,
+  "created_at": "2026-06-04T16:55:51.772025+00:00"
+}

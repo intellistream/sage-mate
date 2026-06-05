@@ -1,0 +1,16 @@
+{
+  "record_id": "de6b93e4-f3ed-417c-b85f-35c76ee77bca",
+  "conversation_id": "replay-90dd69167e5b",
+  "planner_stage": "shadow",
+  "planner_mode": "llm_shadow",
+  "question": "我想确认我应该围绕什么问题阅读文献。我现在的研究课题是：当请求进入推理系统时，可能不复用或者部分复用会比全复用更好",
+  "goal": "answer_research_question",
+  "accepted": false,
+  "status": "shadow_error",
+  "fallback_template": "answer_question",
+  "fallback_reason": "vllm-hust did not return JSON for booking intent classification",
+  "validation_errors": [],
+  "planned_steps": [],
+  "latency_ms": 0.8924780413508415,
+  "created_at": "2026-06-04T15:55:34.706308+00:00"
+}

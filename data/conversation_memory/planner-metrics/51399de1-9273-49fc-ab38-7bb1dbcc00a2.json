@@ -1,0 +1,16 @@
+{
+  "record_id": "51399de1-9273-49fc-ab38-7bb1dbcc00a2",
+  "conversation_id": "replay-5dd1d684bab1",
+  "planner_stage": "shadow",
+  "planner_mode": "llm_shadow",
+  "question": "我是老师手底下的研究生",
+  "goal": "answer_research_question",
+  "accepted": false,
+  "status": "shadow_error",
+  "fallback_template": "answer_question",
+  "fallback_reason": "vllm-hust did not return JSON for booking intent classification",
+  "validation_errors": [],
+  "planned_steps": [],
+  "latency_ms": 0.8886377327144146,
+  "created_at": "2026-06-04T16:55:09.912183+00:00"
+}

@@ -1,0 +1,16 @@
+{
+  "record_id": "05b73eef-762c-4d5b-b54d-3fbcc81cf1d6",
+  "conversation_id": "",
+  "planner_stage": "shadow",
+  "planner_mode": "llm_shadow",
+  "question": "你好",
+  "goal": "respond_simple_greeting",
+  "accepted": false,
+  "status": "shadow_error",
+  "fallback_template": "answer_question",
+  "fallback_reason": "vllm-hust did not return JSON for booking intent classification",
+  "validation_errors": [],
+  "planned_steps": [],
+  "latency_ms": 98874.98943507671,
+  "created_at": "2026-06-04T08:06:45.799225+00:00"
+}

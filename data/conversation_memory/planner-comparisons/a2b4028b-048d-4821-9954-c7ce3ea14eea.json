@@ -1,0 +1,25 @@
+{
+  "record_id": "a2b4028b-048d-4821-9954-c7ce3ea14eea",
+  "conversation_id": "replay-95a43b1c51e8",
+  "exchange_id": "b9855e41-3677-4321-9fec-fe01071195bf",
+  "workflow_action": "answer",
+  "question": "我该怎么围绕我的课题整理文献",
+  "comparison_status": "shadow_error",
+  "deterministic_goal": "answer_course_question",
+  "shadow_goal": null,
+  "same_goal": true,
+  "same_fallback_template": true,
+  "deterministic_only_steps": [
+    "detect_profile_context",
+    "classify_intent",
+    "retrieve_hybrid_knowledge",
+    "retrieve_recent_memory",
+    "assemble_prompt_context",
+    "answer_with_citations",
+    "score_memory_usefulness",
+    "render_user_response"
+  ],
+  "shadow_only_steps": [],
+  "summary": "vllm-hust did not return JSON for booking intent classification",
+  "created_at": "2026-06-04T16:54:51.058059+00:00"
+}

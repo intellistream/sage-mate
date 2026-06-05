@@ -2294,5 +2294,145 @@
       }
     },
     "created_at": 1780484187.788605
+  },
+  "4db079122c86335fa1e539275e8449a288857deb4866634f36ff5e622ba5700a": {
+    "text": "student test category identity 用户身份 姓名 邮箱 联系方式 该用户名称为：test Latest conversation id: 1cb35bb2-52e1-48f0-8e5c-a7fc8eafeb9c",
+    "metadata": {
+      "entry_kind": "profile_record",
+      "profile_id": "test-identity",
+      "student_key": "test",
+      "student_name": "test",
+      "student_email": "",
+      "category": "identity",
+      "source": "system_event",
+      "topic": "identity",
+      "session_id": "test",
+      "importance": "high",
+      "timestamp": "2026-06-04T10:29:36.882849+00:00",
+      "memory_scope": "long_term",
+      "profile_payload": {
+        "profile_id": "test-identity",
+        "student_key": "test",
+        "student_name": "test",
+        "student_email": null,
+        "category": "identity",
+        "summary": "该用户名称为：test",
+        "evidence": "Latest conversation id: 1cb35bb2-52e1-48f0-8e5c-a7fc8eafeb9c",
+        "updated_at": "2026-06-04T10:29:36.882849+00:00"
+      }
+    },
+    "created_at": 1780568977.2669914
+  },
+  "aad5cb72ec18f7355d2ddba9ef673afaa4e48094cd3938de21957902f930ce7e": {
+    "text": "student test category recent_topic 近期话题 关注主题 讨论重点 该用户近期反复关注的话题：你好 Question: 你好",
+    "metadata": {
+      "entry_kind": "profile_record",
+      "profile_id": "test-recent_topic",
+      "student_key": "test",
+      "student_name": "test",
+      "student_email": "",
+      "category": "recent_topic",
+      "source": "system_event",
+      "topic": "recent_topic",
+      "session_id": "test",
+      "importance": "medium",
+      "timestamp": "2026-06-04T10:29:36.882849+00:00",
+      "memory_scope": "long_term",
+      "profile_payload": {
+        "profile_id": "test-recent_topic",
+        "student_key": "test",
+        "student_name": "test",
+        "student_email": null,
+        "category": "recent_topic",
+        "summary": "该用户近期反复关注的话题：你好",
+        "evidence": "Question: 你好",
+        "updated_at": "2026-06-04T10:29:36.882849+00:00"
+      }
+    },
+    "created_at": 1780568977.2797859
+  },
+  "d510275de05229efee9bdde04eccd56be9924a7cc823377da7260fdc26ded27b": {
+    "text": "student 彭浩然 category identity 用户身份 姓名 邮箱 联系方式 该用户名称为：彭浩然；联系邮箱：q1293132751@163.com Latest conversation id: bfbf2a42-3b6f-4bf8-ae86-b66eb1e4cb59 email q1293132751@163.com",
+    "metadata": {
+      "entry_kind": "profile_record",
+      "profile_id": "q1293132751-163-com-identity",
+      "student_key": "q1293132751@163.com",
+      "student_name": "彭浩然",
+      "student_email": "q1293132751@163.com",
+      "category": "identity",
+      "source": "system_event",
+      "topic": "identity",
+      "session_id": "q1293132751@163.com",
+      "importance": "high",
+      "timestamp": "2026-06-05T09:33:10.731828+00:00",
+      "memory_scope": "long_term",
+      "profile_payload": {
+        "profile_id": "q1293132751-163-com-identity",
+        "student_key": "q1293132751@163.com",
+        "student_name": "彭浩然",
+        "student_email": "q1293132751@163.com",
+        "category": "identity",
+        "summary": "该用户名称为：彭浩然；联系邮箱：q1293132751@163.com",
+        "evidence": "Latest conversation id: bfbf2a42-3b6f-4bf8-ae86-b66eb1e4cb59",
+        "updated_at": "2026-06-05T09:33:10.731828+00:00"
+      }
+    },
+    "created_at": 1780651990.9964943
+  },
+  "d91ad67c3b5dce7688c86d92656036440718b16a82c2c145c5af28fcf999a330": {
+    "text": "student 彭浩然 category course_context 课程场景 交流背景 科研指导 该用户最近的主要交流场景是：科研指导 Question: 刚刚我给的质量有界推理控制：阶段现状、缺陷审视与下一步实验方案.md\n这里的方案是否是真正现阶段课题的缺陷呢，距离真正投稿的缺口是否是这里所列举的这些？以及下一步实验是否可以有效解决这些问题，老师有更好的建议吗 email q1293132751@163.com",
+    "metadata": {
+      "entry_kind": "profile_record",
+      "profile_id": "q1293132751-163-com-course_context",
+      "student_key": "q1293132751@163.com",
+      "student_name": "彭浩然",
+      "student_email": "q1293132751@163.com",
+      "category": "course_context",
+      "source": "system_event",
+      "topic": "course_context",
+      "session_id": "q1293132751@163.com",
+      "importance": "medium",
+      "timestamp": "2026-06-05T09:33:10.731828+00:00",
+      "memory_scope": "long_term",
+      "profile_payload": {
+        "profile_id": "q1293132751-163-com-course_context",
+        "student_key": "q1293132751@163.com",
+        "student_name": "彭浩然",
+        "student_email": "q1293132751@163.com",
+        "category": "course_context",
+        "summary": "该用户最近的主要交流场景是：科研指导",
+        "evidence": "Question: 刚刚我给的质量有界推理控制：阶段现状、缺陷审视与下一步实验方案.md\n这里的方案是否是真正现阶段课题的缺陷呢，距离真正投稿的缺口是否是这里所列举的这些？以及下一步实验是否可以有效解决这些问题，老师有更好的建议吗",
+        "updated_at": "2026-06-05T09:33:10.731828+00:00"
+      }
+    },
+    "created_at": 1780651991.009077
+  },
+  "f1b92f9e8d40f1ff0782ceda4075e2424664c0e17063afa74d7c730b500db99b": {
+    "text": "student 彭浩然 category recent_topic 近期话题 关注主题 讨论重点 该用户近期反复关注的话题：刚刚我给的质量有界推理控制：阶段现状、缺陷审视与下一步实验方案.md 这里的方案是否是真正现阶段课题的缺陷呢，距离真正投稿的缺口是否是这里所列举的这些？以及下一步实验是否可以有效解决这些问题， 有更好的建议吗 Question: 刚刚我给的质量有界推理控制：阶段现状、缺陷审视与下一步实验方案.md\n这里的方案是否是真正现阶段课题的缺陷呢，距离真正投稿的缺口是否是这里所列举的这些？以及下一步实验是否可以有效解决这些问题，老师有更好的建议吗 email q1293132751@163.com",
+    "metadata": {
+      "entry_kind": "profile_record",
+      "profile_id": "q1293132751-163-com-recent_topic",
+      "student_key": "q1293132751@163.com",
+      "student_name": "彭浩然",
+      "student_email": "q1293132751@163.com",
+      "category": "recent_topic",
+      "source": "system_event",
+      "topic": "recent_topic",
+      "session_id": "q1293132751@163.com",
+      "importance": "medium",
+      "timestamp": "2026-06-05T09:33:10.731828+00:00",
+      "memory_scope": "long_term",
+      "profile_payload": {
+        "profile_id": "q1293132751-163-com-recent_topic",
+        "student_key": "q1293132751@163.com",
+        "student_name": "彭浩然",
+        "student_email": "q1293132751@163.com",
+        "category": "recent_topic",
+        "summary": "该用户近期反复关注的话题：刚刚我给的质量有界推理控制：阶段现状、缺陷审视与下一步实验方案.md 这里的方案是否是真正现阶段课题的缺陷呢，距离真正投稿的缺口是否是这里所列举的这些？以及下一步实验是否可以有效解决这些问题， 有更好的建议吗",
+        "evidence": "Question: 刚刚我给的质量有界推理控制：阶段现状、缺陷审视与下一步实验方案.md\n这里的方案是否是真正现阶段课题的缺陷呢，距离真正投稿的缺口是否是这里所列举的这些？以及下一步实验是否可以有效解决这些问题，老师有更好的建议吗",
+        "updated_at": "2026-06-05T09:33:10.731828+00:00"
+      }
+    },
+    "created_at": 1780651991.0218885
   }
 }

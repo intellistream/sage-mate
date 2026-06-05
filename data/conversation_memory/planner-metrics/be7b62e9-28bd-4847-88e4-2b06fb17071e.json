@@ -1,0 +1,16 @@
+{
+  "record_id": "be7b62e9-28bd-4847-88e4-2b06fb17071e",
+  "conversation_id": "12204224-c9b2-42ce-b23a-978dab51e058",
+  "planner_stage": "shadow",
+  "planner_mode": "llm_shadow",
+  "question": "论文写作课的结课要求？",
+  "goal": "answer_course_question",
+  "accepted": false,
+  "status": "shadow_error",
+  "fallback_template": "answer_question",
+  "fallback_reason": "[Errno 111] Connection refused",
+  "validation_errors": [],
+  "planned_steps": [],
+  "latency_ms": 1.1609499342739582,
+  "created_at": "2026-06-05T00:44:45.691698+00:00"
+}

@@ -1,0 +1,24 @@
+{
+  "record_id": "5441607e-3e3b-417d-9d7c-6b5b3ced256c",
+  "conversation_id": "replay-b1fcdf6e72d0",
+  "planner_stage": "deterministic",
+  "planner_mode": "deterministic",
+  "question": "张老师指导过的学生名单",
+  "goal": "answer_course_question",
+  "accepted": true,
+  "status": "accepted",
+  "fallback_template": "answer_question",
+  "fallback_reason": null,
+  "validation_errors": [],
+  "planned_steps": [
+    "detect_profile_context",
+    "classify_intent",
+    "retrieve_hybrid_knowledge",
+    "assemble_prompt_context",
+    "answer_with_citations",
+    "score_memory_usefulness",
+    "render_user_response"
+  ],
+  "latency_ms": 0.39378413930535316,
+  "created_at": "2026-06-04T16:55:38.180272+00:00"
+}

@@ -1,0 +1,16 @@
+{
+  "record_id": "adce6c96-c510-424b-b0a5-1966b9b909b6",
+  "conversation_id": "replay-f91b399850c7",
+  "planner_stage": "shadow",
+  "planner_mode": "llm_shadow",
+  "question": "我该怎么围绕我的课题整理文献",
+  "goal": "answer_course_question",
+  "accepted": false,
+  "status": "shadow_error",
+  "fallback_template": "answer_question",
+  "fallback_reason": "vllm-hust did not return JSON for booking intent classification",
+  "validation_errors": [],
+  "planned_steps": [],
+  "latency_ms": 0.9468980133533478,
+  "created_at": "2026-06-04T15:55:14.189051+00:00"
+}

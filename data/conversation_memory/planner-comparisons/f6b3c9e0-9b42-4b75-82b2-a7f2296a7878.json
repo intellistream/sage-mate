@@ -1,0 +1,24 @@
+{
+  "record_id": "f6b3c9e0-9b42-4b75-82b2-a7f2296a7878",
+  "conversation_id": "replay-ca5a368d1e06",
+  "exchange_id": "790e198c-2b6a-48bf-a61d-508ab678242c",
+  "workflow_action": "answer",
+  "question": "张老师指导过的学生名单",
+  "comparison_status": "shadow_error",
+  "deterministic_goal": "answer_course_question",
+  "shadow_goal": null,
+  "same_goal": true,
+  "same_fallback_template": true,
+  "deterministic_only_steps": [
+    "detect_profile_context",
+    "classify_intent",
+    "retrieve_hybrid_knowledge",
+    "assemble_prompt_context",
+    "answer_with_citations",
+    "score_memory_usefulness",
+    "render_user_response"
+  ],
+  "shadow_only_steps": [],
+  "summary": "vllm-hust did not return JSON for booking intent classification",
+  "created_at": "2026-06-04T15:55:59.386564+00:00"
+}

@@ -1,0 +1,16 @@
+{
+  "record_id": "fb9207c2-d263-4a77-9564-d693e4ad35be",
+  "conversation_id": "replay-b1fcdf6e72d0",
+  "planner_stage": "shadow",
+  "planner_mode": "llm_shadow",
+  "question": "sage是什么",
+  "goal": "answer_research_question",
+  "accepted": false,
+  "status": "shadow_error",
+  "fallback_template": "answer_question",
+  "fallback_reason": "vllm-hust did not return JSON for booking intent classification",
+  "validation_errors": [],
+  "planned_steps": [],
+  "latency_ms": 0.9904992766678333,
+  "created_at": "2026-06-04T16:55:44.416740+00:00"
+}

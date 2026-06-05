@@ -1,0 +1,16 @@
+{
+  "record_id": "7e1bb321-292a-40ec-9f05-12867a72f7e0",
+  "conversation_id": "replay-ca5a368d1e06",
+  "planner_stage": "shadow",
+  "planner_mode": "llm_shadow",
+  "question": "张老师有那些学生",
+  "goal": "answer_course_question",
+  "accepted": false,
+  "status": "shadow_error",
+  "fallback_template": "answer_question",
+  "fallback_reason": "vllm-hust did not return JSON for booking intent classification",
+  "validation_errors": [],
+  "planned_steps": [],
+  "latency_ms": 0.8786069229245186,
+  "created_at": "2026-06-04T15:55:55.202260+00:00"
+}

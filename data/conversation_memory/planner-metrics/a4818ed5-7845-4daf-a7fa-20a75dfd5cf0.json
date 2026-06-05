@@ -1,0 +1,16 @@
+{
+  "record_id": "a4818ed5-7845-4daf-a7fa-20a75dfd5cf0",
+  "conversation_id": "replay-4316be3373d4",
+  "planner_stage": "shadow",
+  "planner_mode": "llm_shadow",
+  "question": "我已经整理了十篇文献，然后进行汇报，汇报的内容应该包括什么",
+  "goal": "answer_course_question",
+  "accepted": false,
+  "status": "shadow_error",
+  "fallback_template": "answer_question",
+  "fallback_reason": "[Errno 111] Connection refused",
+  "validation_errors": [],
+  "planned_steps": [],
+  "latency_ms": 4.278615117073059,
+  "created_at": "2026-06-04T15:45:27.665275+00:00"
+}

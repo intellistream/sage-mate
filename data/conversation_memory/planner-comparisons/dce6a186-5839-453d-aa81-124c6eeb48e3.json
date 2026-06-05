@@ -1,0 +1,24 @@
+{
+  "record_id": "dce6a186-5839-453d-aa81-124c6eeb48e3",
+  "conversation_id": "replay-90dd69167e5b",
+  "exchange_id": "b82ee5e4-0334-4716-a7c8-0f95eaa0dfb4",
+  "workflow_action": "ask_follow_up",
+  "question": "已有的",
+  "comparison_status": "shadow_error",
+  "deterministic_goal": "answer_course_question",
+  "shadow_goal": null,
+  "same_goal": true,
+  "same_fallback_template": true,
+  "deterministic_only_steps": [
+    "detect_profile_context",
+    "classify_intent",
+    "retrieve_hybrid_knowledge",
+    "assemble_prompt_context",
+    "answer_with_citations",
+    "score_memory_usefulness",
+    "render_user_response"
+  ],
+  "shadow_only_steps": [],
+  "summary": "vllm-hust did not return JSON for booking intent classification",
+  "created_at": "2026-06-04T15:55:22.342752+00:00"
+}

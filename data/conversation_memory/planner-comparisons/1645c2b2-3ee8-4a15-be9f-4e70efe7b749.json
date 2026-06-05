@@ -1,0 +1,24 @@
+{
+  "record_id": "1645c2b2-3ee8-4a15-be9f-4e70efe7b749",
+  "conversation_id": "replay-90dd69167e5b",
+  "exchange_id": "e921a8a1-eeef-40ef-8b89-3f16e332c24e",
+  "workflow_action": "answer",
+  "question": "我的研究选题的问题定义是：当请求进入时，部分复用甚至不复用可能比全复用更好。这个问题定义有什么问题吗",
+  "comparison_status": "shadow_error",
+  "deterministic_goal": "answer_research_question",
+  "shadow_goal": null,
+  "same_goal": true,
+  "same_fallback_template": true,
+  "deterministic_only_steps": [
+    "detect_profile_context",
+    "classify_intent",
+    "retrieve_hybrid_knowledge",
+    "assemble_prompt_context",
+    "answer_with_citations",
+    "score_memory_usefulness",
+    "render_user_response"
+  ],
+  "shadow_only_steps": [],
+  "summary": "vllm-hust did not return JSON for booking intent classification",
+  "created_at": "2026-06-04T15:55:45.721846+00:00"
+}

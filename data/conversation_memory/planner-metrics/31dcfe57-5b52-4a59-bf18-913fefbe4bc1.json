@@ -1,0 +1,16 @@
+{
+  "record_id": "31dcfe57-5b52-4a59-bf18-913fefbe4bc1",
+  "conversation_id": "replay-5dd1d684bab1",
+  "planner_stage": "shadow",
+  "planner_mode": "llm_shadow",
+  "question": "kvpr这篇",
+  "goal": "answer_course_question",
+  "accepted": false,
+  "status": "shadow_error",
+  "fallback_template": "answer_question",
+  "fallback_reason": "vllm-hust did not return JSON for booking intent classification",
+  "validation_errors": [],
+  "planned_steps": [],
+  "latency_ms": 0.875888392329216,
+  "created_at": "2026-06-04T16:54:59.793293+00:00"
+}

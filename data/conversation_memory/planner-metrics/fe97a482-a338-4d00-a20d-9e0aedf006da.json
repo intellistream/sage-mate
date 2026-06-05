@@ -1,0 +1,16 @@
+{
+  "record_id": "fe97a482-a338-4d00-a20d-9e0aedf006da",
+  "conversation_id": "replay-5dd1d684bab1",
+  "planner_stage": "shadow",
+  "planner_mode": "llm_shadow",
+  "question": "什么叫具体背景信息，你举个例子",
+  "goal": "answer_course_question",
+  "accepted": false,
+  "status": "shadow_error",
+  "fallback_template": "answer_question",
+  "fallback_reason": "vllm-hust did not return JSON for booking intent classification",
+  "validation_errors": [],
+  "planned_steps": [],
+  "latency_ms": 0.8912873454391956,
+  "created_at": "2026-06-04T16:55:14.326411+00:00"
+}

@@ -1,0 +1,16 @@
+{
+  "record_id": "1204fc56-49b9-4389-9b0e-262ddc0ae654",
+  "conversation_id": "",
+  "planner_stage": "shadow",
+  "planner_mode": "llm_shadow",
+  "question": "你好",
+  "goal": "respond_simple_greeting",
+  "accepted": false,
+  "status": "shadow_error",
+  "fallback_template": "answer_question",
+  "fallback_reason": "[Errno 111] Connection refused",
+  "validation_errors": [],
+  "planned_steps": [],
+  "latency_ms": 2.3273099213838577,
+  "created_at": "2026-06-04T09:16:24.013872+00:00"
+}

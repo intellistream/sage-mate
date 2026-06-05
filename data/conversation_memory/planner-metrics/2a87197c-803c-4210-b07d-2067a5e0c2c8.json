@@ -1,0 +1,16 @@
+{
+  "record_id": "2a87197c-803c-4210-b07d-2067a5e0c2c8",
+  "conversation_id": "conv-1780584660043-ed469cdd533fa8",
+  "planner_stage": "shadow",
+  "planner_mode": "llm_shadow",
+  "question": "我上次提到的研究主题和 blocker 是什么？",
+  "goal": "answer_research_question",
+  "accepted": false,
+  "status": "shadow_error",
+  "fallback_template": "answer_question",
+  "fallback_reason": "vllm-hust did not return JSON for booking intent classification",
+  "validation_errors": [],
+  "planned_steps": [],
+  "latency_ms": 20772.626700811088,
+  "created_at": "2026-06-04T14:52:00.855180+00:00"
+}

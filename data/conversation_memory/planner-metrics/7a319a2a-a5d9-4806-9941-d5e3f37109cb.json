@@ -1,0 +1,24 @@
+{
+  "record_id": "7a319a2a-a5d9-4806-9941-d5e3f37109cb",
+  "conversation_id": "replay-5dd1d684bab1",
+  "planner_stage": "deterministic",
+  "planner_mode": "deterministic",
+  "question": "都需要，都讲讲吧",
+  "goal": "answer_course_question",
+  "accepted": true,
+  "status": "accepted",
+  "fallback_template": "answer_question",
+  "fallback_reason": null,
+  "validation_errors": [],
+  "planned_steps": [
+    "detect_profile_context",
+    "classify_intent",
+    "retrieve_hybrid_knowledge",
+    "assemble_prompt_context",
+    "answer_with_citations",
+    "score_memory_usefulness",
+    "render_user_response"
+  ],
+  "latency_ms": 0.28103310614824295,
+  "created_at": "2026-06-04T16:55:08.153444+00:00"
+}

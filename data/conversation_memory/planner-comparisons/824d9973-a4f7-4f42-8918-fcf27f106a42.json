@@ -1,0 +1,25 @@
+{
+  "record_id": "824d9973-a4f7-4f42-8918-fcf27f106a42",
+  "conversation_id": "replay-f91b399850c7",
+  "exchange_id": "c424f193-49ea-4df9-b9e0-95c3a9994fca",
+  "workflow_action": "ask_follow_up",
+  "question": "我已经整理了十篇文献，然后进行汇报，汇报的内容应该包括什么",
+  "comparison_status": "shadow_error",
+  "deterministic_goal": "answer_course_question",
+  "shadow_goal": null,
+  "same_goal": true,
+  "same_fallback_template": true,
+  "deterministic_only_steps": [
+    "detect_profile_context",
+    "classify_intent",
+    "retrieve_hybrid_knowledge",
+    "retrieve_recent_memory",
+    "assemble_prompt_context",
+    "answer_with_citations",
+    "score_memory_usefulness",
+    "render_user_response"
+  ],
+  "shadow_only_steps": [],
+  "summary": "vllm-hust did not return JSON for booking intent classification",
+  "created_at": "2026-06-04T15:55:14.186549+00:00"
+}

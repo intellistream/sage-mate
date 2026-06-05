@@ -1,0 +1,25 @@
+{
+  "record_id": "e934be39-0a67-4003-a57f-558547964e9f",
+  "conversation_id": "conv-1780584660043-ed469cdd533fa8",
+  "planner_stage": "deterministic",
+  "planner_mode": "deterministic",
+  "question": "我上次提到的研究主题和 blocker 是什么？",
+  "goal": "answer_research_question",
+  "accepted": true,
+  "status": "accepted",
+  "fallback_template": "answer_question",
+  "fallback_reason": null,
+  "validation_errors": [],
+  "planned_steps": [
+    "detect_profile_context",
+    "classify_intent",
+    "retrieve_hybrid_knowledge",
+    "retrieve_recent_memory",
+    "assemble_prompt_context",
+    "answer_with_citations",
+    "score_memory_usefulness",
+    "render_user_response"
+  ],
+  "latency_ms": 0.5730642005801201,
+  "created_at": "2026-06-04T14:52:00.854668+00:00"
+}

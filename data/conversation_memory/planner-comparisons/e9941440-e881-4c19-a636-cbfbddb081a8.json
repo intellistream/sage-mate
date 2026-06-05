@@ -1,0 +1,24 @@
+{
+  "record_id": "e9941440-e881-4c19-a636-cbfbddb081a8",
+  "conversation_id": "replay-5dd1d684bab1",
+  "exchange_id": "e72160f5-93c6-4cbd-9a1f-86c950325d3b",
+  "workflow_action": "answer",
+  "question": "我想确认我应该围绕什么问题阅读文献。我现在的研究课题是：当请求进入推理系统时，可能不复用或者部分复用会比全复用更好",
+  "comparison_status": "shadow_error",
+  "deterministic_goal": "answer_research_question",
+  "shadow_goal": null,
+  "same_goal": true,
+  "same_fallback_template": true,
+  "deterministic_only_steps": [
+    "detect_profile_context",
+    "classify_intent",
+    "retrieve_hybrid_knowledge",
+    "assemble_prompt_context",
+    "answer_with_citations",
+    "score_memory_usefulness",
+    "render_user_response"
+  ],
+  "shadow_only_steps": [],
+  "summary": "vllm-hust did not return JSON for booking intent classification",
+  "created_at": "2026-06-04T16:55:14.324271+00:00"
+}

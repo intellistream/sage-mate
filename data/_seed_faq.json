@@ -1,0 +1,26 @@
+[
+  {
+    "title": "FAQ | 你能帮我看论文吗",
+    "content": "可以，以下是提交论文给老师审阅前的建议准备清单：\n\n1. **自查 checklist**：确保语法通顺、图表有标注、参考文献格式统一。\n2. **一页 highlight**：写一段 200 字以内的摘要说明你这版主要改了什么、哪部分最希望老师重点看。\n3. **标注问题段落**：用 [TODO] 或高亮标出你自己不确定的段落。\n4. **提交方式**：将 PDF + highlight 一起通过会话附件上传，或预约时注明文件链接。\n\n老师通常 2-3 个工作日内给反馈，如果急请说明 deadline。",
+    "tags": ["faq", "advising", "profile", "preparation", "paper-review"],
+    "source_name": "curated_faq"
+  },
+  {
+    "title": "FAQ | 如何整理文献做汇报",
+    "content": "文献汇报的核心是「让听众在 15 分钟内搞懂为什么这篇值得读、核心 idea 是什么、和我们组的关系」。\n\n建议结构：\n1. **动机与背景** (2-3 句)：这篇解决什么问题，为什么该问题重要。\n2. **关键方法** (图 + 3-5 bullet)：核心算法/架构/设计决策，最好有一张方法流程图。\n3. **实验亮点** (1-2 个关键数字)：和哪个 baseline 比、赢了多少、在什么设置下。\n4. **局限与启发** (2-3 bullet)：假设、未覆盖场景、和我们项目的联系。\n\n避免：大段复制 abstract；全文翻译而不提炼。\n准备时可参考 style_profile 中的「组会汇报习惯」条目。",
+    "tags": ["faq", "advising", "profile", "preparation", "literature-review"],
+    "source_name": "curated_faq"
+  },
+  {
+    "title": "FAQ | 如何选研究目标",
+    "content": "选研究方向/目标的通用框架：\n\n1. **画 landscape**：先用 1-2 天梳理该子领域 top 会议最近 2 年的代表工作 (5-10 篇)，找到 recurring themes 和 open problems。\n2. **找 gap**：比对已有工作的覆盖，哪些 setting 或 workload 没人做？哪些方法有明显假设约束？\n3. **结合我们组优势**：看这个 gap 是否能用 SAGE / Neuromem / vLLM-HUST 的系统平台直接验证。如果需要重新搭环境成本很高，优先度下调。\n4. **30 秒电梯演讲**：能否一句话说清「我要在 X 场景下，用 Y 方法解决 Z 问题，预期比 baseline W 提升 N%」？\n\n建议来讨论前准备一页「gap 列表」（3-5 候选），老师帮你排序和判断可行性。",
+    "tags": ["faq", "advising", "profile", "preparation", "research-direction"],
+    "source_name": "curated_faq"
+  },
+  {
+    "title": "FAQ | 顶会论文叙事是什么样",
+    "content": "一篇好的系统方向顶会论文 (OSDI / SOSP / ATC / EuroSys / MLSys / ASPLOS) 通常有如下叙事脉络：\n\n1. **开篇定义问题** (Introduction)：\n   - 1-2 段 motivation：workload trend + 现有方案的痛点。\n   - 清晰的 thesis statement：We present X, which achieves Y by doing Z.\n   - Contribution list (3-4 bullet，可量化)。\n\n2. **Background & Motivation**：\n   - Workload characterization / profiling data 支撑痛点。\n   - 现有方案 limitation 的定量证据 (图/表)。\n\n3. **Design**：\n   - 分层/分模块写；每个子系统先说 goal -> design decision -> rationale -> correctness argument。\n   - 关键 insight 用粗体或 callout 突出。\n\n4. **Evaluation**：\n   - End-to-end + microbenchmark；和公认 baseline 比。\n   - 回答 3-5 个 evaluation questions (EQ1…)。\n\n5. **Discussion / Limitation**：不遮掩不足，展示 engineering maturity。\n\n风格核心：数据说话、逻辑自洽、假设透明。避免形容词堆砌和 vague claim。",
+    "tags": ["faq", "advising", "profile", "preparation", "paper-writing", "narrative"],
+    "source_name": "curated_faq"
+  }
+]

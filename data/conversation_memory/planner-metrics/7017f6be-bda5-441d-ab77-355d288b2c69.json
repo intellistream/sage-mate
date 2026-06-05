@@ -1,0 +1,26 @@
+{
+  "record_id": "7017f6be-bda5-441d-ab77-355d288b2c69",
+  "conversation_id": "bfbf2a42-3b6f-4bf8-ae86-b66eb1e4cb59",
+  "planner_stage": "shadow",
+  "planner_mode": "llm_shadow",
+  "question": "老师看一下现在课题的进度以及下一步的方案是否合理，可以继续推进吗",
+  "goal": "answer_artifact_grounded_question",
+  "accepted": true,
+  "status": "accepted",
+  "fallback_template": "answer_question",
+  "fallback_reason": null,
+  "validation_errors": [],
+  "planned_steps": [
+    "detect_profile_context",
+    "classify_intent",
+    "retrieve_hybrid_knowledge",
+    "retrieve_recent_memory",
+    "retrieve_artifact_memory",
+    "assemble_prompt_context",
+    "answer_with_citations",
+    "score_memory_usefulness",
+    "render_user_response"
+  ],
+  "latency_ms": 12468.626944813877,
+  "created_at": "2026-06-05T09:28:54.965691+00:00"
+}

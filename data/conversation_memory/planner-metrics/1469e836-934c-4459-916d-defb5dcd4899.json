@@ -1,0 +1,24 @@
+{
+  "record_id": "1469e836-934c-4459-916d-defb5dcd4899",
+  "conversation_id": "replay-ca5a368d1e06",
+  "planner_stage": "deterministic",
+  "planner_mode": "deterministic",
+  "question": "sage是什么",
+  "goal": "answer_research_question",
+  "accepted": true,
+  "status": "accepted",
+  "fallback_template": "answer_question",
+  "fallback_reason": null,
+  "validation_errors": [],
+  "planned_steps": [
+    "detect_profile_context",
+    "classify_intent",
+    "retrieve_hybrid_knowledge",
+    "assemble_prompt_context",
+    "answer_with_citations",
+    "score_memory_usefulness",
+    "render_user_response"
+  ],
+  "latency_ms": 0.25934213772416115,
+  "created_at": "2026-06-04T15:56:03.715207+00:00"
+}
