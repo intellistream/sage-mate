@@ -57239,5 +57239,71 @@
       "course_context": "科研指导"
     },
     "created_at": 1780651990.7324724
+  },
+  "4657cbca81201aeaab2e87f0d0ddaf419d96176a6b7ad4aff8e6a87ce21770e8": {
+    "text": "student guest question 张老师主要研究什么方向？ answer 当前主要研究方向集中在大模型推理引擎、推理服务系统与记忆智能体中间件。具体包括：请求调度与运行时管理对吞吐和时延的影响、KV cache 与执行路径的协同优化、以及长上下文、RAG 和记忆增强推理中的信息管理机制。\n\n如果需要进一步了解具体工作或论文细节，建议明确关注点（如调度策略、KV cache 优化、记忆增强等），并提供当前背景或疑问，以便针对性解答。 workflow answer domain research knowledge_hits 3 course 初次来访",
+    "metadata": {
+      "entry_kind": "conversation_record",
+      "memory_id": "e627776a-51d7-43f0-a231-003f02fda9ce",
+      "conversation_id": "8b8374d5-1246-4c8e-a19e-57fa590ff2a5",
+      "student_name": "guest",
+      "student_email": "",
+      "source": "user_message",
+      "topic": "research",
+      "session_id": "8b8374d5-1246-4c8e-a19e-57fa590ff2a5",
+      "importance": "medium",
+      "timestamp": "2026-06-07T15:05:25.437060+00:00",
+      "memory_scope": "short_term",
+      "record_payload": {
+        "memory_id": "e627776a-51d7-43f0-a231-003f02fda9ce",
+        "conversation_id": "8b8374d5-1246-4c8e-a19e-57fa590ff2a5",
+        "student_name": "guest",
+        "student_email": null,
+        "course_context": "初次来访",
+        "question": "张老师主要研究什么方向？",
+        "answer": "当前主要研究方向集中在大模型推理引擎、推理服务系统与记忆智能体中间件。具体包括：请求调度与运行时管理对吞吐和时延的影响、KV cache 与执行路径的协同优化、以及长上下文、RAG 和记忆增强推理中的信息管理机制。\n\n如果需要进一步了解具体工作或论文细节，建议明确关注点（如调度策略、KV cache 优化、记忆增强等），并提供当前背景或疑问，以便针对性解答。",
+        "workflow_action": "answer",
+        "interaction_domain": "research",
+        "knowledge_hit_count": 3,
+        "booking_summary": null,
+        "created_at": "2026-06-07T15:05:25.437060+00:00",
+        "attachments": []
+      },
+      "course_context": "初次来访"
+    },
+    "created_at": 1780844725.4372766
+  },
+  "bf82f5a6d5b72e76dd024ec5cf44bd56a4472829582dc8083bd382e1e445d1c0": {
+    "text": "student guest question 张老师主要研究什么方向？ answer 当前主要研究方向是大模型推理引擎、推理服务系统与记忆智能体中间件。具体聚焦于共享状态在访问、执行与演化三个层面的组织问题，以及这些机制对系统吞吐、P99 时延和服务稳定性的影响。\n\n如果需要进一步了解具体工作，可以参考课题组的三个系统线：SAGE、Neuromem 和 vLLM-HUST，它们分别对应推理服务系统、记忆智能体中间件和推理引擎底座。近期代表性工作已发表在 ICML、TKDE 等会议期刊上。 workflow answer domain research knowledge_hits 3 course 初次来访",
+    "metadata": {
+      "entry_kind": "conversation_record",
+      "memory_id": "113e8645-ac55-492c-9d8b-db2d7715882d",
+      "conversation_id": "f76767e0-1fa9-4da3-a75f-4f8a3aef4f59",
+      "student_name": "guest",
+      "student_email": "",
+      "source": "user_message",
+      "topic": "research",
+      "session_id": "f76767e0-1fa9-4da3-a75f-4f8a3aef4f59",
+      "importance": "medium",
+      "timestamp": "2026-06-07T15:50:45.784887+00:00",
+      "memory_scope": "short_term",
+      "record_payload": {
+        "memory_id": "113e8645-ac55-492c-9d8b-db2d7715882d",
+        "conversation_id": "f76767e0-1fa9-4da3-a75f-4f8a3aef4f59",
+        "student_name": "guest",
+        "student_email": null,
+        "course_context": "初次来访",
+        "question": "张老师主要研究什么方向？",
+        "answer": "当前主要研究方向是大模型推理引擎、推理服务系统与记忆智能体中间件。具体聚焦于共享状态在访问、执行与演化三个层面的组织问题，以及这些机制对系统吞吐、P99 时延和服务稳定性的影响。\n\n如果需要进一步了解具体工作，可以参考课题组的三个系统线：SAGE、Neuromem 和 vLLM-HUST，它们分别对应推理服务系统、记忆智能体中间件和推理引擎底座。近期代表性工作已发表在 ICML、TKDE 等会议期刊上。",
+        "workflow_action": "answer",
+        "interaction_domain": "research",
+        "knowledge_hit_count": 3,
+        "booking_summary": null,
+        "created_at": "2026-06-07T15:50:45.784887+00:00",
+        "attachments": []
+      },
+      "course_context": "初次来访"
+    },
+    "created_at": 1780847445.7851164
   }
 }

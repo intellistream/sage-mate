@@ -1,0 +1,25 @@
+{
+  "record_id": "95498bd1-8300-4787-a38a-3442f61610d5",
+  "conversation_id": "f76767e0-1fa9-4da3-a75f-4f8a3aef4f59",
+  "exchange_id": null,
+  "workflow_action": "answer",
+  "question": "张老师主要研究什么方向？",
+  "comparison_status": "shadow_error",
+  "deterministic_goal": "answer_research_question",
+  "shadow_goal": null,
+  "same_goal": true,
+  "same_fallback_template": true,
+  "deterministic_only_steps": [
+    "detect_profile_context",
+    "classify_intent",
+    "retrieve_hybrid_knowledge",
+    "retrieve_recent_memory",
+    "assemble_prompt_context",
+    "answer_with_citations",
+    "score_memory_usefulness",
+    "render_user_response"
+  ],
+  "shadow_only_steps": [],
+  "summary": "vllm-hust did not return JSON for booking intent classification",
+  "created_at": "2026-06-07T15:50:45.783531+00:00"
+}
