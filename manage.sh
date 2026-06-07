@@ -14,7 +14,7 @@ else
 fi
 
 if [[ $# -lt 1 ]]; then
-    echo "Usage: $0 <install|status|start|stop|restart> [--json|--start]" >&2
+    echo "Usage: $0 <install|status|start|stop|restart> [--json] [--with-vllm-proxy] [--start]" >&2
     exit 1
 fi
 
@@ -26,16 +26,28 @@ if [[ "$action" == "install" ]]; then
 fi
 
 json_output="false"
-if [[ "${2:-}" == "--json" ]]; then
-    json_output="true"
-fi
+include_vllm_proxy="false"
 
-readonly services=(
-    "模型代理:sage-faculty-twin-vllm-openai-proxy.service"
+for arg in "$@"; do
+    case "$arg" in
+        --json)
+            json_output="true"
+            ;;
+        --with-vllm-proxy)
+            include_vllm_proxy="true"
+            ;;
+    esac
+done
+
+services=(
     "应用服务:sage-faculty-twin-app.service"
     "本地代理:sage-faculty-twin-site.service"
     "公网隧道:sage-faculty-twin-tunnel.service"
 )
+
+if [[ "$include_vllm_proxy" == "true" ]]; then
+    services=("模型代理:sage-faculty-twin-vllm-openai-proxy.service" "${services[@]}")
+fi
 
 case "$action" in
     status|start|stop|restart)

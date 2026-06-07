@@ -25,6 +25,29 @@ done
 pythonpath_default=$(IFS=:; printf '%s' "${pythonpath_entries[*]}")
 export PYTHONPATH="${PYTHONPATH:-$pythonpath_default}"
 
+hf_home="${HF_HOME:-}"
+hf_home_writable="false"
+if [[ -n "$hf_home" ]]; then
+	if mkdir -p "$hf_home" 2>/dev/null; then
+		probe_file="$hf_home/.write-probe"
+		if : > "$probe_file" 2>/dev/null; then
+			rm -f "$probe_file"
+			hf_home_writable="true"
+		fi
+	fi
+fi
+
+if [[ "$hf_home_writable" != "true" ]]; then
+	hf_home="$HOME/.cache/hf-models"
+	mkdir -p "$hf_home/hub"
+	export HF_HOME="$hf_home"
+	export HUGGINGFACE_HUB_CACHE="$hf_home/hub"
+	export HF_HUB_CACHE="$hf_home/hub"
+	export TRANSFORMERS_CACHE="$hf_home/hub"
+fi
+
+export HF_ENDPOINT="${HF_ENDPOINT:-https://hf-mirror.com}"
+
 mkdir -p "$runtime_dir"
 cd "$repo_root"
 

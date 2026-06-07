@@ -51,7 +51,16 @@ curl -s -N http://127.0.0.1:55601/chat \
 
 如果你想让 `vllm-hust` 通过 systemd 代理对外提供带鉴权的 OpenAI-compatible API，可以启用 `sage-faculty-twin-vllm-openai-proxy.service`。
 
+默认的 `./manage.sh install --start` 和 `./manage.sh restart` 只管理公共 app/site/tunnel 栈，不会自动启用这个代理。需要代理时显式使用：
+
+```bash
+./manage.sh install --with-vllm-proxy --start
+./manage.sh restart --with-vllm-proxy
+```
+
 代理默认监听 `127.0.0.1:18001`，上游转发到 `127.0.0.1:18000/v1`。启用后，把 `.env` 里的 `DIGITAL_TWIN_API_KEY` 改成真实密钥，并将 `DIGITAL_TWIN_LLM_BASE_URL` 指向 `http://127.0.0.1:18001/v1`。
+
+如果 `127.0.0.1:18001` 已经被独立的 `vllm-hust serve` 进程直接占用，就不要启用这个代理；否则它会因为端口冲突而反复重启。
 
 验证方式：
 
