@@ -70,6 +70,12 @@ class AppSettings(BaseSettings):
     )
     planner_comparison_dir: Path | None = Field(default=None)
     planner_metrics_dir: Path | None = Field(default=None)
+    thinking_token_budget: int | None = Field(
+        default=512, ge=64, le=4096,
+    )
+    auto_disable_thinking_intents: str = Field(
+        default="general,booking",
+    )
     shadow_planner_enabled: bool = Field(default=True)
     shadow_planner_temperature: float = Field(default=0.0, ge=0.0, le=1.0)
     shadow_planner_max_tokens: int = Field(default=384, ge=64, le=2048)

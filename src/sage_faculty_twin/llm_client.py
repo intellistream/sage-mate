@@ -298,6 +298,7 @@ class VllmChatClient:
         max_tokens: int | None = 2048,
         token_callback: Callable[[str], None] | None = None,
         enable_thinking: bool = True,
+        thinking_token_budget: int | None = None,
     ) -> str:
         payload: dict[str, Any] = {
             "model": self._settings.model_name,
@@ -312,6 +313,12 @@ class VllmChatClient:
             # Without thinking, we don't need as many tokens
             if max_tokens is not None and max_tokens > 1024:
                 max_tokens = 1024
+        else:
+            # B2: Cap thinking tokens to reduce wasted CoT generation.
+            # Uses vllm-hust's thinking_token_budget parameter.
+            budget = thinking_token_budget or self._settings.thinking_token_budget
+            if budget is not None:
+                payload["thinking_token_budget"] = budget
         if max_tokens is not None:
             payload["max_tokens"] = max_tokens
 

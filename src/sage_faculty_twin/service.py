@@ -1308,6 +1308,18 @@ class FacultyTwinWorkflowSupport:
         # still returned so the rest of the pipeline (trace, render,
         # post-answer fan-out) sees the same final answer.
         enable_thinking = getattr(context.request, "deep_thinking", True)
+        # B3: Auto-disable thinking for simple intents (e.g. general, booking)
+        # to avoid wasting 300-500 CoT tokens on trivial queries.
+        if enable_thinking and context.interaction_intent is not None:
+            auto_disable_domains = {
+                d.strip()
+                for d in self._settings.auto_disable_thinking_intents.split(",")
+                if d.strip()
+            }
+            if context.interaction_intent.domain in auto_disable_domains:
+                enable_thinking = False
+            elif context.decision_mode == "direct_answer":
+                enable_thinking = False
         if self._answer_chunk_callback is not None:
             context.answer = self._llm_client.answer_question_sync(
                 context.system_prompt,
