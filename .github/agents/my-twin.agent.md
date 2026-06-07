@@ -25,8 +25,11 @@ You are the dedicated agent for `sage-faculty-twin` ("my-twin"), a 24/7 academic
 ## Public Runtime Services
 
 - Treat `sage-faculty-twin-app.service`, `sage-faculty-twin-site.service`, and `sage-faculty-twin-tunnel.service` as the production-like public exposure stack. They keep the app reachable through the local site proxy and Cloudflare tunnel.
+- On `train05`, shared public Cloudflare ingress is currently owned by the user-level host service `sage-public-cloudflared.service`, which reuses `sage-faculty-twin/.runtime/cloudflared/config.yml` for `shuhao.sage.org.ai`, `ws.sage.org.ai`, and `openai.sage.org.ai`.
 - Do not stop, kill, or disable these user systemd services during preview cleanup unless the user explicitly asks. Cleaning previews should only stop ad hoc/manual `uvicorn sage_faculty_twin.api:app` processes such as temporary `8010`-style local ports.
 - The systemd app service uses `APP_PORT=55601`, the local site proxy uses `SITE_PORT=8088`, and the tunnel service depends on the proxy. Verify them with `systemctl --user status ...`, `curl http://127.0.0.1:55601/health`, and a local proxy check when needed.
+- `sage-faculty-twin-vllm-openai-proxy.service` is optional. Default install/restart flows do not include it; pass `--with-vllm-proxy` only when the host actually wants the proxy and `VLLM_PROXY_PORT` is free. On `train05`, leave it disabled because port `18001` is occupied by a direct `vllm-hust` process.
+- `tools/install_user_services.sh` now persists the last known-good Python interpreter in `~/.config/systemd/user/.sage-faculty-twin-python-bin`. If a reinstall happens without `PYTHON_BIN`, prefer the rendered unit / running service state over guessing from `/usr/bin/python3`.
 - Python source changes are not hot-reloaded by the systemd app service because it does not run uvicorn with `--reload`; restart only `sage-faculty-twin-app.service` after backend changes. Static frontend files are served from the source tree and usually update on browser refresh, while proxy or tunnel config changes require their respective service reload/restart.
 
 ## High-Signal Areas
