@@ -3,6 +3,16 @@
 set -euo pipefail
 
 repo_root=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+user_runtime_dir="/run/user/$(id -u)"
+user_bus_path="$user_runtime_dir/bus"
+
+if [[ -z "${XDG_RUNTIME_DIR:-}" && -d "$user_runtime_dir" ]]; then
+    export XDG_RUNTIME_DIR="$user_runtime_dir"
+fi
+
+if [[ -z "${DBUS_SESSION_BUS_ADDRESS:-}" && -S "$user_bus_path" ]]; then
+    export DBUS_SESSION_BUS_ADDRESS="unix:path=$user_bus_path"
+fi
 
 if command -v python3 >/dev/null 2>&1; then
     python_bin=$(command -v python3)
