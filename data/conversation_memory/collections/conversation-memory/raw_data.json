@@ -57305,5 +57305,170 @@
       "course_context": "初次来访"
     },
     "created_at": 1780847445.7851164
+  },
+  "c71feb626d52ee4a3505b8de7241a173f96cfd6c062b13bced04c66198479c8b": {
+    "text": "student guest question 你好 answer 你好。我是张书豪，华中科技大学计算机学院教师。请问你有什么具体问题或需要了解的内容？如果是关于课程材料或教学安排，可以先说明你所在课程或学习阶段，我会根据你的需求提供对应信息。 workflow answer domain teaching knowledge_hits 0 course 初次来访",
+    "metadata": {
+      "entry_kind": "conversation_record",
+      "memory_id": "28a51ea5-fc9d-47ca-b5dd-ee22886b3325",
+      "conversation_id": "f76767e0-1fa9-4da3-a75f-4f8a3aef4f59",
+      "student_name": "guest",
+      "student_email": "",
+      "source": "user_message",
+      "topic": "teaching",
+      "session_id": "f76767e0-1fa9-4da3-a75f-4f8a3aef4f59",
+      "importance": "medium",
+      "timestamp": "2026-06-07T16:34:03.870885+00:00",
+      "memory_scope": "short_term",
+      "record_payload": {
+        "memory_id": "28a51ea5-fc9d-47ca-b5dd-ee22886b3325",
+        "conversation_id": "f76767e0-1fa9-4da3-a75f-4f8a3aef4f59",
+        "student_name": "guest",
+        "student_email": null,
+        "course_context": "初次来访",
+        "question": "你好",
+        "answer": "你好。我是张书豪，华中科技大学计算机学院教师。请问你有什么具体问题或需要了解的内容？如果是关于课程材料或教学安排，可以先说明你所在课程或学习阶段，我会根据你的需求提供对应信息。",
+        "workflow_action": "answer",
+        "interaction_domain": "teaching",
+        "knowledge_hit_count": 0,
+        "booking_summary": null,
+        "created_at": "2026-06-07T16:34:03.870885+00:00",
+        "attachments": []
+      },
+      "course_context": "初次来访"
+    },
+    "created_at": 1780850043.871124
+  },
+  "5b83763f6f4ff51e6b37b68d5fd178f2ef6653b311e7467c5a96b817b76cfdbc": {
+    "text": "student guest question 张老师主要研究什么方向？ answer 当前主要研究方向是大模型推理引擎、推理服务系统与记忆智能体中间件。具体聚焦于共享状态在访问、执行与演化三个层面的组织问题，以及这些机制对系统吞吐、P99 时延和服务稳定性的影响。\n\n如果希望进一步了解，可以参考课题组的三个系统线：SAGE（推理服务系统）、Neuromem（记忆智能体中间件）、vLLM-HUST（推理引擎底座）。这些系统覆盖了从推理调度、KV 状态管理到记忆写入与检索的核心问题。\n\n如果你有具体的研究兴趣或问题，建议提前准备相关背景材料，方便后续讨论。 workflow answer domain research knowledge_hits 3 course 初次来访",
+    "metadata": {
+      "entry_kind": "conversation_record",
+      "memory_id": "2ed65c32-4b55-4b00-9c88-c7862932c6a4",
+      "conversation_id": "conv-1780887168526-9af3cd443d3b7",
+      "student_name": "guest",
+      "student_email": "",
+      "source": "user_message",
+      "topic": "research",
+      "session_id": "conv-1780887168526-9af3cd443d3b7",
+      "importance": "medium",
+      "timestamp": "2026-06-08T02:53:21.360597+00:00",
+      "memory_scope": "short_term",
+      "record_payload": {
+        "memory_id": "2ed65c32-4b55-4b00-9c88-c7862932c6a4",
+        "conversation_id": "conv-1780887168526-9af3cd443d3b7",
+        "student_name": "guest",
+        "student_email": null,
+        "course_context": "初次来访",
+        "question": "张老师主要研究什么方向？",
+        "answer": "当前主要研究方向是大模型推理引擎、推理服务系统与记忆智能体中间件。具体聚焦于共享状态在访问、执行与演化三个层面的组织问题，以及这些机制对系统吞吐、P99 时延和服务稳定性的影响。\n\n如果希望进一步了解，可以参考课题组的三个系统线：SAGE（推理服务系统）、Neuromem（记忆智能体中间件）、vLLM-HUST（推理引擎底座）。这些系统覆盖了从推理调度、KV 状态管理到记忆写入与检索的核心问题。\n\n如果你有具体的研究兴趣或问题，建议提前准备相关背景材料，方便后续讨论。",
+        "workflow_action": "answer",
+        "interaction_domain": "research",
+        "knowledge_hit_count": 3,
+        "booking_summary": null,
+        "created_at": "2026-06-08T02:53:21.360597+00:00",
+        "attachments": []
+      },
+      "course_context": "初次来访"
+    },
+    "created_at": 1780887201.3607802
+  },
+  "72976efd4fcdb83e930efd3e02f34341c64361bf967f1a1321a135b9047e41f8": {
+    "text": "student guest question 张老师主要研究什么方向？ answer 当前主要研究方向是大模型推理引擎、推理服务系统与记忆智能体中间件。具体聚焦于共享状态在访问、执行与演化三个层面的组织问题，以及这些机制对系统吞吐、P99 时延和服务稳定性的影响。例如，我们正在构建面向国产异构算力的推理服务系统（SAGE）、面向记忆智能体的中间件（Neuromem）和推理引擎底座（vLLM-HUST）。\n\n如果需要进一步了解具体研究内容或论文细节，可以告诉我你更关注哪一部分，我会给出对应材料。 workflow answer domain research knowledge_hits 3 course 初次来访",
+    "metadata": {
+      "entry_kind": "conversation_record",
+      "memory_id": "ff647a08-dc19-47e8-b9db-72e7b8758f80",
+      "conversation_id": "231a04fb-5e04-47be-8d79-b821f6a440b4",
+      "student_name": "guest",
+      "student_email": "",
+      "source": "user_message",
+      "topic": "research",
+      "session_id": "231a04fb-5e04-47be-8d79-b821f6a440b4",
+      "importance": "medium",
+      "timestamp": "2026-06-08T03:23:44.560840+00:00",
+      "memory_scope": "short_term",
+      "record_payload": {
+        "memory_id": "ff647a08-dc19-47e8-b9db-72e7b8758f80",
+        "conversation_id": "231a04fb-5e04-47be-8d79-b821f6a440b4",
+        "student_name": "guest",
+        "student_email": null,
+        "course_context": "初次来访",
+        "question": "张老师主要研究什么方向？",
+        "answer": "当前主要研究方向是大模型推理引擎、推理服务系统与记忆智能体中间件。具体聚焦于共享状态在访问、执行与演化三个层面的组织问题，以及这些机制对系统吞吐、P99 时延和服务稳定性的影响。例如，我们正在构建面向国产异构算力的推理服务系统（SAGE）、面向记忆智能体的中间件（Neuromem）和推理引擎底座（vLLM-HUST）。\n\n如果需要进一步了解具体研究内容或论文细节，可以告诉我你更关注哪一部分，我会给出对应材料。",
+        "workflow_action": "answer",
+        "interaction_domain": "research",
+        "knowledge_hit_count": 3,
+        "booking_summary": null,
+        "created_at": "2026-06-08T03:23:44.560840+00:00",
+        "attachments": []
+      },
+      "course_context": "初次来访"
+    },
+    "created_at": 1780889024.5611424
+  },
+  "b3917c187156084961906dc5a77c5fe1bc46f4fc6ccdce6bd47d5016b7e5baca": {
+    "text": "student guest question 张老师主要研究什么方向？ answer 当前主要研究方向是大模型推理引擎、推理服务系统与记忆智能体中间件。具体聚焦于共享状态在访问、执行与演化三个层面的组织问题，以及这些机制对系统吞吐、P99 时延和服务稳定性的影响。例如，围绕国产异构算力的推理服务系统（SAGE）、记忆智能体中间件（Neuromem）和推理引擎底座（vLLM-HUST）展开系统性研究与工程实现。\n\n如果需要进一步了解具体论文或系统细节，可以说明具体方向或论文名称，我可以提供更详细的摘要或技术点。 workflow answer domain research knowledge_hits 3 course 初次来访",
+    "metadata": {
+      "entry_kind": "conversation_record",
+      "memory_id": "50923365-9200-40d4-a82a-18d8609e941b",
+      "conversation_id": "872479d4-2905-4097-8b36-fbaee774b140",
+      "student_name": "guest",
+      "student_email": "",
+      "source": "user_message",
+      "topic": "research",
+      "session_id": "872479d4-2905-4097-8b36-fbaee774b140",
+      "importance": "medium",
+      "timestamp": "2026-06-08T10:47:50.543927+00:00",
+      "memory_scope": "short_term",
+      "record_payload": {
+        "memory_id": "50923365-9200-40d4-a82a-18d8609e941b",
+        "conversation_id": "872479d4-2905-4097-8b36-fbaee774b140",
+        "student_name": "guest",
+        "student_email": null,
+        "course_context": "初次来访",
+        "question": "张老师主要研究什么方向？",
+        "answer": "当前主要研究方向是大模型推理引擎、推理服务系统与记忆智能体中间件。具体聚焦于共享状态在访问、执行与演化三个层面的组织问题，以及这些机制对系统吞吐、P99 时延和服务稳定性的影响。例如，围绕国产异构算力的推理服务系统（SAGE）、记忆智能体中间件（Neuromem）和推理引擎底座（vLLM-HUST）展开系统性研究与工程实现。\n\n如果需要进一步了解具体论文或系统细节，可以说明具体方向或论文名称，我可以提供更详细的摘要或技术点。",
+        "workflow_action": "answer",
+        "interaction_domain": "research",
+        "knowledge_hit_count": 3,
+        "booking_summary": null,
+        "created_at": "2026-06-08T10:47:50.543927+00:00",
+        "attachments": []
+      },
+      "course_context": "初次来访"
+    },
+    "created_at": 1780915670.5446222
+  },
+  "844da83dd9c1472eed6b2c151b111f6f6df5d526b45b08f577ec06cc7ad9ecf2": {
+    "text": "student 马俊豪 question 请自我介绍一下 answer 我是张书豪，华中科技大学计算机学院教师。当前主要研究方向是大模型推理引擎、推理服务系统与记忆智能体中间件，聚焦于共享状态在访问、执行与演化三个层面的组织问题，以及这些机制对系统吞吐、P99 时延和服务稳定性的影响。  \n\n如果你是课程相关问题，例如实验设计、项目选题或验证方法，可以参考课程材料第 11、13 讲，或说明具体问题。如果是状态管理与记忆组织相关问题，第 6 讲提供了基础框架。  \n\n如果需要进一步讨论，建议提前准备问题定义、当前遇到的 blocker 或实验设计草案。我的每周答疑时间如下：  \n- 2026-05-25: 14:00-18:00  \n- 2026-05-26: 14:00-18:00  \n- 2026-05-27: 16:00-18:00  \n- 2026-05-28: 14:00-18:00  \n- 2026-05-29: 14:00-18:00  \n\n可通过预约系统安排具体时段。 workflow answer domain teaching knowledge_hits 3 email kms12425@qq.com course 大模型推理引擎课程答疑",
+    "metadata": {
+      "entry_kind": "conversation_record",
+      "memory_id": "8159248a-7ed3-40f1-a8cb-fda144d8f8ad",
+      "conversation_id": "872479d4-2905-4097-8b36-fbaee774b140",
+      "student_name": "马俊豪",
+      "student_email": "kms12425@qq.com",
+      "source": "user_message",
+      "topic": "teaching",
+      "session_id": "872479d4-2905-4097-8b36-fbaee774b140",
+      "importance": "medium",
+      "timestamp": "2026-06-08T10:50:14.142133+00:00",
+      "memory_scope": "short_term",
+      "record_payload": {
+        "memory_id": "8159248a-7ed3-40f1-a8cb-fda144d8f8ad",
+        "conversation_id": "872479d4-2905-4097-8b36-fbaee774b140",
+        "student_name": "马俊豪",
+        "student_email": "kms12425@qq.com",
+        "course_context": "大模型推理引擎课程答疑",
+        "question": "请自我介绍一下",
+        "answer": "我是张书豪，华中科技大学计算机学院教师。当前主要研究方向是大模型推理引擎、推理服务系统与记忆智能体中间件，聚焦于共享状态在访问、执行与演化三个层面的组织问题，以及这些机制对系统吞吐、P99 时延和服务稳定性的影响。  \n\n如果你是课程相关问题，例如实验设计、项目选题或验证方法，可以参考课程材料第 11、13 讲，或说明具体问题。如果是状态管理与记忆组织相关问题，第 6 讲提供了基础框架。  \n\n如果需要进一步讨论，建议提前准备问题定义、当前遇到的 blocker 或实验设计草案。我的每周答疑时间如下：  \n- 2026-05-25: 14:00-18:00  \n- 2026-05-26: 14:00-18:00  \n- 2026-05-27: 16:00-18:00  \n- 2026-05-28: 14:00-18:00  \n- 2026-05-29: 14:00-18:00  \n\n可通过预约系统安排具体时段。",
+        "workflow_action": "answer",
+        "interaction_domain": "teaching",
+        "knowledge_hit_count": 3,
+        "booking_summary": null,
+        "created_at": "2026-06-08T10:50:14.142133+00:00",
+        "attachments": []
+      },
+      "course_context": "大模型推理引擎课程答疑"
+    },
+    "created_at": 1780915814.1429808
   }
 }

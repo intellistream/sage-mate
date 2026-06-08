@@ -2434,5 +2434,89 @@
       }
     },
     "created_at": 1780651991.0218885
+  },
+  "8215701f6ecac70bd548d6fbb3ed6abe2c2b96d89980d820a62418c5f3d92cb1": {
+    "text": "student 马俊豪 category identity 用户身份 姓名 邮箱 联系方式 该用户名称为：马俊豪；联系邮箱：kms12425@qq.com Latest conversation id: 872479d4-2905-4097-8b36-fbaee774b140 email kms12425@qq.com",
+    "metadata": {
+      "entry_kind": "profile_record",
+      "profile_id": "kms12425-qq-com-identity",
+      "student_key": "kms12425@qq.com",
+      "student_name": "马俊豪",
+      "student_email": "kms12425@qq.com",
+      "category": "identity",
+      "source": "system_event",
+      "topic": "identity",
+      "session_id": "kms12425@qq.com",
+      "importance": "high",
+      "timestamp": "2026-06-08T10:50:14.142133+00:00",
+      "memory_scope": "long_term",
+      "profile_payload": {
+        "profile_id": "kms12425-qq-com-identity",
+        "student_key": "kms12425@qq.com",
+        "student_name": "马俊豪",
+        "student_email": "kms12425@qq.com",
+        "category": "identity",
+        "summary": "该用户名称为：马俊豪；联系邮箱：kms12425@qq.com",
+        "evidence": "Latest conversation id: 872479d4-2905-4097-8b36-fbaee774b140",
+        "updated_at": "2026-06-08T10:50:14.142133+00:00"
+      }
+    },
+    "created_at": 1780915814.3985295
+  },
+  "09d6f531c5d2ca7f269e6f16bcb13c097747671daa5065b474fe748c4201afd8": {
+    "text": "student 马俊豪 category course_context 课程场景 交流背景 科研指导 该用户最近的主要交流场景是：大模型推理引擎课程答疑 Question: 请自我介绍一下 email kms12425@qq.com",
+    "metadata": {
+      "entry_kind": "profile_record",
+      "profile_id": "kms12425-qq-com-course_context",
+      "student_key": "kms12425@qq.com",
+      "student_name": "马俊豪",
+      "student_email": "kms12425@qq.com",
+      "category": "course_context",
+      "source": "system_event",
+      "topic": "course_context",
+      "session_id": "kms12425@qq.com",
+      "importance": "medium",
+      "timestamp": "2026-06-08T10:50:14.142133+00:00",
+      "memory_scope": "long_term",
+      "profile_payload": {
+        "profile_id": "kms12425-qq-com-course_context",
+        "student_key": "kms12425@qq.com",
+        "student_name": "马俊豪",
+        "student_email": "kms12425@qq.com",
+        "category": "course_context",
+        "summary": "该用户最近的主要交流场景是：大模型推理引擎课程答疑",
+        "evidence": "Question: 请自我介绍一下",
+        "updated_at": "2026-06-08T10:50:14.142133+00:00"
+      }
+    },
+    "created_at": 1780915814.40639
+  },
+  "92be9ce1717c492fe3f77b576f40f744b8f2968e21b7f665727638eaf2a7db81": {
+    "text": "student 马俊豪 category recent_topic 近期话题 关注主题 讨论重点 该用户近期反复关注的话题：自我介绍 Question: 请自我介绍一下 email kms12425@qq.com",
+    "metadata": {
+      "entry_kind": "profile_record",
+      "profile_id": "kms12425-qq-com-recent_topic",
+      "student_key": "kms12425@qq.com",
+      "student_name": "马俊豪",
+      "student_email": "kms12425@qq.com",
+      "category": "recent_topic",
+      "source": "system_event",
+      "topic": "recent_topic",
+      "session_id": "kms12425@qq.com",
+      "importance": "medium",
+      "timestamp": "2026-06-08T10:50:14.142133+00:00",
+      "memory_scope": "long_term",
+      "profile_payload": {
+        "profile_id": "kms12425-qq-com-recent_topic",
+        "student_key": "kms12425@qq.com",
+        "student_name": "马俊豪",
+        "student_email": "kms12425@qq.com",
+        "category": "recent_topic",
+        "summary": "该用户近期反复关注的话题：自我介绍",
+        "evidence": "Question: 请自我介绍一下",
+        "updated_at": "2026-06-08T10:50:14.142133+00:00"
+      }
+    },
+    "created_at": 1780915814.4131303
   }
 }
