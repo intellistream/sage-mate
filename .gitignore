@@ -10,9 +10,12 @@ __pycache__/
 htmlcov/
 .coverage
 coverage.xml
-# Runtime data is now tracked for cross-machine replication.
-# Only truly transient / large generated artifacts stay ignored:
+# Deployment-state data stays tracked so redeploys can restore the twin state.
+# Ignore only ad hoc backup snapshots and scratch artifacts.
 data/homepage/
+data.pre_recovery_*/
+data/*.backup-*/
+*.bak.*
 dist/
 build/
 *.egg-info/

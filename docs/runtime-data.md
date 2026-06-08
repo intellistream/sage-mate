@@ -1,33 +1,47 @@
 # Runtime Data Boundary
 
-This repository is intended to be publishable as source code under the IntelliStream organization.
-That means runtime-generated state should stay out of version control.
+This repository tracks the my-twin deployment state in Git so a fresh deploy can
+recover the current knowledge base, conversation memory, queues, and user state.
+The source-control boundary is therefore not "code only"; it is "code plus the
+deployment data we intentionally want to recreate on another machine."
 
-## Versioned Templates
+## Tracked Deployment State
 
-These files are designed to stay in the repository as safe defaults or templates:
+These paths are expected to stay versioned because they define or preserve the
+current deployable twin state:
 
+- `data/_seed_faq.json`
 - `data/persona/style_profile.md`
 - `data/availability/current_week.json`
-- `tools/cloudflared-config.example.yml`
-
-## Ignored Runtime State
-
-These directories are generated or mutated while the app runs and should not be committed:
-
+- `data/availability/history/`
 - `data/knowledge_base/`
-- `data/homepage/`
 - `data/conversation_memory/`
+- `data/artifact_memory_drafts/`
 - `data/knowledge_gap_drafts/`
 - `data/escalations/`
 - `data/follow_up_actions/`
 - `data/operations_task_state/`
+- `data/suggestions/`
 - `data/user_accounts/`
+- `data/workflow_policies/`
+- `data/workflow_scenarios/`
+- `tools/cloudflared-config.example.yml`
+
+## Ignored Backup And Scratch Artifacts
+
+These paths are intentionally ignored because they are backup snapshots,
+temporary export artifacts, or local scratch copies rather than the canonical
+deployment state:
+
+- `data.pre_recovery_*/`
+- `data/*.backup-*/`
+- `data/homepage/`
+- `*.bak.*`
 - `.runtime/`
 
 ## Operational Guidance
 
-- Treat the tracked availability file as a template or development sample, not a production schedule.
-- Use environment variables to point production deployments at external volumes or mounted storage.
-- Back up generated knowledge and conversation memory outside the Git repository.
+- Treat tracked data changes as deploy-state changes and review them before committing.
+- Keep ad hoc recovery snapshots under the ignored backup naming patterns instead of mixing them with canonical tracked data.
+- Use environment variables or mounted volumes when you want storage outside the repo, but keep the tracked dataset coherent enough for redeploy fallback.
 - Keep `.env` local and publish only `.env.example`.
