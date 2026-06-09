@@ -53,18 +53,7 @@ def test_store_persists_neuromem_collections_without_records_or_profiles_dirs(
     assert [item.question for item in recent_records] == ["我想继续讨论推理系统选型。"]
     assert recent_records[0].answer == "建议先明确吞吐目标和延迟预算。"
     assert any(profile.category == "course_context" for profile in profiles)
-    assert (
-        settings.conversation_memory_dir
-        / "collections"
-        / "conversation-memory"
-        / "raw_data.json"
-    ).exists()
-    assert (
-        settings.conversation_memory_dir
-        / "collections"
-        / "conversation-profile-memory"
-        / "raw_data.json"
-    ).exists()
+    assert (settings.conversation_memory_dir / "memory_store.sqlite3").exists()
     assert not (settings.conversation_memory_dir / "records").exists()
     assert not (settings.conversation_memory_dir / "profiles").exists()
 
@@ -152,10 +141,7 @@ def test_store_migrates_legacy_json_layout_once_and_removes_it(tmp_path: Path) -
     assert not (base_dir / "legacy-root-record.json").exists()
     assert not records_dir.exists()
     assert not profiles_dir.exists()
-    assert (base_dir / "collections" / "conversation-memory" / "raw_data.json").exists()
-    assert (
-        base_dir / "collections" / "conversation-profile-memory" / "raw_data.json"
-    ).exists()
+    assert (base_dir / "memory_store.sqlite3").exists()
 
 
 def test_profile_upsert_replaces_existing_collection_entry(tmp_path: Path) -> None:

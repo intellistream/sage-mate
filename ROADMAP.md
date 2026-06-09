@@ -272,6 +272,19 @@ and extend.
 - Strengthen evaluation and reliability with better latency/error observability and release-facing
   quality checks.
 
+### V2 Storage Roadmap (Conversation Memory)
+
+- `v2.0.x` now migrates conversation/profile collection snapshots from JSON file trees to a SQLite
+  snapshot store (`data/conversation_memory/memory_store.sqlite3`) to avoid per-turn mass JSON
+  rewrites and binary index churn in the repository.
+- Backward compatibility is preserved: on startup, if legacy collection snapshots exist under
+  `data/conversation_memory/collections/`, they are loaded once and re-persisted into SQLite.
+- Legacy flat `records/` and `profiles/` JSON layouts remain auto-migrated as before.
+- Next step (`v2.1` target): split runtime state from tracked deployment templates so production
+  write-heavy files live outside git-tracked data directories by default.
+- Optional `v2.2+` path: evaluate a Postgres backend for multi-instance deployment while keeping
+  the same `NeuroMemConversationStore` API contract.
+
 ### Candidate V2 Extensions
 
 - Multichannel entry points such as LMS embedding, homepage widgets, or messaging connectors.

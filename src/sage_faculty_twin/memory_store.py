@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import re
+import sqlite3
 import shutil
 import time
 from collections import Counter
@@ -215,6 +216,8 @@ class NeuroMemConversationStore:
         self._settings = settings
         self._base_dir = settings.conversation_memory_dir
         self._base_dir.mkdir(parents=True, exist_ok=True)
+        self._sqlite_db_path = self._base_dir / "memory_store.sqlite3"
+        self._initialize_sqlite_store()
         self._collections_dir = self._base_dir / "collections"
         self._collections_dir.mkdir(parents=True, exist_ok=True)
         self._conversation_collection_dir = self._collections_dir / "conversation-memory"
@@ -822,9 +825,80 @@ class NeuroMemConversationStore:
         return collection
 
     def _load_or_create_collection(self, name: str, snapshot_dir: Path):
+        if self._sqlite_has_collection_snapshot(name):
+            return self._load_collection_from_sqlite(name)
         if self._has_collection_snapshot(snapshot_dir):
-            return self._load_collection_snapshot(name, snapshot_dir)
+            collection = self._load_collection_snapshot(name, snapshot_dir)
+            # Migrate one-time legacy JSON snapshot into SQLite-backed persistence.
+            self._persist_collection(collection, snapshot_dir)
+            return collection
         return self._initialize_collection(name)
+
+    def _initialize_sqlite_store(self) -> None:
+        with sqlite3.connect(self._sqlite_db_path) as connection:
+            connection.execute(
+                """
+                CREATE TABLE IF NOT EXISTS collection_snapshots (
+                    name TEXT PRIMARY KEY,
+                    raw_data TEXT NOT NULL,
+                    config TEXT NOT NULL,
+                    index_metadata TEXT NOT NULL,
+                    updated_at TEXT NOT NULL
+                )
+                """
+            )
+            connection.commit()
+
+    def _sqlite_has_collection_snapshot(self, name: str) -> bool:
+        with sqlite3.connect(self._sqlite_db_path) as connection:
+            row = connection.execute(
+                "SELECT 1 FROM collection_snapshots WHERE name = ? LIMIT 1",
+                (name,),
+            ).fetchone()
+        return row is not None
+
+    def _load_collection_from_sqlite(self, name: str):
+        row: tuple[str, str, str] | None
+        with sqlite3.connect(self._sqlite_db_path) as connection:
+            row = connection.execute(
+                """
+                SELECT raw_data, config, index_metadata
+                FROM collection_snapshots
+                WHERE name = ?
+                LIMIT 1
+                """,
+                (name,),
+            ).fetchone()
+
+        if row is None:
+            return self._initialize_collection(name)
+
+        raw_data = json.loads(row[0])
+        config_payload = json.loads(row[1])
+        index_metadata = json.loads(row[2])
+
+        collection = self._initialize_collection(name)
+        collection.config = dict(config_payload)
+        collection.storage.clear()
+        for data_id, payload in dict(raw_data).items():
+            collection.storage.put(str(data_id), dict(payload))
+
+        collection.indexes = {}
+        collection.index_metadata = {}
+
+        for index_name, metadata in dict(index_metadata).items():
+            index_type = str(dict(metadata).get("type") or "bm25")
+            index_config = dict(dict(metadata).get("config") or {})
+            collection.add_index(str(index_name), index_type, index_config)
+
+        if not collection.indexes:
+            collection.add_index("search", "bm25", {})
+
+        for data_id in collection.storage.keys():
+            for index_name in list(collection.indexes.keys()):
+                collection.insert_to_index(str(data_id), index_name)
+
+        return collection
 
     def _has_collection_snapshot(self, snapshot_dir: Path) -> bool:
         return (snapshot_dir / "raw_data.json").exists() and (
@@ -863,28 +937,30 @@ class NeuroMemConversationStore:
         return collection
 
     def _persist_collection(self, collection: Any, snapshot_dir: Path) -> None:
-        if snapshot_dir.exists():
-            shutil.rmtree(snapshot_dir)
-        snapshot_dir.mkdir(parents=True, exist_ok=True)
-
         raw_data = {
             str(data_id): dict(collection.storage.get(data_id) or {})
             for data_id in collection.storage.keys()
         }
-        (snapshot_dir / "raw_data.json").write_text(
-            json.dumps(raw_data, ensure_ascii=False, indent=2),
-            encoding="utf-8",
-        )
-        (snapshot_dir / "index_metadata.json").write_text(
-            json.dumps(collection.index_metadata, ensure_ascii=False, indent=2),
-            encoding="utf-8",
-        )
-        (snapshot_dir / "config.json").write_text(
-            json.dumps(collection.config, ensure_ascii=False, indent=2),
-            encoding="utf-8",
-        )
-        for index_name, index in collection.indexes.items():
-            index.save(snapshot_dir / f"index_{index_name}")
+        with sqlite3.connect(self._sqlite_db_path) as connection:
+            connection.execute(
+                """
+                INSERT INTO collection_snapshots (name, raw_data, config, index_metadata, updated_at)
+                VALUES (?, ?, ?, ?, ?)
+                ON CONFLICT(name) DO UPDATE SET
+                    raw_data = excluded.raw_data,
+                    config = excluded.config,
+                    index_metadata = excluded.index_metadata,
+                    updated_at = excluded.updated_at
+                """,
+                (
+                    str(collection.name),
+                    json.dumps(raw_data, ensure_ascii=False),
+                    json.dumps(dict(collection.config), ensure_ascii=False),
+                    json.dumps(dict(collection.index_metadata), ensure_ascii=False),
+                    datetime.now(UTC).isoformat(),
+                ),
+            )
+            connection.commit()
 
     def _rebuild_runtime_state(self) -> None:
         self._records.clear()
