@@ -1,0 +1,24 @@
+{
+  "document_id": "b125d014-ae95-4864-b39f-8d6b4d5b8b1b",
+  "title": "论文写作课程｜第5讲：多维视角看论文写作（七种视角分析法）",
+  "content": "# 第5讲：多维视角看论文写作\n\n核心理念：写作 ≠ 单纯叙述结果；写作 = 构建可信、可重复、可传播的研究叙事。写得好的人并非语言最好的人，而是理解\"读者视角\"的人。\n\n## 七种视角分析法\n\n### 视角一 | 读者视角：目标是\"快速理解\"\n- 读者在3分钟内判断是否值得读\n- 写作策略：强标题 + 明摘要；图表讲故事；每段只表达一个意思\n- 标题设计三条件：明确研究任务(what) + 暗示方法(how) + 挑战或场景边界(where/why)\n- 弱标题警惕：\"A Study on…\"、\"三无标题\"、滥用buzzwords\n- 摘要三问：What is the problem? What is your solution? What is the result?\n- 常见错误摘要：背景泛滥型、流程陈述型、留白型、空洞宣传型\n\n### 视角二 | 同行视角：可对比与可复现性\n- 是否能复现你的方法？是否能在已有框架中定位你的贡献？\n- 用\"差异定位 + 举例\"表达差异，而不是说别人不行\n- 正例：\"Unlike prior studies focusing on bounded latencies, we aim to handle unpredictable throughput bursts.\"\n\n### 视角三 | 审稿人视角：找漏洞\n- 目标：发现不合理假设、逻辑跳跃、论证不充分\n- 策略：前提清晰，逻辑递进；明确假设边界与适用条件；多重实验支撑\n- 正例：主动声明假设并披露局限（\"We assume…This may not hold in…\"）\n- 反例：用泛化话术回避限制（\"works under general settings\"）\n\n### 视角四 | 研究者视角：控制变量\n- 确保核心假设可被验证；问题定义明确；避免confounding factors\n- 正例：\"To isolate the impact of batching frequency, we fix the window size to 5s and disable all compression mechanisms.\"\n\n### 视角五 | 未来研究者视角：是否可拓展\n- 好结论不封死讨论，而是提供launchpad\n- 正例：声明假设限制 + 指出具体拓展方向\n- 反例：\"No future work is foreseen.\"\n\n### 视角六 | 编辑视角：是否可发表\n- 好的编辑视角表达 = 亮点突出 + 数据具体 + 命名醒目\n- 正例含具体数字：\"retrieves top-10 in under 800ms on 100M-scale, outperforming SOTA by 2.3x\"\n\n### 视角七 | 自我视角：你是否相信这篇论文？\n- 问自己：如果我不是作者会相信吗？我愿意把这句话挂homepage吗？\n- 常见自欺句型：\"performs very well on a wide range\"、\"Due to space limits, details omitted\"\n- 高质量写作者：敢于暴露局限、准确引用数据、自信但不虚张\n\n## 案例拆解：MapReduce (OSDI 2004)\n七个视角都做得非常扎实：摘要清晰、接口定义明确、逻辑递进自然、容错策略充分、承认边界催生后续工作、创新明确、对读者诚实贡献定位克制。",
+  "tags": [
+    "teaching",
+    "courseware",
+    "lecture",
+    "course:paper-writing",
+    "paper-writing",
+    "multi-perspective"
+  ],
+  "source_name": "graduate-paper-writing-course:lecture-5",
+  "metadata": {
+    "course_id": "paper-writing",
+    "domain": "teaching",
+    "identity": "teacher",
+    "material_type": "lecture",
+    "source_kind": "graduate-paper-writing-course",
+    "ordinal_type": "lecture",
+    "ordinal": "5"
+  },
+  "created_at": "2026-06-09T01:26:45.141553Z"
+}

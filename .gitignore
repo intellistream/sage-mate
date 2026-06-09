@@ -19,3 +19,7 @@ data/*.backup-*/
 dist/
 build/
 *.egg-info/
+.python-bin
+
+# Project-local venv
+.venv/

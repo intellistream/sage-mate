@@ -1,0 +1,26 @@
+{
+  "document_id": "89a2ae57-e0d6-4d39-afe6-274a16288b37",
+  "title": "论文写作课程｜第8讲：研究生毕业论文中常见的问题",
+  "content": "# 第8讲：研究生毕业论文中常见的问题\n\n核心判断：毕业论文最常见的失败是把内容、结构、格式问题混在一起改，导致越改越乱。\n\n## 一、三层诊断法（按优先级）\n1. 第一层：研究内容是否成立\n2. 第二层：论文框架是否清楚\n3. 第三层：格式规范是否一致\n\n原则：内容不解决→结构调整无意义；结构不清→格式再漂亮也救不了\n\n## 二、研究内容问题\n五种表现：问题定义不清、贡献边界模糊、实验与结论脱节、研究动机不足、内容堆砌\n三个失配：问题与贡献、贡献与实验、章节与主线\n\n必须回答的四问：解决什么问题？为什么值得？核心贡献和差异？实验是否支撑？\n导师五连问：一句话主问题？新在哪？证据对应？最易推翻的结论？删实验还成立否？\n\n## 三、论文结构问题\n章节任务：\n- 引言：定义问题、说明难点、贡献地图\n- 相关工作：比较维度与定位差异\n- 方法：设计原则与关键机制\n- 实验：验证贡献并解释观察\n- 结论：回到问题给出边界局限\n\n主线判断：每章能回答\"在主问题上推进了哪一步\"\n\n## 四、修订流程\n答辩前48小时安排：\n- T-48h到T-36h：内容层修复\n- T-36h到T-24h：结构层修复\n- T-24h到T-12h：格式统一\n- T-12h到T-0h：口头演练\n\n答辩高频追问应答模板：\n- 核心创新→一句话贡献+基线差异+证据编号\n- 实验设置合理性→评价目标+场景约束+对应关系\n- 方法局限→适用边界+已验证范围+后续工作",
+  "tags": [
+    "teaching",
+    "courseware",
+    "lecture",
+    "course:paper-writing",
+    "paper-writing",
+    "thesis",
+    "defense",
+    "revision"
+  ],
+  "source_name": "graduate-paper-writing-course:lecture-8",
+  "metadata": {
+    "course_id": "paper-writing",
+    "domain": "teaching",
+    "identity": "teacher",
+    "material_type": "lecture",
+    "source_kind": "graduate-paper-writing-course",
+    "ordinal_type": "lecture",
+    "ordinal": "8"
+  },
+  "created_at": "2026-06-09T01:26:45.142673Z"
+}

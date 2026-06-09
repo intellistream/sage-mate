@@ -8,7 +8,6 @@ Type=simple
 WorkingDirectory=__REPO_ROOT__
 Environment=APP_PORT=55601
 Environment=DIGITAL_TWIN_HOMEPAGE_PUBLIC_URL=https://home.shuhao.sage.org.ai/
-Environment=PYTHON_BIN=__PYTHON_BIN__
 ExecStart=__REPO_ROOT__/tools/run_app_server.sh
 Restart=always
 RestartSec=3

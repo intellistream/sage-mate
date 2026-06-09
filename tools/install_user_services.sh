@@ -1,12 +1,16 @@
 #!/usr/bin/env bash
+# install_user_services.sh — Install systemd user services for sage-faculty-twin.
+# Prerequisites: run bootstrap_venv.sh first to create .venv.
 
 set -euo pipefail
 
 repo_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 source_dir="$repo_root/deploy/systemd/user"
 target_dir="${XDG_CONFIG_HOME:-$HOME/.config}/systemd/user"
-python_bin_state_file="$target_dir/.sage-faculty-twin-python-bin"
+venv_dir="$repo_root/.venv"
+
 enable_vllm_proxy="false"
+start_services="false"
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -24,93 +28,30 @@ while [[ $# -gt 0 ]]; do
     shift
 done
 
-python_has_uvicorn() {
-    local candidate="$1"
-    [[ -n "$candidate" && -x "$candidate" ]] || return 1
-    "$candidate" - <<'PY' >/dev/null 2>&1
-import importlib.util
-raise SystemExit(0 if importlib.util.find_spec("uvicorn") else 1)
-PY
-}
-
-resolve_python_bin() {
-    local candidate=""
-    local current_user
-    current_user=$(id -un)
-
-    if [[ -n "${PYTHON_BIN:-}" ]]; then
-        if python_has_uvicorn "$PYTHON_BIN"; then
-            printf '%s\n' "$PYTHON_BIN"
-            return 0
-        fi
-    fi
-
-    if [[ -r "$target_dir/sage-faculty-twin-app.service" ]]; then
-        candidate=$(sed -n 's/^Environment=PYTHON_BIN=//p' "$target_dir/sage-faculty-twin-app.service" | head -n 1)
-        if python_has_uvicorn "$candidate"; then
-            printf '%s\n' "$candidate"
-            return 0
-        fi
-    fi
-
-    candidate=$(pgrep -u "$current_user" -f 'sage_faculty_twin.api:app --host 127.0.0.1 --port 55601' | head -n 1 || true)
-    if [[ -n "$candidate" && -x "/proc/$candidate/exe" ]]; then
-        candidate=$(readlink -f "/proc/$candidate/exe")
-        if python_has_uvicorn "$candidate"; then
-            printf '%s\n' "$candidate"
-            return 0
-        fi
-    fi
-
-    if [[ -r "$python_bin_state_file" ]]; then
-        candidate=$(<"$python_bin_state_file")
-        if python_has_uvicorn "$candidate"; then
-            printf '%s\n' "$candidate"
-            return 0
-        fi
-    fi
-
-    if command -v python3 >/dev/null 2>&1; then
-        candidate=$(command -v python3)
-        if python_has_uvicorn "$candidate"; then
-            printf '%s\n' "$candidate"
-            return 0
-        fi
-    fi
-
-    if command -v python >/dev/null 2>&1; then
-        candidate=$(command -v python)
-        if python_has_uvicorn "$candidate"; then
-            printf '%s\n' "$candidate"
-            return 0
-        fi
-    fi
-
-    return 1
-}
-
-if python_bin=$(resolve_python_bin); then
-    :
-else
-    echo "Unable to locate a usable Python interpreter. Set PYTHON_BIN explicitly." >&2
+# --- Validate venv exists ---
+if [[ ! -x "$venv_dir/bin/python" ]]; then
+    echo "ERROR: Venv not found at $venv_dir" >&2
+    echo "  Run:  bash tools/bootstrap_venv.sh" >&2
     exit 1
 fi
 
+echo "Venv OK: $venv_dir/bin/python ($("$venv_dir/bin/python" --version 2>&1))"
+
+# --- Render and install service units ---
 mkdir -p "$target_dir"
-printf '%s\n' "$python_bin" >"$python_bin_state_file"
-chmod 0644 "$python_bin_state_file"
 
 for unit in "$source_dir"/*.service; do
     rendered_unit="$target_dir/$(basename "$unit")"
     sed \
         -e "s|__REPO_ROOT__|$repo_root|g" \
-        -e "s|__PYTHON_BIN__|$python_bin|g" \
         "$unit" >"$rendered_unit"
     chmod 0644 "$rendered_unit"
+    echo "  Installed: $(basename "$unit")"
 done
 
 systemctl --user daemon-reload
 
+# --- Enable services ---
 service_units=(
     sage-faculty-twin-app.service
     sage-faculty-twin-site.service
@@ -123,8 +64,10 @@ fi
 
 systemctl --user enable "${service_units[@]}"
 
-if [[ "${start_services:-false}" == "true" ]]; then
+if [[ "$start_services" == "true" ]]; then
     systemctl --user restart "${service_units[@]}"
-    systemctl --user --no-pager --full status \
-        "${service_units[@]}"
+    systemctl --user --no-pager --full status "${service_units[@]}"
 fi
+
+echo ""
+echo "Services installed. Use 'manage.sh start' to start them."
