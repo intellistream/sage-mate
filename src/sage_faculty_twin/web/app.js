@@ -192,6 +192,9 @@ const HISTORY_RAIL_COLLAPSED_KEY = "myTwinHistoryRailCollapsed";
 const ONLINE_PRESENCE_CLIENT_KEY = "myTwinOnlinePresenceClientId";
 const ONLINE_PRESENCE_INTERVAL_MS = 30_000;
 const STATUS_REFRESH_INTERVAL_MS = 30_000;
+const HEALTH_REQUEST_TIMEOUT_MS = 20_000;
+const HEALTH_REQUEST_RETRY_COUNT = 1;
+const HEALTH_SNAPSHOT_STALE_MS = 3 * 60_000;
 const MAX_CHAT_HISTORY_ITEMS = 18;
 const DEFAULT_CONVERSATION_TITLE = "新对话";
 const LOCAL_API_PORT_CANDIDATES = ["55601", "8010", "8000"];
@@ -261,6 +264,8 @@ let currentConversationTitle = DEFAULT_CONVERSATION_TITLE;
 let currentConversationPreview = "";
 let onlinePresenceHeartbeatTimer = null;
 let statusRefreshTimer = null;
+let lastHealthyStatusSnapshot = null;
+let lastHealthyStatusAt = 0;
 let resolvedApiOrigin = typeof globalThis.__SAGE_FACULTY_TWIN_API_ORIGIN__ === "string"
     ? globalThis.__SAGE_FACULTY_TWIN_API_ORIGIN__.trim()
     : "";
@@ -1278,8 +1283,22 @@ function seedChatQuestion(question, courseContext = "") {
 }
 
 async function refreshStatus() {
+    const fetchHealthSnapshot = async () => {
+        let lastError = null;
+        for (let attempt = 0; attempt <= HEALTH_REQUEST_RETRY_COUNT; attempt += 1) {
+            try {
+                return await apiRequest("/health", { timeoutMs: HEALTH_REQUEST_TIMEOUT_MS });
+            } catch (error) {
+                lastError = error;
+            }
+        }
+        throw lastError;
+    };
+
     try {
-        const data = await apiRequest("/health", { timeoutMs: 5000 });
+        const data = await fetchHealthSnapshot();
+        lastHealthyStatusSnapshot = data;
+        lastHealthyStatusAt = Date.now();
         applyBranding(data.owner_name, data.owner_role, data.homepage_public_url);
         statusPill.textContent = data.status === "ok" ? "服务正常" : `状态 ${data.status}`;
         modelPill.textContent = "连接已就绪";
@@ -1287,6 +1306,19 @@ async function refreshStatus() {
         renderTopbarLiveStatus(data);
         renderOnlineOverview(data);
     } catch (error) {
+        const hasRecentSnapshot =
+            lastHealthyStatusSnapshot
+            && Date.now() - lastHealthyStatusAt <= HEALTH_SNAPSHOT_STALE_MS;
+        if (hasRecentSnapshot) {
+            const cached = lastHealthyStatusSnapshot;
+            applyBranding(cached.owner_name, cached.owner_role, cached.homepage_public_url);
+            statusPill.textContent = "服务延迟";
+            modelPill.textContent = "连接较慢";
+            knowledgePill.textContent = `知识库 ${cached.knowledge_documents}`;
+            renderTopbarLiveStatus(cached);
+            renderOnlineOverview(cached, "状态刷新较慢，当前显示最近一次成功快照。");
+            return;
+        }
         applyBranding(null, null, "");
         statusPill.textContent = "服务不可用";
         modelPill.textContent = "连接状态未知";
