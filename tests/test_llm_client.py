@@ -342,6 +342,19 @@ class _FakeChatCompletionResponse:
         return {"choices": [{"message": {"content": self._content}}]}
 
 
+class _CapturingIntentClient:
+    def __init__(self, content: str = '{"action":"answer","domain":"general","retrieval_scopes":[],"exclude_scopes":[],"decision_mode":"direct_answer","needs_clarification":false,"clarification_message":null,"escalation_reason":null}') -> None:
+        self._content = content
+        self.calls: list[tuple[str, dict]] = []
+
+    def post(self, path: str, json: dict) -> _FakeChatCompletionResponse:
+        self.calls.append((path, json))
+        return _FakeChatCompletionResponse(self._content)
+
+    def close(self) -> None:
+        return None
+
+
 class _FlakyHttpxClient:
     def __init__(self, failures_before_success: int, *, content: str = "ok") -> None:
         self._failures_before_success = failures_before_success
@@ -376,6 +389,42 @@ def _build_retry_test_client(settings: AppSettings, transport) -> VllmChatClient
     return client
 
 
+def _build_intent_test_client(settings: AppSettings, transport: _CapturingIntentClient) -> VllmChatClient:
+    client = object.__new__(VllmChatClient)
+    client._settings = settings
+    client._client = None
+    client._intent_client = transport
+    client._intent_model_name = settings.intent_model_name or settings.model_name
+    client._cache_lock = threading.Lock()
+    client._response_cache = OrderedDict()
+    client._metrics_lock = threading.Lock()
+    client._request_count = 0
+    client._success_count = 0
+    client._error_count = 0
+    client._cache_hit_count = 0
+    client._last_request_at = None
+    client._last_success_at = None
+    client._last_error_at = None
+    client._last_error_message = None
+    return client
+
+
+def test_request_intent_classification_disables_thinking_even_when_answer_llm_can_think() -> None:
+    settings = AppSettings(model_name="Qwen3-32B", intent_model_name="Qwen3-8B")
+    transport = _CapturingIntentClient()
+    client = _build_intent_test_client(settings, transport)
+
+    content = client._request_intent_classification("system", "user")
+
+    assert content
+    assert len(transport.calls) == 1
+    path, payload = transport.calls[0]
+    assert path == "/chat/completions"
+    assert payload["model"] == "Qwen3-8B"
+    assert payload["chat_template_kwargs"] == {"enable_thinking": False}
+    assert payload["temperature"] == 0.0
+
+
 def test_request_chat_completion_retries_timeout_then_succeeds(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -402,8 +451,11 @@ def test_request_chat_completion_retries_timeout_then_succeeds(
     assert snapshot["llm_last_error"] == ""
 
 
-def test_app_settings_defaults_to_lower_llm_timeout() -> None:
-    settings = AppSettings()
+def test_app_settings_defaults_to_lower_llm_timeout(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("DIGITAL_TWIN_LLM_TIMEOUT_SECONDS", raising=False)
+    settings = AppSettings(_env_file=None)
 
     # Chat Latency Optimizations Task 1 lowered the default LLM timeout to
     # 60s so the request budget (80s) surfaces 504 well below Cloudflare's

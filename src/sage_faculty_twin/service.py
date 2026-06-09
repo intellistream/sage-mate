@@ -1301,25 +1301,7 @@ class FacultyTwinWorkflowSupport:
         if context.system_prompt is None or context.user_prompt is None:
             raise RuntimeError("chat workflow reached llm stage without a prepared prompt")
 
-        # Chat Latency Optimizations Task 5: when an ``answer_chunk_callback``
-        # is wired up by the /chat endpoint we ask the LLM client for a
-        # streaming completion so each token is forwarded over the
-        # workflow-events SSE channel as it arrives. The full string is
-        # still returned so the rest of the pipeline (trace, render,
-        # post-answer fan-out) sees the same final answer.
-        enable_thinking = getattr(context.request, "deep_thinking", True)
-        # B3: Auto-disable thinking for simple intents (e.g. general, booking)
-        # to avoid wasting 300-500 CoT tokens on trivial queries.
-        if enable_thinking and context.interaction_intent is not None:
-            auto_disable_domains = {
-                d.strip()
-                for d in self._settings.auto_disable_thinking_intents.split(",")
-                if d.strip()
-            }
-            if context.interaction_intent.domain in auto_disable_domains:
-                enable_thinking = False
-            elif context.decision_mode == "direct_answer":
-                enable_thinking = False
+        enable_thinking = self._should_enable_deep_thinking(context)
         if self._answer_chunk_callback is not None:
             context.answer = self._llm_client.answer_question_sync(
                 context.system_prompt,
@@ -1353,6 +1335,35 @@ class FacultyTwinWorkflowSupport:
             duration_ms=self._elapsed_ms(started_at),
         )
         return context
+
+    def _should_enable_deep_thinking(self, context: ChatWorkflowContext) -> bool:
+        # Chat Latency Optimizations Task 5: when an ``answer_chunk_callback``
+        # is wired up by the /chat endpoint we ask the LLM client for a
+        # streaming completion so each token is forwarded over the
+        # workflow-events SSE channel as it arrives. The full string is
+        # still returned so the rest of the pipeline (trace, render,
+        # post-answer fan-out) sees the same final answer.
+        if not getattr(context.request, "deep_thinking", True):
+            return False
+
+        if getattr(context.request, "deep_thinking_explicit", False):
+            return True
+
+        # B3: Auto-disable thinking for simple intents (e.g. general, booking)
+        # to avoid wasting 300-500 CoT tokens on trivial queries unless the
+        # user explicitly asked for deeper reasoning.
+        if context.interaction_intent is not None:
+            auto_disable_domains = {
+                d.strip()
+                for d in self._settings.auto_disable_thinking_intents.split(",")
+                if d.strip()
+            }
+            if context.interaction_intent.domain in auto_disable_domains:
+                return False
+            if context.decision_mode == "direct_answer":
+                return False
+
+        return True
 
     def plan_follow_up_actions(self, context: ChatWorkflowContext) -> ChatWorkflowContext:
         started_at = perf_counter()

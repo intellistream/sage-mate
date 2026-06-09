@@ -126,6 +126,7 @@ const workflowMobileBackdrop = document.getElementById("workflow-mobile-backdrop
 const initialChatStreamMarkup = chatStream?.innerHTML || "";
 
 const chatForm = document.getElementById("chat-form");
+const deepThinkingCheckbox = document.getElementById("deep-thinking-checkbox");
 const adminLoginForm = document.getElementById("admin-login-form");
 const userRegisterForm = document.getElementById("user-register-form");
 const userLoginForm = document.getElementById("user-login-form");
@@ -133,6 +134,11 @@ const knowledgeForm = document.getElementById("knowledge-form");
 const bookingForm = document.getElementById("booking-form");
 const suggestionForm = document.getElementById("suggestion-form");
 const chatSubmitButton = chatForm.querySelector('button[type="submit"]');
+let deepThinkingExplicitlyEnabled = Boolean(deepThinkingCheckbox?.checked);
+
+deepThinkingCheckbox?.addEventListener("change", () => {
+    deepThinkingExplicitlyEnabled = Boolean(deepThinkingCheckbox.checked);
+});
 
 const knowledgeResponse = document.getElementById("knowledge-response");
 const bookingResponse = document.getElementById("booking-response");
@@ -667,7 +673,8 @@ chatForm.addEventListener("submit", async (event) => {
         visitor_profile: visitorProfileInput?.value || null,
         question,
         conversation_id: activeConversationId,
-        deep_thinking: document.getElementById("deep-thinking-checkbox")?.checked ?? true,
+        deep_thinking: deepThinkingCheckbox?.checked ?? false,
+        deep_thinking_explicit: deepThinkingExplicitlyEnabled,
     };
     const submittedFiles = [...pendingChatAttachments];
     const submittedAttachments = submittedFiles.map((file) => ({

@@ -26,6 +26,7 @@ class ChatRequest(BaseModel):
     conversation_id: str | None = Field(default=None, max_length=128)
     attachments: list[ChatAttachment] = Field(default_factory=list, max_length=4)
     deep_thinking: bool = Field(default=True)
+    deep_thinking_explicit: bool = Field(default=False)
 
 
 class InteractionIntent(BaseModel):
