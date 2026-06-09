@@ -15,7 +15,8 @@ const historyRailToggleButton = document.getElementById("history-rail-toggle");
 const historyNewChatButton = document.getElementById("history-new-chat");
 const chatStream = document.getElementById("chat-stream");
 const modalOverlay = document.getElementById("modal-overlay");
-const sideDrawer = document.getElementById("side-drawer");
+const settingsDrawer = document.getElementById("settings-drawer");
+const statusDrawer = document.getElementById("status-drawer");
 const identityModal = document.getElementById("identity-modal");
 const knowledgeModal = document.getElementById("knowledge-modal");
 const bookingModal = document.getElementById("booking-modal");
@@ -433,10 +434,14 @@ document.getElementById("identity-admin-login")?.addEventListener("click", () =>
     openModal(adminLoginModal);
 });
 
-document.getElementById("open-drawer").addEventListener("click", openDrawer);
-topbarUserBadge?.addEventListener("click", openDrawer);
+document.getElementById("open-settings-drawer")?.addEventListener("click", openSettingsDrawer);
+document.getElementById("open-status-drawer")?.addEventListener("click", openStatusDrawer);
+topbarUserBadge?.addEventListener("click", openSettingsDrawer);
 document.querySelectorAll("[data-close-drawer]").forEach((button) => {
-    button.addEventListener("click", closeDrawer);
+    button.addEventListener("click", closeSettingsDrawer);
+});
+document.querySelectorAll("[data-close-status-drawer]").forEach((button) => {
+    button.addEventListener("click", closeStatusDrawer);
 });
 document.getElementById("open-user-register")?.addEventListener("click", () => {
     prepareUserRegistrationForm();
@@ -590,6 +595,7 @@ operationsArtifactDrafts?.addEventListener("click", handleArtifactDraftAction);
 operationsQueues?.addEventListener("click", handleOperationsQueueAction);
 operationsTasks?.addEventListener("click", handleOperationsTaskAction);
 modalOverlay.addEventListener("click", handleModalOverlayClick);
+document.addEventListener("click", handleOutsideDrawerClick);
 document.querySelectorAll("[data-close-modal]").forEach((button) => {
     button.addEventListener("click", closeModals);
 });
@@ -1100,7 +1106,8 @@ function shouldPromptForVisitorIdentity() {
 
 function hasActiveOverlaySurface() {
     return [
-        sideDrawer,
+        settingsDrawer,
+        statusDrawer,
         identityModal,
         knowledgeModal,
         bookingModal,
@@ -1136,6 +1143,29 @@ function handleModalOverlayClick() {
         return;
     }
     closeModals();
+}
+
+function handleOutsideDrawerClick(event) {
+    const target = event.target;
+    if (!(target instanceof Element)) {
+        return;
+    }
+
+    if (!isStatusDrawerClosed()) {
+        if (!statusDrawer?.contains(target) && !target.closest("#open-status-drawer")) {
+            closeStatusDrawer();
+        }
+    }
+
+    if (!isSettingsDrawerClosed()) {
+        if (
+            !settingsDrawer?.contains(target)
+            && !target.closest("#open-settings-drawer")
+            && !target.closest("#topbar-user-badge")
+        ) {
+            closeSettingsDrawer();
+        }
+    }
 }
 
 function getVisitorProfileConfig(profile = visitorProfileInput?.value) {
@@ -1345,11 +1375,21 @@ function renderOnlineBenchmarkTable(data) {
     const errorCount = toCountNumber(data.llm_error_count);
     const cacheHitCount = toCountNumber(data.llm_cache_hit_count);
     const cacheEntries = toCountNumber(data.llm_cache_entries);
+    const appCacheHitRate = Number(data.llm_app_cache_hit_rate || 0);
+    const semanticCacheHitRate = Number(data.llm_semantic_cache_hit_rate || 0);
+    const vllmPrefixCacheHitRate = Number(data.llm_vllm_prefix_cache_hit_rate || 0);
+    const vllmPrefixQueries = toCountNumber(data.llm_vllm_prefix_cache_queries);
+    const vllmPrefixHits = toCountNumber(data.llm_vllm_prefix_cache_hits);
     const plannerTotal = toCountNumber(data.planner_deterministic_total);
     const plannerFallbacks = toCountNumber(data.planner_deterministic_fallbacks);
     const plannerShadowErrors = toCountNumber(data.planner_shadow_errors);
     const avgDetLatency = Number(data.planner_avg_deterministic_latency_ms || 0);
     const avgShadowLatency = Number(data.planner_avg_shadow_latency_ms || 0);
+    const avgLlmLatency = Number(data.llm_avg_latency_ms || 0);
+    const p95LikeLlmLatency = Number(data.llm_max_latency_ms || 0);
+    const llmRps = Number(data.llm_request_throughput_rps || 0);
+    const llmTps = Number(data.llm_completion_throughput_tps || 0);
+    const completionTokens = toCountNumber(data.llm_completion_tokens_total);
     const successRate = requestCount > 0 ? `${Math.round((successCount / requestCount) * 100)}%` : "--";
     const cacheHitRate = requestCount > 0 ? `${Math.round((cacheHitCount / requestCount) * 100)}%` : "--";
     const fallbackRate = plannerTotal > 0 ? `${Math.round((plannerFallbacks / plannerTotal) * 100)}%` : "--";
@@ -1359,8 +1399,17 @@ function renderOnlineBenchmarkTable(data) {
         ["请求总数", formatCount(requestCount)],
         ["成功数 / 失败数", `${formatCount(successCount)} / ${formatCount(errorCount)}`],
         ["成功率", successRate],
-        ["缓存命中率", cacheHitRate],
+        ["吞吐（请求/s）", llmRps > 0 ? llmRps.toFixed(3) : "0.000"],
+        ["吞吐（Token/s）", llmTps > 0 ? llmTps.toFixed(2) : "0.00"],
+        ["平均 LLM 延迟", Number.isFinite(avgLlmLatency) ? `${avgLlmLatency.toFixed(2)} ms` : "--"],
+        ["峰值 LLM 延迟", Number.isFinite(p95LikeLlmLatency) ? `${p95LikeLlmLatency.toFixed(2)} ms` : "--"],
+        ["缓存命中率（总）", cacheHitRate],
+        ["应用缓存命中率", formatPercentage(appCacheHitRate)],
+        ["语义缓存命中率", formatPercentage(semanticCacheHitRate)],
+        ["vLLM 前缀命中率", formatPercentage(vllmPrefixCacheHitRate)],
+        ["vLLM 前缀命中（命中/查询）", `${formatCount(vllmPrefixHits)} / ${formatCount(vllmPrefixQueries)}`],
         ["缓存条目", formatCount(cacheEntries)],
+        ["累计输出 Token", formatCount(completionTokens)],
         ["规划总次数", formatCount(plannerTotal)],
         ["规划回退率", fallbackRate],
         ["Shadow 错误", formatCount(plannerShadowErrors)],
@@ -1754,7 +1803,7 @@ function closeAdminOnlyModals() {
         modal.classList.add("hidden");
         modal.setAttribute("aria-hidden", "true");
     });
-    if (sideDrawer.classList.contains("hidden") && !hasVisibleOverlayModal()) {
+    if (areDrawersClosed() && !hasVisibleOverlayModal()) {
         modalOverlay.classList.add("hidden");
     }
     syncFloatingWorkflowTriggerState();
@@ -1768,7 +1817,7 @@ function ensureAdminOnlyAccess(options = {}) {
         setInlineStatus(options.responseElement, "请先登录管理员模式，再访问这个管理入口。", "error");
     }
     if (options.openLogin) {
-        closeDrawer();
+        closeDrawers();
         openModal(adminLoginModal);
         setInlineStatus(adminLoginResponse, "请先登录管理员模式，再访问这个管理入口。", "error");
     }
@@ -5289,8 +5338,11 @@ function openWorkflowMobileSheet(mode = getStoredWorkflowMobileSheetMode()) {
     if (!isMobileWorkflowViewport()) {
         return;
     }
-    if (sideDrawer && !sideDrawer.classList.contains("hidden")) {
-        closeDrawer();
+    if (settingsDrawer && !settingsDrawer.classList.contains("hidden")) {
+        closeSettingsDrawer();
+    }
+    if (statusDrawer && !statusDrawer.classList.contains("hidden")) {
+        closeStatusDrawer();
     }
     setWorkflowMobileOpen(true);
     setWorkflowMobileSheetMode(mode);
@@ -6377,14 +6429,15 @@ function closeModals() {
         element.classList.add("hidden");
         element.setAttribute("aria-hidden", "true");
     });
-    closeDrawer();
+    closeDrawers();
     syncFloatingWorkflowTriggerState();
 }
 
-function openDrawer() {
+function openSettingsDrawer() {
     closeWorkflowMobileSheet();
-    sideDrawer.classList.remove("hidden");
-    sideDrawer.setAttribute("aria-hidden", "false");
+    closeStatusDrawer();
+    settingsDrawer.classList.remove("hidden");
+    settingsDrawer.setAttribute("aria-hidden", "false");
     document.body.classList.add("drawer-pinned");
     if (isDrawerOverlayViewport()) {
         modalOverlay.classList.remove("hidden");
@@ -6394,14 +6447,69 @@ function openDrawer() {
     syncFloatingWorkflowTriggerState();
 }
 
-function closeDrawer() {
-    sideDrawer.classList.add("hidden");
-    sideDrawer.setAttribute("aria-hidden", "true");
+function closeSettingsDrawer() {
+    settingsDrawer.classList.add("hidden");
+    settingsDrawer.setAttribute("aria-hidden", "true");
     document.body.classList.remove("drawer-pinned");
-    if (!hasVisibleOverlayModal()) {
+    if (!hasVisibleOverlayModal() && isStatusDrawerClosed()) {
         modalOverlay.classList.add("hidden");
     }
     syncFloatingWorkflowTriggerState();
+}
+
+function openStatusDrawer() {
+    closeWorkflowMobileSheet();
+    statusDrawer.classList.remove("hidden");
+    statusDrawer.setAttribute("aria-hidden", "false");
+    if (isDrawerOverlayViewport()) {
+        modalOverlay.classList.remove("hidden");
+    } else if (!hasVisibleOverlayModal() && isSettingsDrawerClosed()) {
+        modalOverlay.classList.add("hidden");
+    }
+    syncFloatingWorkflowTriggerState();
+}
+
+function closeStatusDrawer() {
+    statusDrawer.classList.add("hidden");
+    statusDrawer.setAttribute("aria-hidden", "true");
+    if (!hasVisibleOverlayModal() && isSettingsDrawerClosed()) {
+        modalOverlay.classList.add("hidden");
+    }
+    syncFloatingWorkflowTriggerState();
+}
+
+function closeDrawers() {
+    closeSettingsDrawer();
+    closeStatusDrawer();
+}
+
+function isSettingsDrawerClosed() {
+    return !settingsDrawer || settingsDrawer.classList.contains("hidden");
+}
+
+function isStatusDrawerClosed() {
+    return !statusDrawer || statusDrawer.classList.contains("hidden");
+}
+
+function areDrawersClosed() {
+    return isSettingsDrawerClosed() && isStatusDrawerClosed();
+}
+
+function openDrawer() {
+    openSettingsDrawer();
+}
+
+function closeDrawer() {
+    closeSettingsDrawer();
+}
+
+function hasVisibleOverlayModal() {
+    return overlayModals.some((element) => !element.classList.contains("hidden"));
+}
+
+function syncFloatingWorkflowTriggerState() {
+    const hasOverlaySurface = !areDrawersClosed() || !modalOverlay.classList.contains("hidden");
+    document.body.classList.toggle("workflow-trigger-suppressed", hasOverlaySurface);
 }
 
 function isDrawerOverlayViewport() {
@@ -6410,15 +6518,6 @@ function isDrawerOverlayViewport() {
     } catch {
         return false;
     }
-}
-
-function hasVisibleOverlayModal() {
-    return overlayModals.some((element) => !element.classList.contains("hidden"));
-}
-
-function syncFloatingWorkflowTriggerState() {
-    const hasOverlaySurface = !sideDrawer.classList.contains("hidden") || !modalOverlay.classList.contains("hidden");
-    document.body.classList.toggle("workflow-trigger-suppressed", hasOverlaySurface);
 }
 
 async function handleAdminLogout() {

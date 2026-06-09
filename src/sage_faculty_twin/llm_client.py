@@ -1,12 +1,15 @@
 from __future__ import annotations
 
 import asyncio
+import difflib
 import json
 import re
 import threading
 import time
 from collections import OrderedDict
+from time import perf_counter
 from typing import Any, Callable, Literal
+from urllib.parse import urlsplit, urlunsplit
 
 import httpx
 from pydantic import BaseModel, Field, ValidationError
@@ -32,6 +35,9 @@ _DEFAULT_EXCLUDE_SCOPES: dict[str, list[str]] = {
     "advising": ["courseware"],
     "booking": ["courseware", "publications"],
 }
+
+_SEMANTIC_CACHE_SIMILARITY_THRESHOLD = 0.88
+_VLLM_METRICS_REFRESH_SECONDS = 5.0
 
 
 class _InteractionIntentPayload(BaseModel):
@@ -74,16 +80,33 @@ class VllmChatClient:
         )
         self._intent_model_name = self._settings.intent_model_name or self._settings.model_name
         self._cache_lock = threading.Lock()
-        self._response_cache: OrderedDict[str, tuple[float, str]] = OrderedDict()
+        self._response_cache: OrderedDict[str, tuple[float, str, str]] = OrderedDict()
         self._metrics_lock = threading.Lock()
         self._request_count = 0
         self._success_count = 0
         self._error_count = 0
         self._cache_hit_count = 0
+        self._exact_cache_hit_count = 0
+        self._semantic_cache_hit_count = 0
+        self._cache_lookup_count = 0
         self._last_request_at: float | None = None
         self._last_success_at: float | None = None
         self._last_error_at: float | None = None
         self._last_error_message: str | None = None
+        self._metrics_started_at = time.time()
+        self._latency_total_ms = 0.0
+        self._latency_observation_count = 0
+        self._latency_max_ms = 0.0
+        self._last_latency_ms = 0.0
+        self._prompt_tokens_total = 0
+        self._completion_tokens_total = 0
+        self._total_tokens_total = 0
+        self._vllm_metrics_url = self._derive_vllm_metrics_url(self._settings.llm_base_url)
+        self._vllm_prefix_cache_queries = 0.0
+        self._vllm_prefix_cache_hits = 0.0
+        self._vllm_external_prefix_cache_queries = 0.0
+        self._vllm_external_prefix_cache_hits = 0.0
+        self._vllm_metrics_last_refresh_at = 0.0
 
     def close(self) -> None:
         self._client.close()
@@ -94,6 +117,7 @@ class VllmChatClient:
 
     def runtime_snapshot(self) -> dict[str, str]:
         cache_entries = self._active_cache_entries()
+        self._refresh_vllm_prefix_cache_metrics()
         with self._metrics_lock:
             last_status = "not_checked"
             if self._last_success_at is not None and (
@@ -102,6 +126,16 @@ class VllmChatClient:
                 last_status = "ok"
             elif self._last_error_at is not None:
                 last_status = "error"
+            app_cache_hit_rate = self._exact_cache_hit_count / max(self._cache_lookup_count, 1)
+            semantic_cache_hit_rate = self._semantic_cache_hit_count / max(
+                self._cache_lookup_count, 1
+            )
+            prefix_cache_hit_rate = self._vllm_prefix_cache_hits / max(
+                self._vllm_prefix_cache_queries, 1.0
+            )
+            external_prefix_cache_hit_rate = self._vllm_external_prefix_cache_hits / max(
+                self._vllm_external_prefix_cache_queries, 1.0
+            )
             return {
                 "llm_status": last_status,
                 "llm_request_count": str(self._request_count),
@@ -109,6 +143,20 @@ class VllmChatClient:
                 "llm_error_count": str(self._error_count),
                 "llm_cache_hit_count": str(self._cache_hit_count),
                 "llm_cache_entries": str(cache_entries),
+                "llm_app_cache_hit_rate": f"{app_cache_hit_rate:.4f}",
+                "llm_semantic_cache_hit_rate": f"{semantic_cache_hit_rate:.4f}",
+                "llm_vllm_prefix_cache_hit_rate": f"{prefix_cache_hit_rate:.4f}",
+                "llm_vllm_external_prefix_cache_hit_rate": f"{external_prefix_cache_hit_rate:.4f}",
+                "llm_vllm_prefix_cache_queries": f"{self._vllm_prefix_cache_queries:.0f}",
+                "llm_vllm_prefix_cache_hits": f"{self._vllm_prefix_cache_hits:.0f}",
+                "llm_avg_latency_ms": f"{(self._latency_total_ms / max(self._latency_observation_count, 1)):.2f}",
+                "llm_last_latency_ms": f"{self._last_latency_ms:.2f}",
+                "llm_max_latency_ms": f"{self._latency_max_ms:.2f}",
+                "llm_request_throughput_rps": f"{(self._request_count / max(time.time() - self._metrics_started_at, 1.0)):.4f}",
+                "llm_completion_throughput_tps": f"{(self._completion_tokens_total / max(time.time() - self._metrics_started_at, 1.0)):.4f}",
+                "llm_prompt_tokens_total": str(self._prompt_tokens_total),
+                "llm_completion_tokens_total": str(self._completion_tokens_total),
+                "llm_total_tokens_total": str(self._total_tokens_total),
                 "llm_last_error": self._last_error_message or "",
                 "llm_last_request_at": self._format_timestamp(self._last_request_at),
                 "llm_last_success_at": self._format_timestamp(self._last_success_at),
@@ -272,6 +320,7 @@ class VllmChatClient:
             "max_tokens": 160,
             "chat_template_kwargs": {"enable_thinking": False},
         }
+        started_at = perf_counter()
         self._record_request_start()
         try:
             response = self._intent_client.post("/chat/completions", json=payload)
@@ -283,7 +332,8 @@ class VllmChatClient:
             content = choices[0].get("message", {}).get("content", "")
             if not content:
                 raise RuntimeError("Intent model returned empty content")
-            self._record_request_success()
+            elapsed_ms = (perf_counter() - started_at) * 1000.0
+            self._record_request_success(latency_ms=elapsed_ms)
             return str(content)
         except Exception as exc:
             self._record_request_error(exc)
@@ -330,6 +380,7 @@ class VllmChatClient:
             # already-flushed stream to a callback.
             stream_payload = dict(payload)
             stream_payload["stream"] = True
+            stream_payload["stream_options"] = {"include_usage": True}
             return self._request_chat_completion_stream(stream_payload, token_callback)
 
         return self._request_chat_completion_sync(payload)
@@ -344,8 +395,26 @@ class VllmChatClient:
         # ``token_callback``. Cached non-streaming completions are still
         # served by ``_request_chat_completion_sync`` for callers that
         # don't pass a callback.
+        cache_payload = dict(payload)
+        cache_payload.pop("stream", None)
+        cache_payload.pop("stream_options", None)
+        cache_key = self._cache_key(cache_payload)
+        semantic_key = self._semantic_cache_key(cache_payload)
+        cached, hit_type = self._get_cached_response(cache_key, semantic_key)
+        if cached is not None:
+            self._record_cache_hit(hit_type or "exact")
+            try:
+                token_callback(cached)
+            except Exception:
+                pass
+            return cached
+
+        started_at = perf_counter()
         self._record_request_start()
         max_retries = self._settings.llm_retry_attempts
+        prompt_tokens = 0
+        completion_tokens = 0
+        total_tokens = 0
         for attempt in range(max_retries + 1):
             collected: list[str] = []
             try:
@@ -371,6 +440,20 @@ class VllmChatClient:
                         except json.JSONDecodeError:
                             continue
                         choices = chunk.get("choices") or []
+                        usage = chunk.get("usage") or {}
+                        if isinstance(usage, dict):
+                            prompt_tokens = max(
+                                prompt_tokens,
+                                int(usage.get("prompt_tokens") or 0),
+                            )
+                            completion_tokens = max(
+                                completion_tokens,
+                                int(usage.get("completion_tokens") or 0),
+                            )
+                            total_tokens = max(
+                                total_tokens,
+                                int(usage.get("total_tokens") or 0),
+                            )
                         if not choices:
                             continue
                         delta = choices[0].get("delta") or {}
@@ -395,25 +478,42 @@ class VllmChatClient:
             except Exception as exc:
                 self._record_request_error(exc)
                 raise
-        self._record_request_success()
+        elapsed_ms = (perf_counter() - started_at) * 1000.0
+        self._record_request_success(
+            latency_ms=elapsed_ms,
+            prompt_tokens=prompt_tokens,
+            completion_tokens=completion_tokens,
+            total_tokens=total_tokens,
+        )
+        self._store_cached_response(cache_key, answer, semantic_key)
         return answer
 
     def _request_chat_completion_sync(self, payload: dict[str, Any]) -> str:
 
         cache_key = self._cache_key(payload)
-        cached = self._get_cached_response(cache_key)
+        semantic_key = self._semantic_cache_key(payload)
+        cached, hit_type = self._get_cached_response(cache_key, semantic_key)
         if cached is not None:
-            self._record_cache_hit()
+            self._record_cache_hit(hit_type or "exact")
             return cached
 
+        started_at = perf_counter()
         self._record_request_start()
         max_retries = self._settings.llm_retry_attempts
+        prompt_tokens = 0
+        completion_tokens = 0
+        total_tokens = 0
         for attempt in range(max_retries + 1):
             try:
                 response = self._client.post("/chat/completions", json=payload)
                 response.raise_for_status()
 
                 data = response.json()
+                usage = data.get("usage") or {}
+                if isinstance(usage, dict):
+                    prompt_tokens = int(usage.get("prompt_tokens") or 0)
+                    completion_tokens = int(usage.get("completion_tokens") or 0)
+                    total_tokens = int(usage.get("total_tokens") or 0)
                 choices = data.get("choices", [])
                 if not choices:
                     raise RuntimeError("vllm-hust returned no chat choices")
@@ -431,8 +531,14 @@ class VllmChatClient:
             except Exception as exc:
                 self._record_request_error(exc)
                 raise
-        self._record_request_success()
-        self._store_cached_response(cache_key, answer)
+        elapsed_ms = (perf_counter() - started_at) * 1000.0
+        self._record_request_success(
+            latency_ms=elapsed_ms,
+            prompt_tokens=prompt_tokens,
+            completion_tokens=completion_tokens,
+            total_tokens=total_tokens,
+        )
+        self._store_cached_response(cache_key, answer, semantic_key)
         return answer
 
     async def answer_question(self, system_prompt: str, user_prompt: str) -> str:
@@ -792,26 +898,45 @@ class VllmChatClient:
     def _cache_key(self, payload: dict[str, Any]) -> str:
         return json.dumps(payload, sort_keys=True, ensure_ascii=False, separators=(",", ":"))
 
-    def _get_cached_response(self, cache_key: str) -> str | None:
+    def _get_cached_response(self, cache_key: str, semantic_key: str) -> tuple[str | None, str | None]:
         ttl_seconds = self._settings.llm_cache_ttl_seconds
         max_entries = self._settings.llm_cache_max_entries
         if ttl_seconds <= 0 or max_entries <= 0:
-            return None
+            return None, None
 
         now = time.time()
         with self._cache_lock:
+            self._record_cache_lookup()
             self._evict_expired_locked(now)
             cached = self._response_cache.get(cache_key)
             if cached is None:
-                return None
-            expires_at, value = cached
+                best_key = ""
+                best_score = 0.0
+                best_value = ""
+                for existing_key, (expires_at, value, existing_semantic_key) in self._response_cache.items():
+                    if expires_at <= now:
+                        continue
+                    score = difflib.SequenceMatcher(
+                        None,
+                        semantic_key,
+                        existing_semantic_key,
+                    ).ratio()
+                    if score > best_score:
+                        best_key = existing_key
+                        best_score = score
+                        best_value = value
+                if best_score >= _SEMANTIC_CACHE_SIMILARITY_THRESHOLD and best_key:
+                    self._response_cache.move_to_end(best_key)
+                    return best_value, "semantic"
+                return None, None
+            expires_at, value, _ = cached
             if expires_at <= now:
                 self._response_cache.pop(cache_key, None)
-                return None
+                return None, None
             self._response_cache.move_to_end(cache_key)
-            return value
+            return value, "exact"
 
-    def _store_cached_response(self, cache_key: str, value: str) -> None:
+    def _store_cached_response(self, cache_key: str, value: str, semantic_key: str) -> None:
         ttl_seconds = self._settings.llm_cache_ttl_seconds
         max_entries = self._settings.llm_cache_max_entries
         if ttl_seconds <= 0 or max_entries <= 0:
@@ -820,28 +945,65 @@ class VllmChatClient:
         expires_at = time.time() + ttl_seconds
         with self._cache_lock:
             self._evict_expired_locked(time.time())
-            self._response_cache[cache_key] = (expires_at, value)
+            self._response_cache[cache_key] = (expires_at, value, semantic_key)
             self._response_cache.move_to_end(cache_key)
             while len(self._response_cache) > max_entries:
                 self._response_cache.popitem(last=False)
 
     def _evict_expired_locked(self, now: float) -> None:
         expired_keys = [
-            key for key, (expires_at, _) in self._response_cache.items() if expires_at <= now
+            key for key, (expires_at, _, _) in self._response_cache.items() if expires_at <= now
         ]
         for key in expired_keys:
             self._response_cache.pop(key, None)
+
+    def _semantic_cache_key(self, payload: dict[str, Any]) -> str:
+        messages = payload.get("messages") or []
+        text_blocks: list[str] = []
+        if isinstance(messages, list):
+            for message in messages:
+                if not isinstance(message, dict):
+                    continue
+                content = message.get("content")
+                if content:
+                    text_blocks.append(str(content))
+        if not text_blocks:
+            text_blocks.append(self._cache_key(payload))
+        merged = "\n".join(text_blocks).lower()
+        merged = re.sub(r"\d+", "#", merged)
+        merged = re.sub(r"[\s\W_]+", "", merged)
+        if len(merged) > 1200:
+            return merged[:1200]
+        return merged
 
     def _record_request_start(self) -> None:
         with self._metrics_lock:
             self._request_count += 1
             self._last_request_at = time.time()
 
-    def _record_request_success(self) -> None:
+    def _record_request_success(
+        self,
+        *,
+        latency_ms: float | None = None,
+        prompt_tokens: int = 0,
+        completion_tokens: int = 0,
+        total_tokens: int = 0,
+    ) -> None:
         with self._metrics_lock:
             self._success_count += 1
             self._last_success_at = time.time()
             self._last_error_message = None
+            if latency_ms is not None and latency_ms >= 0:
+                self._latency_total_ms += latency_ms
+                self._latency_observation_count += 1
+                self._last_latency_ms = latency_ms
+                self._latency_max_ms = max(self._latency_max_ms, latency_ms)
+            if prompt_tokens > 0:
+                self._prompt_tokens_total += prompt_tokens
+            if completion_tokens > 0:
+                self._completion_tokens_total += completion_tokens
+            if total_tokens > 0:
+                self._total_tokens_total += total_tokens
 
     def _record_request_error(self, exc: Exception) -> None:
         with self._metrics_lock:
@@ -849,14 +1011,81 @@ class VllmChatClient:
             self._last_error_at = time.time()
             self._last_error_message = str(exc)[:240]
 
-    def _record_cache_hit(self) -> None:
+    def _record_cache_hit(self, hit_type: str) -> None:
         with self._metrics_lock:
             self._cache_hit_count += 1
+            if hit_type == "semantic":
+                self._semantic_cache_hit_count += 1
+            else:
+                self._exact_cache_hit_count += 1
+
+    def _record_cache_lookup(self) -> None:
+        with self._metrics_lock:
+            self._cache_lookup_count += 1
 
     def _active_cache_entries(self) -> int:
         with self._cache_lock:
             self._evict_expired_locked(time.time())
             return len(self._response_cache)
+
+    def _derive_vllm_metrics_url(self, base_url: str) -> str:
+        try:
+            parsed = urlsplit(base_url)
+            if not parsed.scheme or not parsed.netloc:
+                return ""
+            return urlunsplit((parsed.scheme, parsed.netloc, "/metrics", "", ""))
+        except Exception:
+            return ""
+
+    def _refresh_vllm_prefix_cache_metrics(self) -> None:
+        if not self._vllm_metrics_url:
+            return
+        now = time.time()
+        if now - self._vllm_metrics_last_refresh_at < _VLLM_METRICS_REFRESH_SECONDS:
+            return
+        try:
+            response = self._client.get(self._vllm_metrics_url, timeout=1.5)
+            response.raise_for_status()
+            text = response.text
+        except Exception:
+            self._vllm_metrics_last_refresh_at = now
+            return
+
+        prefix_queries = 0.0
+        prefix_hits = 0.0
+        external_prefix_queries = 0.0
+        external_prefix_hits = 0.0
+        for line in text.splitlines():
+            if not line or line.startswith("#"):
+                continue
+            metric_name, _, metric_value = line.partition(" ")
+            if not metric_value:
+                continue
+            metric_name = metric_name.split("{", 1)[0]
+            try:
+                value = float(metric_value.strip())
+            except ValueError:
+                continue
+            if metric_name in ("vllm:prefix_cache_queries", "vllm:prefix_cache_queries_total"):
+                prefix_queries += value
+            elif metric_name in ("vllm:prefix_cache_hits", "vllm:prefix_cache_hits_total"):
+                prefix_hits += value
+            elif metric_name in (
+                "vllm:external_prefix_cache_queries",
+                "vllm:external_prefix_cache_queries_total",
+            ):
+                external_prefix_queries += value
+            elif metric_name in (
+                "vllm:external_prefix_cache_hits",
+                "vllm:external_prefix_cache_hits_total",
+            ):
+                external_prefix_hits += value
+
+        self._vllm_prefix_cache_queries = prefix_queries
+        self._vllm_prefix_cache_hits = prefix_hits
+        self._vllm_external_prefix_cache_queries = external_prefix_queries
+        self._vllm_external_prefix_cache_hits = external_prefix_hits
+        self._vllm_metrics_last_refresh_at = now
 
     def _format_timestamp(self, timestamp: float | None) -> str:
         if timestamp is None:

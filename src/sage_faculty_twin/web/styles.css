@@ -2247,6 +2247,12 @@ select {
     z-index: 11;
 }
 
+.status-drawer {
+    left: auto;
+    right: 20px;
+    width: min(360px, calc(100vw - 28px));
+}
+
 [hidden],
 .hidden {
     display: none !important;

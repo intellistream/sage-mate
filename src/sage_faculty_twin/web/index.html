@@ -41,7 +41,8 @@
                 </button>
                 <button type="button" id="topbar-history-toggle" class="icon-button" aria-expanded="false">历史对话</button>
                 <button type="button" id="open-suggestions" class="icon-button">匿名留言</button>
-                <button type="button" id="open-drawer" class="icon-button">状态与设置</button>
+                <button type="button" id="open-settings-drawer" class="icon-button">设置</button>
+                <button type="button" id="open-status-drawer" class="icon-button">状态</button>
                 <a id="homepage-link" href="/home/" target="_blank" rel="noreferrer"
                     class="icon-button topbar-link">个人主页</a>
             </div>
@@ -128,12 +129,12 @@
 
     <div id="modal-overlay" class="modal-overlay hidden"></div>
 
-    <aside id="side-drawer" class="side-drawer hidden" aria-hidden="true">
+    <aside id="status-drawer" class="side-drawer status-drawer hidden" aria-hidden="true">
         <div class="modal-head">
             <div>
-                <h2 id="drawer-mode-title">普通用户模式</h2>
+                <h2>实时状态</h2>
             </div>
-            <button type="button" data-close-drawer class="icon-button">关闭</button>
+            <button type="button" data-close-status-drawer class="icon-button">关闭</button>
         </div>
         <div class="drawer-group drawer-status-group">
             <span id="status-pill" class="pill">正在检查服务</span>
@@ -175,7 +176,15 @@
             </div>
             <p id="online-overview-copy" class="drawer-copy online-overview-copy">正在读取当前服务统计。</p>
         </div>
-        <div class="drawer-separator"></div>
+    </aside>
+
+    <aside id="settings-drawer" class="side-drawer hidden" aria-hidden="true">
+        <div class="modal-head">
+            <div>
+                <h2 id="drawer-mode-title">设置面板</h2>
+            </div>
+            <button type="button" data-close-drawer class="icon-button">关闭</button>
+        </div>
         <div id="user-auth-panel" class="drawer-group drawer-card">
             <div class="drawer-group-head">
                 <p class="brand-kicker">Account</p>

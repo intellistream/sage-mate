@@ -81,7 +81,31 @@ def configure_local_cors(target_app: FastAPI) -> None:
 
 llm_app = FastAPI(title="SAGE Faculty Twin", version="1.1")
 configure_local_cors(llm_app)
-service = DigitalTwinService(settings)
+
+
+class LazyDigitalTwinService:
+    """Delay heavy service construction until endpoints actually need it."""
+
+    def __init__(self) -> None:
+        self._instance: DigitalTwinService | None = None
+        self._lock = threading.Lock()
+
+    def is_initialized(self) -> bool:
+        return self._instance is not None
+
+    def ensure_initialized(self) -> DigitalTwinService:
+        if self._instance is not None:
+            return self._instance
+        with self._lock:
+            if self._instance is None:
+                self._instance = DigitalTwinService(settings)
+        return self._instance
+
+    def __getattr__(self, name: str):
+        return getattr(self.ensure_initialized(), name)
+
+
+service = LazyDigitalTwinService()
 web_dir = Path(__file__).with_name("web")
 homepage_dir = settings.homepage_dir.resolve()
 NO_STORE_HEADERS = {"Cache-Control": "no-store, no-cache, must-revalidate"}
@@ -497,7 +521,14 @@ async def user_logout(response: Response) -> UserSessionResponse:
 
 
 @llm_app.get("/health")
-async def health() -> dict[str, str]:
+async def health() -> dict[str, object]:
+    if not service.is_initialized():
+        return {
+            "status": "starting",
+            "message": "Service is initializing in background.",
+            "model": settings.model_name,
+            "sage_runtime": "FlowNetEnvironment",
+        }
     return service.health()
 
 
@@ -548,7 +579,8 @@ async def chat_workflow_events(
 
 @llm_app.on_event("shutdown")
 async def shutdown_event() -> None:
-    await service.aclose()
+    if service.is_initialized():
+        await service.aclose()
 
 
 @llm_app.post("/chat", response_model=ChatResponse)
