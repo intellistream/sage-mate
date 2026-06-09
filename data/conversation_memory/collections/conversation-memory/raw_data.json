@@ -57470,5 +57470,236 @@
       "course_context": "大模型推理引擎课程答疑"
     },
     "created_at": 1780915814.1429808
+  },
+  "1a62a30ed1597126e04e25b6c20b5e5022dabb206a563d06268d38cf86e3e669": {
+    "text": "student 匡明轩 question 张老师主要研究什么方向？ answer 当前主要研究方向是大模型推理引擎、推理服务系统与记忆智能体中间件。具体聚焦于共享状态在访问、执行与演化三个层面的组织问题，以及这些机制对系统吞吐、P99 时延和服务稳定性的影响。例如，课题组正在建设 SAGE、Neuromem 和 vLLM-HUST 等系统，分别覆盖推理服务调度、记忆状态管理与推理引擎优化等核心问题。\n\n如果你希望进一步了解具体研究内容或讨论潜在合作方向，建议准备一份简要的背景说明（如研究经历、技术栈或感兴趣的问题），并提前预约交流时间。 workflow answer domain research knowledge_hits 3 email chunsejifenxian@outlook.com course 初次来访",
+    "metadata": {
+      "entry_kind": "conversation_record",
+      "memory_id": "0e5ba78c-2869-49fb-85a7-f3f8c597ae45",
+      "conversation_id": "14b8f16c-0796-424e-bd4b-973224585e2a",
+      "student_name": "匡明轩",
+      "student_email": "chunsejifenxian@outlook.com",
+      "source": "user_message",
+      "topic": "research",
+      "session_id": "14b8f16c-0796-424e-bd4b-973224585e2a",
+      "importance": "medium",
+      "timestamp": "2026-06-09T02:15:16.659797+00:00",
+      "memory_scope": "short_term",
+      "record_payload": {
+        "memory_id": "0e5ba78c-2869-49fb-85a7-f3f8c597ae45",
+        "conversation_id": "14b8f16c-0796-424e-bd4b-973224585e2a",
+        "student_name": "匡明轩",
+        "student_email": "chunsejifenxian@outlook.com",
+        "course_context": "初次来访",
+        "question": "张老师主要研究什么方向？",
+        "answer": "当前主要研究方向是大模型推理引擎、推理服务系统与记忆智能体中间件。具体聚焦于共享状态在访问、执行与演化三个层面的组织问题，以及这些机制对系统吞吐、P99 时延和服务稳定性的影响。例如，课题组正在建设 SAGE、Neuromem 和 vLLM-HUST 等系统，分别覆盖推理服务调度、记忆状态管理与推理引擎优化等核心问题。\n\n如果你希望进一步了解具体研究内容或讨论潜在合作方向，建议准备一份简要的背景说明（如研究经历、技术栈或感兴趣的问题），并提前预约交流时间。",
+        "workflow_action": "answer",
+        "interaction_domain": "research",
+        "knowledge_hit_count": 3,
+        "booking_summary": null,
+        "created_at": "2026-06-09T02:15:16.659797+00:00",
+        "attachments": []
+      },
+      "course_context": "初次来访"
+    },
+    "created_at": 1780971316.6600425
+  },
+  "b211c0205ba26e3c34125059b512dc3584e3ba54f31b9676898b1f4a2839a8eb": {
+    "text": "student guest question 张老师主要研究什么方向？ answer 当前主要研究方向集中在大模型推理引擎、推理服务系统与记忆智能体中间件。具体包括共享状态在访问、执行与演化三个层面的组织问题，以及这些机制对系统吞吐、P99 时延和服务稳定性的影响。近期工作围绕 SAGE、Neuromem 和 vLLM-HUST 等系统展开，重点解决在线 serving、调度编排、KV 状态管理、记忆组织与跨轮复用等核心问题。\n\n如果需要进一步了解具体研究内容或论文细节，可以说明关注的子方向，我会根据已有资料提供更具体的介绍。 workflow answer domain research knowledge_hits 3 course 初次来访",
+    "metadata": {
+      "entry_kind": "conversation_record",
+      "memory_id": "006d8b79-b9ca-4644-90de-0256f2f40e6c",
+      "conversation_id": "42a0f968-5f54-4994-a4b1-9a19d16d82c6",
+      "student_name": "guest",
+      "student_email": "",
+      "source": "user_message",
+      "topic": "research",
+      "session_id": "42a0f968-5f54-4994-a4b1-9a19d16d82c6",
+      "importance": "medium",
+      "timestamp": "2026-06-09T02:42:40.986349+00:00",
+      "memory_scope": "short_term",
+      "record_payload": {
+        "memory_id": "006d8b79-b9ca-4644-90de-0256f2f40e6c",
+        "conversation_id": "42a0f968-5f54-4994-a4b1-9a19d16d82c6",
+        "student_name": "guest",
+        "student_email": null,
+        "course_context": "初次来访",
+        "question": "张老师主要研究什么方向？",
+        "answer": "当前主要研究方向集中在大模型推理引擎、推理服务系统与记忆智能体中间件。具体包括共享状态在访问、执行与演化三个层面的组织问题，以及这些机制对系统吞吐、P99 时延和服务稳定性的影响。近期工作围绕 SAGE、Neuromem 和 vLLM-HUST 等系统展开，重点解决在线 serving、调度编排、KV 状态管理、记忆组织与跨轮复用等核心问题。\n\n如果需要进一步了解具体研究内容或论文细节，可以说明关注的子方向，我会根据已有资料提供更具体的介绍。",
+        "workflow_action": "answer",
+        "interaction_domain": "research",
+        "knowledge_hit_count": 3,
+        "booking_summary": null,
+        "created_at": "2026-06-09T02:42:40.986349+00:00",
+        "attachments": []
+      },
+      "course_context": "初次来访"
+    },
+    "created_at": 1780972960.9871168
+  },
+  "cae6154d48c240208a731a06294bb75ca9af8ee48ec7a814fe3683c65fdc2ec1": {
+    "text": "student guest question 张老师主要研究什么方向？ answer 当前主要研究方向是大模型推理引擎、推理服务系统与记忆智能体中间件。具体关注共享状态在访问、执行与演化三个层面的组织问题，以及这些机制对系统吞吐、P99 时延和服务稳定性的影响。\n\n如果需要进一步了解，可以参考课题组的三个系统线：SAGE、Neuromem 和 vLLM-HUST，它们分别对应推理服务、记忆中间件和推理引擎的实现与优化。近期代表性工作也发表在 ICML、TKDE 等会议期刊上。 workflow answer domain research knowledge_hits 3 course 初次来访",
+    "metadata": {
+      "entry_kind": "conversation_record",
+      "memory_id": "559f7af7-2f6b-44db-b8ea-c46c95cb1339",
+      "conversation_id": "294e89dd-9aa2-4c5a-a986-4114cd134213",
+      "student_name": "guest",
+      "student_email": "",
+      "source": "user_message",
+      "topic": "research",
+      "session_id": "294e89dd-9aa2-4c5a-a986-4114cd134213",
+      "importance": "medium",
+      "timestamp": "2026-06-09T02:43:05.413221+00:00",
+      "memory_scope": "short_term",
+      "record_payload": {
+        "memory_id": "559f7af7-2f6b-44db-b8ea-c46c95cb1339",
+        "conversation_id": "294e89dd-9aa2-4c5a-a986-4114cd134213",
+        "student_name": "guest",
+        "student_email": null,
+        "course_context": "初次来访",
+        "question": "张老师主要研究什么方向？",
+        "answer": "当前主要研究方向是大模型推理引擎、推理服务系统与记忆智能体中间件。具体关注共享状态在访问、执行与演化三个层面的组织问题，以及这些机制对系统吞吐、P99 时延和服务稳定性的影响。\n\n如果需要进一步了解，可以参考课题组的三个系统线：SAGE、Neuromem 和 vLLM-HUST，它们分别对应推理服务、记忆中间件和推理引擎的实现与优化。近期代表性工作也发表在 ICML、TKDE 等会议期刊上。",
+        "workflow_action": "answer",
+        "interaction_domain": "research",
+        "knowledge_hit_count": 3,
+        "booking_summary": null,
+        "created_at": "2026-06-09T02:43:05.413221+00:00",
+        "attachments": []
+      },
+      "course_context": "初次来访"
+    },
+    "created_at": 1780972985.4134305
+  },
+  "48ab055868461a85ceb9ccb94180e75a13e58b8ff6f708c8ae115665b3c1edb0": {
+    "text": "student 匡明轩 question 张老师，什么是LLM inference workload？ answer LLM inference workload 是指在大语言模型推理过程中，系统需要处理的一组请求或任务的集合。这些任务通常包括接收用户输入、解析输入、调用模型进行推理、生成输出，并将结果返回给用户。在系统层面，这类 workload 会涉及多个阶段，如请求调度、内存管理、KV Cache 分配、并行计算、结果缓存等。\n\n核心特征包括：\n1. **请求的并发性**：多个用户请求可能同时到达，系统需要调度这些请求以避免资源争用。\n2. **计算密集性**：大模型推理通常需要大量计算资源，尤其是 GPU 或专用加速器。\n3. **状态依赖性**：部分模型（如带记忆的智能体）可能需要维护和访问共享状态或历史上下文。\n4. **延迟敏感性**：用户对响应时间（尤其是 P99 延迟）有较高要求。\n\n如果你希望进一步了解 workload 的建模方法、性能瓶颈或优化策略，可以参考课程第 3 讲《请求生命周期》和第 7 讲《推理系统架构》中的相关内容。如果需要深入讨论，建议准备你当前的疑问或项目背景，我可以安排时间进一步交流。 workflow answer domain teaching knowledge_hits 3 email chunsejifenxian@outlook.com course 初次来访",
+    "metadata": {
+      "entry_kind": "conversation_record",
+      "memory_id": "e0d9b11e-3f35-4ba8-a588-eff4a3332ccf",
+      "conversation_id": "1c145341-7842-42df-86cc-a78ec319cc90",
+      "student_name": "匡明轩",
+      "student_email": "chunsejifenxian@outlook.com",
+      "source": "user_message",
+      "topic": "teaching",
+      "session_id": "1c145341-7842-42df-86cc-a78ec319cc90",
+      "importance": "medium",
+      "timestamp": "2026-06-09T02:51:22.922154+00:00",
+      "memory_scope": "short_term",
+      "record_payload": {
+        "memory_id": "e0d9b11e-3f35-4ba8-a588-eff4a3332ccf",
+        "conversation_id": "1c145341-7842-42df-86cc-a78ec319cc90",
+        "student_name": "匡明轩",
+        "student_email": "chunsejifenxian@outlook.com",
+        "course_context": "初次来访",
+        "question": "张老师，什么是LLM inference workload？",
+        "answer": "LLM inference workload 是指在大语言模型推理过程中，系统需要处理的一组请求或任务的集合。这些任务通常包括接收用户输入、解析输入、调用模型进行推理、生成输出，并将结果返回给用户。在系统层面，这类 workload 会涉及多个阶段，如请求调度、内存管理、KV Cache 分配、并行计算、结果缓存等。\n\n核心特征包括：\n1. **请求的并发性**：多个用户请求可能同时到达，系统需要调度这些请求以避免资源争用。\n2. **计算密集性**：大模型推理通常需要大量计算资源，尤其是 GPU 或专用加速器。\n3. **状态依赖性**：部分模型（如带记忆的智能体）可能需要维护和访问共享状态或历史上下文。\n4. **延迟敏感性**：用户对响应时间（尤其是 P99 延迟）有较高要求。\n\n如果你希望进一步了解 workload 的建模方法、性能瓶颈或优化策略，可以参考课程第 3 讲《请求生命周期》和第 7 讲《推理系统架构》中的相关内容。如果需要深入讨论，建议准备你当前的疑问或项目背景，我可以安排时间进一步交流。",
+        "workflow_action": "answer",
+        "interaction_domain": "teaching",
+        "knowledge_hit_count": 3,
+        "booking_summary": null,
+        "created_at": "2026-06-09T02:51:22.922154+00:00",
+        "attachments": []
+      },
+      "course_context": "初次来访"
+    },
+    "created_at": 1780973482.92248
+  },
+  "d51d1c02ec36f521e2ff804ac286cdba09bfafb3205fd18d9987e9b463e222e7": {
+    "text": "student guest question 论文写作课第 7 讲主要讲什么？ answer 论文写作课第7讲的核心内容是“发表高水平论文”，重点包括科研训练中的常见误区和如何选题。具体而言，讲授内容涵盖了科研选题中容易出现的问题，例如迷信热点、缺乏问题意识、被动执行等，并强调高水平论文的产出是选题、思考、实验和表达的综合结果。此外，还提出了好选题的五个标准，帮助学生系统性地提升论文选题质量。 workflow answer domain teaching knowledge_hits 2 course 论文写作课",
+    "metadata": {
+      "entry_kind": "conversation_record",
+      "memory_id": "99767269-ae58-41c9-a496-ab1b65190924",
+      "conversation_id": "11d715f7-9973-4dc0-8d8e-44b454177885",
+      "student_name": "guest",
+      "student_email": "",
+      "source": "user_message",
+      "topic": "teaching",
+      "session_id": "11d715f7-9973-4dc0-8d8e-44b454177885",
+      "importance": "medium",
+      "timestamp": "2026-06-09T09:46:16.224967+00:00",
+      "memory_scope": "short_term",
+      "record_payload": {
+        "memory_id": "99767269-ae58-41c9-a496-ab1b65190924",
+        "conversation_id": "11d715f7-9973-4dc0-8d8e-44b454177885",
+        "student_name": "guest",
+        "student_email": null,
+        "course_context": "论文写作课",
+        "question": "论文写作课第 7 讲主要讲什么？",
+        "answer": "论文写作课第7讲的核心内容是“发表高水平论文”，重点包括科研训练中的常见误区和如何选题。具体而言，讲授内容涵盖了科研选题中容易出现的问题，例如迷信热点、缺乏问题意识、被动执行等，并强调高水平论文的产出是选题、思考、实验和表达的综合结果。此外，还提出了好选题的五个标准，帮助学生系统性地提升论文选题质量。",
+        "workflow_action": "answer",
+        "interaction_domain": "teaching",
+        "knowledge_hit_count": 2,
+        "booking_summary": null,
+        "created_at": "2026-06-09T09:46:16.224967+00:00",
+        "attachments": []
+      },
+      "course_context": "论文写作课"
+    },
+    "created_at": 1780998376.2252042
+  },
+  "d0a1a32a9c5807667278af089aa83a620f8498881ce7ffaa9b06f6418b16d47c": {
+    "text": "student guest question 具体而言，重点是什么？ answer <think>\n好的，我现在需要处理用户的问题：“具体而言，重点是什么？”根据之前的对话历史，用户之前询问了论文写作课第7讲的主要内容，我回答了关于“发表高水平论文”的核心内容，包括常见误区和选题标准。现在用户进一步询问“具体而言，重点是什么？”，需要更详细的重点内容。\n\n首先，我需要回顾之前提供的资料。用户提供的材料中，第7讲的内容分为两部分：科研训练的常见误区和如何选题。常见误区包括迷信热点、被动执行、为了发而发。选题部分则有坏选题的特征和好选题的五个标准。\n\n用户现在问的是“具体而言，重点是什么？”，所以需要更详细地展开这些重点。根据材料，重点应包括三个误区的具体内容和选题的五个标准。需要确保回答基于提供的资料，不添加额外信息。\n\n另外，用户可能希望得到明确的、结构化的回答，所以需要分点列出误区和选题标准。同时，根据张书豪老师的风格，回答要克制、直接，避免冗长。需要先给出判断，再依据材料，最后给出建议。\n\n需要检查是否有其他相关材料可能涉及，但根据提供的资料，只有第7讲的内容相关。其他课程材料如大模型推理基础设施的第7讲可能不相关，所以不需要涉及。\n\n最后，确保回答符合用户身份（论文写作课的学生），并提醒他们准备材料或议程，以便进一步讨论。同时，保持语气务实，不使用模板化鼓励或夸张赞美。\n</think>\n\n根据第7讲内容，重点可拆解为以下具体要点：\n\n**一、科研训练三大误区**\n1. **迷信热点与工作量**：盲目追逐热点导致问题价值失焦，过度堆砌工作量而忽视核心问题意识\n2. **被动执行**：缺乏对研究问题本质的理解，无法清晰阐述工作贡献\n3. **功利性发论文**：将论文发表视为唯一目标，忽视选题、思考、实验、表达的系统性协同\n\n**二、选题五标准（需准备文献证据链）**\n1. **问题具体性**：避免泛泛而谈，需明确界定研究边界\n2. **文献支撑度**：需展示对领域核心文献的批判性分析\n3. **实验可行性**：设计需具备可验证性与可复现性\n4. **规模适配性**：避免选题过大导致研究深度不足\n5. **研究者兴趣匹配度**：持续投入需要内在驱动力\n\n建议：若需针对性指导，请提前准备当前选题的文献综述片段、实验设计草图及具体困惑点。可预约5月25-29日14-18点时段（27日16点后可选）进行结构化讨论。 workflow answer domain advising knowledge_hits 3 course 论文写作课",
+    "metadata": {
+      "entry_kind": "conversation_record",
+      "memory_id": "44478534-3f52-44b5-b239-797558aca1db",
+      "conversation_id": "11d715f7-9973-4dc0-8d8e-44b454177885",
+      "student_name": "guest",
+      "student_email": "",
+      "source": "user_message",
+      "topic": "advising",
+      "session_id": "11d715f7-9973-4dc0-8d8e-44b454177885",
+      "importance": "medium",
+      "timestamp": "2026-06-09T09:54:57.140698+00:00",
+      "memory_scope": "short_term",
+      "record_payload": {
+        "memory_id": "44478534-3f52-44b5-b239-797558aca1db",
+        "conversation_id": "11d715f7-9973-4dc0-8d8e-44b454177885",
+        "student_name": "guest",
+        "student_email": null,
+        "course_context": "论文写作课",
+        "question": "具体而言，重点是什么？",
+        "answer": "<think>\n好的，我现在需要处理用户的问题：“具体而言，重点是什么？”根据之前的对话历史，用户之前询问了论文写作课第7讲的主要内容，我回答了关于“发表高水平论文”的核心内容，包括常见误区和选题标准。现在用户进一步询问“具体而言，重点是什么？”，需要更详细的重点内容。\n\n首先，我需要回顾之前提供的资料。用户提供的材料中，第7讲的内容分为两部分：科研训练的常见误区和如何选题。常见误区包括迷信热点、被动执行、为了发而发。选题部分则有坏选题的特征和好选题的五个标准。\n\n用户现在问的是“具体而言，重点是什么？”，所以需要更详细地展开这些重点。根据材料，重点应包括三个误区的具体内容和选题的五个标准。需要确保回答基于提供的资料，不添加额外信息。\n\n另外，用户可能希望得到明确的、结构化的回答，所以需要分点列出误区和选题标准。同时，根据张书豪老师的风格，回答要克制、直接，避免冗长。需要先给出判断，再依据材料，最后给出建议。\n\n需要检查是否有其他相关材料可能涉及，但根据提供的资料，只有第7讲的内容相关。其他课程材料如大模型推理基础设施的第7讲可能不相关，所以不需要涉及。\n\n最后，确保回答符合用户身份（论文写作课的学生），并提醒他们准备材料或议程，以便进一步讨论。同时，保持语气务实，不使用模板化鼓励或夸张赞美。\n</think>\n\n根据第7讲内容，重点可拆解为以下具体要点：\n\n**一、科研训练三大误区**\n1. **迷信热点与工作量**：盲目追逐热点导致问题价值失焦，过度堆砌工作量而忽视核心问题意识\n2. **被动执行**：缺乏对研究问题本质的理解，无法清晰阐述工作贡献\n3. **功利性发论文**：将论文发表视为唯一目标，忽视选题、思考、实验、表达的系统性协同\n\n**二、选题五标准（需准备文献证据链）**\n1. **问题具体性**：避免泛泛而谈，需明确界定研究边界\n2. **文献支撑度**：需展示对领域核心文献的批判性分析\n3. **实验可行性**：设计需具备可验证性与可复现性\n4. **规模适配性**：避免选题过大导致研究深度不足\n5. **研究者兴趣匹配度**：持续投入需要内在驱动力\n\n建议：若需针对性指导，请提前准备当前选题的文献综述片段、实验设计草图及具体困惑点。可预约5月25-29日14-18点时段（27日16点后可选）进行结构化讨论。",
+        "workflow_action": "answer",
+        "interaction_domain": "advising",
+        "knowledge_hit_count": 3,
+        "booking_summary": null,
+        "created_at": "2026-06-09T09:54:57.140698+00:00",
+        "attachments": []
+      },
+      "course_context": "论文写作课"
+    },
+    "created_at": 1780998897.1410744
+  },
+  "8fcdbe5a7f333850d45af52f8037c303afe78bf0de33b33dc64948707bb47d5a": {
+    "text": "student guest question 论文写作课第 7 讲主要讲什么？ answer <think>\n好的，用户问的是论文写作课第7讲的主要内容。首先，我需要查看提供的材料。用户给出的材料中有两个条目，第一个是关于论文写作课程第7讲的，标题是“发表高水平论文”。里面提到了三个常见误区和选题的五标准。第二个材料是关于大模型推理基础设施的课程，可能不相关，但需要确认。\n\n用户的问题明确指向论文写作课，所以第二个材料可能不需要考虑。不过需要确认是否有其他相关内容。根据第一个材料的摘录，第7讲分为两部分：科研训练的常见误区和如何选题。常见误区包括迷信热点、被动执行、为了发而发。选题部分有坏选题的特征和好选题的五个标准。\n\n用户的问题是要知道第7讲主要讲什么，所以需要简明扼要地总结这些内容。需要确保回答基于提供的材料，不添加额外信息。同时，用户可能需要进一步的信息或指导，比如是否需要预约讨论，但根据问题本身，只需回答内容即可。检查是否有遗漏的关键点，比如是否还有其他部分，但材料中只提到这些。因此，回答应涵盖误区和选题标准，并保持简洁。\n</think>\n\n论文写作课第7讲的核心内容聚焦于**高水平论文的发表方法论**，具体包括两个部分：  \n1. **科研训练的三大常见误区**  \n   - 误区一：迷信热点与工作量（缺乏问题意识）  \n   - 误区二：被动执行（不理解问题=无法讲清贡献）  \n   - 误区三：为了\"发\"而发（高水平论文=选题+思考+实验+表达合力）  \n\n2. **如何选题**  \n   - 坏选题特征：问题泛泛、未查阅文献、实验难落地、选题过大、缺乏兴趣  \n   - 好选题五标准（仅列出首条，完整内容需结合课程材料）：1.（此处材料截断，需参考完整课件）  \n\n如需进一步讨论选题或论文写作细节，可提供具体问题或材料后预约时间（当前可用时段见日历）。 workflow answer domain teaching knowledge_hits 2 course 论文写作课",
+    "metadata": {
+      "entry_kind": "conversation_record",
+      "memory_id": "4b95c763-c562-4827-b66f-4c54aa375b33",
+      "conversation_id": "52f7b7ed-9490-4908-9b0a-b92b12a7180b",
+      "student_name": "guest",
+      "student_email": "",
+      "source": "user_message",
+      "topic": "teaching",
+      "session_id": "52f7b7ed-9490-4908-9b0a-b92b12a7180b",
+      "importance": "medium",
+      "timestamp": "2026-06-09T10:14:18.455118+00:00",
+      "memory_scope": "short_term",
+      "record_payload": {
+        "memory_id": "4b95c763-c562-4827-b66f-4c54aa375b33",
+        "conversation_id": "52f7b7ed-9490-4908-9b0a-b92b12a7180b",
+        "student_name": "guest",
+        "student_email": null,
+        "course_context": "论文写作课",
+        "question": "论文写作课第 7 讲主要讲什么？",
+        "answer": "<think>\n好的，用户问的是论文写作课第7讲的主要内容。首先，我需要查看提供的材料。用户给出的材料中有两个条目，第一个是关于论文写作课程第7讲的，标题是“发表高水平论文”。里面提到了三个常见误区和选题的五标准。第二个材料是关于大模型推理基础设施的课程，可能不相关，但需要确认。\n\n用户的问题明确指向论文写作课，所以第二个材料可能不需要考虑。不过需要确认是否有其他相关内容。根据第一个材料的摘录，第7讲分为两部分：科研训练的常见误区和如何选题。常见误区包括迷信热点、被动执行、为了发而发。选题部分有坏选题的特征和好选题的五个标准。\n\n用户的问题是要知道第7讲主要讲什么，所以需要简明扼要地总结这些内容。需要确保回答基于提供的材料，不添加额外信息。同时，用户可能需要进一步的信息或指导，比如是否需要预约讨论，但根据问题本身，只需回答内容即可。检查是否有遗漏的关键点，比如是否还有其他部分，但材料中只提到这些。因此，回答应涵盖误区和选题标准，并保持简洁。\n</think>\n\n论文写作课第7讲的核心内容聚焦于**高水平论文的发表方法论**，具体包括两个部分：  \n1. **科研训练的三大常见误区**  \n   - 误区一：迷信热点与工作量（缺乏问题意识）  \n   - 误区二：被动执行（不理解问题=无法讲清贡献）  \n   - 误区三：为了\"发\"而发（高水平论文=选题+思考+实验+表达合力）  \n\n2. **如何选题**  \n   - 坏选题特征：问题泛泛、未查阅文献、实验难落地、选题过大、缺乏兴趣  \n   - 好选题五标准（仅列出首条，完整内容需结合课程材料）：1.（此处材料截断，需参考完整课件）  \n\n如需进一步讨论选题或论文写作细节，可提供具体问题或材料后预约时间（当前可用时段见日历）。",
+        "workflow_action": "answer",
+        "interaction_domain": "teaching",
+        "knowledge_hit_count": 2,
+        "booking_summary": null,
+        "created_at": "2026-06-09T10:14:18.455118+00:00",
+        "attachments": []
+      },
+      "course_context": "论文写作课"
+    },
+    "created_at": 1781000058.45557
   }
 }
