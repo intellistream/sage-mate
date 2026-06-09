@@ -60,6 +60,7 @@ const restartManagedServicesButton = document.getElementById("restart-managed-se
 const stopManagedServicesButton = document.getElementById("stop-managed-services");
 const openKnowledgeButton = document.getElementById("open-knowledge");
 const openSuggestionsButton = document.getElementById("open-suggestions");
+const topbarHistoryToggleButton = document.getElementById("topbar-history-toggle");
 const openBookingListButton = document.getElementById("open-booking-list");
 const openEscalationQueueButton = document.getElementById("open-escalation-queue");
 const openMemoryProfilesButton = document.getElementById("open-memory-profiles");
@@ -389,6 +390,7 @@ chatStream?.addEventListener("click", handleIntroQuickActionClick);
 chatStream?.addEventListener("click", handleCopyAnswerClick);
 historyList?.addEventListener("click", handleConversationHistoryClick);
 historyRailToggleButton?.addEventListener("click", toggleHistoryRail);
+topbarHistoryToggleButton?.addEventListener("click", toggleHistoryRail);
 historyNewChatButton?.addEventListener("click", () => {
     startFreshConversation();
 });
@@ -3891,6 +3893,10 @@ function setHistoryRailCollapsed(collapsed) {
     if (historyRailToggleButton) {
         historyRailToggleButton.textContent = collapsed ? "展开" : "收起";
         historyRailToggleButton.setAttribute("aria-expanded", String(!collapsed));
+    }
+    if (topbarHistoryToggleButton) {
+        topbarHistoryToggleButton.textContent = collapsed ? "历史对话" : "收起历史";
+        topbarHistoryToggleButton.setAttribute("aria-expanded", String(!collapsed));
     }
     try {
         globalThis.localStorage?.setItem(HISTORY_RAIL_COLLAPSED_KEY, collapsed ? "1" : "0");
