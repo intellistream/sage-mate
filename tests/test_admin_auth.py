@@ -1,4 +1,5 @@
 import asyncio
+from uuid import uuid4
 from pathlib import Path
 
 import pytest
@@ -259,6 +260,7 @@ def test_auth_session_reflects_admin_login_state() -> None:
         "is_admin": False,
         "mode": "user",
         "username": None,
+        "role": None,
     }
 
     login_response = client.post(
@@ -273,7 +275,45 @@ def test_auth_session_reflects_admin_login_state() -> None:
         "is_admin": True,
         "mode": "admin",
         "username": settings.admin_username,
+        "role": "super_admin",
     }
+
+
+def test_manager_login_can_access_admin_search_and_has_manager_role(
+    isolated_availability_store,
+) -> None:
+    client.cookies.clear()
+    service._knowledge_store.add_document(
+        KnowledgeDocumentCreate(
+            title="管理资料｜课题组成员信息总表",
+            content="课题组成员 Slack账号、微信号、角色分工和备注仅供 admin 与 manager 查看。",
+            tags=["team", "members", "audience:manager", "audience:admin"],
+            source_name="manual:team-members-directory",
+        )
+    )
+
+    login_response = client.post(
+        "/auth/admin/login",
+        json={
+            "username": settings.manager_username,
+            "password": settings.manager_password,
+        },
+    )
+    assert login_response.status_code == 200
+    assert login_response.json()["username"] == settings.manager_username
+    assert login_response.json()["role"] == "manager"
+
+    session_response = client.get("/auth/session")
+    assert session_response.status_code == 200
+    assert session_response.json()["username"] == settings.manager_username
+    assert session_response.json()["role"] == "manager"
+
+    search_response = client.get(
+        "/knowledge/search",
+        params={"query": "课题组成员 Slack账号"},
+    )
+    assert search_response.status_code == 200
+    assert search_response.json()["hits"][0]["title"] == "管理资料｜课题组成员信息总表"
 
 
 def test_admin_can_inject_knowledge_via_chat_after_login(
@@ -390,6 +430,49 @@ def test_chat_accepts_multipart_uploads(monkeypatch) -> None:
     assert len(request.attachments) == 1
     assert request.attachments[0].file_name == "draft-notes.txt"
     assert "related work" in request.attachments[0].text_content
+
+
+def test_chat_uses_authenticated_visitor_profile_over_client_payload(monkeypatch) -> None:
+    captured = {}
+    email = f"lab-user-{uuid4().hex}@example.com"
+
+    async def fake_answer(request, admin_session_token=None, trace_callback=None):
+        captured["request"] = request
+        return ChatResponse(
+            answer="ok",
+            owner_name="张书豪",
+            used_model="mock-model",
+            conversation_id=request.conversation_id,
+        )
+
+    monkeypatch.setattr(service, "answer", fake_answer)
+    client.cookies.clear()
+
+    register_response = client.post(
+        "/auth/user/register",
+        json={
+            "name": "Lab User",
+            "email": email,
+            "visitor_profile": "lab_member",
+            "password": "StrongPass123!",
+        },
+    )
+    assert register_response.status_code == 200
+
+    response = client.post(
+        "/chat",
+        json={
+            "student_name": "Lab User",
+            "student_email": email,
+            "course_context": "科研指导",
+            "visitor_profile": "general_visitor",
+            "question": "帮我看看该先读哪些资料。",
+            "conversation_id": "chat-authenticated-visitor-profile",
+        },
+    )
+
+    assert response.status_code == 200
+    assert captured["request"].visitor_profile == "lab_member"
 
 
 def test_chat_rejects_unsupported_upload_type() -> None:

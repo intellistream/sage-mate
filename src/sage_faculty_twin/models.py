@@ -646,8 +646,9 @@ class UserSessionResponse(BaseModel):
 
 class AdminSessionResponse(BaseModel):
     is_admin: bool
-    mode: str
+    mode: str = Field(pattern="^(user|admin)$")
     username: str | None = None
+    role: str | None = Field(default=None, pattern="^(super_admin|manager)$")
 
 
 class ManagedServiceStatus(BaseModel):

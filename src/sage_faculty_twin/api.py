@@ -62,6 +62,7 @@ from .models import (
     UserRegisterRequest,
     UserSessionResponse,
 )
+from .history_auth import resolve_authenticated_history_email
 from .service import DigitalTwinService
 
 
@@ -369,6 +370,16 @@ async def _parse_chat_request(raw_request: Request) -> ChatRequest:
         _raise_chat_validation_error(exc)
 
 
+def _resolve_effective_chat_visitor_profile(
+    raw_request: Request,
+    requested_visitor_profile: str | None,
+) -> str | None:
+    user_session = service.get_user_session(raw_request.cookies.get(USER_COOKIE_NAME))
+    if user_session.is_authenticated and user_session.account is not None:
+        return user_session.account.visitor_profile
+    return requested_visitor_profile
+
+
 def frontend_asset(filename: str) -> FileResponse:
     return FileResponse(web_dir / filename, headers=NO_STORE_HEADERS)
 
@@ -537,6 +548,14 @@ async def chat(
     request_id: str | None = Query(default=None, min_length=1, max_length=128),
 ) -> ChatResponse:
     payload = await _parse_chat_request(raw_request)
+    payload = payload.model_copy(
+        update={
+            "visitor_profile": _resolve_effective_chat_visitor_profile(
+                raw_request,
+                payload.visitor_profile,
+            )
+        }
+    )
     admin_session_token = raw_request.cookies.get(ADMIN_COOKIE_NAME)
     timeout_seconds = CHAT_REQUEST_TIMEOUT_SECONDS
 
@@ -620,10 +639,10 @@ async def list_chat_conversations(
     limit: int = Query(default=30, ge=1, le=100),
 ) -> ConversationHistoryListResponse:
     user_session = service.get_user_session(request.cookies.get(USER_COOKIE_NAME))
-    resolved_email = student_email or (
-        user_session.account.email
-        if user_session.is_authenticated and user_session.account
-        else None
+    resolved_email = resolve_authenticated_history_email(
+        is_authenticated=user_session.is_authenticated,
+        account_email=(user_session.account.email if user_session.account else None),
+        requested_email=student_email,
     )
     return service.list_chat_conversations(student_email=resolved_email, limit=limit)
 
@@ -638,10 +657,10 @@ async def get_chat_conversation(
     student_email: str | None = Query(default=None, max_length=256),
 ) -> ConversationTranscriptResponse:
     user_session = service.get_user_session(request.cookies.get(USER_COOKIE_NAME))
-    resolved_email = student_email or (
-        user_session.account.email
-        if user_session.is_authenticated and user_session.account
-        else None
+    resolved_email = resolve_authenticated_history_email(
+        is_authenticated=user_session.is_authenticated,
+        account_email=(user_session.account.email if user_session.account else None),
+        requested_email=student_email,
     )
     return service.get_chat_conversation(
         conversation_id=conversation_id, student_email=resolved_email
@@ -691,9 +710,13 @@ async def search_knowledge_documents(
         default=None,
         pattern="^(hust_undergraduate|paper_writing_student|lab_member|general_visitor)$",
     ),
-    _: dict = Depends(require_admin_session),
+    admin_session: dict = Depends(require_admin_session),
 ) -> KnowledgeSearchResponse:
-    return service.search_knowledge(query, visitor_profile=visitor_profile)
+    return service.search_knowledge(
+        query,
+        visitor_profile=visitor_profile,
+        admin_role=str(admin_session.get("role") or "super_admin"),
+    )
 
 
 @llm_app.get("/memory/profiles", response_model=MemoryProfileListResponse)

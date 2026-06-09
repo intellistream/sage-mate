@@ -27,6 +27,8 @@ from .auth import (
     build_user_session_token,
     decode_admin_session_token,
     decode_user_session_token,
+    normalize_admin_session_payload,
+    resolve_admin_session_identity,
     validate_admin_credentials,
 )
 from .config import AppSettings
@@ -319,6 +321,7 @@ class UserAuthWorkflowResult:
 class KnowledgeSearchInput:
     query: str
     visitor_profile: str | None = None
+    admin_role: str | None = None
 
 
 class FacultyTwinWorkflowSupport:
@@ -373,17 +376,19 @@ class FacultyTwinWorkflowSupport:
 
     def bootstrap_chat(self, request: ChatRequest) -> ChatWorkflowContext:
         started_at = perf_counter()
+        admin_username = None
+        if self._admin_session_payload is not None:
+            admin_username, _ = resolve_admin_session_identity(
+                self._admin_session_payload,
+                self._settings,
+            )
         context = ChatWorkflowContext(
             request=request,
             conversation_id=request.conversation_id or str(uuid4()),
             owner_name=self._settings.owner_name,
             used_model=self._settings.model_name,
             is_admin_request=self._admin_session_payload is not None,
-            admin_username=(
-                str(self._admin_session_payload.get("sub") or self._settings.admin_username)
-                if self._admin_session_payload is not None
-                else None
-            ),
+            admin_username=admin_username,
             planner_decision=self._planner_decision,
             shadow_planner_decision=self._shadow_planner_decision,
             shadow_planner_status=self._shadow_planner_status,
@@ -757,6 +762,7 @@ class FacultyTwinWorkflowSupport:
         raw_hits = self._knowledge_store.search(
             retrieval_query,
             visitor_profile=context.request.visitor_profile,
+            admin_role=self._resolve_admin_role(),
         )
         context.knowledge_hits = self._filter_knowledge_hits_by_intent(raw_hits, interaction_intent)
         hit_count = len(context.knowledge_hits)
@@ -1819,10 +1825,17 @@ class FacultyTwinWorkflowSupport:
         return self._knowledge_store.list_documents()
 
     def search_knowledge(
-        self, query: str, visitor_profile: str | None = None
+        self,
+        query: str,
+        visitor_profile: str | None = None,
+        admin_role: str | None = None,
     ) -> KnowledgeSearchResponse:
         return KnowledgeSearchResponse(
-            hits=self._knowledge_store.search(query, visitor_profile=visitor_profile)
+            hits=self._knowledge_store.search(
+                query,
+                visitor_profile=visitor_profile,
+                admin_role=admin_role,
+            )
         )
 
     def book_meeting(self, request: BookingRequest) -> BookingResponse:
@@ -2109,11 +2122,17 @@ class FacultyTwinWorkflowSupport:
         )
 
     def read_admin_session(self, request: AdminSessionTokenInput) -> AdminSessionResponse:
-        payload = decode_admin_session_token(request.session_token, self._settings)
+        payload = normalize_admin_session_payload(
+            decode_admin_session_token(request.session_token, self._settings),
+            self._settings,
+        )
         return self._build_admin_session_response(payload)
 
     def require_admin_session(self, request: AdminSessionTokenInput) -> dict[str, Any]:
-        payload = decode_admin_session_token(request.session_token, self._settings)
+        payload = normalize_admin_session_payload(
+            decode_admin_session_token(request.session_token, self._settings),
+            self._settings,
+        )
         if payload is None:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
@@ -2122,13 +2141,18 @@ class FacultyTwinWorkflowSupport:
         return payload
 
     def login_admin(self, request: AdminLoginRequest) -> AdminLoginWorkflowResult:
-        validate_admin_credentials(request.username, request.password, self._settings)
-        token = build_admin_session_token(self._settings)
+        username, role = validate_admin_credentials(
+            request.username,
+            request.password,
+            self._settings,
+        )
+        token = build_admin_session_token(self._settings, username=username, role=role)
         return AdminLoginWorkflowResult(
             session=AdminSessionResponse(
                 is_admin=True,
                 mode="admin",
-                username=self._settings.admin_username,
+                username=username,
+                role=role,
             ),
             session_token=token,
         )
@@ -2357,11 +2381,19 @@ class FacultyTwinWorkflowSupport:
     ) -> AdminSessionResponse:
         if payload is None:
             return AdminSessionResponse(is_admin=False, mode="user")
+        username, role = resolve_admin_session_identity(payload, self._settings)
         return AdminSessionResponse(
             is_admin=True,
             mode="admin",
-            username=str(payload.get("sub") or self._settings.admin_username),
+            username=username,
+            role=role,
         )
+
+    def _resolve_admin_role(self) -> str | None:
+        if self._admin_session_payload is None:
+            return None
+        _, role = resolve_admin_session_identity(self._admin_session_payload, self._settings)
+        return role
 
     def _build_user_session_response(
         self,
@@ -4471,7 +4503,11 @@ class SearchKnowledgeStage(MapFunction):
         self._support = support
 
     def execute(self, data: KnowledgeSearchInput) -> KnowledgeSearchResponse:
-        return self._support.search_knowledge(data.query, visitor_profile=data.visitor_profile)
+        return self._support.search_knowledge(
+            data.query,
+            visitor_profile=data.visitor_profile,
+            admin_role=data.admin_role,
+        )
 
 
 class CreateBookingStage(MapFunction):
@@ -4963,12 +4999,21 @@ class DigitalTwinService:
         )
 
     def search_knowledge(
-        self, query: str, visitor_profile: str | None = None
+        self,
+        query: str,
+        visitor_profile: str | None = None,
+        admin_role: str | None = None,
     ) -> KnowledgeSearchResponse:
         support = self._build_support()
         return self._run_pipeline_blocking(
             "faculty-twin-knowledge-search",
-            [KnowledgeSearchInput(query=query, visitor_profile=visitor_profile)],
+            [
+                KnowledgeSearchInput(
+                    query=query,
+                    visitor_profile=visitor_profile,
+                    admin_role=admin_role,
+                )
+            ],
             [(SearchKnowledgeStage, support)],
             "SAGE runtime completed without producing a knowledge search response.",
         )
@@ -5022,8 +5067,9 @@ class DigitalTwinService:
         grouped_records: dict[str, list[ConversationMemoryRecord]] = {}
         for record in reversed(self._conversation_store.list_records()):
             record_email = (record.student_email or "").strip().lower()
-            # Match records belonging to this user OR records with no email (legacy/anonymous)
-            if record_email and record_email != normalized_email:
+            # Never expose legacy anonymous records through authenticated
+            # history sync because they cannot be safely attributed.
+            if record_email != normalized_email:
                 continue
             grouped_records.setdefault(record.conversation_id, []).append(record)
 
@@ -5068,10 +5114,7 @@ class DigitalTwinService:
             record
             for record in self._conversation_store.list_records()
             if record.conversation_id == conversation_id
-            and (
-                not (record.student_email or "").strip()
-                or (record.student_email or "").strip().lower() == normalized_email
-            )
+            and (record.student_email or "").strip().lower() == normalized_email
         ]
         records.sort(key=lambda record: record.created_at)
         if not records:

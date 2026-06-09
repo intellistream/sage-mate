@@ -263,19 +263,40 @@ class LocalKnowledgeStore:
         top_k: int | None = None,
         *,
         visitor_profile: str | None = None,
+        admin_role: str | None = None,
     ) -> list[KnowledgeSearchHit]:
         if self._backend == "sagevdb":
-            return self._search_sagevdb(query, top_k, visitor_profile=visitor_profile)
+            return self._search_sagevdb(
+                query,
+                top_k,
+                visitor_profile=visitor_profile,
+                admin_role=admin_role,
+            )
         if self._backend == "neuromem":
-            return self._search_neuromem(query, top_k, visitor_profile=visitor_profile)
+            return self._search_neuromem(
+                query,
+                top_k,
+                visitor_profile=visitor_profile,
+                admin_role=admin_role,
+            )
 
         query_tokens = self._tokenize(query)
         if not query_tokens:
             return []
-        query_profile = _build_query_profile(query, visitor_profile=visitor_profile)
+        query_profile = _build_query_profile(
+            query,
+            visitor_profile=visitor_profile,
+            admin_role=admin_role,
+        )
 
         scored_hits: list[KnowledgeSearchHit] = []
         for document in self.list_documents():
+            if not _document_is_visible_to_requester(
+                document,
+                query_profile.visitor_profile,
+                query_profile.admin_role,
+            ):
+                continue
             score = self._score_document(document, query_tokens, query_profile)
             if score <= 0:
                 continue
@@ -576,6 +597,7 @@ class LocalKnowledgeStore:
         top_k: int | None = None,
         *,
         visitor_profile: str | None = None,
+        admin_role: str | None = None,
     ) -> list[KnowledgeSearchHit]:
         if self._neuromem_collection is None or not self._documents:
             return []
@@ -590,7 +612,11 @@ class LocalKnowledgeStore:
             "search", query_payload, top_k=max(limit * 5, limit + 8)
         )
         query_tokens = self._tokenize(query)
-        query_profile = _build_query_profile(query, visitor_profile=visitor_profile)
+        query_profile = _build_query_profile(
+            query,
+            visitor_profile=visitor_profile,
+            admin_role=admin_role,
+        )
 
         hits: list[KnowledgeSearchHit] = []
         seen_document_ids: set[str] = set()
@@ -601,6 +627,12 @@ class LocalKnowledgeStore:
                 continue
             document = self._documents.get(str(document_id))
             if document is None:
+                continue
+            if not _document_is_visible_to_requester(
+                document,
+                query_profile.visitor_profile,
+                query_profile.admin_role,
+            ):
                 continue
             if document.document_id in seen_document_ids:
                 continue
@@ -619,6 +651,12 @@ class LocalKnowledgeStore:
 
         lexical_hits: list[KnowledgeSearchHit] = []
         for document in self.list_documents():
+            if not _document_is_visible_to_requester(
+                document,
+                query_profile.visitor_profile,
+                query_profile.admin_role,
+            ):
+                continue
             if document.document_id in seen_document_ids:
                 continue
             lexical_score = self._score_document(document, query_tokens, query_profile)
@@ -704,6 +742,7 @@ class LocalKnowledgeStore:
         top_k: int | None = None,
         *,
         visitor_profile: str | None = None,
+        admin_role: str | None = None,
     ) -> list[KnowledgeSearchHit]:
         if self._sagevdb is None or self._np is None or not self._documents:
             return []
@@ -737,6 +776,8 @@ class LocalKnowledgeStore:
             document = self._documents.get(str(document_id))
             if document is None:
                 continue
+            if not _document_is_visible_to_requester(document, visitor_profile, admin_role):
+                continue
             hits.append(
                 KnowledgeSearchHit(
                     document_id=document.document_id,
@@ -749,7 +790,13 @@ class LocalKnowledgeStore:
                 )
             )
         return self._finalize_hits(
-            hits, _build_query_profile(query, visitor_profile=visitor_profile), limit
+            hits,
+            _build_query_profile(
+                query,
+                visitor_profile=visitor_profile,
+                admin_role=admin_role,
+            ),
+            limit,
         )
 
     def _score_document(
@@ -966,14 +1013,24 @@ class LocalKnowledgeStore:
         query_profile: "QueryProfile",
         limit: int,
     ) -> list[KnowledgeSearchHit]:
-        if not hits:
+        visible_hits = [
+            hit
+            for hit in hits
+            if hit.document_id in self._documents
+            and _document_is_visible_to_requester(
+                self._documents[hit.document_id],
+                query_profile.visitor_profile,
+                query_profile.admin_role,
+            )
+        ]
+        if not visible_hits:
             return []
         if not query_profile.document_types and not query_profile.topic_domains:
-            return _dedupe_hits_by_source_group(hits, limit)
+            return _dedupe_hits_by_source_group(visible_hits, limit)
 
         aligned_hits = [
             hit
-            for hit in hits
+            for hit in visible_hits
             if self._document_intent_boost(self._documents[hit.document_id], query_profile) >= 0.0
         ]
         if query_profile.ordinal_numbers and "teaching" in query_profile.topic_domains:
@@ -1017,7 +1074,7 @@ class LocalKnowledgeStore:
                     aligned_hits = entity_matched_hits
         if aligned_hits:
             return _dedupe_hits_by_source_group(aligned_hits, limit)
-        return _dedupe_hits_by_source_group(hits, limit)
+        return _dedupe_hits_by_source_group(visible_hits, limit)
 
     def _expand_retrieval_text(self, text: str) -> str:
         tokens = sorted(self._tokenize(text))
@@ -1060,6 +1117,7 @@ class QueryProfile:
     prefers_intro_parts: bool = False
     named_entities: frozenset[str] = frozenset()
     visitor_profile: str | None = None
+    admin_role: str | None = None
 
 
 _TEACHING_DOCUMENT_TYPES = {"tutorial", "lecture", "experiment"}
@@ -1074,6 +1132,35 @@ _TEACHING_RELATED_TAGS = {
 }
 _RESEARCH_DOCUMENT_TAGS = {"research", "publication", "paper-digest", "overview", "profile"}
 _MEETING_DOCUMENT_TAGS = {"meeting", "preparation", "policy", "qa", "course"}
+_VISITOR_PROFILE_ALLOWED_AUDIENCES = {
+    None: frozenset({"public"}),
+    "general_visitor": frozenset({"public"}),
+    "hust_undergraduate": frozenset({"public", "undergraduate"}),
+    "paper_writing_student": frozenset({"public", "graduate"}),
+    "lab_member": frozenset({"public", "undergraduate", "graduate", "lab_member"}),
+}
+_ADMIN_ROLE_ALLOWED_AUDIENCES = {
+    None: frozenset(),
+    "manager": frozenset({"public", "undergraduate", "graduate", "lab_member", "manager"}),
+    "super_admin": frozenset(
+        {"public", "undergraduate", "graduate", "lab_member", "manager", "admin"}
+    ),
+}
+_AUDIENCE_ALIASES = {
+    "public": {"all", "any", "general", "guest", "open", "public", "visitor"},
+    "undergraduate": {"hust_undergraduate", "ug", "undergrad", "undergraduate"},
+    "graduate": {
+        "grad",
+        "graduate",
+        "paper_writing",
+        "paper_writing_student",
+        "paper-writing-student",
+        "postgraduate",
+    },
+    "lab_member": {"group", "internal", "lab_member", "lab-member", "member"},
+    "manager": {"manager", "management", "staff_manager"},
+    "admin": {"admin", "administrator", "super_admin", "super-admin"},
+}
 _COURSE_ALIAS_MAP = {
     "llm-inference": (
         "大模型推理基础设施",
@@ -1145,7 +1232,11 @@ _TEACHING_ALIAS_MAP = {
 }
 
 
-def _build_query_profile(query: str, visitor_profile: str | None = None) -> QueryProfile:
+def _build_query_profile(
+    query: str,
+    visitor_profile: str | None = None,
+    admin_role: str | None = None,
+) -> QueryProfile:
     lowered = query.lower()
     document_types: set[str] = set()
     topic_domains: set[str] = set()
@@ -1243,6 +1334,7 @@ def _build_query_profile(query: str, visitor_profile: str | None = None) -> Quer
         prefers_intro_parts=prefers_intro_parts,
         named_entities=frozenset(named_entities),
         visitor_profile=visitor_profile,
+        admin_role=admin_role,
     )
 
 
@@ -1355,6 +1447,59 @@ def _document_course_ids(document: KnowledgeDocumentRecord) -> frozenset[str]:
     if "database-lab" in haystack or "database-experiment" in haystack:
         course_ids.add("database-lab")
     return frozenset(course_ids)
+
+
+def _normalize_audience_label(value: str | None) -> str | None:
+    if not value:
+        return None
+    normalized = value.strip().lower().replace("-", "_").replace(" ", "_")
+    for canonical, aliases in _AUDIENCE_ALIASES.items():
+        if normalized == canonical or normalized in aliases:
+            return canonical
+    return normalized or None
+
+
+def _document_visibility_audiences(document: KnowledgeDocumentRecord) -> frozenset[str]:
+    audiences: set[str] = set()
+    metadata_audience = _normalize_audience_label(document.metadata.get("audience"))
+    if metadata_audience:
+        audiences.add(metadata_audience)
+    for tag in document.tags:
+        lowered = tag.lower()
+        if not lowered.startswith("audience:"):
+            continue
+        audience = _normalize_audience_label(lowered.split(":", 1)[1])
+        if audience:
+            audiences.add(audience)
+    return frozenset(audiences)
+
+
+def _allowed_audiences_for_requester(
+    visitor_profile: str | None,
+    admin_role: str | None = None,
+) -> frozenset[str]:
+    normalized_profile = visitor_profile.strip() if visitor_profile else None
+    normalized_role = admin_role.strip() if admin_role else None
+    profile_audiences = _VISITOR_PROFILE_ALLOWED_AUDIENCES.get(
+        normalized_profile,
+        _VISITOR_PROFILE_ALLOWED_AUDIENCES[None],
+    )
+    role_audiences = _ADMIN_ROLE_ALLOWED_AUDIENCES.get(
+        normalized_role,
+        _ADMIN_ROLE_ALLOWED_AUDIENCES[None],
+    )
+    return frozenset(profile_audiences | role_audiences)
+
+
+def _document_is_visible_to_requester(
+    document: KnowledgeDocumentRecord,
+    visitor_profile: str | None,
+    admin_role: str | None = None,
+) -> bool:
+    document_audiences = _document_visibility_audiences(document)
+    if not document_audiences:
+        return True
+    return bool(document_audiences & _allowed_audiences_for_requester(visitor_profile, admin_role))
 
 
 def _is_paper_writing_document(document: KnowledgeDocumentRecord) -> bool:

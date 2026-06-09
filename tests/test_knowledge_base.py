@@ -696,6 +696,107 @@ def test_knowledge_store_reweights_paper_writing_results_by_visitor_profile(
         assert "research" in lab_hits[0].tags
 
 
+def test_knowledge_store_enforces_audience_visibility_by_visitor_profile(
+    tmp_path: Path,
+) -> None:
+    for backend_name in ("local", "neuromem"):
+        knowledge_dir = tmp_path / f"audience-{backend_name}"
+        settings = AppSettings(
+            knowledge_base_dir=knowledge_dir,
+            knowledge_backend="neuromem" if backend_name == "neuromem" else "local",
+        )
+        store = LocalKnowledgeStore(settings)
+
+        for title, tags in (
+            ("公开资料｜实验室简介", ["homepage", "profile"]),
+            (
+                "本科生资料｜数据库实验课导学",
+                ["homepage", "teaching", "courseware", "audience:undergraduate"],
+            ),
+            (
+                "研究生资料｜论文写作导学",
+                ["homepage", "teaching", "courseware", "audience:graduate"],
+            ),
+            (
+                "组内资料｜每周组会约定",
+                ["homepage", "meeting", "policy", "audience:lab_member"],
+            ),
+            (
+                "管理资料｜课题组成员信息总表",
+                [
+                    "homepage",
+                    "profile",
+                    "team",
+                    "members",
+                    "audience:manager",
+                    "audience:admin",
+                ],
+            ),
+            (
+                "超管资料｜管理员密钥轮换说明",
+                ["homepage", "policy", "audience:admin"],
+            ),
+        ):
+            store.add_document(
+                KnowledgeDocumentCreate(
+                    title=title,
+                    content="访问控制测试资料：所有身份都能命中这段关键词，用来验证 audience 过滤。",
+                    tags=tags,
+                    source_name=f"test:{backend_name}:{title}",
+                )
+            )
+
+        query = "访问控制测试资料"
+        anonymous_titles = {hit.title for hit in store.search(query, top_k=8)}
+        visitor_titles = {
+            hit.title
+            for hit in store.search(query, top_k=8, visitor_profile="general_visitor")
+        }
+        undergraduate_titles = {
+            hit.title
+            for hit in store.search(query, top_k=8, visitor_profile="hust_undergraduate")
+        }
+        graduate_titles = {
+            hit.title
+            for hit in store.search(query, top_k=8, visitor_profile="paper_writing_student")
+        }
+        lab_titles = {
+            hit.title for hit in store.search(query, top_k=8, visitor_profile="lab_member")
+        }
+        manager_titles = {
+            hit.title for hit in store.search(query, top_k=8, admin_role="manager")
+        }
+        super_admin_titles = {
+            hit.title for hit in store.search(query, top_k=8, admin_role="super_admin")
+        }
+
+        assert anonymous_titles == {"公开资料｜实验室简介"}
+        assert visitor_titles == {"公开资料｜实验室简介"}
+        assert undergraduate_titles == {"公开资料｜实验室简介", "本科生资料｜数据库实验课导学"}
+        assert graduate_titles == {"公开资料｜实验室简介", "研究生资料｜论文写作导学"}
+        assert lab_titles == {
+            "公开资料｜实验室简介",
+            "本科生资料｜数据库实验课导学",
+            "研究生资料｜论文写作导学",
+            "组内资料｜每周组会约定",
+        }
+        assert manager_titles == {
+            "公开资料｜实验室简介",
+            "本科生资料｜数据库实验课导学",
+            "研究生资料｜论文写作导学",
+            "组内资料｜每周组会约定",
+            "管理资料｜课题组成员信息总表",
+        }
+        assert super_admin_titles == {
+            "公开资料｜实验室简介",
+            "本科生资料｜数据库实验课导学",
+            "研究生资料｜论文写作导学",
+            "组内资料｜每周组会约定",
+            "管理资料｜课题组成员信息总表",
+            "超管资料｜管理员密钥轮换说明",
+        }
+
+
 def test_service_prompt_includes_retrieved_owner_materials(tmp_path: Path) -> None:
     settings = AppSettings(knowledge_base_dir=tmp_path)
     service = DigitalTwinService(settings)

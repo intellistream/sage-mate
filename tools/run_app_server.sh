@@ -7,12 +7,42 @@ set -euo pipefail
 repo_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 venv_dir="$repo_root/.venv"
 app_port="${APP_PORT:-55601}"
+python_exec=""
+source_mode="false"
 
-# --- Validate venv ---
-if [[ ! -x "$venv_dir/bin/python" ]]; then
-    echo "ERROR: Venv not found at $venv_dir" >&2
-    echo "  Run:  bash tools/bootstrap_venv.sh" >&2
+# --- Resolve Python runtime ---
+if [[ -x "$venv_dir/bin/python" ]]; then
+    python_exec="$venv_dir/bin/python"
+elif [[ -n "${PYTHON_BIN:-}" && -x "${PYTHON_BIN}" ]]; then
+    python_exec="${PYTHON_BIN}"
+    source_mode="true"
+else
+    echo "ERROR: No usable Python runtime found." >&2
+    echo "  Broken or missing venv: $venv_dir/bin/python" >&2
+    echo "  Either run: bash tools/bootstrap_venv.sh" >&2
+    echo "  Or set:   PYTHON_BIN=/path/to/python3.11" >&2
     exit 1
+fi
+
+if [[ "$source_mode" == "true" ]]; then
+    pythonpath_entries=(
+        "$repo_root/src"
+        "$repo_root/../SAGE/src"
+        "$repo_root/../sageVDB"
+        "$repo_root/../neuromem"
+    )
+    resolved_pythonpath=""
+    for entry in "${pythonpath_entries[@]}"; do
+        if [[ -d "$entry" ]]; then
+            if [[ -n "$resolved_pythonpath" ]]; then
+                resolved_pythonpath+=":"
+            fi
+            resolved_pythonpath+="$entry"
+        fi
+    done
+    if [[ -n "$resolved_pythonpath" ]]; then
+        export PYTHONPATH="$resolved_pythonpath${PYTHONPATH:+:$PYTHONPATH}"
+    fi
 fi
 
 # --- HuggingFace cache setup (always use writable local cache) ---
@@ -37,5 +67,5 @@ fi
 
 # --- Start server ---
 cd "$repo_root"
-exec "$venv_dir/bin/python" -m uvicorn sage_faculty_twin.api:app \
+exec "$python_exec" -m uvicorn sage_faculty_twin.api:app \
     --host 127.0.0.1 --port "$app_port"

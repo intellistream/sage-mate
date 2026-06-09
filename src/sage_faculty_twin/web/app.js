@@ -241,10 +241,12 @@ let workflowPlanLastSignature = "";
 let latestManagedServiceEvent = null;
 let isAdminSession = false;
 let isUserAuthenticated = false;
+let currentUserAccountEmail = "";
 let pendingChatAttachments = [];
-let conversationHistoryEntries = loadConversationHistory();
+let conversationHistoryScope = resolveConversationHistoryStorageScope();
+let conversationHistoryEntries = loadConversationHistory(conversationHistoryScope);
 let serverConversationEntries = [];
-let conversationHistoryMeta = loadConversationHistoryMeta();
+let conversationHistoryMeta = loadConversationHistoryMeta(conversationHistoryScope);
 let currentConversationTitle = DEFAULT_CONVERSATION_TITLE;
 let currentConversationPreview = "";
 let resolvedApiOrigin = typeof globalThis.__SAGE_FACULTY_TWIN_API_ORIGIN__ === "string"
@@ -1436,6 +1438,7 @@ function applyUserSession(session) {
     const wasAuthenticated = isUserAuthenticated;
     const authenticated = Boolean(session?.is_authenticated && session?.account);
     isUserAuthenticated = authenticated;
+    currentUserAccountEmail = authenticated ? String(session.account?.email || "").trim().toLowerCase() : "";
 
     userAuthPanel?.classList.toggle("hidden", authenticated);
     userSessionPanel?.classList.toggle("hidden", !authenticated);
@@ -1473,6 +1476,7 @@ function applyUserSession(session) {
         studentNameInput.readOnly = true;
         studentEmailInput.readOnly = true;
         applyVisitorProfilePresentation();
+        switchConversationHistoryScope(resolveConversationHistoryStorageScope());
         return;
     }
 
@@ -1496,6 +1500,7 @@ function applyUserSession(session) {
     }
 
     applyVisitorProfilePresentation();
+    switchConversationHistoryScope(resolveConversationHistoryStorageScope());
 }
 
 async function loadManagedServices() {
@@ -3404,9 +3409,22 @@ function appendMessage(role, label, text, options = {}) {
     return article;
 }
 
-function loadConversationHistory() {
+function resolveConversationHistoryStorageScope() {
+    const email = getCurrentHistorySyncEmail();
+    return email ? `user:${email}` : "guest";
+}
+
+function buildConversationHistoryStorageKey(scope = conversationHistoryScope) {
+    return `${CHAT_HISTORY_STORAGE_KEY}:${scope || "guest"}`;
+}
+
+function buildConversationHistoryMetaStorageKey(scope = conversationHistoryScope) {
+    return `${CHAT_HISTORY_META_STORAGE_KEY}:${scope || "guest"}`;
+}
+
+function loadConversationHistory(scope = conversationHistoryScope) {
     try {
-        const raw = globalThis.localStorage?.getItem(CHAT_HISTORY_STORAGE_KEY);
+        const raw = globalThis.localStorage?.getItem(buildConversationHistoryStorageKey(scope));
         if (!raw) {
             return [];
         }
@@ -3432,9 +3450,9 @@ function loadConversationHistory() {
     }
 }
 
-function loadConversationHistoryMeta() {
+function loadConversationHistoryMeta(scope = conversationHistoryScope) {
     try {
-        const raw = globalThis.localStorage?.getItem(CHAT_HISTORY_META_STORAGE_KEY);
+        const raw = globalThis.localStorage?.getItem(buildConversationHistoryMetaStorageKey(scope));
         if (!raw) {
             return { titleOverrides: {}, hiddenIds: [] };
         }
@@ -3457,7 +3475,7 @@ function loadConversationHistoryMeta() {
 function saveConversationHistory() {
     try {
         globalThis.localStorage?.setItem(
-            CHAT_HISTORY_STORAGE_KEY,
+            buildConversationHistoryStorageKey(),
             JSON.stringify(conversationHistoryEntries.slice(0, MAX_CHAT_HISTORY_ITEMS))
         );
     } catch {
@@ -3468,7 +3486,7 @@ function saveConversationHistory() {
 function saveConversationHistoryMeta() {
     try {
         globalThis.localStorage?.setItem(
-            CHAT_HISTORY_META_STORAGE_KEY,
+            buildConversationHistoryMetaStorageKey(),
             JSON.stringify(conversationHistoryMeta)
         );
     } catch {
@@ -3507,8 +3525,50 @@ function noteConversationAnswerPreview(answerText) {
 }
 
 function getCurrentHistorySyncEmail() {
-    const email = String(studentEmailInput?.value || "").trim().toLowerCase();
-    return email || "";
+    return currentUserAccountEmail || "";
+}
+
+function resetConversationViewForHistoryScopeSwitch() {
+    stopWorkflowTraceStream();
+    activeWorkflowSteps = [];
+    activeConversationId = createConversationId();
+    currentConversationTitle = DEFAULT_CONVERSATION_TITLE;
+    currentConversationPreview = "";
+    latestWorkflowMeta = {
+        workflowAction: null,
+        knowledgeHits: null,
+        isStreaming: false,
+        plannerPreview: null,
+        shadowPlannerPreview: null,
+        plannerComparison: null,
+    };
+    clearPendingChatAttachments();
+    if (chatStream) {
+        chatStream.innerHTML = initialChatStreamMarkup;
+    }
+    syncIntroCardPresentation();
+    syncConversationMode();
+    renderWorkflowTrace([], latestWorkflowMeta);
+    chatSubmitButton.disabled = false;
+    chatSubmitButton.textContent = "发送";
+}
+
+function switchConversationHistoryScope(nextScope, { preserveCurrentSnapshot = true } = {}) {
+    const normalizedScope = String(nextScope || "guest").trim() || "guest";
+    if (normalizedScope === conversationHistoryScope) {
+        return;
+    }
+
+    if (preserveCurrentSnapshot && hasRenderableConversation()) {
+        persistActiveConversationSnapshot();
+    }
+
+    conversationHistoryScope = normalizedScope;
+    conversationHistoryEntries = loadConversationHistory(conversationHistoryScope);
+    conversationHistoryMeta = loadConversationHistoryMeta(conversationHistoryScope);
+    serverConversationEntries = [];
+    resetConversationViewForHistoryScopeSwitch();
+    renderConversationHistoryList();
 }
 
 function buildMergedConversationEntries() {
@@ -3769,8 +3829,7 @@ async function fetchConversationTranscript(conversationId) {
     if (!email) {
         throw new Error("当前没有可用于同步历史的邮箱信息。");
     }
-    const params = new URLSearchParams({ student_email: email });
-    return apiRequest(`/chat/conversations/${encodeURIComponent(conversationId)}?${params.toString()}`, { timeoutMs: 10000 });
+    return apiRequest(`/chat/conversations/${encodeURIComponent(conversationId)}`, { timeoutMs: 10000 });
 }
 
 function renderConversationTranscript(transcript) {
@@ -3808,7 +3867,7 @@ async function syncConversationHistoryFromServer() {
     }
 
     try {
-        const params = new URLSearchParams({ student_email: email, limit: String(MAX_CHAT_HISTORY_ITEMS) });
+        const params = new URLSearchParams({ limit: String(MAX_CHAT_HISTORY_ITEMS) });
         const data = await apiRequest(`/chat/conversations?${params.toString()}`, { timeoutMs: 8000 });
         serverConversationEntries = Array.isArray(data?.conversations)
             ? data.conversations.map((entry) => ({

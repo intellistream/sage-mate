@@ -88,6 +88,8 @@ class AppSettings(BaseSettings):
     service_manager_script: Path = Field(default=REPO_ROOT / "manage.sh")
     admin_username: str = Field(default="admin")
     admin_password: str = Field(default="change-me-admin-password")
+    manager_username: str = Field(default="manager")
+    manager_password: str = Field(default="hust-manager")
     admin_session_secret: str = Field(default="change-me-admin-session-secret")
     admin_session_ttl_seconds: int = Field(default=43200, ge=300, le=604800)
     user_session_secret: str = Field(default="change-me-user-session-secret")

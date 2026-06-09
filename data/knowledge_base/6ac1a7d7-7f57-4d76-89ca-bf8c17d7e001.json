@@ -1,0 +1,24 @@
+{
+  "document_id": "6ac1a7d7-7f57-4d76-89ca-bf8c17d7e001",
+  "title": "管理资料｜课题组成员信息总表",
+  "content": "仅供 admin 与 manager 查看。\n\n姓名\t英文名\t入职/学年份\t学历\t单位\t角色\t关联：课题需求总表\t关联：课题需求总表2\t备注\t微信号\tSlack账号\n张书豪\tShuhao Zhang\t2024\t博士\t华中科技大学\t课题负责人\t\t课题4,课题4-任务0.5\t\tShuhaoZhang_sg\tU013T91JDQT\n杨锦昀\tJunyun Yang\t2024\t硕士\t华中科技大学\t工程师\t课题4-任务1.3.1,课题4-任务1.3\t\t研究方向：Flink\t\tU085JSH1S9F\n王子澳\tZiao Wang\t2024\t硕士\t华中科技大学\t工程师\t课题4-任务2.1,课题4-任务2.1.1,课题4-任务2.1.2\t\t研究方向：ANNS；实习中\t\tU07N909SP7V\n朱鑫材\tXincai Zhu\t2025\t硕士\t华中科技大学\t工程师\t课题4-任务0.4\t\t\t\tU07SZSNJRPF\n张森磊\tSenlei Zhang\t2025\t硕士\t华中科技大学\t工程师\t\t\t在字节实习\t\tU08F3KK30G0\n王胜\tSheng Wang\t2026\t\t华中科技大学\t工程师\t课题4-任务0,课题4-任务0.2,课题4-任务0.1\t\t\tmoonlife002\tU0AUR1QFGG6\n陈彦博\tYanbo Chen\t2026\t硕士\t华中科技大学\t工程师\t课题4,课题4-任务2.2,课题4-任务2.1.1,课题4-任务2.1.2\t\t主要做显存感知的kv驱逐，偏向2.2\t\tU08MNLZ6TJL\n王明琪\tMingqi Wang\t2026\t硕士\t华中科技大学\t工程师\t课题4-任务2.3,课题4-任务2.3.2,课题4-任务2.3.3\t\tPD分离之后的请求调度，偏向2.3\tYao__WangQ\tU07R0J8AR0X\n彭成\tCheng Peng\t2026\t硕士\t华中科技大学\t工程师\t课题4-任务3.2,课题4-任务3.2.2\t\t\t\tU0ATPR7E2G5\n陈德斌\tDebin Chen\t2026\t硕士\t华中科技大学\t工程师\t课题4-任务0.5\t\t在帮Changwu做研究；MoE模型加速\t\tU09JGBA2QMN\n宋功轩\tGongxuan Song\t2026\t硕士\t华中科技大学\t工程师\t课题4-任务3.1.1,课题4-任务3.1.2\t\t\t\tU0ARJURUC0P\n李庚\tGeng Li\t2026\t硕士\t华中科技大学\t工程师\t课题4-任务3.1.3,课题4-任务3.1.4\t\t\t\tU0AU22M8LN6\n王杰\tJie Wang\t2026\t硕士\t华中科技大学\t工程师\t课题4-任务1.2,课题4-任务1.2.1\t\t算子相关优化\t\tU0AT5CR54UR\n李心砚\tXinyan Li\t2026\t硕士\t华中科技大学\t实习生,研究员\t课题4-任务2.1.3\t\t蛋白质大模型 + kv相关优化\t\tU0B3WAFMPS9\n田景远\tJingyuan Tian\t2022\t本科\t华中科技大学\t实习生\t课题4-任务0.3\t\tProfile analyzer，中科睿芯\t\tU08UMAK2LAH\n唐嘉佑\tJiayou Tang\t2027\t硕士\t华中科技大学\t工程师\t课题4-任务2.3.1\t\t多模态大模型推理加速\t\tU0B1V8W256Z\n沈家乐\tJiale Shen\t2027\t硕士\t华中科技大学\t实习生,研究员\t课题4-任务1.2.3\t\t\t\tU0B009P8YE8\n杜雨枫\tYufeng Du\t2027\t硕士\t华中科技大学\t实习生,研究员\t\t\t中科睿芯\t\tU09C1DYM7GX\n姜鑫润\tXinrun Jiang\t2027\t硕士\t华中科技大学\t工程师,实习生\t课题4-任务3.2.3\t\tkv cache管理\t\tU0AST7PEPFH\n姚世文\tShiwen Yao\t2027\t硕士\t华中科技大学\t工程师\t课题4-任务1.3.2,课题4-任务1.3.3\t\t\t\tU0AT0HGDYQ6\n钱柯彤\tKetong Qian\t2027\t硕士\t华中科技大学\t工程师,实习生\t课题4-任务1.1.4,课题4-任务1.2.2\t\t通信优化，偏任务1.1\t\tU0B6GK198H5\n何维\tWei He\t2027\t硕士\t华中科技大学\t实习生,研究员\t课题4-任务2.1.3\t\t优先考虑KV管理\t\tU0B70NA7W8H\n周升晖\tShenghui Zhou\t2027\t硕士\t华中科技大学\t工程师\t课题4-任务1.1.2\t\t\t\tU0B2SQ5H79C\n孙喆燚\tZheyi Sun\t2027\t硕士\t华中科技大学\t研究员\t课题4-任务1.1.3\t\t\t\tU0B6UMRB38W\n高西岭\tXiling Gao\t2027\t硕士\t华中科技大学\t工程师\t课题4-任务3.2.1\t\t想要做KV相关课题\t\tU09EL6Q0SDR\n路庆浩\tQinghao Lu\t2028\t本科\t华中科技大学\t工程师\t\t\t大二学生\t\t\n王嘉琦\tJiaqi Wang\t\t\t派欧云\t工程师\t\t课题4-企业任务,课题4-企业任务.1,课题4-企业任务.1.1,课题4-企业任务.1.2,课题4-企业任务.1.3,课题4-企业任务.1.4,课题4-企业任务.2,课题4-企业任务.3\t\t\t\nRuijie Qiu\tRuijie Qiu\t\t\t\t实习生\t\t\t远程参加项目\t\t\n段盈君\tYingjun Duan\t2027\t博士\t\t工程师\t\t\t有较强的算法编码能力；有寒武纪的动态图调优；7月份才能投入。可以考虑分配vllm-ascend-hust的负责人。\t\t\n匡明轩\tMingXuan Kuang\t2028\t本科\t\t工程师\t\t\t\t\t\nHongyi Ruan\tHongyi Ruan\t2028\t本科\t\t工程师\t\t\t\t\t\nJunhao Ma\tJunhao Ma\t2028\t本科\t\t工程师\t\t\t\t\t\nyang sun\tyang sun\t\t\t\t工程师\t\t\t远程\t\t\nYiming Liu\tYiming Liu\t\t博士\t\t工程师\t\t\t博士，邵老师学生，中科睿芯项目\t\t\nQidong Gao\tQidong Gao\t\t\t\t工程师\t\t\t\t\t\n\tYutong Zhou\t\t\t\t工程师\t\t\t\t\t\n陈俊杰\tJunjie Chen\t2027\t硕士\t华中科技大学\t工程师\t课题4-任务3.3,课题4-任务3.3.1,课题4-任务3.3.2,课题4-任务3.3.3\t\t\t\tU0B6YGLSKTK\n刘世峰\tShifeng Liu\t2027\t硕士\t华中科技大学\t研究员\t课题4-任务1.1,课题4-任务1.1.1\t\t\t\tU0ASVPEEVLY\n高鸿儒\tHongru Gao\t2022\t博士\t华中科技大学\t研究员\t\t\t研究方向：动态图\t\tU07LQ0BDT39\n张睿诚\tRuicheng Zhang\t2024\t硕士\t华中科技大学\t研究员\t\t\t研究方向：记忆体\tzrc20020316\tU07PDS6PQH4\n李昶吾\tChangwu Li\t2025\t博士\t华中科技大学\t研究员\t\t\t\t\tU08F7Q5FJUV\n刘俊\tJun Liu\t2025\t博士\t华中科技大学\t研究员\t\t\t研究方向 ：SLO-aware调度\t\tU07PDT14R45\n李旭恒\tXuheng Li\t2025\t硕士\t华中科技大学\t研究员\t\t\t研究方向：KV复用\t\tU0ASXJ923PA\n曹哲\tZhe Cao\t2026\t硕士\t华中科技大学\t研究员\t\t\t研究方向：KV复用\txinweixinjiaosha\tU0ARXP91BBP\n彭浩然\tHaoran Peng\t2026\t博士\t华中科技大学\t研究员\t\t\t研究方向：SLO-aware调度\t\tU0AU2JCF6DN\n李一帆\tYifan Li\t2027\t硕士\t\t研究员\t\t\t\t\t\n谢汉龙\tHanlong Xie\t2027\t博士\t\t研究员\t\t\t\t\t\n",
+  "tags": [
+    "profile",
+    "team",
+    "members",
+    "directory",
+    "audience:manager",
+    "audience:admin",
+    "identity:pi",
+    "domain:research-group"
+  ],
+  "source_name": "manual:team-members-directory-2026-06",
+  "metadata": {
+    "audience": "manager",
+    "domain": "research-group",
+    "identity": "pi",
+    "material_type": "profile",
+    "source_kind": "manual"
+  },
+  "created_at": "2026-06-09T04:20:00Z"
+}

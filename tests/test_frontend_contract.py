@@ -93,3 +93,22 @@ def test_missing_element_ids_do_not_grow() -> None:
         f"New missing IDs:\n"
         + "\n".join(f"  #{mid}" for mid in sorted(missing))
     )
+
+
+def test_conversation_history_storage_is_scoped_per_account() -> None:
+    """Local conversation history must be partitioned by guest/user scope."""
+    js = (WEB_DIR / "app.js").read_text(encoding="utf-8")
+
+    assert "function resolveConversationHistoryStorageScope()" in js
+    assert "function switchConversationHistoryScope(nextScope" in js
+    assert "return `${CHAT_HISTORY_STORAGE_KEY}:${scope || \"guest\"}`;" in js
+    assert "return `${CHAT_HISTORY_META_STORAGE_KEY}:${scope || \"guest\"}`;" in js
+
+
+def test_history_sync_uses_authenticated_session_email_only() -> None:
+    js = (WEB_DIR / "app.js").read_text(encoding="utf-8")
+
+    assert "let currentUserAccountEmail = \"\";" in js
+    assert "currentUserAccountEmail = authenticated ? String(session.account?.email || \"\").trim().toLowerCase() : \"\";" in js
+    assert "return currentUserAccountEmail || \"\";" in js
+    assert "student_email" not in js[js.index("async function syncConversationHistoryFromServer"):js.index("function setHistoryRailCollapsed")]

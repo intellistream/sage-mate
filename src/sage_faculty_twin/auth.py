@@ -21,10 +21,16 @@ def decode_admin_session_token(token: str | None, settings: AppSettings) -> dict
     return _decode_session_cookie(token, settings.admin_session_secret)
 
 
-def build_admin_session_token(settings: AppSettings) -> str:
+def build_admin_session_token(
+    settings: AppSettings,
+    *,
+    username: str,
+    role: str,
+) -> str:
     now = int(time.time())
     payload = {
-        "sub": settings.admin_username,
+        "sub": username,
+        "role": role,
         "iat": now,
         "exp": now + settings.admin_session_ttl_seconds,
         "nonce": secrets.token_hex(8),
@@ -84,17 +90,25 @@ def build_admin_session_response(request: Request, settings: AppSettings) -> Adm
     payload = decode_admin_session_token(request.cookies.get(ADMIN_COOKIE_NAME), settings)
     if payload is None:
         return AdminSessionResponse(is_admin=False, mode="user")
+    username, role = resolve_admin_session_identity(payload, settings)
     return AdminSessionResponse(
         is_admin=True,
         mode="admin",
-        username=str(payload.get("sub") or settings.admin_username),
+        username=username,
+        role=role,
     )
 
 
-def issue_admin_session(response: Response, settings: AppSettings) -> AdminSessionResponse:
-    token = build_admin_session_token(settings)
+def issue_admin_session(
+    response: Response,
+    settings: AppSettings,
+    *,
+    username: str,
+    role: str,
+) -> AdminSessionResponse:
+    token = build_admin_session_token(settings, username=username, role=role)
     set_admin_session_cookie(response, token, settings)
-    return AdminSessionResponse(is_admin=True, mode="admin", username=settings.admin_username)
+    return AdminSessionResponse(is_admin=True, mode="admin", username=username, role=role)
 
 
 def clear_admin_session(response: Response) -> AdminSessionResponse:
@@ -103,7 +117,10 @@ def clear_admin_session(response: Response) -> AdminSessionResponse:
 
 
 def require_admin(request: Request, settings: AppSettings) -> dict[str, Any]:
-    payload = decode_admin_session_token(request.cookies.get(ADMIN_COOKIE_NAME), settings)
+    payload = normalize_admin_session_payload(
+        decode_admin_session_token(request.cookies.get(ADMIN_COOKIE_NAME), settings),
+        settings,
+    )
     if payload is None:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -112,14 +129,54 @@ def require_admin(request: Request, settings: AppSettings) -> dict[str, Any]:
     return payload
 
 
-def validate_admin_credentials(username: str, password: str, settings: AppSettings) -> None:
-    username_ok = secrets.compare_digest(username, settings.admin_username)
-    password_ok = secrets.compare_digest(password, settings.admin_password)
-    if not username_ok or not password_ok:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="管理员账号或密码错误。",
-        )
+def resolve_admin_session_identity(
+    payload: dict[str, Any],
+    settings: AppSettings,
+) -> tuple[str, str]:
+    username = str(payload.get("sub") or settings.admin_username)
+    role = str(payload.get("role") or "").strip()
+    if role in {"super_admin", "manager"}:
+        return username, role
+    if username == settings.manager_username:
+        return username, "manager"
+    return username, "super_admin"
+
+
+def normalize_admin_session_payload(
+    payload: dict[str, Any] | None,
+    settings: AppSettings,
+) -> dict[str, Any] | None:
+    if payload is None:
+        return None
+    username, role = resolve_admin_session_identity(payload, settings)
+    normalized = dict(payload)
+    normalized["sub"] = username
+    normalized["role"] = role
+    return normalized
+
+
+def validate_admin_credentials(
+    username: str,
+    password: str,
+    settings: AppSettings,
+) -> tuple[str, str]:
+    for account_username, account_password, account_role in _iter_admin_accounts(settings):
+        username_ok = secrets.compare_digest(username, account_username)
+        password_ok = secrets.compare_digest(password, account_password)
+        if username_ok and password_ok:
+            return account_username, account_role
+
+    raise HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="管理员账号或密码错误。",
+    )
+
+
+def _iter_admin_accounts(settings: AppSettings) -> tuple[tuple[str, str, str], ...]:
+    return (
+        (settings.admin_username, settings.admin_password, "super_admin"),
+        (settings.manager_username, settings.manager_password, "manager"),
+    )
 
 
 def _encode_session_cookie(payload: dict[str, Any], secret: str) -> str:
