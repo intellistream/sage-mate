@@ -80,6 +80,9 @@ class AppSettings(BaseSettings):
     shadow_planner_temperature: float = Field(default=0.0, ge=0.0, le=1.0)
     shadow_planner_max_tokens: int = Field(default=384, ge=64, le=2048)
     conversation_memory_top_k: int = Field(default=4, ge=1, le=10)
+    # Conversation memory index type. Use "auto" to prefer vector-capable indexes
+    # (sage_vdb_ann/sagedb_ann/faiss) and fall back to segment/fifo when unavailable.
+    conversation_memory_index_type: str = Field(default="auto")
     sagevdb_embedding_backend: str = Field(default="sentence-transformers")
     sagevdb_embedding_model: str = Field(default="sentence-transformers/all-MiniLM-L6-v2")
     sagevdb_dimension: int = Field(default=256, ge=32, le=4096)

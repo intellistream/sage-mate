@@ -56,6 +56,9 @@ def test_store_persists_neuromem_collections_without_records_or_profiles_dirs(
     assert (settings.conversation_memory_dir / "memory_store.sqlite3").exists()
     assert not (settings.conversation_memory_dir / "records").exists()
     assert not (settings.conversation_memory_dir / "profiles").exists()
+    assert (
+        store._conversation_collection.index_metadata["search"]["type"] != "bm25"
+    )
 
 
 def test_store_migrates_legacy_json_layout_once_and_removes_it(tmp_path: Path) -> None:

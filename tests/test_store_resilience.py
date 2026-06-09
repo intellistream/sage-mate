@@ -100,9 +100,8 @@ def test_planner_metrics_store_record_entry_survives_runtime_dir_wipe(
         latency_ms=12.5,
     )
 
-    written = metrics_dir / f"{entry.record_id}.json"
     assert metrics_dir.exists(), "store should have recreated its data dir"
-    assert written.is_file(), "record_entry should have persisted the JSON file"
+    assert (metrics_dir / "planner_metrics.sqlite3").is_file()
     assert store.count_entries() == 1
 
 
@@ -138,9 +137,8 @@ def test_planner_comparison_store_record_comparison_survives_runtime_dir_wipe(
         summary="identical plans",
     )
 
-    written = comparisons_dir / f"{entry.record_id}.json"
     assert comparisons_dir.exists()
-    assert written.is_file()
+    assert (comparisons_dir / "planner_comparisons.sqlite3").is_file()
     assert store.count_records() == 1
 
 

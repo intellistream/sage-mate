@@ -243,6 +243,59 @@ class NeuroMemConversationStore:
         if self._canonicalize_profile_collection():
             self._rebuild_runtime_state()
 
+    def _default_collection_index_type(self) -> str:
+        configured = (self._settings.conversation_memory_index_type or "").strip().lower()
+        try:
+            from sage.neuromem.memory_collection.indexes import IndexFactory
+
+            available = set(IndexFactory.list_types())
+        except Exception:
+            available = set()
+
+        if configured in {"", "auto"}:
+            for candidate in (
+                "sage_vdb_ann",
+                "sagedb_ann",
+                "faiss",
+                "segment",
+                "fifo",
+            ):
+                if not available or candidate in available:
+                    return candidate
+            if available:
+                return sorted(available)[0]
+            return "segment"
+
+        if configured and (not available or configured in available):
+            return configured
+        if "segment" in available:
+            return "segment"
+        if "fifo" in available:
+            return "fifo"
+        if available:
+            return sorted(available)[0]
+        return "segment"
+
+    def _default_collection_index_config(self, index_type: str) -> dict[str, Any]:
+        if index_type == "faiss":
+            return {
+                "dim": int(self._settings.sagevdb_dimension),
+                "metric": "cosine",
+            }
+        if index_type in {"sage_vdb_ann", "sagedb_ann"}:
+            algorithm = self._settings.sagevdb_anns_algorithm.strip().lower()
+            if "_" in algorithm:
+                algorithm = algorithm.split("_")[-1]
+            if not algorithm:
+                algorithm = "hnsw"
+            return {
+                "dim": int(self._settings.sagevdb_dimension),
+                "metric": "cosine",
+                "ann_algorithm": algorithm,
+                "backend_name": "sagedb",
+            }
+        return {}
+
     def add_exchange(
         self,
         request: ChatRequest,
@@ -821,7 +874,8 @@ class NeuroMemConversationStore:
             ) from exc
 
         collection = UnifiedCollection(name)
-        collection.add_index("search", "bm25", {})
+        index_type = self._default_collection_index_type()
+        collection.add_index("search", index_type, self._default_collection_index_config(index_type))
         return collection
 
     def _load_or_create_collection(self, name: str, snapshot_dir: Path):
@@ -931,7 +985,8 @@ class NeuroMemConversationStore:
             collection.indexes[index_name] = index
 
         if "search" not in collection.indexes:
-            collection.add_index("search", "bm25", {})
+            index_type = self._default_collection_index_type()
+            collection.add_index("search", index_type, self._default_collection_index_config(index_type))
             for data_id in collection.storage.keys():
                 collection.insert_to_index(str(data_id), "search")
         return collection

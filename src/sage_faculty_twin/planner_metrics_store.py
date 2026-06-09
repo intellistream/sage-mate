@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import sqlite3
 import re
 from collections import Counter
 from dataclasses import dataclass
@@ -77,8 +78,11 @@ class PlannerMetricsStore:
             settings.conversation_memory_dir / "planner-metrics"
         )
         self._path.mkdir(parents=True, exist_ok=True)
+        self._db_path = self._path / "planner_metrics.sqlite3"
+        self._ensure_database()
         self._entries: dict[str, PlannerMetricsEntry] = {}
-        self._load_from_disk()
+        self._load_from_db()
+        self._migrate_legacy_json_files()
 
     def record_entry(
         self,
@@ -182,19 +186,52 @@ class PlannerMetricsStore:
         }
 
     def _persist_entry(self, entry: PlannerMetricsEntry) -> None:
-        # Defensive: ensure target directory still exists (it may have been removed
-        # between server startup and this write — e.g. during a layout migration).
-        self._path.mkdir(parents=True, exist_ok=True)
-        (self._path / f"{entry.record_id}.json").write_text(
-            json.dumps(entry.to_dict(), ensure_ascii=False, indent=2),
-            encoding="utf-8",
-        )
+        self._ensure_database()
+        payload = json.dumps(entry.to_dict(), ensure_ascii=False)
+        with sqlite3.connect(self._db_path) as connection:
+            connection.execute(
+                """
+                INSERT INTO planner_metrics_entries (record_id, created_at, payload)
+                VALUES (?, ?, ?)
+                ON CONFLICT(record_id) DO UPDATE SET
+                    created_at = excluded.created_at,
+                    payload = excluded.payload
+                """,
+                (entry.record_id, entry.created_at.isoformat(), payload),
+            )
+            connection.commit()
 
-    def _load_from_disk(self) -> None:
+    def _ensure_database(self) -> None:
+        self._path.mkdir(parents=True, exist_ok=True)
+        with sqlite3.connect(self._db_path) as connection:
+            connection.execute(
+                """
+                CREATE TABLE IF NOT EXISTS planner_metrics_entries (
+                    record_id TEXT PRIMARY KEY,
+                    created_at TEXT NOT NULL,
+                    payload TEXT NOT NULL
+                )
+                """
+            )
+            connection.commit()
+
+    def _load_from_db(self) -> None:
+        self._ensure_database()
+        with sqlite3.connect(self._db_path) as connection:
+            rows = connection.execute("SELECT payload FROM planner_metrics_entries").fetchall()
+        for (payload_raw,) in rows:
+            payload = json.loads(str(payload_raw))
+            entry = PlannerMetricsEntry.from_dict(payload)
+            self._entries[entry.record_id] = entry
+
+    def _migrate_legacy_json_files(self) -> None:
         for file_path in sorted(self._path.glob("*.json")):
             payload = json.loads(file_path.read_text(encoding="utf-8"))
             entry = PlannerMetricsEntry.from_dict(payload)
-            self._entries[entry.record_id] = entry
+            if entry.record_id not in self._entries:
+                self._entries[entry.record_id] = entry
+                self._persist_entry(entry)
+            file_path.unlink(missing_ok=True)
 
 
 def _ratio(numerator: int, denominator: int) -> float:

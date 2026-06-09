@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import sqlite3
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from uuid import uuid4
@@ -77,8 +78,11 @@ class PlannerComparisonStore:
             settings.conversation_memory_dir / "planner-comparisons"
         )
         self._path.mkdir(parents=True, exist_ok=True)
+        self._db_path = self._path / "planner_comparisons.sqlite3"
+        self._ensure_database()
         self._entries: dict[str, PlannerComparisonEntry] = {}
-        self._load_from_disk()
+        self._load_from_db()
+        self._migrate_legacy_json_files()
 
     def record_comparison(
         self,
@@ -141,15 +145,52 @@ class PlannerComparisonStore:
         )
 
     def _persist_entry(self, entry: PlannerComparisonEntry) -> None:
+        self._ensure_database()
+        payload = json.dumps(entry.to_dict(), ensure_ascii=False)
+        with sqlite3.connect(self._db_path) as connection:
+            connection.execute(
+                """
+                INSERT INTO planner_comparison_entries (record_id, created_at, payload)
+                VALUES (?, ?, ?)
+                ON CONFLICT(record_id) DO UPDATE SET
+                    created_at = excluded.created_at,
+                    payload = excluded.payload
+                """,
+                (entry.record_id, entry.created_at.isoformat(), payload),
+            )
+            connection.commit()
+
+    def _ensure_database(self) -> None:
         # Defensive: re-create the directory in case it was wiped at runtime.
         self._path.mkdir(parents=True, exist_ok=True)
-        (self._path / f"{entry.record_id}.json").write_text(
-            json.dumps(entry.to_dict(), ensure_ascii=False, indent=2),
-            encoding="utf-8",
-        )
+        with sqlite3.connect(self._db_path) as connection:
+            connection.execute(
+                """
+                CREATE TABLE IF NOT EXISTS planner_comparison_entries (
+                    record_id TEXT PRIMARY KEY,
+                    created_at TEXT NOT NULL,
+                    payload TEXT NOT NULL
+                )
+                """
+            )
+            connection.commit()
 
-    def _load_from_disk(self) -> None:
+    def _load_from_db(self) -> None:
+        self._ensure_database()
+        with sqlite3.connect(self._db_path) as connection:
+            rows = connection.execute(
+                "SELECT payload FROM planner_comparison_entries"
+            ).fetchall()
+        for (payload_raw,) in rows:
+            payload = json.loads(str(payload_raw))
+            entry = PlannerComparisonEntry.from_dict(payload)
+            self._entries[entry.record_id] = entry
+
+    def _migrate_legacy_json_files(self) -> None:
         for file_path in sorted(self._path.glob("*.json")):
             payload = json.loads(file_path.read_text(encoding="utf-8"))
             entry = PlannerComparisonEntry.from_dict(payload)
-            self._entries[entry.record_id] = entry
+            if entry.record_id not in self._entries:
+                self._entries[entry.record_id] = entry
+                self._persist_entry(entry)
+            file_path.unlink(missing_ok=True)
