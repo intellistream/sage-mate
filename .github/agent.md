@@ -40,5 +40,17 @@ These incidents were mostly "false restart failures" rather than a crashed app p
 - `export XDG_RUNTIME_DIR=/run/user/$(id -u)`
 - `export DBUS_SESSION_BUS_ADDRESS=unix:path=$XDG_RUNTIME_DIR/bus`
 
-5. Keep runtime data out of commits.
-- Do not commit local runtime sqlite churn under `data/conversation_memory/*.sqlite3` unless migration policy explicitly requires it.
+5. SQLite persistence policy for machine portability.
+- For this project, sqlite state under `data/conversation_memory/*.sqlite3` is treated as portable runtime baseline.
+- When shipping environment/migration updates, include the relevant sqlite files in commits so another machine can restore history/state directly.
+- If sqlite changes are intentionally local-only experiments, call that out explicitly before excluding them.
+
+## Mobile UI validation notes
+
+1. Mobile viewport check was executed at 390x844.
+- Topbar actions (`历史对话` / `设置` / `状态`) render without overlap.
+- `设置` drawer and `状态` drawer can both be opened on mobile layout.
+
+2. Outside-click close behavior verified.
+- With settings drawer open, tapping a blank area outside the drawer closes it.
+- Status drawer already supports outside-click close with the same interaction expectation.
