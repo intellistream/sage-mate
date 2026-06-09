@@ -6,7 +6,7 @@ import json
 import re
 import threading
 import time
-from collections import OrderedDict
+from collections import OrderedDict, deque
 from time import perf_counter
 from typing import Any, Callable, Literal
 from urllib.parse import urlsplit, urlunsplit
@@ -38,6 +38,7 @@ _DEFAULT_EXCLUDE_SCOPES: dict[str, list[str]] = {
 
 _SEMANTIC_CACHE_SIMILARITY_THRESHOLD = 0.88
 _VLLM_METRICS_REFRESH_SECONDS = 5.0
+_THROUGHPUT_WINDOW_SECONDS = 60.0
 
 
 class _InteractionIntentPayload(BaseModel):
@@ -93,7 +94,8 @@ class VllmChatClient:
         self._last_success_at: float | None = None
         self._last_error_at: float | None = None
         self._last_error_message: str | None = None
-        self._metrics_started_at = time.time()
+        self._recent_success_timestamps: deque[float] = deque()
+        self._recent_completion_token_samples: deque[tuple[float, int]] = deque()
         self._latency_total_ms = 0.0
         self._latency_observation_count = 0
         self._latency_max_ms = 0.0
@@ -119,6 +121,8 @@ class VllmChatClient:
         cache_entries = self._active_cache_entries()
         self._refresh_vllm_prefix_cache_metrics()
         with self._metrics_lock:
+            now = time.time()
+            self._trim_throughput_samples_locked(now)
             last_status = "not_checked"
             if self._last_success_at is not None and (
                 self._last_error_at is None or self._last_success_at >= self._last_error_at
@@ -136,6 +140,8 @@ class VllmChatClient:
             external_prefix_cache_hit_rate = self._vllm_external_prefix_cache_hits / max(
                 self._vllm_external_prefix_cache_queries, 1.0
             )
+            recent_rps = self._compute_recent_request_throughput_locked(now)
+            recent_tps = self._compute_recent_completion_throughput_locked(now)
             return {
                 "llm_status": last_status,
                 "llm_request_count": str(self._request_count),
@@ -152,8 +158,8 @@ class VllmChatClient:
                 "llm_avg_latency_ms": f"{(self._latency_total_ms / max(self._latency_observation_count, 1)):.2f}",
                 "llm_last_latency_ms": f"{self._last_latency_ms:.2f}",
                 "llm_max_latency_ms": f"{self._latency_max_ms:.2f}",
-                "llm_request_throughput_rps": f"{(self._request_count / max(time.time() - self._metrics_started_at, 1.0)):.4f}",
-                "llm_completion_throughput_tps": f"{(self._completion_tokens_total / max(time.time() - self._metrics_started_at, 1.0)):.4f}",
+                "llm_request_throughput_rps": f"{recent_rps:.4f}",
+                "llm_completion_throughput_tps": f"{recent_tps:.4f}",
                 "llm_prompt_tokens_total": str(self._prompt_tokens_total),
                 "llm_completion_tokens_total": str(self._completion_tokens_total),
                 "llm_total_tokens_total": str(self._total_tokens_total),
@@ -990,9 +996,14 @@ class VllmChatClient:
         total_tokens: int = 0,
     ) -> None:
         with self._metrics_lock:
+            now = time.time()
             self._success_count += 1
-            self._last_success_at = time.time()
+            self._last_success_at = now
             self._last_error_message = None
+            self._recent_success_timestamps.append(now)
+            if completion_tokens > 0:
+                self._recent_completion_token_samples.append((now, completion_tokens))
+            self._trim_throughput_samples_locked(now)
             if latency_ms is not None and latency_ms >= 0:
                 self._latency_total_ms += latency_ms
                 self._latency_observation_count += 1
@@ -1022,6 +1033,31 @@ class VllmChatClient:
     def _record_cache_lookup(self) -> None:
         with self._metrics_lock:
             self._cache_lookup_count += 1
+
+    def _trim_throughput_samples_locked(self, now: float) -> None:
+        cutoff = now - _THROUGHPUT_WINDOW_SECONDS
+        while self._recent_success_timestamps and self._recent_success_timestamps[0] < cutoff:
+            self._recent_success_timestamps.popleft()
+        while (
+            self._recent_completion_token_samples
+            and self._recent_completion_token_samples[0][0] < cutoff
+        ):
+            self._recent_completion_token_samples.popleft()
+
+    def _compute_recent_request_throughput_locked(self, now: float) -> float:
+        if not self._recent_success_timestamps:
+            return 0.0
+        oldest = self._recent_success_timestamps[0]
+        duration = max(min(now - oldest, _THROUGHPUT_WINDOW_SECONDS), 1.0)
+        return len(self._recent_success_timestamps) / duration
+
+    def _compute_recent_completion_throughput_locked(self, now: float) -> float:
+        if not self._recent_completion_token_samples:
+            return 0.0
+        oldest = self._recent_completion_token_samples[0][0]
+        duration = max(min(now - oldest, _THROUGHPUT_WINDOW_SECONDS), 1.0)
+        token_total = sum(sample_tokens for _, sample_tokens in self._recent_completion_token_samples)
+        return token_total / duration
 
     def _active_cache_entries(self) -> int:
         with self._cache_lock:
