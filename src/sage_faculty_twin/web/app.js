@@ -3,6 +3,7 @@ const modelPill = document.getElementById("model-pill");
 const knowledgePill = document.getElementById("knowledge-pill");
 const modePill = document.getElementById("mode-pill");
 const onlineOverviewGrid = document.getElementById("online-overview-grid");
+const onlineBenchmarkTable = document.getElementById("online-benchmark-table");
 const onlineOverviewCopy = document.getElementById("online-overview-copy");
 const topbarServiceStatus = document.getElementById("topbar-service-status");
 const topbarUserCount = document.getElementById("topbar-user-count");
@@ -185,6 +186,7 @@ const CHAT_HISTORY_META_STORAGE_KEY = "myTwinConversationHistoryMeta";
 const HISTORY_RAIL_COLLAPSED_KEY = "myTwinHistoryRailCollapsed";
 const ONLINE_PRESENCE_CLIENT_KEY = "myTwinOnlinePresenceClientId";
 const ONLINE_PRESENCE_INTERVAL_MS = 30_000;
+const STATUS_REFRESH_INTERVAL_MS = 30_000;
 const MAX_CHAT_HISTORY_ITEMS = 18;
 const DEFAULT_CONVERSATION_TITLE = "新对话";
 const LOCAL_API_PORT_CANDIDATES = ["55601", "8010", "8000"];
@@ -253,6 +255,7 @@ let conversationHistoryMeta = loadConversationHistoryMeta(conversationHistorySco
 let currentConversationTitle = DEFAULT_CONVERSATION_TITLE;
 let currentConversationPreview = "";
 let onlinePresenceHeartbeatTimer = null;
+let statusRefreshTimer = null;
 let resolvedApiOrigin = typeof globalThis.__SAGE_FACULTY_TWIN_API_ORIGIN__ === "string"
     ? globalThis.__SAGE_FACULTY_TWIN_API_ORIGIN__.trim()
     : "";
@@ -1301,6 +1304,7 @@ function renderOnlineOverview(data, errorMessage = "") {
             ["活跃会话", "--"],
         ].map(renderOnlineOverviewItem).join("");
         onlineOverviewCopy.textContent = errorMessage || "暂时无法读取在线统计。";
+        renderOnlineBenchmarkTable(null);
         return;
     }
 
@@ -1323,6 +1327,56 @@ function renderOnlineOverview(data, errorMessage = "") {
     onlineOverviewGrid.innerHTML = entries.map(renderOnlineOverviewItem).join("");
     const runtime = data.sage_runtime || "SAGE runtime";
     onlineOverviewCopy.textContent = `${runtime} · 在线窗口 ${onlineWindowMinutes} 分钟 · ${modelSummary.detail} · 缓存项 ${formatCount(data.llm_cache_entries)}，缓存命中 ${formatCount(data.llm_cache_hit_count)} 次。`;
+    renderOnlineBenchmarkTable(data);
+}
+
+function renderOnlineBenchmarkTable(data) {
+    if (!onlineBenchmarkTable) {
+        return;
+    }
+
+    if (!data) {
+        onlineBenchmarkTable.innerHTML = '<div class="online-benchmark-empty">暂时无法读取推理指标。</div>';
+        return;
+    }
+
+    const requestCount = toCountNumber(data.llm_request_count);
+    const successCount = toCountNumber(data.llm_success_count);
+    const errorCount = toCountNumber(data.llm_error_count);
+    const cacheHitCount = toCountNumber(data.llm_cache_hit_count);
+    const cacheEntries = toCountNumber(data.llm_cache_entries);
+    const plannerTotal = toCountNumber(data.planner_deterministic_total);
+    const plannerFallbacks = toCountNumber(data.planner_deterministic_fallbacks);
+    const plannerShadowErrors = toCountNumber(data.planner_shadow_errors);
+    const avgDetLatency = Number(data.planner_avg_deterministic_latency_ms || 0);
+    const avgShadowLatency = Number(data.planner_avg_shadow_latency_ms || 0);
+    const successRate = requestCount > 0 ? `${Math.round((successCount / requestCount) * 100)}%` : "--";
+    const cacheHitRate = requestCount > 0 ? `${Math.round((cacheHitCount / requestCount) * 100)}%` : "--";
+    const fallbackRate = plannerTotal > 0 ? `${Math.round((plannerFallbacks / plannerTotal) * 100)}%` : "--";
+
+    const rows = [
+        ["模型状态", formatLlmStatus(data.llm_status, errorCount)],
+        ["请求总数", formatCount(requestCount)],
+        ["成功数 / 失败数", `${formatCount(successCount)} / ${formatCount(errorCount)}`],
+        ["成功率", successRate],
+        ["缓存命中率", cacheHitRate],
+        ["缓存条目", formatCount(cacheEntries)],
+        ["规划总次数", formatCount(plannerTotal)],
+        ["规划回退率", fallbackRate],
+        ["Shadow 错误", formatCount(plannerShadowErrors)],
+        ["平均规划延迟", Number.isFinite(avgDetLatency) ? `${avgDetLatency.toFixed(2)} ms` : "--"],
+        ["平均 Shadow 延迟", Number.isFinite(avgShadowLatency) ? `${avgShadowLatency.toFixed(2)} ms` : "--"],
+        ["最近成功", formatMetricTimestamp(data.llm_last_success_at)],
+    ];
+
+    onlineBenchmarkTable.innerHTML = rows
+        .map(([label, value]) => `
+            <div class="online-benchmark-row">
+                <span class="online-benchmark-label">${escapeHtml(label)}</span>
+                <strong class="online-benchmark-value">${escapeHtml(String(value))}</strong>
+            </div>
+        `)
+        .join("");
 }
 
 function resolveOnlinePresenceClientId() {
@@ -1384,6 +1438,19 @@ function startOnlinePresenceHeartbeat() {
         }
         sendOnlinePresenceHeartbeat({ silent: true });
     }, ONLINE_PRESENCE_INTERVAL_MS);
+}
+
+function startStatusAutoRefresh() {
+    if (statusRefreshTimer !== null) {
+        globalThis.clearInterval(statusRefreshTimer);
+        statusRefreshTimer = null;
+    }
+    statusRefreshTimer = globalThis.setInterval(() => {
+        if (globalThis.document?.visibilityState === "hidden") {
+            return;
+        }
+        refreshStatus();
+    }, STATUS_REFRESH_INTERVAL_MS);
 }
 
 function renderOnlineOverviewItem([label, value]) {
@@ -6665,6 +6732,7 @@ async function initializePage() {
     applyVisitorProfilePresentation({ syncCourseContext: true });
     markPresentationReady();
     startOnlinePresenceHeartbeat();
+    startStatusAutoRefresh();
     await refreshStatus();
     await refreshSession();
     await refreshUserSession();
