@@ -33,6 +33,29 @@ def test_knowledge_store_adds_and_searches_documents(tmp_path: Path) -> None:
     assert hits[0].title == "Lab onboarding policy"
 
 
+def test_knowledge_store_upsert_noop_preserves_created_at_and_file(tmp_path: Path) -> None:
+    settings = AppSettings(knowledge_base_dir=tmp_path)
+    store = LocalKnowledgeStore(settings)
+
+    payload = KnowledgeDocumentCreate(
+        title="Lab onboarding policy",
+        content="Students should read the onboarding checklist before asking for GPU access.",
+        tags=["lab", "policy"],
+        source_name="owner-note",
+    )
+    created = store.add_document(payload, rebuild_indexes=False)
+    target = tmp_path / f"{created.document_id}.json"
+    before_content = target.read_text(encoding="utf-8")
+
+    upserted, inserted = store.upsert_document(payload, rebuild_indexes=False)
+    after_content = target.read_text(encoding="utf-8")
+
+    assert inserted is False
+    assert upserted.document_id == created.document_id
+    assert upserted.created_at == created.created_at
+    assert after_content == before_content
+
+
 def test_knowledge_store_derives_and_returns_explicit_metadata(tmp_path: Path) -> None:
     settings = AppSettings(knowledge_base_dir=tmp_path)
     store = LocalKnowledgeStore(settings)

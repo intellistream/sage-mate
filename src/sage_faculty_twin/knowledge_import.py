@@ -11,7 +11,7 @@ from xml.etree import ElementTree
 
 from .config import AppSettings
 from .knowledge_base import LocalKnowledgeStore
-from .models import KnowledgeDocumentCreate
+from .models import KnowledgeDocumentCreate, KnowledgeDocumentRecord
 
 _FRONT_MATTER_RE = re.compile(r"\A---\s*\n.*?\n---\s*\n", re.DOTALL)
 _LINK_RE = re.compile(r"\[([^\]]+)\]\(([^)]+)\)")
@@ -65,8 +65,8 @@ def import_homepage_materials(
     if stale_document_ids:
         store.delete_documents(stale_document_ids, rebuild_indexes=False)
 
-    existing_sources = {
-        document.source_name
+    existing_documents_by_source = {
+        document.source_name: document
         for document in store.list_documents()
         if document.source_name
     }
@@ -76,17 +76,27 @@ def import_homepage_materials(
     changed = bool(stale_document_ids)
 
     for payload in payloads:
-        existing = payload.source_name and payload.source_name in existing_sources
+        existing_document = (
+            existing_documents_by_source.get(payload.source_name)
+            if payload.source_name
+            else None
+        )
+        if existing_document is not None and _payload_matches_record(payload, existing_document):
+            skipped_sources.append(payload.source_name or existing_document.document_id)
+            continue
+
         record, created = store.upsert_document(payload, rebuild_indexes=False)
         if created:
             created_titles.append(record.title)
             changed = True
             if payload.source_name:
-                existing_sources.add(payload.source_name)
+                existing_documents_by_source[payload.source_name] = record
             continue
-        if existing:
+        if existing_document is not None:
             updated_titles.append(record.title)
             changed = True
+            if payload.source_name:
+                existing_documents_by_source[payload.source_name] = record
             continue
         skipped_sources.append(payload.source_name or record.document_id)
 
@@ -100,6 +110,18 @@ def import_homepage_materials(
         created_titles=created_titles,
         updated_titles=updated_titles,
         skipped_sources=skipped_sources,
+    )
+
+
+def _payload_matches_record(
+    payload: KnowledgeDocumentCreate,
+    record: KnowledgeDocumentRecord,
+) -> bool:
+    return (
+        record.title == payload.title
+        and record.content == payload.content
+        and record.tags == payload.tags
+        and record.source_name == payload.source_name
     )
 
 

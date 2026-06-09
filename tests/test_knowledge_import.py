@@ -71,8 +71,8 @@ def test_import_homepage_materials_creates_searchable_documents_and_skips_duplic
     second_report = import_homepage_materials(store, homepage_dir)
 
     assert second_report.created_count == 0
-    assert second_report.updated_count == 7
-    assert second_report.skipped_count == 0
+    assert second_report.updated_count == 0
+    assert second_report.skipped_count == 7
 
 
 def test_import_homepage_materials_refreshes_existing_source_content(tmp_path: Path) -> None:

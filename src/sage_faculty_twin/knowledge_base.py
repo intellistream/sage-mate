@@ -174,14 +174,24 @@ class LocalKnowledgeStore:
         if existing is None:
             return self.add_document(payload, rebuild_indexes=rebuild_indexes), True
 
+        normalized_metadata = _normalize_knowledge_metadata(payload)
+        if (
+            existing.title == payload.title
+            and existing.content == payload.content
+            and existing.tags == payload.tags
+            and existing.source_name == payload.source_name
+            and existing.metadata == normalized_metadata
+        ):
+            return existing, False
+
         updated_record = KnowledgeDocumentRecord(
             document_id=existing.document_id,
             title=payload.title,
             content=payload.content,
             tags=payload.tags,
             source_name=payload.source_name,
-            metadata=_normalize_knowledge_metadata(payload),
-            created_at=datetime.now(UTC),
+            metadata=normalized_metadata,
+            created_at=existing.created_at,
         )
         target_path = self._base_dir / f"{updated_record.document_id}.json"
         # Defensive: re-create the directory in case it was wiped at runtime.
