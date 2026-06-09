@@ -13,8 +13,8 @@ coverage.xml
 # Deployment-state data stays tracked so redeploys can restore the twin state.
 # Ignore only ad hoc backup snapshots and scratch artifacts.
 data/homepage/
-data/conversation_memory/planner-comparisons/
-data/conversation_memory/planner-metrics/
+data/conversation_memory/planner-comparisons/*.json
+data/conversation_memory/planner-metrics/*.json
 data.pre_recovery_*/
 data/*.backup-*/
 *.bak.*
