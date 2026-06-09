@@ -30,6 +30,11 @@
                 <span id="topbar-question-count" class="topbar-live-item"><small>累计问答</small><strong>--</strong></span>
                 <span id="topbar-model-status" class="topbar-live-item"><small>模型请求</small><strong>检查中</strong></span>
             </div>
+            <button type="button" id="topbar-actions-toggle" class="icon-button topbar-actions-toggle"
+                aria-label="展开顶部快捷操作" title="展开顶部快捷操作">
+                <span class="topbar-action-icon" aria-hidden="true">☰</span>
+                <span class="sr-only">顶部快捷操作</span>
+            </button>
             <div class="topbar-actions">
                 <button type="button" id="topbar-user-badge" class="topbar-user-badge hidden" aria-label="当前账号"
                     title="当前账号">
@@ -39,12 +44,42 @@
                         <strong id="topbar-user-badge-name" class="topbar-user-badge-name">--</strong>
                     </span>
                 </button>
-                <button type="button" id="topbar-history-toggle" class="icon-button" aria-expanded="false">历史对话</button>
-                <button type="button" id="open-suggestions" class="icon-button">匿名留言</button>
-                <button type="button" id="open-settings-drawer" class="icon-button">设置</button>
-                <button type="button" id="open-status-drawer" class="icon-button">状态</button>
+                <button type="button" id="topbar-history-toggle" class="icon-button topbar-action-button"
+                    aria-expanded="false" aria-label="历史对话" title="历史对话">
+                    <span class="topbar-action-icon" aria-hidden="true">◷</span>
+                    <span class="topbar-action-mini" aria-hidden="true">历史</span>
+                    <span class="sr-only">历史对话</span>
+                </button>
+                <button type="button" id="topbar-new-chat" class="icon-button topbar-action-button" aria-label="新对话"
+                    title="新对话">
+                    <span class="topbar-action-icon" aria-hidden="true">✦</span>
+                    <span class="topbar-action-mini" aria-hidden="true">新聊</span>
+                    <span class="sr-only">新对话</span>
+                </button>
+                <button type="button" id="open-suggestions" class="icon-button topbar-action-button" aria-label="匿名留言"
+                    title="匿名留言">
+                    <span class="topbar-action-icon" aria-hidden="true">✉</span>
+                    <span class="topbar-action-mini" aria-hidden="true">留言</span>
+                    <span class="sr-only">匿名留言</span>
+                </button>
+                <button type="button" id="open-settings-drawer" class="icon-button topbar-action-button" aria-label="设置"
+                    title="设置">
+                    <span class="topbar-action-icon" aria-hidden="true">⚙</span>
+                    <span class="topbar-action-mini" aria-hidden="true">设置</span>
+                    <span class="sr-only">设置</span>
+                </button>
+                <button type="button" id="open-status-drawer" class="icon-button topbar-action-button" aria-label="状态"
+                    title="状态">
+                    <span class="topbar-action-icon" aria-hidden="true">◴</span>
+                    <span class="topbar-action-mini" aria-hidden="true">状态</span>
+                    <span class="sr-only">状态</span>
+                </button>
                 <a id="homepage-link" href="/home/" target="_blank" rel="noreferrer"
-                    class="icon-button topbar-link">个人主页</a>
+                    class="icon-button topbar-link topbar-action-button" aria-label="个人主页" title="个人主页">
+                    <span class="topbar-action-icon" aria-hidden="true">⌂</span>
+                    <span class="topbar-action-mini" aria-hidden="true">主页</span>
+                    <span class="sr-only">个人主页</span>
+                </a>
             </div>
         </header>
 

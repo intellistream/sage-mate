@@ -9,6 +9,9 @@ const topbarServiceStatus = document.getElementById("topbar-service-status");
 const topbarUserCount = document.getElementById("topbar-user-count");
 const topbarQuestionCount = document.getElementById("topbar-question-count");
 const topbarModelStatus = document.getElementById("topbar-model-status");
+const topbarActionsToggleButton = document.getElementById("topbar-actions-toggle");
+const topbarActions = document.querySelector(".topbar-actions");
+const topbarShell = document.querySelector(".topbar");
 const topbarStatusSummary = document.getElementById("topbar-status-summary");
 const historyList = document.getElementById("history-list");
 const historyRailToggleButton = document.getElementById("history-rail-toggle");
@@ -63,6 +66,7 @@ const stopManagedServicesButton = document.getElementById("stop-managed-services
 const openKnowledgeButton = document.getElementById("open-knowledge");
 const openSuggestionsButton = document.getElementById("open-suggestions");
 const topbarHistoryToggleButton = document.getElementById("topbar-history-toggle");
+const topbarNewChatButton = document.getElementById("topbar-new-chat");
 const openBookingListButton = document.getElementById("open-booking-list");
 const openEscalationQueueButton = document.getElementById("open-escalation-queue");
 const openMemoryProfilesButton = document.getElementById("open-memory-profiles");
@@ -398,6 +402,9 @@ chatStream?.addEventListener("click", handleCopyAnswerClick);
 historyList?.addEventListener("click", handleConversationHistoryClick);
 historyRailToggleButton?.addEventListener("click", toggleHistoryRail);
 topbarHistoryToggleButton?.addEventListener("click", toggleHistoryRail);
+topbarNewChatButton?.addEventListener("click", startFreshConversation);
+topbarActionsToggleButton?.addEventListener("click", toggleMobileTopbarActions);
+topbarActions?.addEventListener("click", handleTopbarActionsClick);
 historyNewChatButton?.addEventListener("click", () => {
     startFreshConversation();
 });
@@ -1149,6 +1156,10 @@ function handleOutsideDrawerClick(event) {
     const target = event.target;
     if (!(target instanceof Element)) {
         return;
+    }
+
+    if (isMobileTopbarActionsOpen() && topbarShell && !topbarShell.contains(target)) {
+        closeMobileTopbarActions();
     }
 
     if (!isStatusDrawerClosed()) {
@@ -4088,7 +4099,8 @@ function setHistoryRailCollapsed(collapsed) {
         historyRailToggleButton.setAttribute("aria-expanded", String(!collapsed));
     }
     if (topbarHistoryToggleButton) {
-        topbarHistoryToggleButton.textContent = collapsed ? "历史对话" : "收起历史";
+        topbarHistoryToggleButton.setAttribute("aria-label", collapsed ? "历史对话" : "收起历史");
+        topbarHistoryToggleButton.setAttribute("title", collapsed ? "历史对话" : "收起历史");
         topbarHistoryToggleButton.setAttribute("aria-expanded", String(!collapsed));
     }
     try {
@@ -6435,6 +6447,7 @@ function closeModals() {
 
 function openSettingsDrawer() {
     closeWorkflowMobileSheet();
+    closeMobileTopbarActions();
     closeStatusDrawer();
     settingsDrawer.classList.remove("hidden");
     settingsDrawer.setAttribute("aria-hidden", "false");
@@ -6459,6 +6472,7 @@ function closeSettingsDrawer() {
 
 function openStatusDrawer() {
     closeWorkflowMobileSheet();
+    closeMobileTopbarActions();
     statusDrawer.classList.remove("hidden");
     statusDrawer.setAttribute("aria-hidden", "false");
     if (isDrawerOverlayViewport()) {
@@ -6518,6 +6532,37 @@ function isDrawerOverlayViewport() {
     } catch {
         return false;
     }
+}
+
+function isMobileTopbarActionsOpen() {
+    return document.body.classList.contains("mobile-topbar-actions-open");
+}
+
+function closeMobileTopbarActions() {
+    if (!isMobileTopbarActionsOpen()) {
+        return;
+    }
+    document.body.classList.remove("mobile-topbar-actions-open");
+    topbarActionsToggleButton?.setAttribute("aria-expanded", "false");
+}
+
+function toggleMobileTopbarActions(event) {
+    event?.stopPropagation();
+    const nextOpen = !isMobileTopbarActionsOpen();
+    document.body.classList.toggle("mobile-topbar-actions-open", nextOpen);
+    topbarActionsToggleButton?.setAttribute("aria-expanded", String(nextOpen));
+}
+
+function handleTopbarActionsClick(event) {
+    const target = event.target;
+    if (!(target instanceof Element)) {
+        return;
+    }
+    const action = target.closest("button,a");
+    if (!action) {
+        return;
+    }
+    closeMobileTopbarActions();
 }
 
 async function handleAdminLogout() {
