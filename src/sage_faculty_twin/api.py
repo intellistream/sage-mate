@@ -52,6 +52,8 @@ from .models import (
     KnowledgeGapDraftRecordResponse,
     KnowledgeSearchResponse,
     MemoryProfileListResponse,
+    OnlinePresenceHeartbeatRequest,
+    OnlinePresenceHeartbeatResponse,
     OperationsOverviewResponse,
     OperationsTaskStateRecord,
     OperationsTaskStateUpdateRequest,
@@ -497,6 +499,13 @@ async def user_logout(response: Response) -> UserSessionResponse:
 @llm_app.get("/health")
 async def health() -> dict[str, str]:
     return service.health()
+
+
+@llm_app.post("/presence/heartbeat", response_model=OnlinePresenceHeartbeatResponse)
+async def record_presence_heartbeat(
+    request: OnlinePresenceHeartbeatRequest,
+) -> OnlinePresenceHeartbeatResponse:
+    return service.record_online_presence(request)
 
 
 @llm_app.get("/availability", response_model=AvailabilitySchedule)

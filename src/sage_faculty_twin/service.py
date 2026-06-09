@@ -85,6 +85,8 @@ from .models import (
     MemoryProfileRecordResponse,
     NeuroMemOperationsSnapshot,
     NotificationDeliveryStatus,
+    OnlinePresenceHeartbeatRequest,
+    OnlinePresenceHeartbeatResponse,
     OperationsOverviewResponse,
     OperationsQueueSummary,
     OperationsSatisfactionSummary,
@@ -107,6 +109,7 @@ from .models import (
     WorkflowTraceStep,
 )
 from .notifications import BookingEmailNotifier, BookingNotificationError
+from .online_presence_store import OnlinePresenceStore
 from .operations_store import OperationsTaskStateStore
 from .persona import build_system_prompt
 from .planner_comparison_store import PlannerComparisonEntry, PlannerComparisonStore
@@ -4626,6 +4629,7 @@ class DigitalTwinService:
         self._planner_metrics_store = PlannerMetricsStore(settings)
         self._suggestion_store = SuggestionBoardStore(settings)
         self._user_store = UserAccountStore(settings)
+        self._online_presence_store = OnlinePresenceStore(settings)
         self._meeting_service = MeetingService(settings)
         self._email_notifier = BookingEmailNotifier(settings)
         self._runtime_manager = ServiceRuntimeManager(settings)
@@ -5689,6 +5693,29 @@ class DigitalTwinService:
     def get_managed_services(self) -> ServiceControlResponse:
         return self._runtime_manager.status()
 
+    def record_online_presence(
+        self,
+        request: OnlinePresenceHeartbeatRequest | dict[str, Any],
+    ) -> OnlinePresenceHeartbeatResponse:
+        normalized = (
+            request
+            if isinstance(request, OnlinePresenceHeartbeatRequest)
+            else OnlinePresenceHeartbeatRequest.model_validate(request)
+        )
+        snapshot = self._online_presence_store.record_heartbeat(
+            client_id=normalized.client_id,
+            conversation_id=normalized.conversation_id,
+            student_email=normalized.student_email,
+            is_authenticated=normalized.is_authenticated,
+            window_seconds=self._settings.online_presence_window_seconds,
+        )
+        return OnlinePresenceHeartbeatResponse(
+            window_seconds=snapshot.window_seconds,
+            online_visitors=snapshot.online_visitors,
+            online_authenticated_users=snapshot.online_authenticated_users,
+            active_conversations=snapshot.active_conversations,
+        )
+
     def control_managed_services(self, action: str) -> ServiceControlResponse:
         if action == "status":
             return self._runtime_manager.status()
@@ -5702,6 +5729,9 @@ class DigitalTwinService:
 
     def health(self) -> dict[str, str]:
         due_follow_ups = self._follow_up_store.list_due_actions()
+        presence_snapshot = self._online_presence_store.snapshot(
+            window_seconds=self._settings.online_presence_window_seconds
+        )
         neuromem_snapshot = self._conversation_store.runtime_snapshot()
         conversation_stats = dict(neuromem_snapshot.get("conversation_stats") or {})
         telemetry = dict(conversation_stats.get("telemetry") or {})
@@ -5759,6 +5789,10 @@ class DigitalTwinService:
             "planner_top_rejection_reason": top_rejection_reason,
             "planner_top_rejected_step": top_rejected_step,
             "registered_user_accounts": str(self._user_store.count_users()),
+            "online_window_seconds": str(presence_snapshot.window_seconds),
+            "online_visitors": str(presence_snapshot.online_visitors),
+            "online_authenticated_users": str(presence_snapshot.online_authenticated_users),
+            "online_active_conversations": str(presence_snapshot.active_conversations),
             "knowledge_gap_drafts": str(self._knowledge_gap_draft_store.count_drafts()),
             "escalation_queue_records": str(self._escalation_store.count_records()),
             "follow_up_queue_records": str(self._follow_up_store.count_actions()),

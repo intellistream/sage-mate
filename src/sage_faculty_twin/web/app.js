@@ -183,6 +183,8 @@ const VISITOR_PROFILE_STORAGE_KEY = "myTwinVisitorProfile";
 const CHAT_HISTORY_STORAGE_KEY = "myTwinConversationHistory";
 const CHAT_HISTORY_META_STORAGE_KEY = "myTwinConversationHistoryMeta";
 const HISTORY_RAIL_COLLAPSED_KEY = "myTwinHistoryRailCollapsed";
+const ONLINE_PRESENCE_CLIENT_KEY = "myTwinOnlinePresenceClientId";
+const ONLINE_PRESENCE_INTERVAL_MS = 30_000;
 const MAX_CHAT_HISTORY_ITEMS = 18;
 const DEFAULT_CONVERSATION_TITLE = "新对话";
 const LOCAL_API_PORT_CANDIDATES = ["55601", "8010", "8000"];
@@ -250,6 +252,7 @@ let serverConversationEntries = [];
 let conversationHistoryMeta = loadConversationHistoryMeta(conversationHistoryScope);
 let currentConversationTitle = DEFAULT_CONVERSATION_TITLE;
 let currentConversationPreview = "";
+let onlinePresenceHeartbeatTimer = null;
 let resolvedApiOrigin = typeof globalThis.__SAGE_FACULTY_TWIN_API_ORIGIN__ === "string"
     ? globalThis.__SAGE_FACULTY_TWIN_API_ORIGIN__.trim()
     : "";
@@ -409,6 +412,11 @@ workflowMobileCloseButton?.addEventListener("click", closeWorkflowMobileSheet);
 mobileWorkflowTrigger?.addEventListener("click", toggleWorkflowMobileSheet);
 workflowMobileBackdrop?.addEventListener("click", closeWorkflowMobileSheet);
 globalThis.addEventListener("resize", syncWorkflowViewportState);
+globalThis.document?.addEventListener("visibilitychange", () => {
+    if (globalThis.document.visibilityState === "visible") {
+        sendOnlinePresenceHeartbeat({ silent: true });
+    }
+});
 visitorProfileInput?.addEventListener("change", handleVisitorProfileChange);
 identityModal?.addEventListener("click", handleIdentityChoiceClick);
 document.getElementById("identity-user-login")?.addEventListener("click", () => {
@@ -1250,18 +1258,20 @@ function renderTopbarLiveStatus(data) {
     }
     if (!data) {
         renderTopbarLiveItem(topbarServiceStatus, "服务", "不可用", "请稍后刷新");
-        renderTopbarLiveItem(topbarUserCount, "注册用户", "--", "暂无统计");
+        renderTopbarLiveItem(topbarUserCount, "在线用户", "--", "暂无统计");
         renderTopbarLiveItem(topbarQuestionCount, "累计问答", "--", "暂无统计");
         renderTopbarLiveItem(topbarModelStatus, "模型请求", "未知", "未读取到运行数据");
         renderTopbarStatusSummary("运行信息：暂时不可用");
         return;
     }
     const modelSummary = buildModelRuntimeSummary(data);
+    const onlineVisitors = formatCount(data.online_visitors);
+    const onlineUsers = formatCount(data.online_authenticated_users);
     renderTopbarLiveItem(topbarServiceStatus, "服务", data.status === "ok" ? "在线" : data.status, data.sage_runtime || "SAGE runtime");
-    renderTopbarLiveItem(topbarUserCount, "注册用户", formatCount(data.registered_user_accounts), "已登记账号");
+    renderTopbarLiveItem(topbarUserCount, "在线用户", onlineVisitors, `登录 ${onlineUsers}`);
     renderTopbarLiveItem(topbarQuestionCount, "累计问答", formatCount(data.conversation_memory_records), "聊天记忆记录");
     renderTopbarLiveItem(topbarModelStatus, "模型请求", modelSummary.headline, modelSummary.detail);
-    renderTopbarStatusSummary(`运行信息：${data.status === "ok" ? "服务在线" : `状态 ${data.status}`} · ${formatCount(data.registered_user_accounts)} 用户 · ${formatCount(data.conversation_memory_records)} 问答`);
+    renderTopbarStatusSummary(`运行信息：${data.status === "ok" ? "服务在线" : `状态 ${data.status}`} · 在线 ${onlineVisitors} · 累计 ${formatCount(data.conversation_memory_records)} 问答`);
 }
 
 function renderTopbarStatusSummary(text) {
@@ -1284,17 +1294,23 @@ function renderOnlineOverview(data, errorMessage = "") {
     }
     if (!data) {
         onlineOverviewGrid.innerHTML = [
-            ["注册用户", "--"],
+            ["在线访客", "--"],
+            ["在线账号", "--"],
             ["累计询问", "--"],
             ["模型状态", "未知"],
-            ["待跟进", "--"],
+            ["活跃会话", "--"],
         ].map(renderOnlineOverviewItem).join("");
         onlineOverviewCopy.textContent = errorMessage || "暂时无法读取在线统计。";
         return;
     }
 
     const modelSummary = buildModelRuntimeSummary(data);
+    const onlineWindowSeconds = Number(data.online_window_seconds || 300);
+    const onlineWindowMinutes = Math.max(1, Math.round(onlineWindowSeconds / 60));
     const entries = [
+        ["在线访客", `${formatCount(data.online_visitors)} 人`],
+        ["在线账号", `${formatCount(data.online_authenticated_users)} 人`],
+        ["活跃会话", `${formatCount(data.online_active_conversations)} 个`],
         ["注册用户", `${formatCount(data.registered_user_accounts)} 个账号`],
         ["累计问答", `${formatCount(data.conversation_memory_records)} 条记录`],
         ["知识库资料", `${formatCount(data.knowledge_documents)} 篇`],
@@ -1306,7 +1322,68 @@ function renderOnlineOverview(data, errorMessage = "") {
     ];
     onlineOverviewGrid.innerHTML = entries.map(renderOnlineOverviewItem).join("");
     const runtime = data.sage_runtime || "SAGE runtime";
-    onlineOverviewCopy.textContent = `${runtime} · ${modelSummary.detail} · 缓存项 ${formatCount(data.llm_cache_entries)}，缓存命中 ${formatCount(data.llm_cache_hit_count)} 次。`;
+    onlineOverviewCopy.textContent = `${runtime} · 在线窗口 ${onlineWindowMinutes} 分钟 · ${modelSummary.detail} · 缓存项 ${formatCount(data.llm_cache_entries)}，缓存命中 ${formatCount(data.llm_cache_hit_count)} 次。`;
+}
+
+function resolveOnlinePresenceClientId() {
+    try {
+        const existing = globalThis.localStorage?.getItem(ONLINE_PRESENCE_CLIENT_KEY);
+        if (existing && existing.trim()) {
+            return existing;
+        }
+        const created = createConversationId();
+        globalThis.localStorage?.setItem(ONLINE_PRESENCE_CLIENT_KEY, created);
+        return created;
+    } catch {
+        return createConversationId();
+    }
+}
+
+function resolvePresenceEmail() {
+    if (isUserAuthenticated && currentUserAccountEmail) {
+        return currentUserAccountEmail;
+    }
+    const rawEmail = studentEmailInput?.value?.trim();
+    if (!rawEmail) {
+        return "";
+    }
+    return rawEmail.toLowerCase();
+}
+
+async function sendOnlinePresenceHeartbeat({ silent = true } = {}) {
+    const payload = {
+        client_id: resolveOnlinePresenceClientId(),
+        conversation_id: activeConversationId || "",
+        student_email: resolvePresenceEmail(),
+        is_authenticated: Boolean(isUserAuthenticated),
+    };
+    try {
+        return await apiRequest("/presence/heartbeat", {
+            method: "POST",
+            body: JSON.stringify(payload),
+            timeoutMs: 5000,
+        });
+    } catch (error) {
+        if (!silent) {
+            console.warn("presence heartbeat failed", error);
+        }
+        return null;
+    }
+}
+
+function startOnlinePresenceHeartbeat() {
+    if (onlinePresenceHeartbeatTimer !== null) {
+        globalThis.clearInterval(onlinePresenceHeartbeatTimer);
+        onlinePresenceHeartbeatTimer = null;
+    }
+
+    sendOnlinePresenceHeartbeat({ silent: true });
+    onlinePresenceHeartbeatTimer = globalThis.setInterval(() => {
+        if (globalThis.document?.visibilityState === "hidden") {
+            return;
+        }
+        sendOnlinePresenceHeartbeat({ silent: true });
+    }, ONLINE_PRESENCE_INTERVAL_MS);
 }
 
 function renderOnlineOverviewItem([label, value]) {
@@ -6587,19 +6664,7 @@ async function initializePage() {
     applyStoredVisitorProfile();
     applyVisitorProfilePresentation({ syncCourseContext: true });
     markPresentationReady();
-    await refreshStatus();
-    await refreshSession();
-    await refreshUserSession();
-    applyVisitorProfilePresentation({ syncCourseContext: true });
-    maybeOpenVisitorIdentityPrompt();
-}
-
-initializePage();
-async function initializePage() {
-    renderConversationHistoryList();
-    applyStoredVisitorProfile();
-    applyVisitorProfilePresentation({ syncCourseContext: true });
-    markPresentationReady();
+    startOnlinePresenceHeartbeat();
     await refreshStatus();
     await refreshSession();
     await refreshUserSession();

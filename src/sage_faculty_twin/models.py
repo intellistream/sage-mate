@@ -29,6 +29,20 @@ class ChatRequest(BaseModel):
     deep_thinking_explicit: bool = Field(default=False)
 
 
+class OnlinePresenceHeartbeatRequest(BaseModel):
+    client_id: str = Field(min_length=1, max_length=128)
+    conversation_id: str | None = Field(default=None, max_length=128)
+    student_email: str | None = Field(default=None, max_length=256)
+    is_authenticated: bool = Field(default=False)
+
+
+class OnlinePresenceHeartbeatResponse(BaseModel):
+    window_seconds: int = Field(ge=60)
+    online_visitors: int = Field(ge=0)
+    online_authenticated_users: int = Field(ge=0)
+    active_conversations: int = Field(ge=0)
+
+
 class InteractionIntent(BaseModel):
     action: str = Field(
         default="answer",
