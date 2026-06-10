@@ -26,6 +26,28 @@
   a Pydantic `BaseModel` (e.g. `ChatResponse`) was shredded into one packet
   per `(field_name, value)` pair downstream of any non-linear topology.
 
+## v3.0.0 - 2026-06-10
+
+`v3.0.0` marks the first governed planning release (`V3.0: Read-Only Planner Preview`).
+
+### Added
+
+- Added admin replay report API `GET /workflow/replay` with deterministic planner scenario summary.
+- Added operations-console Workflow Replay quality board with pass/fail summary, scenario highlights,
+  and step chips for quick operator diagnosis.
+
+### Changed
+
+- Promoted package/app version metadata to `3.0.0` and updated frontend cache-busting tokens.
+- Updated in-app bottom-right version badge to `v3.0.0`.
+- Hardened V3 planner boundary test to avoid host-dependent Neuromem/FAISS embedding initialization,
+  keeping regression checks stable in offline environments.
+
+### Validation
+
+- `node --check src/sage_faculty_twin/web/app.js`
+- Live admin smoke validation for `/workflow/replay` (planner version, policy version, and scenario pass summary).
+
 ## v2.0.2 - 2026-06-10
 
 `v2.0.2` is a quick stabilization patch focused on pre-v3 release hygiene and

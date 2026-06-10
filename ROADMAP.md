@@ -331,6 +331,15 @@ Before implementation starts on dynamic workflow planning, the repo should satis
 observable operations, predefined workflow templates, stable policy data, and enough evaluation
 cases to judge whether a generated plan is better than a fixed template.
 
+### V3.0 Status (2026-06-10)
+
+`V3.0: Read-Only Planner Preview` is completed as the `v3.0.0` baseline:
+
+- Deterministic planner and policy validation are wired into live workflow trace metadata.
+- Canonical replay scenarios are executable and exposed through admin API `GET /workflow/replay`.
+- Operations console includes a Workflow Replay quality board for operator-visible pass/fail review.
+- Live behavior keeps fallback-safe execution boundaries, preserving V2 operational stability.
+
 The important design choice is that V3 is not an unconstrained agent that invents code or freely
 calls tools. It is a planner that assembles an approved workflow graph from registered steps,
 validated policy, and bounded side-effect rules. The generated plan should be understandable before

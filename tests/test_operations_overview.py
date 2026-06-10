@@ -26,6 +26,7 @@ from sage_faculty_twin.suggestion_store import SuggestionBoardStore
 
 
 client = TestClient(app)
+service = service.ensure_initialized()
 
 
 @pytest.fixture

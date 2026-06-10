@@ -238,7 +238,7 @@ def test_collaboration_follow_up_infers_collaboration_mode_and_recurring_journey
 
 
 def test_normal_user_admin_style_request_routes_to_boundary_explanation() -> None:
-    settings = AppSettings()
+    settings = AppSettings(knowledge_backend="local", neuromem_index_type="bm25")
     service = DigitalTwinService(settings)
 
     decision = service.preview_workflow_plan(
