@@ -170,6 +170,8 @@ const operationsWindow = document.getElementById("operations-window");
 const operationsResponse = document.getElementById("operations-response");
 const operationsSummary = document.getElementById("operations-summary");
 const operationsQueues = document.getElementById("operations-queues");
+const operationsWorkflowReplaySummary = document.getElementById("operations-workflow-replay-summary");
+const operationsWorkflowReplayList = document.getElementById("operations-workflow-replay-list");
 const operationsTasks = document.getElementById("operations-tasks");
 const operationsBookings = document.getElementById("operations-bookings");
 const operationsStudentProfiles = document.getElementById("operations-student-profiles");
@@ -2246,7 +2248,14 @@ async function loadOperationsWorkbench() {
     renderOperationsLoadingState();
 
     try {
-        const data = await apiRequest(`/operations/workbench?days=${encodeURIComponent(days)}&limit=6`);
+        const [workbenchResult, workflowReplayResult] = await Promise.allSettled([
+            apiRequest(`/operations/workbench?days=${encodeURIComponent(days)}&limit=6`),
+            apiRequest("/workflow/replay"),
+        ]);
+        if (workbenchResult.status !== "fulfilled") {
+            throw new Error(workbenchResult.reason?.message || "运营后台加载失败，请稍后重试。");
+        }
+        const data = workbenchResult.value;
         renderOperationsSummary(data.overview || {});
         renderOperationsQueues(data.overview?.queues || []);
         renderOperationsTasks(data.operational_tasks || []);
@@ -2261,6 +2270,13 @@ async function loadOperationsWorkbench() {
         renderOperationsEscalations(data.escalations || []);
         renderOperationsFollowUps(data.follow_up_actions || []);
         renderOperationsSuggestions(data.anonymous_suggestions || []);
+        if (workflowReplayResult.status === "fulfilled") {
+            renderOperationsWorkflowReplay(workflowReplayResult.value || {});
+        } else {
+            renderOperationsWorkflowReplayError(
+                workflowReplayResult.reason?.message || "Workflow replay 拉取失败。"
+            );
+        }
         setInlineStatus(operationsResponse, `已加载最近 ${days} 天运营后台。`, "success");
     } catch (error) {
         renderOperationsErrorState(error.message);
@@ -2272,6 +2288,12 @@ function renderOperationsLoadingState() {
     const loadingCard = '<div class="list-card"><p class="list-body">正在加载运营数据...</p></div>';
     if (operationsSummary) {
         operationsSummary.innerHTML = "";
+    }
+    if (operationsWorkflowReplaySummary) {
+        operationsWorkflowReplaySummary.innerHTML = "";
+    }
+    if (operationsWorkflowReplayList) {
+        operationsWorkflowReplayList.innerHTML = loadingCard;
     }
     if (operationsQueues) {
         operationsQueues.innerHTML = loadingCard;
@@ -2285,11 +2307,80 @@ function renderOperationsLoadingState() {
 
 function renderOperationsErrorState(message) {
     const errorCard = `<div class="list-card"><p class="list-body">${escapeHtml(message)}</p></div>`;
+    if (operationsWorkflowReplaySummary) {
+        operationsWorkflowReplaySummary.innerHTML = "";
+    }
+    if (operationsWorkflowReplayList) {
+        operationsWorkflowReplayList.innerHTML = errorCard;
+    }
     [operationsQueues, operationsTasks, operationsBookings, operationsStudentProfiles, operationsSatisfaction, operationsGaps, operationsArtifactDrafts, operationsEscalations, operationsFollowUps, operationsSuggestions].forEach((element) => {
         if (element) {
             element.innerHTML = errorCard;
         }
     });
+}
+
+function renderOperationsWorkflowReplay(report) {
+    if (!operationsWorkflowReplaySummary || !operationsWorkflowReplayList) {
+        return;
+    }
+    const totalScenarios = Number(report.total_scenarios || 0);
+    const passedScenarios = Number(report.passed_scenarios || 0);
+    const failedScenarios = Number(report.failed_scenarios || 0);
+    const passRate = totalScenarios > 0 ? `${Math.round((passedScenarios / totalScenarios) * 100)}%` : "0%";
+    operationsWorkflowReplaySummary.innerHTML = [
+        `规划器 ${escapeHtml(String(report.planner_version || "--"))}`,
+        `策略 ${escapeHtml(String(report.policy_version || "--"))}`,
+        `场景 ${escapeHtml(String(totalScenarios))}`,
+        `通过 ${escapeHtml(String(passedScenarios))}`,
+        `失败 ${escapeHtml(String(failedScenarios))}`,
+        `通过率 ${escapeHtml(passRate)}`,
+    ]
+        .map((entry) => `<span class="memory-profile-chip">${entry}</span>`)
+        .join("");
+
+    const results = Array.isArray(report.results) ? report.results : [];
+    if (!results.length) {
+        operationsWorkflowReplayList.innerHTML = '<div class="list-card"><p class="list-body">当前没有 workflow replay 场景结果。</p></div>';
+        return;
+    }
+
+    const failedResults = results.filter((item) => !item?.passed);
+    const displayResults = (failedResults.length ? failedResults : results).slice(0, 6);
+    operationsWorkflowReplayList.innerHTML = displayResults
+        .map((item) => {
+            const stepIds = Array.isArray(item.step_ids) ? item.step_ids : [];
+            const stepChips = stepIds.length
+                ? `<div class="operations-workflow-steps">${stepIds
+                    .slice(0, 8)
+                    .map((stepId) => `<span class="operations-workflow-step-chip">${escapeHtml(stepId)}</span>`)
+                    .join("")}</div>`
+                : "";
+            const errors = Array.isArray(item.errors) ? item.errors : [];
+            const statusClass = item.passed ? "status-badge-confirmed" : "status-badge-rejected";
+            const statusLabel = item.passed ? "通过" : "失败";
+            return `
+                <article class="list-card list-card-analytics">
+                    <h3>${escapeHtml(item.title || item.scenario_id || "未命名场景")}</h3>
+                    <p class="list-meta">${escapeHtml(item.scenario_id || "unknown")} | 目标 ${escapeHtml(item.goal || "--")}</p>
+                    <p class="list-body">fallback: ${escapeHtml(item.fallback_template || "--")} | 接受执行: ${item.accepted ? "是" : "否"}</p>
+                    ${errors.length ? `<p class="list-body analytics-secondary-copy">${escapeHtml(errors[0])}</p>` : ""}
+                    ${stepChips}
+                    <div class="list-card-actions">
+                        <span class="status-badge ${statusClass}">${statusLabel}</span>
+                    </div>
+                </article>
+            `;
+        })
+        .join("");
+}
+
+function renderOperationsWorkflowReplayError(message) {
+    if (!operationsWorkflowReplaySummary || !operationsWorkflowReplayList) {
+        return;
+    }
+    operationsWorkflowReplaySummary.innerHTML = "";
+    operationsWorkflowReplayList.innerHTML = `<div class="list-card"><p class="list-body">${escapeHtml(message)}</p></div>`;
 }
 
 function renderOperationsSummary(overview) {
@@ -6625,6 +6716,8 @@ async function handleAdminLogout() {
         memoryProfilesSummary.innerHTML = "";
         memoryProfilesList.innerHTML = "";
         operationsSummary.innerHTML = "";
+        operationsWorkflowReplaySummary.innerHTML = "";
+        operationsWorkflowReplayList.innerHTML = "";
         operationsQueues.innerHTML = "";
         operationsTasks.innerHTML = "";
         operationsBookings.innerHTML = "";

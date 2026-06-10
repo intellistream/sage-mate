@@ -2577,8 +2577,31 @@ label span {
     border-radius: 20px;
 }
 
-.operations-workbench-grid>section:first-child {
+.operations-workbench-grid>section.operations-section-wide {
     grid-column: 1 / -1;
+}
+
+.operations-workflow-replay-list {
+    display: grid;
+    gap: 10px;
+}
+
+.operations-workflow-steps {
+    margin: 10px 0 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.operations-workflow-step-chip {
+    display: inline-flex;
+    align-items: center;
+    padding: 4px 10px;
+    border-radius: 999px;
+    border: 1px solid rgba(22, 35, 56, 0.12);
+    background: rgba(255, 255, 255, 0.7);
+    color: var(--ink);
+    font-size: 0.78rem;
 }
 
 .operations-subsection-title {
