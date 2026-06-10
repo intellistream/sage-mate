@@ -96,11 +96,14 @@ def test_operations_overview_requires_admin_session(isolated_operations_stores) 
 
     overview_response = client.get("/operations/overview")
     workbench_response = client.get("/operations/workbench")
+    replay_response = client.get("/workflow/replay")
 
     assert overview_response.status_code == 403
     assert overview_response.json()["detail"] == "需要管理员身份验证。"
     assert workbench_response.status_code == 403
     assert workbench_response.json()["detail"] == "需要管理员身份验证。"
+    assert replay_response.status_code == 403
+    assert replay_response.json()["detail"] == "需要管理员身份验证。"
 
 
 def test_operations_overview_aggregates_existing_work_queues(
@@ -298,6 +301,29 @@ def test_operations_overview_includes_neuromem_runtime_snapshot(
     assert telemetry["query_count"] >= 1
     assert telemetry["write_count"] >= 1
     assert any(event["event_type"] == "retrieve" for event in neuromem["recent_events"])
+
+
+def test_workflow_replay_report_returns_v3_summary(isolated_operations_stores) -> None:
+    client.cookies.clear()
+
+    login_response = client.post(
+        "/auth/admin/login",
+        json={"username": settings.admin_username, "password": settings.admin_password},
+    )
+    assert login_response.status_code == 200
+
+    response = client.get("/workflow/replay")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["planner_version"] == "v3.0.0"
+    assert payload["policy_version"] == "faculty-default-2026-05"
+    assert payload["scenario_source"].endswith("data/workflow_scenarios/v3_preview_scenarios.json")
+    assert payload["total_scenarios"] >= 7
+    assert payload["passed_scenarios"] == payload["total_scenarios"]
+    assert payload["failed_scenarios"] == 0
+    assert payload["results"]
+    assert all(item["passed"] for item in payload["results"])
 
 
 def test_operations_overview_includes_memory_usefulness_summary(

@@ -63,6 +63,7 @@ from .models import (
     UserLoginRequest,
     UserRegisterRequest,
     UserSessionResponse,
+    WorkflowReplayReportResponse,
 )
 from .history_auth import resolve_authenticated_history_email
 from .service import DigitalTwinService
@@ -793,6 +794,13 @@ async def get_operations_workbench(
     _: dict = Depends(require_admin_session),
 ) -> OperationsWorkbenchResponse:
     return service.get_operations_workbench(days=days, limit=limit)
+
+
+@llm_app.get("/workflow/replay", response_model=WorkflowReplayReportResponse)
+async def get_workflow_replay_report(
+    _: dict = Depends(require_admin_session),
+) -> WorkflowReplayReportResponse:
+    return service.get_workflow_replay_report()
 
 
 @llm_app.patch("/operations/tasks/{task_key}", response_model=OperationsTaskStateRecord)

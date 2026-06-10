@@ -580,6 +580,28 @@ class OperationsWorkbenchResponse(BaseModel):
     question_analytics: QuestionAnalyticsReportResponse
 
 
+class WorkflowReplayScenarioResultResponse(BaseModel):
+    scenario_id: str = Field(min_length=1, max_length=64)
+    title: str = Field(min_length=1, max_length=256)
+    passed: bool
+    accepted: bool
+    goal: str = Field(min_length=1, max_length=128)
+    fallback_template: str = Field(min_length=1, max_length=64)
+    step_ids: list[str] = Field(default_factory=list)
+    errors: list[str] = Field(default_factory=list)
+
+
+class WorkflowReplayReportResponse(BaseModel):
+    generated_at: datetime
+    planner_version: str = Field(min_length=1, max_length=32)
+    policy_version: str = Field(min_length=1, max_length=64)
+    scenario_source: str = Field(min_length=1, max_length=512)
+    total_scenarios: int = Field(default=0, ge=0)
+    passed_scenarios: int = Field(default=0, ge=0)
+    failed_scenarios: int = Field(default=0, ge=0)
+    results: list[WorkflowReplayScenarioResultResponse] = Field(default_factory=list)
+
+
 class KnowledgeGapDraftCreateRequest(BaseModel):
     cluster_id: str = Field(min_length=1, max_length=128)
     days: int = Field(default=7, ge=1, le=90)

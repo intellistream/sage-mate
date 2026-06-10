@@ -104,6 +104,8 @@ from .models import (
     UserLoginRequest,
     UserRegisterRequest,
     UserSessionResponse,
+    WorkflowReplayReportResponse,
+    WorkflowReplayScenarioResultResponse,
     WorkflowPlanComparison,
     WorkflowPlanPreview,
     WorkflowTraceStep,
@@ -118,6 +120,11 @@ from .service_runtime import ServiceRuntimeManager
 from .suggestion_store import SuggestionBoardStore
 from .user_store import UserAccountStore
 from .workflow_context import WorkflowRequestContext
+from .workflow_eval import (
+    default_scenarios_path,
+    evaluate_workflow_replay_scenarios,
+    load_workflow_replay_scenarios,
+)
 from .workflow_planner import DeterministicWorkflowPlanner, PlannerDecision
 
 _FLOWNET_TICK = "__flownet_tick__"
@@ -5607,6 +5614,37 @@ class DigitalTwinService:
             follow_up_actions=self._follow_up_store.list_actions(status="queued")[:limit],
             anonymous_suggestions=self._suggestion_store.list_suggestions(limit=limit),
             question_analytics=self.get_question_analytics_report(days=days),
+        )
+
+    def get_workflow_replay_report(self) -> WorkflowReplayReportResponse:
+        scenarios = load_workflow_replay_scenarios()
+        scenario_titles = {
+            scenario.scenario_id: scenario.title for scenario in scenarios
+        }
+        results = evaluate_workflow_replay_scenarios(self._workflow_planner, scenarios)
+        response_results = [
+            WorkflowReplayScenarioResultResponse(
+                scenario_id=result.scenario_id,
+                title=scenario_titles.get(result.scenario_id, result.scenario_id),
+                passed=result.passed,
+                accepted=result.decision.accepted,
+                goal=result.decision.plan.goal,
+                fallback_template=result.decision.plan.fallback_template,
+                step_ids=[step.step_id for step in result.decision.plan.steps],
+                errors=list(result.errors),
+            )
+            for result in results
+        ]
+        passed_scenarios = sum(1 for result in response_results if result.passed)
+        return WorkflowReplayReportResponse(
+            generated_at=datetime.now(UTC),
+            planner_version=self._workflow_planner.planner_version,
+            policy_version=self._workflow_planner.policy_version,
+            scenario_source=str(default_scenarios_path()),
+            total_scenarios=len(response_results),
+            passed_scenarios=passed_scenarios,
+            failed_scenarios=len(response_results) - passed_scenarios,
+            results=response_results,
         )
 
     def create_knowledge_gap_draft(
