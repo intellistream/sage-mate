@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
+import inspect
 import logging
 import os
 import re
@@ -104,6 +105,7 @@ from .models import (
     UserLoginRequest,
     UserRegisterRequest,
     UserSessionResponse,
+    WebSearchHit,
     WorkflowReplayReportResponse,
     WorkflowReplayScenarioResultResponse,
     WorkflowPlanComparison,
@@ -118,6 +120,7 @@ from .planner_comparison_store import PlannerComparisonEntry, PlannerComparisonS
 from .planner_metrics_store import PlannerMetricsStore
 from .service_runtime import ServiceRuntimeManager
 from .suggestion_store import SuggestionBoardStore
+from .tavily_search import TavilySearchClient
 from .user_store import UserAccountStore
 from .workflow_context import WorkflowRequestContext
 from .workflow_eval import (
@@ -248,6 +251,20 @@ _PREVIOUS_ANSWER_QUERY_PATTERNS = (
     re.compile(r"^(你)?(刚刚|刚才|上一条|上一个|前一个|前面)(回答|回复)(的内容|的)?是什么$"),
     re.compile(r"^(我)?上一条(收到)?的回答是什么$"),
 )
+_WEB_SEARCH_QUERY_MARKERS = (
+    "最新",
+    "今天",
+    "实时",
+    "刚刚",
+    "新闻",
+    "政策更新",
+    "会议截稿",
+    "deadline",
+    "breaking",
+    "recent",
+    "update",
+    "today",
+)
 
 
 @dataclass
@@ -283,6 +300,7 @@ class ChatWorkflowContext:
     pending_clarification_message: str | None = None
     pending_fields: list[str] = field(default_factory=list)
     knowledge_hits: list[KnowledgeSearchHit] = field(default_factory=list)
+    web_search_hits: list[WebSearchHit] = field(default_factory=list)
     memory_hits: list[ConversationMemoryHit] = field(default_factory=list)
     booking_state: BookingWorkflowState | None = None
     booking_result: BookingResponse | None = None
@@ -383,6 +401,12 @@ class FacultyTwinWorkflowSupport:
         self._shadow_planner_status = shadow_planner_status
         self._shadow_planner_message = shadow_planner_message
         self._planner_comparison = planner_comparison
+        tavily_token = settings.tavily_token.strip() or os.environ.get("TAVILY_TOKEN", "").strip()
+        self._web_search_client = TavilySearchClient(
+            tavily_token,
+            timeout_seconds=settings.web_search_timeout_seconds,
+            max_results=settings.web_search_max_results,
+        )
 
     def bootstrap_chat(self, request: ChatRequest) -> ChatWorkflowContext:
         started_at = perf_counter()
@@ -843,19 +867,99 @@ class FacultyTwinWorkflowSupport:
             )
             return context
 
+        context.web_search_hits = self._retrieve_web_search_hits(
+            context,
+            interaction_intent=interaction_intent,
+            local_hit_count=hit_count,
+            local_top_score=top_score,
+        )
+        web_hit_count = len(context.web_search_hits)
+
         self._append_trace(
             context,
             key="knowledge_retrieve",
             title="知识检索",
-            summary=(f"命中 {hit_count} 条相关资料。" if hit_count else "没有命中直接相关资料。"),
+            summary=(
+                f"命中本地 {hit_count} 条资料，联网补充 {web_hit_count} 条。"
+                if (hit_count or web_hit_count)
+                else "没有命中直接相关资料。"
+            ),
             detail=(
-                f"检索到 {hit_count} 条相关材料，意图域为 {interaction_intent.domain}，top得分 {top_score:.1f}，准备构造回答上下文。"
-                if hit_count
+                (
+                    f"本地命中 {hit_count} 条，联网补充 {web_hit_count} 条；"
+                    f"意图域 {interaction_intent.domain}，本地 top 得分 {top_score:.1f}。"
+                )
+                if (hit_count or web_hit_count)
                 else "未检索到直接相关材料，将基于角色设定直接回答。"
             ),
             duration_ms=self._elapsed_ms(started_at),
         )
         return context
+
+    def _should_run_web_search(
+        self,
+        context: ChatWorkflowContext,
+        *,
+        local_hit_count: int,
+        local_top_score: float,
+    ) -> bool:
+        if not self._settings.web_search_enabled or not self._web_search_client.enabled:
+            return False
+
+        if bool(getattr(context.request, "web_search", False)):
+            return True
+
+        if not self._settings.web_search_auto_trigger:
+            return False
+
+        question = str(context.request.question or "")
+        lowered = question.lower()
+        asks_realtime = any(marker in question or marker in lowered for marker in _WEB_SEARCH_QUERY_MARKERS)
+        if not asks_realtime:
+            return False
+
+        # Keep local knowledge as first-class. Auto web search only when local
+        # grounding is weak.
+        return local_hit_count == 0 or local_top_score < 8.0
+
+    def _retrieve_web_search_hits(
+        self,
+        context: ChatWorkflowContext,
+        *,
+        interaction_intent: InteractionIntent,
+        local_hit_count: int,
+        local_top_score: float,
+    ) -> list[WebSearchHit]:
+        if not self._should_run_web_search(
+            context,
+            local_hit_count=local_hit_count,
+            local_top_score=local_top_score,
+        ):
+            return []
+
+        query = self._build_knowledge_query(
+            context.request,
+            interaction_intent,
+            context.recent_session_context,
+        )
+        try:
+            raw_hits = self._web_search_client.search(
+                query,
+                max_results=self._settings.web_search_max_results,
+            )
+        except Exception as exc:
+            _logger.warning("Tavily web search failed: %s", exc)
+            return []
+
+        return [
+            WebSearchHit(
+                title=hit.title,
+                url=hit.url,
+                snippet=hit.snippet,
+                score=hit.score,
+            )
+            for hit in raw_hits
+        ]
 
     def retrieve_memory(self, context: ChatWorkflowContext) -> ChatWorkflowContext:
         started_at = perf_counter()
@@ -1047,6 +1151,7 @@ class FacultyTwinWorkflowSupport:
         def _build(
             mem: list[ConversationMemoryHit],
             know: list[KnowledgeSearchHit],
+            web_hits: list[WebSearchHit],
             atts: list[ChatAttachment],
         ) -> str:
             base_attachments = list(getattr(context.request, "attachments", None) or [])
@@ -1057,12 +1162,13 @@ class FacultyTwinWorkflowSupport:
             return self._build_student_prompt(
                 request_for_prompt,
                 know,
+                web_hits,
                 mem,
                 context.interaction_intent,
                 recent_session_context=context.recent_session_context,
             )
 
-        user_prompt = _build(memory_hits, knowledge_hits, attachments)
+        user_prompt = _build(memory_hits, knowledge_hits, context.web_search_hits, attachments)
         cap = _PROMPT_SOFT_CAP
 
         def _over_cap() -> bool:
@@ -1073,7 +1179,7 @@ class FacultyTwinWorkflowSupport:
             original_count = len(memory_hits)
             memory_hits = memory_hits[:_PROMPT_MEMORY_HIT_KEEP]
             truncation_actions.append(f"memory({original_count}→{_PROMPT_MEMORY_HIT_KEEP})")
-            user_prompt = _build(memory_hits, knowledge_hits, attachments)
+            user_prompt = _build(memory_hits, knowledge_hits, context.web_search_hits, attachments)
 
         # (b) Cap each knowledge hit excerpt at the configured length.
         if _over_cap():
@@ -1092,7 +1198,7 @@ class FacultyTwinWorkflowSupport:
             if capped_count:
                 knowledge_hits = new_knowledge
                 truncation_actions.append(f"knowledge≤{_KNOWLEDGE_HIT_BODY_CAP}({capped_count})")
-                user_prompt = _build(memory_hits, knowledge_hits, attachments)
+                user_prompt = _build(memory_hits, knowledge_hits, context.web_search_hits, attachments)
 
         # (c) Cap each attachment text body at the configured length.
         if _over_cap():
@@ -1113,7 +1219,7 @@ class FacultyTwinWorkflowSupport:
             if capped_count:
                 attachments = new_attachments
                 truncation_actions.append(f"attachment≤{_ATTACHMENT_BODY_CAP}({capped_count})")
-                user_prompt = _build(memory_hits, knowledge_hits, attachments)
+                user_prompt = _build(memory_hits, knowledge_hits, context.web_search_hits, attachments)
 
         context.user_prompt = user_prompt
         context.prompt_truncated = bool(truncation_actions)
@@ -1319,14 +1425,14 @@ class FacultyTwinWorkflowSupport:
 
         enable_thinking = self._should_enable_deep_thinking(context)
         if self._answer_chunk_callback is not None:
-            context.answer = self._llm_client.answer_question_sync(
+            context.answer = self._call_answer_question_sync(
                 context.system_prompt,
                 context.user_prompt,
                 token_callback=self._answer_chunk_callback,
                 enable_thinking=enable_thinking,
             )
         else:
-            context.answer = self._llm_client.answer_question_sync(
+            context.answer = self._call_answer_question_sync(
                 context.system_prompt,
                 context.user_prompt,
                 enable_thinking=enable_thinking,
@@ -1351,6 +1457,26 @@ class FacultyTwinWorkflowSupport:
             duration_ms=self._elapsed_ms(started_at),
         )
         return context
+
+    def _call_answer_question_sync(
+        self,
+        system_prompt: str,
+        user_prompt: str,
+        *,
+        token_callback: Callable[[str], None] | None = None,
+        enable_thinking: bool,
+    ) -> str:
+        """Call answer_question_sync with capability-aware keyword arguments."""
+        answer_fn = self._llm_client.answer_question_sync
+        signature = inspect.signature(answer_fn)
+        kwargs: dict[str, Any] = {}
+
+        if token_callback is not None and "token_callback" in signature.parameters:
+            kwargs["token_callback"] = token_callback
+        if "enable_thinking" in signature.parameters:
+            kwargs["enable_thinking"] = enable_thinking
+
+        return answer_fn(system_prompt, user_prompt, **kwargs)
 
     def _should_enable_deep_thinking(self, context: ChatWorkflowContext) -> bool:
         # Chat Latency Optimizations Task 5: when an ``answer_chunk_callback``
@@ -1535,6 +1661,7 @@ class FacultyTwinWorkflowSupport:
                 else None
             ),
             knowledge_hits=context.knowledge_hits,
+            web_search_hits=context.web_search_hits,
             answer_basis=self._build_answer_basis(context),
             follow_up_actions=context.follow_up_actions,
             conversation_id=context.conversation_id,
@@ -2206,6 +2333,7 @@ class FacultyTwinWorkflowSupport:
         self,
         request: ChatRequest,
         knowledge_hits: list[KnowledgeSearchHit],
+        web_search_hits: list[WebSearchHit] | None = None,
         memory_hits: list[ConversationMemoryHit] | None = None,
         interaction_intent: InteractionIntent | None = None,
         recent_session_context: str | None = None,
@@ -2224,6 +2352,7 @@ class FacultyTwinWorkflowSupport:
             request.question, knowledge_hits, interaction_intent
         )
         knowledge_context = self._format_knowledge_context(prompt_hits)
+        web_search_context = self._format_web_search_context(web_search_hits or [])
         intent_guidance = self._build_intent_guidance(interaction_intent)
         profile_grounding_guidance = self._build_profile_grounding_guidance(
             request, interaction_intent
@@ -2256,6 +2385,7 @@ class FacultyTwinWorkflowSupport:
             f"{resolved_recent_session_context}"
             f"{memory_context}"
             f"{knowledge_context}"
+            f"{web_search_context}"
             f"Question: {request.question}\n"
             "Respond as the digital twin of the faculty owner. Keep the answer grounded and concise. "
             "If the current question is a follow-up that refers to 刚才, 前面, 上一个, this, that, it, or an omitted subject, resolve it against the immediate session context first. "
@@ -2431,6 +2561,21 @@ class FacultyTwinWorkflowSupport:
             sections.append(
                 f"{index}. {hit.title}{source_suffix}\nExcerpt: {hit.excerpt}\nTags: {', '.join(hit.tags) if hit.tags else 'none'}"
             )
+        return "\n".join(sections) + "\n"
+
+    def _format_web_search_context(self, web_search_hits: list[WebSearchHit]) -> str:
+        if not web_search_hits:
+            return ""
+
+        sections = [
+            "Real-time web search results (Tavily):",
+            "Use these results only when they directly support the user's current question.",
+        ]
+        for index, hit in enumerate(web_search_hits, start=1):
+            snippet = hit.snippet.strip()
+            sections.append(f"{index}. {hit.title} | source: {hit.url}")
+            if snippet:
+                sections.append(f"Snippet: {snippet}")
         return "\n".join(sections) + "\n"
 
     _IDENTITY_QUESTION_PATTERN = re.compile(
@@ -3273,6 +3418,16 @@ class FacultyTwinWorkflowSupport:
 
         for hit in context.knowledge_hits[:3]:
             basis_items.append(self._build_knowledge_basis_item(hit))
+
+        for hit in context.web_search_hits[:2]:
+            basis_items.append(
+                AnswerBasisItem(
+                    basis_label="联网检索",
+                    title=self._clip_basis_text(hit.title, 256),
+                    source_label=self._clip_basis_text(hit.url, 256),
+                    detail=self._clip_basis_text(hit.snippet or "来自 Tavily 的实时网页检索结果。", 1000),
+                )
+            )
 
         recent_session_basis_item = self._build_recent_session_basis_item(
             context.recent_session_context
@@ -5901,6 +6056,7 @@ class DigitalTwinService:
         self,
         request: ChatRequest,
         knowledge_hits: list[KnowledgeSearchHit],
+        web_search_hits: list[WebSearchHit] | None = None,
         memory_hits: list[ConversationMemoryHit] | None = None,
         interaction_intent: InteractionIntent | None = None,
         recent_session_context: str | None = None,
@@ -5908,6 +6064,7 @@ class DigitalTwinService:
         return self._build_support()._build_student_prompt(
             request,
             knowledge_hits,
+            web_search_hits,
             memory_hits,
             interaction_intent,
             recent_session_context=recent_session_context,

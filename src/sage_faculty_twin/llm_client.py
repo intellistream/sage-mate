@@ -110,6 +110,68 @@ class VllmChatClient:
         self._vllm_external_prefix_cache_hits = 0.0
         self._vllm_metrics_last_refresh_at = 0.0
 
+    def _ensure_runtime_state(self) -> None:
+        if not hasattr(self, "_cache_lock"):
+            self._cache_lock = threading.Lock()
+        if not hasattr(self, "_response_cache"):
+            self._response_cache = OrderedDict()
+        if not hasattr(self, "_metrics_lock"):
+            self._metrics_lock = threading.Lock()
+        if not hasattr(self, "_request_count"):
+            self._request_count = 0
+        if not hasattr(self, "_success_count"):
+            self._success_count = 0
+        if not hasattr(self, "_error_count"):
+            self._error_count = 0
+        if not hasattr(self, "_cache_hit_count"):
+            self._cache_hit_count = 0
+        if not hasattr(self, "_exact_cache_hit_count"):
+            self._exact_cache_hit_count = 0
+        if not hasattr(self, "_semantic_cache_hit_count"):
+            self._semantic_cache_hit_count = 0
+        if not hasattr(self, "_cache_lookup_count"):
+            self._cache_lookup_count = 0
+        if not hasattr(self, "_last_request_at"):
+            self._last_request_at = None
+        if not hasattr(self, "_last_success_at"):
+            self._last_success_at = None
+        if not hasattr(self, "_last_error_at"):
+            self._last_error_at = None
+        if not hasattr(self, "_last_error_message"):
+            self._last_error_message = None
+        if not hasattr(self, "_recent_success_timestamps"):
+            self._recent_success_timestamps = deque()
+        if not hasattr(self, "_recent_completion_token_samples"):
+            self._recent_completion_token_samples = deque()
+        if not hasattr(self, "_latency_total_ms"):
+            self._latency_total_ms = 0.0
+        if not hasattr(self, "_latency_observation_count"):
+            self._latency_observation_count = 0
+        if not hasattr(self, "_latency_max_ms"):
+            self._latency_max_ms = 0.0
+        if not hasattr(self, "_last_latency_ms"):
+            self._last_latency_ms = 0.0
+        if not hasattr(self, "_prompt_tokens_total"):
+            self._prompt_tokens_total = 0
+        if not hasattr(self, "_completion_tokens_total"):
+            self._completion_tokens_total = 0
+        if not hasattr(self, "_total_tokens_total"):
+            self._total_tokens_total = 0
+        if not hasattr(self, "_vllm_metrics_url"):
+            settings = getattr(self, "_settings", None)
+            base_url = getattr(settings, "llm_base_url", "") if settings is not None else ""
+            self._vllm_metrics_url = self._derive_vllm_metrics_url(base_url)
+        if not hasattr(self, "_vllm_prefix_cache_queries"):
+            self._vllm_prefix_cache_queries = 0.0
+        if not hasattr(self, "_vllm_prefix_cache_hits"):
+            self._vllm_prefix_cache_hits = 0.0
+        if not hasattr(self, "_vllm_external_prefix_cache_queries"):
+            self._vllm_external_prefix_cache_queries = 0.0
+        if not hasattr(self, "_vllm_external_prefix_cache_hits"):
+            self._vllm_external_prefix_cache_hits = 0.0
+        if not hasattr(self, "_vllm_metrics_last_refresh_at"):
+            self._vllm_metrics_last_refresh_at = 0.0
+
     def close(self) -> None:
         self._client.close()
         self._intent_client.close()
@@ -118,6 +180,7 @@ class VllmChatClient:
         await asyncio.to_thread(self.close)
 
     def runtime_snapshot(self) -> dict[str, str]:
+        self._ensure_runtime_state()
         cache_entries = self._active_cache_entries()
         self._refresh_vllm_prefix_cache_metrics()
         with self._metrics_lock:
@@ -965,21 +1028,35 @@ class VllmChatClient:
 
     def _semantic_cache_key(self, payload: dict[str, Any]) -> str:
         messages = payload.get("messages") or []
-        text_blocks: list[str] = []
+        system_text = ""
+        user_texts: list[str] = []
         if isinstance(messages, list):
             for message in messages:
                 if not isinstance(message, dict):
                     continue
+                role = message.get("role", "")
                 content = message.get("content")
-                if content:
-                    text_blocks.append(str(content))
-        if not text_blocks:
-            text_blocks.append(self._cache_key(payload))
-        merged = "\n".join(text_blocks).lower()
-        merged = re.sub(r"\d+", "#", merged)
-        merged = re.sub(r"[\s\W_]+", "", merged)
-        if len(merged) > 1200:
-            return merged[:1200]
+                if not content:
+                    continue
+                if role == "system":
+                    system_text = str(content)
+                else:
+                    user_texts.append(str(content))
+        if not user_texts and not system_text:
+            return self._cache_key(payload)
+        # Prioritize user content (contains the actual question) at the start
+        # of the key so it is never truncated. Include only a short fingerprint
+        # of the system prompt for differentiation.
+        user_merged = "\n".join(user_texts).lower()
+        user_merged = re.sub(r"\d+", "#", user_merged)
+        user_merged = re.sub(r"[\s\W_]+", "", user_merged)
+        system_finger = ""
+        if system_text:
+            normalized_system = re.sub(r"[\s\W_]+", "", system_text.lower())
+            system_finger = normalized_system[:80]
+        merged = user_merged + "|" + system_finger
+        if len(merged) > 2400:
+            return merged[:2400]
         return merged
 
     def _record_request_start(self) -> None:
@@ -995,6 +1072,7 @@ class VllmChatClient:
         completion_tokens: int = 0,
         total_tokens: int = 0,
     ) -> None:
+        self._ensure_runtime_state()
         with self._metrics_lock:
             now = time.time()
             self._success_count += 1
@@ -1074,6 +1152,7 @@ class VllmChatClient:
             return ""
 
     def _refresh_vllm_prefix_cache_metrics(self) -> None:
+        self._ensure_runtime_state()
         if not self._vllm_metrics_url:
             return
         now = time.time()

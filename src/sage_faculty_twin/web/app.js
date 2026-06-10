@@ -101,6 +101,11 @@ const workflowTrace = document.getElementById("workflow-trace");
 const workflowTraceWrap = document.getElementById("workflow-trace-wrap");
 const workflowToggleButton = document.getElementById("workflow-toggle");
 const workflowScrollLatestButton = document.getElementById("workflow-scroll-latest");
+const workflowZoomOutButton = document.getElementById("workflow-zoom-out");
+const workflowZoomResetButton = document.getElementById("workflow-zoom-reset");
+const workflowZoomInButton = document.getElementById("workflow-zoom-in");
+const workflowZoomFitButton = document.getElementById("workflow-zoom-fit");
+const workflowZoomValue = document.getElementById("workflow-zoom-value");
 const workflowMobileHandle = document.getElementById("workflow-mobile-handle");
 const workflowMobileHandleText = document.getElementById("workflow-mobile-handle-text");
 const workflowMobileCloseButton = document.getElementById("workflow-mobile-close");
@@ -135,6 +140,7 @@ const initialChatStreamMarkup = chatStream?.innerHTML || "";
 
 const chatForm = document.getElementById("chat-form");
 const deepThinkingCheckbox = document.getElementById("deep-thinking-checkbox");
+const webSearchCheckbox = document.getElementById("web-search-checkbox");
 const adminLoginForm = document.getElementById("admin-login-form");
 const userRegisterForm = document.getElementById("user-register-form");
 const userLoginForm = document.getElementById("user-login-form");
@@ -147,6 +153,22 @@ let deepThinkingExplicitlyEnabled = Boolean(deepThinkingCheckbox?.checked);
 deepThinkingCheckbox?.addEventListener("change", () => {
     deepThinkingExplicitlyEnabled = Boolean(deepThinkingCheckbox.checked);
 });
+
+const WEB_SEARCH_TOGGLE_KEY = "myTwinWebSearchEnabled";
+if (webSearchCheckbox) {
+    try {
+        webSearchCheckbox.checked = localStorage.getItem(WEB_SEARCH_TOGGLE_KEY) === "1";
+    } catch {
+        webSearchCheckbox.checked = false;
+    }
+    webSearchCheckbox.addEventListener("change", () => {
+        try {
+            localStorage.setItem(WEB_SEARCH_TOGGLE_KEY, webSearchCheckbox.checked ? "1" : "0");
+        } catch {
+            // Ignore storage access issues.
+        }
+    });
+}
 
 const knowledgeResponse = document.getElementById("knowledge-response");
 const bookingResponse = document.getElementById("booking-response");
@@ -206,6 +228,8 @@ const MAX_CHAT_UPLOAD_FILES = 4;
 const MAX_CHAT_UPLOAD_BYTES = 5 * 1024 * 1024;
 const DEFAULT_COMPOSER_UPLOAD_HINT = "支持 PDF、TXT、MD、CSV、JSON、PY、YAML、LOG，最多 4 个文件。";
 const SUPPORTED_CHAT_UPLOAD_SUFFIXES = new Set([".pdf", ".txt", ".md", ".csv", ".json", ".py", ".yaml", ".yml", ".log"]);
+// Keep workflow trace in the dedicated bottom panel to avoid duplicated UI in chat bubbles.
+const INLINE_WORKFLOW_TRACE_ENABLED = false;
 const WORKFLOW_PHASE_DEFINITIONS = [
     { key: "intake", label: "接入", icon: "inbox" },
     { key: "decide", label: "判断", icon: "branch" },
@@ -244,6 +268,16 @@ let availabilityEditorState = null;
 let workflowMobileHandlePointerId = null;
 let workflowMobileHandleStartY = 0;
 let suppressWorkflowMobileHandleClick = false;
+let workflowDagZoomLevel = 1;
+let workflowDagPinchStartDistance = 0;
+let workflowDagPinchStartZoom = 1;
+const workflowDagPointerMap = new Map();
+let workflowDagPanPointerId = null;
+let workflowDagPanStartX = 0;
+let workflowDagPanStartY = 0;
+let workflowDagPanStartLeft = 0;
+let workflowDagPanStartTop = 0;
+let suppressWorkflowTraceToggleClick = false;
 let latestWorkflowMeta = {
     workflowAction: null,
     knowledgeHits: null,
@@ -423,6 +457,15 @@ composerAttachmentList?.addEventListener("click", handleComposerAttachmentAction
 
 workflowToggleButton?.addEventListener("click", toggleWorkflowShell);
 workflowScrollLatestButton?.addEventListener("click", scrollWorkflowToLatest);
+workflowZoomOutButton?.addEventListener("click", handleWorkflowZoomOut);
+workflowZoomInButton?.addEventListener("click", handleWorkflowZoomIn);
+workflowZoomResetButton?.addEventListener("click", handleWorkflowZoomReset);
+workflowZoomFitButton?.addEventListener("click", handleWorkflowZoomFit);
+workflowTraceWrap?.addEventListener("wheel", handleWorkflowTraceWrapZoomWheel, { passive: false });
+workflowTraceWrap?.addEventListener("pointerdown", handleWorkflowTraceWrapZoomPointerDown);
+workflowTraceWrap?.addEventListener("pointermove", handleWorkflowTraceWrapZoomPointerMove);
+workflowTraceWrap?.addEventListener("pointerup", handleWorkflowTraceWrapZoomPointerUpOrCancel);
+workflowTraceWrap?.addEventListener("pointercancel", handleWorkflowTraceWrapZoomPointerUpOrCancel);
 workflowMobileHandle?.addEventListener("click", toggleWorkflowMobileSheetMode);
 workflowMobileHandle?.addEventListener("pointerdown", handleWorkflowMobileHandlePointerDown);
 workflowMobileHandle?.addEventListener("pointermove", handleWorkflowMobileHandlePointerMove);
@@ -712,6 +755,7 @@ chatForm.addEventListener("submit", async (event) => {
         conversation_id: activeConversationId,
         deep_thinking: deepThinkingCheckbox?.checked ?? false,
         deep_thinking_explicit: deepThinkingExplicitlyEnabled,
+        web_search: webSearchCheckbox?.checked ?? false,
     };
     const submittedFiles = [...pendingChatAttachments];
     const submittedAttachments = submittedFiles.map((file) => ({
@@ -1640,6 +1684,7 @@ async function refreshSession() {
         adminAuthPanel.classList.toggle("hidden", isAdmin);
         adminSessionPanel.classList.toggle("hidden", !isAdmin);
         openKnowledgeButton.classList.toggle("hidden", !isAdmin);
+        document.getElementById("load-demo-chat").classList.toggle("hidden", !isAdmin);
         openBookingListButton.classList.toggle("hidden", !isAdmin);
         openEscalationQueueButton.classList.toggle("hidden", !isAdmin);
         openMemoryProfilesButton.classList.toggle("hidden", !isAdmin);
@@ -1663,6 +1708,7 @@ async function refreshSession() {
         adminAuthPanel.classList.remove("hidden");
         adminSessionPanel.classList.add("hidden");
         openKnowledgeButton.classList.add("hidden");
+        document.getElementById("load-demo-chat").classList.add("hidden");
         openBookingListButton.classList.add("hidden");
         openEscalationQueueButton.classList.add("hidden");
         openMemoryProfilesButton.classList.add("hidden");
@@ -4342,12 +4388,16 @@ function renderPendingAssistantMessage(container, currentStage = "理解问题",
                                 <p id="pending-stage-label" class="thinking-stage-label">${escapeHtml(currentStage)}</p>
                             </div>
                         </div>
-                        <div class="thinking-phase-rail" aria-live="polite">
+                        ${INLINE_WORKFLOW_TRACE_ENABLED
+            ? `<div class="thinking-phase-rail" aria-live="polite">
                             ${buildWorkflowPhaseRailHtml({ currentStage, workflowSteps, complete: false })}
-                        </div>
-                        <div class="thinking-trace" aria-label="实时处理过程">
+                        </div>`
+            : ""}
+                        ${INLINE_WORKFLOW_TRACE_ENABLED
+            ? `<div class="thinking-trace" aria-label="实时处理过程">
                             <div class="thinking-trace-list"></div>
-                        </div>
+                        </div>`
+            : ""}
                     </div>
                     <div class="thinking-text-section" id="pending-thinking-text" data-collapsed="false" hidden>
                         <button type="button" class="thinking-text-toggle" onclick="this.parentElement.dataset.collapsed = this.parentElement.dataset.collapsed === 'true' ? 'false' : 'true'">思考过程</button>
@@ -4357,7 +4407,9 @@ function renderPendingAssistantMessage(container, currentStage = "理解问题",
             </div>
         </div>
     `;
-    syncPendingWorkflowTrace(workflowSteps, { animateNewItems: false, currentStage });
+    if (INLINE_WORKFLOW_TRACE_ENABLED) {
+        syncPendingWorkflowTrace(workflowSteps, { animateNewItems: false, currentStage });
+    }
 }
 
 function updatePendingAssistantMessage(currentStage, workflowSteps = []) {
@@ -4374,7 +4426,9 @@ function updatePendingAssistantMessage(currentStage, workflowSteps = []) {
         });
     }
 
-    syncPendingWorkflowTrace(workflowSteps, { animateNewItems: true, currentStage });
+    if (INLINE_WORKFLOW_TRACE_ENABLED) {
+        syncPendingWorkflowTrace(workflowSteps, { animateNewItems: true, currentStage });
+    }
 }
 
 function renderAssistantMessage(
@@ -4448,7 +4502,9 @@ function renderAssistantMessage(
             `,
         })
         : "";
-    const workflowTraceHtml = Array.isArray(workflowTrace) && workflowTrace.length
+    const workflowTraceHtml = INLINE_WORKFLOW_TRACE_ENABLED
+        && Array.isArray(workflowTrace)
+        && workflowTrace.length
         ? buildWorkflowStatusSummaryHtml(workflowTrace)
         : "";
     const thinkSectionHtml = thinkContent
@@ -4698,6 +4754,9 @@ function buildCollapsibleSupportSectionHtml({
 }
 
 function syncPendingWorkflowTrace(workflowSteps = [], options = {}) {
+    if (!INLINE_WORKFLOW_TRACE_ENABLED) {
+        return;
+    }
     const traceList = chatStream?.querySelector(".message-pending .thinking-trace-list");
     if (!traceList) {
         return;
@@ -4807,9 +4866,7 @@ function groupWorkflowChipsByParallel(steps) {
     const groups = [];
     let cursor = null;
     steps.forEach((step, index) => {
-        const groupId = typeof step?.parallel_group === "string" && step.parallel_group
-            ? step.parallel_group
-            : null;
+        const groupId = inferWorkflowParallelGroup(step);
         if (!groupId) {
             groups.push({ type: "single", step, index });
             cursor = null;
@@ -4829,6 +4886,108 @@ const WORKFLOW_PARALLEL_GROUP_LABELS = {
     retrieval: "上下文检索",
     post_answer: "答后处理",
 };
+
+const WORKFLOW_RUNTIME_KEY_TO_PARALLEL_GROUP = {
+    memory_retrieve: "retrieval",
+    knowledge_retrieve: "retrieval",
+    memory_persist: "post_answer",
+    artifact_memory_writeback: "post_answer",
+    memory_profile_consolidate: "post_answer",
+    follow_up_plan: "post_answer",
+    memory_usefulness_score: "post_answer",
+};
+
+const WORKFLOW_PARALLEL_GROUP_FALLBACK_RULES = {
+    retrieval: /(retrieve|retrieval|knowledge|context|memory[_ -]?retrieve|检索|召回|知识)/i,
+    post_answer: /(persist|writeback|consolidat|follow[_ -]?up|useful|score|post[_ -]?answer|写回|归档|收尾|后处理|评分)/i,
+};
+
+const WORKFLOW_PLAN_STEP_TO_RUNTIME_KEY = {
+    classify_intent: "interaction_understand",
+    draft_booking_request: "booking_prepare",
+    retrieve_recent_memory: "memory_retrieve",
+    retrieve_profile_memory: "memory_retrieve",
+    retrieve_knowledge: "knowledge_retrieve",
+    assemble_prompt_context: "prompt_build",
+    answer_with_citations: "llm_answer",
+    render_user_response: "response_render",
+    record_conversation_memory: "memory_persist",
+    draft_follow_up_action: "follow_up_plan",
+};
+
+const WORKFLOW_DISPLAY_ORDER = [
+    "bootstrap",
+    "workflow_plan_preview",
+    "interaction_understand",
+    "booking_prepare",
+    "booking_execute",
+    "memory_retrieve",
+    "knowledge_retrieve",
+    "prompt_build",
+    "llm_answer",
+    "response_render",
+    "memory_persist",
+    "artifact_memory_writeback",
+    "memory_profile_consolidate",
+    "follow_up_plan",
+    "memory_usefulness_score",
+];
+
+const WORKFLOW_DISPLAY_ORDER_INDEX = WORKFLOW_DISPLAY_ORDER.reduce((acc, key, index) => {
+    acc[key] = index;
+    return acc;
+}, {});
+
+function inferWorkflowParallelGroup(step) {
+    if (typeof step?.parallel_group === "string" && step.parallel_group) {
+        return step.parallel_group;
+    }
+
+    const keyCandidates = [
+        String(step?.display_key || "").trim(),
+        String(step?.key || "").trim(),
+    ].filter(Boolean);
+
+    for (const key of keyCandidates) {
+        if (WORKFLOW_RUNTIME_KEY_TO_PARALLEL_GROUP[key]) {
+            return WORKFLOW_RUNTIME_KEY_TO_PARALLEL_GROUP[key];
+        }
+    }
+
+    const text = [step?.title, step?.summary, step?.detail]
+        .filter(Boolean)
+        .map((value) => String(value))
+        .join(" ")
+        .slice(0, 280);
+
+    if (!text) {
+        return null;
+    }
+
+    if (WORKFLOW_PARALLEL_GROUP_FALLBACK_RULES.retrieval.test(text)) {
+        return "retrieval";
+    }
+    if (WORKFLOW_PARALLEL_GROUP_FALLBACK_RULES.post_answer.test(text)) {
+        return "post_answer";
+    }
+    return null;
+}
+
+function getWorkflowDisplayOrderIndex(step) {
+    const displayKey = String(step?.display_key || step?.key || "");
+    if (displayKey && WORKFLOW_DISPLAY_ORDER_INDEX[displayKey] !== undefined) {
+        return WORKFLOW_DISPLAY_ORDER_INDEX[displayKey];
+    }
+
+    const inferredGroup = inferWorkflowParallelGroup(step);
+    if (inferredGroup === "retrieval") {
+        return WORKFLOW_DISPLAY_ORDER_INDEX.memory_retrieve;
+    }
+    if (inferredGroup === "post_answer") {
+        return WORKFLOW_DISPLAY_ORDER_INDEX.memory_persist;
+    }
+    return Number.MAX_SAFE_INTEGER;
+}
 
 function buildWorkflowStepChipHtml(step, index, options = {}) {
     const title = step?.title || `步骤 ${index + 1}`;
@@ -5283,6 +5442,8 @@ function renderWorkflowTrace(steps, meta = {}) {
     latestWorkflowMeta = resolvedMeta;
 
     if (!steps.length) {
+        workflowTrace.classList.remove("workflow-trace-dag");
+        workflowTraceWrap?.classList.remove("workflow-trace-wrap-dag");
         updateWorkflowStats([], resolvedMeta);
         workflowTrace.innerHTML = `
             <article class="workflow-step workflow-step-empty" data-expanded="false">
@@ -5294,7 +5455,7 @@ function renderWorkflowTrace(steps, meta = {}) {
                                 <h3 class="workflow-step-title">等待你的第一条问题</h3>
                                 <span class="workflow-step-chevron">展开</span>
                             </div>
-                                <p class="workflow-step-summary">发出消息后，这里会像现场记录板一样按顺序展开检索、判断和回复生成过程。</p>
+                                <p class="workflow-step-summary">发出消息后，这里会展示本轮请求的执行 DAG（主干 + 并行分支），并可展开查看每个节点的细节。</p>
                         </div>
                     </div>
                 </button>
@@ -5305,62 +5466,220 @@ function renderWorkflowTrace(steps, meta = {}) {
     }
 
     updateWorkflowStats(steps, resolvedMeta);
+    workflowTrace.classList.add("workflow-trace-dag");
+    workflowTraceWrap?.classList.add("workflow-trace-wrap-dag");
 
-    workflowTrace.innerHTML = steps
-        .map((step, index) => {
-            const status = step.status || "completed";
-            const statusLabel = workflowStatusLabel(status);
-            const detail = step.detail || "";
-            const summary = step.summary || summarizeWorkflowDetail(detail);
-            const expanded = status === "active" || status === "error";
-            const isCurrent = resolvedMeta.isStreaming && index === steps.length - 1;
-            const cardClasses = [
-                "workflow-step",
-                `workflow-step-${escapeHtml(status)}`,
-                status === "completed" ? "workflow-step-completed" : "",
-                isCurrent ? "workflow-step-current" : "",
-            ]
-                .filter(Boolean)
-                .join(" ");
-            const durationBadge =
-                typeof step.duration_ms === "number"
-                    ? `<span class="workflow-step-duration">${escapeHtml(formatWorkflowDuration(step.duration_ms))}</span>`
-                    : "";
-            const currentBadge = isCurrent
-                ? '<span class="workflow-step-status workflow-step-status-active">当前</span>'
-                : "";
-            return `
-                <article class="${cardClasses}" data-expanded="${expanded}">
-                    <button type="button" class="workflow-step-toggle" aria-expanded="${expanded}">
-                        <div class="workflow-step-header">
-                            <span class="workflow-step-index">${index + 1}</span>
-                            <div class="workflow-step-content">
-                                <div class="workflow-step-meta">
-                                    <h3 class="workflow-step-title">${escapeHtml(step.title)}</h3>
-                                    <div class="workflow-step-meta-right">
-                                        ${durationBadge}
-                                        ${currentBadge}
-                                        <span class="workflow-step-status workflow-step-status-${escapeHtml(status)}">${statusLabel}</span>
-                                        <span class="workflow-step-chevron">${expanded ? "收起" : "展开"}</span>
-                                    </div>
-                                </div>
-                                <p class="workflow-step-summary">${escapeHtml(summary)}</p>
-                            </div>
-                        </div>
-                    </button>
-                    <div class="workflow-step-detail" ${expanded ? "" : "hidden"}>${escapeHtml(detail)}</div>
-                </article>
-            `;
-        })
-        .join("");
+    const displaySteps = buildWorkflowDagDisplaySteps(steps, resolvedMeta.plannerPreview);
+    workflowTrace.innerHTML = buildWorkflowDagTraceHtml(displaySteps, resolvedMeta);
+    applyWorkflowDagZoom();
 
     scrollWorkflowToLatest();
+}
+
+function buildWorkflowDagDisplaySteps(runtimeSteps, plannerPreview) {
+    const steps = Array.isArray(runtimeSteps)
+        ? runtimeSteps.map((step) => {
+            const inferredGroup = inferWorkflowParallelGroup(step);
+            if (!inferredGroup || step?.parallel_group) {
+                return step;
+            }
+            return {
+                ...step,
+                parallel_group: inferredGroup,
+            };
+        })
+        : [];
+    const plannedSteps = Array.isArray(plannerPreview?.planned_steps) ? plannerPreview.planned_steps : [];
+    if (plannedSteps.length) {
+        const runtimeCountByKey = steps.reduce((acc, step) => {
+            const key = String(step?.key || "");
+            if (!key) {
+                return acc;
+            }
+            acc[key] = (acc[key] || 0) + 1;
+            return acc;
+        }, {});
+
+        const plannedByRuntimeKey = {};
+        plannedSteps.forEach((plannedStepId) => {
+            const stepId = String(plannedStepId || "").trim();
+            if (!stepId) {
+                return;
+            }
+            const runtimeKey = WORKFLOW_PLAN_STEP_TO_RUNTIME_KEY[stepId] || stepId;
+            if (!plannedByRuntimeKey[runtimeKey]) {
+                plannedByRuntimeKey[runtimeKey] = [];
+            }
+            plannedByRuntimeKey[runtimeKey].push(stepId);
+        });
+
+        let syntheticIndex = 0;
+        Object.entries(plannedByRuntimeKey).forEach(([runtimeKey, stepIds]) => {
+            const runtimeCount = runtimeCountByKey[runtimeKey] || 0;
+            const missingCount = Math.max(stepIds.length - runtimeCount, 0);
+            if (!missingCount) {
+                return;
+            }
+            const missingStepIds = stepIds.slice(stepIds.length - missingCount);
+            missingStepIds.forEach((stepId) => {
+                syntheticIndex += 1;
+                steps.push({
+                    key: `plan:${stepId}:${syntheticIndex}`,
+                    display_key: runtimeKey,
+                    title: `规划：${formatWorkflowPlanStepLabel(stepId)}`,
+                    summary: "该节点在本轮规划中，但尚未进入执行轨迹。",
+                    detail: `规划步骤 ID: ${stepId}`,
+                    status: "pending",
+                    duration_ms: null,
+                    parallel_group: WORKFLOW_RUNTIME_KEY_TO_PARALLEL_GROUP[runtimeKey] || inferWorkflowParallelGroup({ display_key: runtimeKey }),
+                });
+            });
+        });
+    }
+
+    return steps.sort((left, right) => {
+        const leftIndex = getWorkflowDisplayOrderIndex(left);
+        const rightIndex = getWorkflowDisplayOrderIndex(right);
+        if (leftIndex !== rightIndex) {
+            return leftIndex - rightIndex;
+        }
+        const leftTitle = String(left?.title || "");
+        const rightTitle = String(right?.title || "");
+        if (leftTitle !== rightTitle) {
+            return leftTitle.localeCompare(rightTitle);
+        }
+        return String(left?.key || "").localeCompare(String(right?.key || ""));
+    });
+}
+
+function buildWorkflowDagTraceHtml(steps, meta = {}) {
+    const groups = groupWorkflowChipsByParallel(steps);
+    const currentStepIndex = meta.isStreaming ? steps.length - 1 : -1;
+
+    return `
+        <div class="workflow-dag-board" role="list" aria-label="推理执行 DAG">
+            ${groups
+            .map((entry, layerIndex) => {
+                const layerHtml = buildWorkflowDagLayerHtml(entry, {
+                    layerIndex,
+                    currentStepIndex,
+                });
+                if (layerIndex === groups.length - 1) {
+                    return layerHtml;
+                }
+                return `${layerHtml}${buildWorkflowDagConnectorHtml(entry, groups[layerIndex + 1])}`;
+            })
+            .join("")}
+        </div>
+    `;
+}
+
+function buildWorkflowDagLayerHtml(entry, options = {}) {
+    if (!entry) {
+        return "";
+    }
+
+    if (entry.type === "single") {
+        return `
+            <section class="workflow-dag-layer" role="listitem">
+                ${buildWorkflowDagNodeHtml(entry.step, entry.index, options)}
+            </section>
+        `;
+    }
+
+    const groupLabel = WORKFLOW_PARALLEL_GROUP_LABELS[entry.groupId] || "并行分支";
+    return `
+        <section class="workflow-dag-layer workflow-dag-layer-group" role="listitem" aria-label="${escapeHtml(groupLabel)}">
+            <div class="workflow-dag-group-head">${escapeHtml(groupLabel)} · ${escapeHtml(String(entry.items.length))} 路并行</div>
+            <div class="workflow-dag-branches">
+                ${entry.items
+            .map((item) => buildWorkflowDagNodeHtml(item.step, item.index, options))
+            .join("")}
+            </div>
+        </section>
+    `;
+}
+
+function buildWorkflowDagConnectorHtml(fromEntry, toEntry) {
+    const fromGroup = fromEntry?.type === "group";
+    const toGroup = toEntry?.type === "group";
+    const connectorType = fromGroup && !toGroup
+        ? "join"
+        : !fromGroup && toGroup
+            ? "fork"
+            : "linear";
+    const connectorLabel = connectorType === "fork"
+        ? "分叉"
+        : connectorType === "join"
+            ? "汇合"
+            : "流转";
+    const connectorSymbol = connectorType === "fork"
+        ? "⇢"
+        : connectorType === "join"
+            ? "⇠"
+            : "→";
+    return `
+        <div class="workflow-dag-connector workflow-dag-connector-${connectorType}" aria-hidden="true">
+            <span class="workflow-dag-connector-arrow">${connectorSymbol}</span>
+            <span class="workflow-dag-connector-label">${connectorLabel}</span>
+        </div>
+    `;
+}
+
+function buildWorkflowDagNodeHtml(step, index, options = {}) {
+    const isCurrent = index === options.currentStepIndex;
+    const status = isCurrent ? "active" : normalizeWorkflowStepStatus(step?.status);
+    const statusLabel = workflowStatusLabel(status);
+    const detail = step?.detail || "";
+    const summary = step?.summary || summarizeWorkflowDetail(detail);
+    const expanded = status === "active" || status === "error";
+    const cardClasses = [
+        "workflow-step",
+        "workflow-dag-node",
+        `workflow-step-${escapeHtml(status)}`,
+        status === "completed" ? "workflow-step-completed" : "",
+        isCurrent ? "workflow-step-current" : "",
+    ]
+        .filter(Boolean)
+        .join(" ");
+    const durationBadge =
+        typeof step?.duration_ms === "number" && step.duration_ms > 0
+            ? `<span class="workflow-step-duration">${escapeHtml(formatWorkflowDuration(step.duration_ms))}</span>`
+            : "";
+    const currentBadge = isCurrent
+        ? '<span class="workflow-step-status workflow-step-status-active">当前</span>'
+        : "";
+
+    return `
+        <article class="${cardClasses}" data-expanded="${expanded}" data-step-key="${escapeHtml(String(step?.key || ""))}">
+            <button type="button" class="workflow-step-toggle" aria-expanded="${expanded}">
+                <div class="workflow-step-header">
+                    <span class="workflow-step-index">${index + 1}</span>
+                    <div class="workflow-step-content">
+                        <div class="workflow-step-meta">
+                            <h3 class="workflow-step-title">${escapeHtml(step?.title || "处理中")}</h3>
+                            <div class="workflow-step-meta-right">
+                                ${durationBadge}
+                                ${currentBadge}
+                                <span class="workflow-step-status workflow-step-status-${escapeHtml(status)}">${statusLabel}</span>
+                                <span class="workflow-step-chevron">${expanded ? "收起" : "展开"}</span>
+                            </div>
+                        </div>
+                        <p class="workflow-step-summary">${escapeHtml(summary)}</p>
+                    </div>
+                </div>
+            </button>
+            <div class="workflow-step-detail" ${expanded ? "" : "hidden"}>${escapeHtml(detail)}</div>
+        </article>
+    `;
 }
 
 function renderWorkflowTraceError(message) {
     if (!workflowTrace) {
         return;
     }
+    workflowTrace.classList.remove("workflow-trace-dag");
+    workflowTraceWrap?.classList.remove("workflow-trace-wrap-dag");
     updateWorkflowStats([], {
         workflowAction: "error",
         knowledgeHits: latestWorkflowMeta.knowledgeHits,
@@ -5398,6 +5717,8 @@ function renderWorkflowTracePlaceholder(title, summary, detail) {
     if (!workflowTrace) {
         return;
     }
+    workflowTrace.classList.remove("workflow-trace-dag");
+    workflowTraceWrap?.classList.remove("workflow-trace-wrap-dag");
     updateWorkflowStats(activeWorkflowSteps, {
         workflowAction: latestWorkflowMeta.workflowAction,
         knowledgeHits: latestWorkflowMeta.knowledgeHits,
@@ -5453,7 +5774,7 @@ function isMobileWorkflowViewport() {
 }
 
 function setWorkflowMobileOpen(open) {
-    const nextOpen = isMobileWorkflowViewport() && Boolean(open);
+    const nextOpen = Boolean(open);
     document.body.classList.toggle("workflow-shell-mobile-open", nextOpen);
     workflowMobileBackdrop?.classList.toggle("hidden", !nextOpen);
     if (workflowShell) {
@@ -5491,6 +5812,7 @@ function setWorkflowMobileSheetMode(mode) {
 
 function openWorkflowMobileSheet(mode = getStoredWorkflowMobileSheetMode()) {
     if (!isMobileWorkflowViewport()) {
+        setWorkflowShellCollapsed(false);
         return;
     }
     if (settingsDrawer && !settingsDrawer.classList.contains("hidden")) {
@@ -5505,11 +5827,16 @@ function openWorkflowMobileSheet(mode = getStoredWorkflowMobileSheetMode()) {
 }
 
 function closeWorkflowMobileSheet() {
+    if (!isMobileWorkflowViewport()) {
+        setWorkflowShellCollapsed(true);
+        return;
+    }
     setWorkflowMobileOpen(false);
 }
 
 function toggleWorkflowMobileSheet() {
     if (!isMobileWorkflowViewport()) {
+        toggleWorkflowShell();
         return;
     }
     if (document.body.classList.contains("workflow-shell-mobile-open")) {
@@ -5589,12 +5916,170 @@ function resetWorkflowMobileHandlePointer() {
     workflowMobileHandleStartY = 0;
 }
 
+function canZoomWorkflowDag() {
+    return Boolean(
+        workflowTraceWrap
+        && workflowTrace
+        && workflowTrace.classList.contains("workflow-trace-dag")
+    );
+}
+
+function clampWorkflowDagZoom(level) {
+    return Math.min(1.8, Math.max(0.65, level));
+}
+
+function applyWorkflowDagZoom() {
+    const board = workflowTraceWrap?.querySelector(".workflow-dag-board");
+    if (!(board instanceof HTMLElement)) {
+        if (workflowZoomValue) {
+            workflowZoomValue.textContent = `${Math.round(workflowDagZoomLevel * 100)}%`;
+        }
+        return;
+    }
+    board.style.setProperty("--workflow-dag-zoom", String(workflowDagZoomLevel));
+    if (workflowZoomValue) {
+        workflowZoomValue.textContent = `${Math.round(workflowDagZoomLevel * 100)}%`;
+    }
+}
+
+function setWorkflowDagZoom(level) {
+    workflowDagZoomLevel = clampWorkflowDagZoom(level);
+    applyWorkflowDagZoom();
+}
+
+function handleWorkflowZoomOut() {
+    setWorkflowDagZoom(workflowDagZoomLevel - 0.08);
+}
+
+function handleWorkflowZoomIn() {
+    setWorkflowDagZoom(workflowDagZoomLevel + 0.08);
+}
+
+function handleWorkflowZoomReset() {
+    setWorkflowDagZoom(1);
+}
+
+function handleWorkflowZoomFit() {
+    if (!workflowTraceWrap) {
+        return;
+    }
+    const board = workflowTraceWrap.querySelector(".workflow-dag-board");
+    if (!(board instanceof HTMLElement)) {
+        return;
+    }
+    const wrapWidth = workflowTraceWrap.clientWidth;
+    const boardWidth = workflowTraceWrap.scrollWidth;
+    if (!wrapWidth || !boardWidth) {
+        setWorkflowDagZoom(1);
+        return;
+    }
+    const fittedZoom = workflowDagZoomLevel * (wrapWidth / boardWidth) * 0.98;
+    setWorkflowDagZoom(fittedZoom);
+}
+
+function getWorkflowPinchDistance() {
+    if (workflowDagPointerMap.size < 2) {
+        return 0;
+    }
+    const pointers = Array.from(workflowDagPointerMap.values());
+    const first = pointers[0];
+    const second = pointers[1];
+    return Math.hypot(first.x - second.x, first.y - second.y);
+}
+
+function handleWorkflowTraceWrapZoomWheel(event) {
+    if (!canZoomWorkflowDag()) {
+        return;
+    }
+    const delta = event.deltaY < 0 ? 0.08 : -0.08;
+    setWorkflowDagZoom(workflowDagZoomLevel + delta);
+    event.preventDefault();
+}
+
+function handleWorkflowTraceWrapZoomPointerDown(event) {
+    if (!canZoomWorkflowDag() || !workflowTraceWrap) {
+        return;
+    }
+
+    if (event.target instanceof Element
+        && event.target.closest("input, textarea, select, label, a")) {
+        return;
+    }
+
+    workflowDagPointerMap.set(event.pointerId, { x: event.clientX, y: event.clientY });
+    if (workflowDagPointerMap.size === 1) {
+        workflowDagPanPointerId = event.pointerId;
+        workflowDagPanStartX = event.clientX;
+        workflowDagPanStartY = event.clientY;
+        workflowDagPanStartLeft = workflowTraceWrap.scrollLeft;
+        workflowDagPanStartTop = workflowTraceWrap.scrollTop;
+        suppressWorkflowTraceToggleClick = false;
+    }
+    if (workflowDagPointerMap.size === 2) {
+        workflowDagPanPointerId = null;
+        workflowDagPinchStartDistance = getWorkflowPinchDistance();
+        workflowDagPinchStartZoom = workflowDagZoomLevel;
+    }
+    workflowTraceWrap.setPointerCapture?.(event.pointerId);
+}
+
+function handleWorkflowTraceWrapZoomPointerMove(event) {
+    if (!canZoomWorkflowDag() || !workflowTraceWrap) {
+        return;
+    }
+    if (!workflowDagPointerMap.has(event.pointerId)) {
+        return;
+    }
+    workflowDagPointerMap.set(event.pointerId, { x: event.clientX, y: event.clientY });
+    if (workflowDagPointerMap.size >= 2 && workflowDagPinchStartDistance > 0) {
+        const distance = getWorkflowPinchDistance();
+        if (distance <= 0) {
+            return;
+        }
+        const scale = workflowDagPinchStartZoom * (distance / workflowDagPinchStartDistance);
+        setWorkflowDagZoom(scale);
+        event.preventDefault();
+        return;
+    }
+
+    if (workflowDagPanPointerId !== event.pointerId) {
+        return;
+    }
+
+    const deltaX = event.clientX - workflowDagPanStartX;
+    const deltaY = event.clientY - workflowDagPanStartY;
+    if (Math.abs(deltaX) > 4 || Math.abs(deltaY) > 4) {
+        suppressWorkflowTraceToggleClick = true;
+    }
+    workflowTraceWrap.scrollLeft = workflowDagPanStartLeft - deltaX;
+    workflowTraceWrap.scrollTop = workflowDagPanStartTop - deltaY;
+    workflowTraceWrap.classList.add("workflow-trace-wrap-dragging");
+}
+
+function handleWorkflowTraceWrapZoomPointerUpOrCancel(event) {
+    if (!workflowTraceWrap || !workflowDagPointerMap.has(event.pointerId)) {
+        return;
+    }
+    workflowTraceWrap.releasePointerCapture?.(event.pointerId);
+    workflowDagPointerMap.delete(event.pointerId);
+    if (workflowDagPanPointerId === event.pointerId) {
+        workflowDagPanPointerId = null;
+        workflowTraceWrap.classList.remove("workflow-trace-wrap-dragging");
+    }
+    if (workflowDagPointerMap.size < 2) {
+        workflowDagPinchStartDistance = 0;
+        workflowDagPinchStartZoom = workflowDagZoomLevel;
+    }
+}
+
 function updateMobileWorkflowTrigger(meta = latestWorkflowMeta, steps = activeWorkflowSteps) {
     if (!mobileWorkflowTrigger) {
         return;
     }
 
-    const isOpen = document.body.classList.contains("workflow-shell-mobile-open");
+    const isOpen = isMobileWorkflowViewport()
+        ? document.body.classList.contains("workflow-shell-mobile-open")
+        : !document.body.classList.contains("workflow-shell-collapsed");
     const currentLabel = formatWorkflowActionLabel(meta, steps);
     mobileWorkflowTrigger.textContent = meta.isStreaming ? `处理中：${currentLabel}` : steps.length ? "查看处理进度" : "打开处理进度";
     mobileWorkflowTrigger.setAttribute("aria-expanded", String(isOpen));
@@ -5638,14 +6123,15 @@ function restoreWorkflowShellState() {
     }
 
     if (globalThis.matchMedia("(max-width: 920px)").matches) {
-        setWorkflowShellCollapsed(false);
+        setWorkflowShellCollapsed(true);
         return;
     }
 
     try {
-        setWorkflowShellCollapsed(localStorage.getItem(WORKFLOW_SHELL_COLLAPSED_KEY) === "1");
+        const storedValue = localStorage.getItem(WORKFLOW_SHELL_COLLAPSED_KEY);
+        setWorkflowShellCollapsed(storedValue !== "0");
     } catch {
-        setWorkflowShellCollapsed(false);
+        setWorkflowShellCollapsed(true);
     }
 }
 
@@ -5898,6 +6384,10 @@ function handleWorkflowStreamEvent(payload) {
 }
 
 function handleWorkflowTraceToggle(event) {
+    if (suppressWorkflowTraceToggleClick) {
+        suppressWorkflowTraceToggleClick = false;
+        return;
+    }
     const toggle = event.target.closest(".workflow-step-toggle");
     if (!toggle || !workflowTrace || !workflowTrace.contains(toggle)) {
         return;
@@ -5989,6 +6479,9 @@ function summarizeWorkflowDetail(detail) {
 }
 
 function formatWorkflowDuration(durationMs) {
+    if (!durationMs || durationMs <= 0) {
+        return "";
+    }
     if (durationMs < 1000) {
         return `${durationMs} ms`;
     }
@@ -6004,7 +6497,7 @@ function updateWorkflowStats(steps, meta = {}) {
         (sum, step) => sum + (typeof step.duration_ms === "number" ? step.duration_ms : 0),
         0
     );
-    workflowTotalDuration.textContent = steps.length ? formatWorkflowDuration(totalDurationMs) : "--";
+    workflowTotalDuration.textContent = steps.length ? (formatWorkflowDuration(totalDurationMs) || "处理中") : "--";
     workflowCurrentAction.textContent = formatWorkflowActionLabel(meta, steps);
     workflowKnowledgeCount.textContent =
         typeof meta.knowledgeHits === "number" ? `${meta.knowledgeHits} 条` : steps.length ? "0 条" : "--";
@@ -6722,7 +7215,9 @@ async function handleAdminLogout() {
         operationsTasks.innerHTML = "";
         operationsBookings.innerHTML = "";
         operationsStudentProfiles.innerHTML = "";
-        operationsSatisfaction.innerHTML = "";
+        if (operationsSatisfaction) {
+            operationsSatisfaction.innerHTML = "";
+        }
         operationsGaps.innerHTML = "";
         operationsArtifactDrafts.innerHTML = "";
         operationsEscalations.innerHTML = "";

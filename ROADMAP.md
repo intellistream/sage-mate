@@ -817,6 +817,103 @@ Before implementation starts, the next agent or maintainer should confirm:
 - Do not make dynamic planning mandatory for simple questions; cheap deterministic template
   selection should remain available for latency-sensitive paths.
 
+## V4 Plan
+
+`v4` should focus on multimodal interaction quality and real-time usability. The core theme is
+to keep V3's governed planning and operations visibility while adding a production-usable voice
+entry/response loop for students and faculty workflows.
+
+### V4 Product Theme
+
+- Voice-first academic office entrance: students can speak naturally, receive spoken responses,
+  and still see full workflow evidence and citations in text UI.
+- Stable under real campus conditions: noisy environment, mixed Chinese/English terms,
+  intermittent network, and variable model latency.
+- Governance stays explicit: voice should not bypass admin boundaries, review queues, or side-
+  effect policies already established in V3.
+
+### V4 Scope Commitments
+
+- Add end-to-end voice pipeline: `ASR -> intent/planner -> retrieval/answer -> TTS`.
+- Keep dual-channel output: every voice answer must have synchronized text transcript,
+  answer basis, and workflow trace.
+- Preserve deterministic fallback behavior: if ASR/TTS is unavailable, the app should fail fast
+  to text mode with clear operator-visible reason.
+- Add voice observability in operations console: transcription error rate, speech latency,
+  TTS generation latency, interruption/abandon rate, and fallback reason distribution.
+
+### Voice Feature Planning
+
+#### V4.0: Voice Infrastructure Baseline
+
+Goal: add safe and observable voice IO without changing core workflow policy.
+
+- Add voice session contract models (input audio metadata, ASR transcript confidence,
+  TTS segment metadata, interruption markers).
+- Introduce `/chat/voice` endpoint (or equivalent stream route) with authenticated session
+  boundary and explicit size/duration caps.
+- Integrate ASR with domain lexicon boosts for course names, project terms, and advisor
+  vocabulary.
+- Add TTS response generation with short-sentence chunking aligned to answer sections.
+- Show transcript + audio controls in frontend while keeping existing text composer as fallback.
+
+Exit criteria:
+
+- Voice requests produce usable transcript + text answer + audio answer in one flow.
+- Failed ASR/TTS cases are surfaced with structured error reasons in admin logs.
+- No policy bypass compared with text-only path.
+
+#### V4.1: Real-Time Streaming Voice
+
+- Add incremental ASR partial transcripts and low-latency turn-taking.
+- Add streaming TTS chunks so first audio token is returned quickly.
+- Support barge-in (user interruption): stop current TTS playback and continue with new intent.
+- Add timeout and jitter handling for unstable network conditions.
+
+Exit criteria:
+
+- P95 voice round-trip latency meets interactive target for campus deployment.
+- Interruption handling does not corrupt conversation state or workflow trace.
+
+#### V4.2: Voice Quality and Personalization
+
+- Add per-profile voice style presets (student-facing neutral style by default).
+- Add pronunciation dictionary and custom term normalization for names, courses, labs,
+  and paper titles.
+- Add post-call quality metrics: ASR correction rate, repeated-question reduction,
+  and escalation impact.
+- Keep sensitive or high-risk responses text-confirmed when confidence is low.
+
+Exit criteria:
+
+- Voice quality metrics improve over baseline for canonical scenarios.
+- Low-confidence voice outputs are safely gated with clarification prompts.
+
+### V4 Evaluation and Acceptance
+
+Minimum scenario set:
+
+- Simple greeting and navigation via voice.
+- Course-material Q&A with mixed Chinese/English keywords.
+- Booking preparation via spoken agenda and blocker description.
+- Human-handoff trigger when uncertainty/policy threshold is exceeded.
+- Admin-only request from student voice session must be refused with safe explanation.
+
+Metrics to track:
+
+- ASR word error rate and entity error rate (course names, dates, people).
+- Voice end-to-end latency and first-audio latency.
+- TTS interruption success rate and recovery time.
+- Voice-to-text fallback rate and fallback reason distribution.
+- User-rated helpfulness delta between text and voice sessions.
+
+Release threshold suggestions:
+
+- Voice policy-bypass incidents: zero.
+- Critical scenario pass rate on replay suite and live smoke tests >= 95%.
+- P95 end-to-end voice round-trip latency within product target budget.
+- All voice responses retain synchronized text trace and evidence visibility.
+
 ## Release Note
 
 `v1.0.0` should be treated as the first public repository baseline: stable enough to publish, demo,

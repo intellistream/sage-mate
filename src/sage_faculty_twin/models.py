@@ -27,6 +27,7 @@ class ChatRequest(BaseModel):
     attachments: list[ChatAttachment] = Field(default_factory=list, max_length=4)
     deep_thinking: bool = Field(default=True)
     deep_thinking_explicit: bool = Field(default=False)
+    web_search: bool = Field(default=False)
 
 
 class OnlinePresenceHeartbeatRequest(BaseModel):
@@ -181,12 +182,20 @@ class MemoryAuditItem(BaseModel):
     score: float | None = None
 
 
+class WebSearchHit(BaseModel):
+    title: str = Field(min_length=1, max_length=300)
+    url: str = Field(min_length=1, max_length=1000)
+    snippet: str = Field(default="", max_length=500)
+    score: float = Field(default=0.0)
+
+
 class ChatResponse(BaseModel):
     answer: str
     owner_name: str
     used_model: str
     exchange_id: str | None = None
     knowledge_hits: list[KnowledgeSearchHit] = Field(default_factory=list)
+    web_search_hits: list[WebSearchHit] = Field(default_factory=list)
     answer_basis: list[AnswerBasisItem] = Field(default_factory=list)
     follow_up_actions: list[FollowUpAction] = Field(default_factory=list)
     conversation_id: str | None = None

@@ -1,25 +1,44 @@
 #!/usr/bin/env bash
 # run_app_server.sh — Start the sage-faculty-twin uvicorn server.
-# Requires .venv to be bootstrapped first (see tools/bootstrap_venv.sh).
+# Prefers the repo-managed conda marker created by tools/bootstrap_conda_env.sh.
 
 set -euo pipefail
 
 repo_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 venv_dir="$repo_root/.venv"
+python_marker_file="$repo_root/.python-bin"
 app_port="${APP_PORT:-55601}"
 python_exec=""
 source_mode="false"
 
+resolve_marker_python() {
+    local marker_file="$1"
+    local candidate=""
+    if [[ -f "$marker_file" ]]; then
+        candidate=$(sed -n '1p' "$marker_file" | tr -d '\r')
+        if [[ -x "$candidate" ]]; then
+            printf '%s\n' "$candidate"
+            return 0
+        fi
+    fi
+    return 1
+}
+
 # --- Resolve Python runtime ---
-if [[ -x "$venv_dir/bin/python" ]]; then
+if python_exec=$(resolve_marker_python "$python_marker_file"); then
+    source_mode="true"
+elif [[ -x "$venv_dir/bin/python" ]]; then
     python_exec="$venv_dir/bin/python"
+    source_mode="true"
 elif [[ -n "${PYTHON_BIN:-}" && -x "${PYTHON_BIN}" ]]; then
     python_exec="${PYTHON_BIN}"
     source_mode="true"
 else
     echo "ERROR: No usable Python runtime found." >&2
+    echo "  Missing or stale marker: $python_marker_file" >&2
     echo "  Broken or missing venv: $venv_dir/bin/python" >&2
     echo "  Either run: bash tools/bootstrap_venv.sh" >&2
+    echo "  Or run: bash tools/bootstrap_conda_env.sh" >&2
     echo "  Or set:   PYTHON_BIN=/path/to/python3.11" >&2
     exit 1
 fi

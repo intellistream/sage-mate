@@ -284,15 +284,14 @@ class NeuroMemConversationStore:
             }
         if index_type in {"sage_vdb_ann", "sagedb_ann"}:
             algorithm = self._settings.sagevdb_anns_algorithm.strip().lower()
-            if "_" in algorithm:
-                algorithm = algorithm.split("_")[-1]
             if not algorithm:
-                algorithm = "hnsw"
+                algorithm = "faiss_hnsw"
             return {
                 "dim": int(self._settings.sagevdb_dimension),
                 "metric": "cosine",
                 "ann_algorithm": algorithm,
-                "backend_name": "sagedb",
+                "backend_name": self._settings.sagevdb_backend,
+                "allow_faiss_fallback": False,
             }
         return {}
 
@@ -943,10 +942,20 @@ class NeuroMemConversationStore:
         for index_name, metadata in dict(index_metadata).items():
             index_type = str(dict(metadata).get("type") or "bm25")
             index_config = dict(dict(metadata).get("config") or {})
-            collection.add_index(str(index_name), index_type, index_config)
+            try:
+                collection.add_index(str(index_name), index_type, index_config)
+            except ValueError:
+                fallback_type = self._default_collection_index_type()
+                fallback_config = self._default_collection_index_config(fallback_type)
+                collection.add_index(str(index_name), fallback_type, fallback_config)
 
         if not collection.indexes:
-            collection.add_index("search", "bm25", {})
+            index_type = self._default_collection_index_type()
+            collection.add_index(
+                "search",
+                index_type,
+                self._default_collection_index_config(index_type),
+            )
 
         for data_id in collection.storage.keys():
             for index_name in list(collection.indexes.keys()):

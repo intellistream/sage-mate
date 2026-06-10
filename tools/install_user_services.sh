@@ -8,6 +8,7 @@ repo_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 source_dir="$repo_root/deploy/systemd/user"
 target_dir="${XDG_CONFIG_HOME:-$HOME/.config}/systemd/user"
 venv_dir="$repo_root/.venv"
+python_marker_file="$repo_root/.python-bin"
 user_runtime_dir="/run/user/$(id -u)"
 user_bus_path="$user_runtime_dir/bus"
 
@@ -23,6 +24,13 @@ enable_vllm_proxy="false"
 start_services="false"
 
 resolve_python_bin() {
+    local marker_candidate
+    marker_candidate=$(sed -n '1p' "$python_marker_file" 2>/dev/null | tr -d '\r')
+    if [[ -n "$marker_candidate" && -x "$marker_candidate" ]]; then
+        printf '%s\n' "$marker_candidate"
+        return 0
+    fi
+
     if [[ -x "$venv_dir/bin/python" ]]; then
         printf '%s\n' "$venv_dir/bin/python"
         return 0

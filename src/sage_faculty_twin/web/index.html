@@ -10,7 +10,14 @@
     <link
         href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@500;700&display=swap"
         rel="stylesheet" />
-    <link rel="stylesheet" href="./styles.css?v=20260610-v3.0.0" />
+    <link rel="stylesheet" href="./styles.css?v=20260610-v3.0.1" />
+    <style>
+        html {
+            opacity: 0;
+            transition: opacity .12s ease
+        }
+    </style>
+    <script>document.fonts.ready.then(() => { document.documentElement.style.opacity = '1' }); setTimeout(() => { document.documentElement.style.opacity = '1' }, 800)</script>
 </head>
 
 <body>
@@ -150,6 +157,10 @@
                                 <input type="checkbox" id="deep-thinking-checkbox" />
                                 <span class="toggle-label">深度思考</span>
                             </label>
+                            <label class="deep-thinking-toggle web-search-toggle" title="开启后会先做 Tavily 联网检索，再结合本地知识回答">
+                                <input type="checkbox" id="web-search-checkbox" />
+                                <span class="toggle-label">🌐 联网检索</span>
+                            </label>
                         </div>
                     </div>
                     <p id="composer-upload-hint" class="composer-upload-hint">支持 PDF、TXT、MD、CSV、JSON、PY、YAML、LOG，最多 4
@@ -157,7 +168,89 @@
                     <div id="composer-attachment-list" class="composer-attachment-list" hidden></div>
                 </form>
             </section>
+
+            <aside id="workflow-shell" class="workflow-shell" aria-label="推理路径面板" data-mobile-mode="peek">
+                <button type="button" id="workflow-mobile-handle" class="workflow-mobile-handle" aria-expanded="false"
+                    aria-label="展开进度面板高度">
+                    <span id="workflow-mobile-handle-text">展开更多</span>
+                </button>
+                <div class="workflow-shell-head">
+                    <div class="workflow-shell-heading">
+                        <p class="brand-kicker">Reasoning Path</p>
+                        <h2 class="workflow-shell-title">推理路径</h2>
+                        <p class="workflow-shell-copy">这里展示本轮请求的执行 DAG：主干流程与并行分支会随问题动态变化。</p>
+                    </div>
+                    <div class="workflow-shell-actions">
+                        <div class="workflow-zoom-controls" aria-label="DAG 缩放控制">
+                            <button type="button" id="workflow-zoom-out"
+                                class="workflow-shell-button workflow-zoom-button" aria-label="缩小 DAG">-</button>
+                            <button type="button" id="workflow-zoom-reset"
+                                class="workflow-shell-button workflow-zoom-button" aria-label="重置缩放">
+                                <span id="workflow-zoom-value">100%</span>
+                            </button>
+                            <button type="button" id="workflow-zoom-in"
+                                class="workflow-shell-button workflow-zoom-button" aria-label="放大 DAG">+</button>
+                            <button type="button" id="workflow-zoom-fit"
+                                class="workflow-shell-button workflow-zoom-button" aria-label="适配宽度">适配</button>
+                        </div>
+                        <button type="button" id="workflow-toggle" class="workflow-shell-button"
+                            aria-expanded="true">收起</button>
+                        <button type="button" id="workflow-mobile-close" class="workflow-shell-button">关闭</button>
+                    </div>
+                </div>
+                <div class="workflow-stats" aria-live="polite">
+                    <span class="workflow-stat-pill">总耗时 <strong id="workflow-total-duration">--</strong></span>
+                    <span class="workflow-stat-pill">当前阶段 <strong id="workflow-current-action">等待中</strong></span>
+                    <span class="workflow-stat-pill">知识命中 <strong id="workflow-knowledge-count">0</strong></span>
+                </div>
+
+                <section id="workflow-plan-card" class="workflow-plan-card" hidden>
+                    <header class="workflow-plan-header">
+                        <h3 id="workflow-plan-heading">Deterministic Planner</h3>
+                        <span id="workflow-plan-badge" class="workflow-plan-badge">待评估</span>
+                    </header>
+                    <p id="workflow-plan-copy" class="workflow-plan-copy">正在评估本轮规划。</p>
+                    <p id="workflow-plan-note" class="workflow-plan-note"></p>
+                    <p id="workflow-plan-details" class="workflow-plan-details"></p>
+                    <button type="button" id="workflow-plan-toggle" class="workflow-plan-toggle"
+                        aria-expanded="false">展开规划步骤</button>
+                    <ol id="workflow-plan-steps" class="workflow-plan-steps" hidden></ol>
+                </section>
+
+                <section id="workflow-shadow-plan-panel" class="workflow-plan-card workflow-plan-card-shadow" hidden>
+                    <header class="workflow-plan-header">
+                        <h3 id="workflow-shadow-plan-heading">Shadow Planner</h3>
+                        <span id="workflow-shadow-plan-badge" class="workflow-plan-badge">待评估</span>
+                    </header>
+                    <p id="workflow-shadow-plan-copy" class="workflow-plan-copy">尚未生成 shadow 规划。</p>
+                    <p id="workflow-shadow-plan-details" class="workflow-plan-details"></p>
+                    <button type="button" id="workflow-shadow-plan-toggle" class="workflow-plan-toggle"
+                        aria-expanded="false">展开 shadow 步骤</button>
+                    <ol id="workflow-shadow-plan-steps" class="workflow-plan-steps" hidden></ol>
+                </section>
+
+                <section id="workflow-plan-compare-panel" class="workflow-plan-card workflow-plan-card-compare" hidden>
+                    <header class="workflow-plan-header">
+                        <h3 id="workflow-plan-compare-heading">Planner 对比</h3>
+                        <span id="workflow-plan-compare-badge" class="workflow-plan-badge">待对比</span>
+                    </header>
+                    <p id="workflow-plan-compare-copy" class="workflow-plan-copy">正在等待对比结果。</p>
+                    <p id="workflow-plan-compare-details" class="workflow-plan-details"></p>
+                    <button type="button" id="workflow-plan-compare-toggle" class="workflow-plan-toggle"
+                        aria-expanded="false">展开差异清单</button>
+                    <ol id="workflow-plan-compare-steps" class="workflow-plan-steps" hidden></ol>
+                </section>
+
+                <div id="workflow-trace-wrap" class="workflow-trace-wrap">
+                    <div id="workflow-trace" class="workflow-trace" aria-live="polite"></div>
+                </div>
+                <button type="button" id="workflow-scroll-latest" class="workflow-shell-button">定位到最新步骤</button>
+            </aside>
         </main>
+
+        <button type="button" id="mobile-workflow-trigger" class="mobile-workflow-trigger" aria-expanded="false"
+            aria-label="打开推理路径面板">推理路径</button>
+        <div id="workflow-mobile-backdrop" class="workflow-mobile-backdrop hidden" aria-hidden="true"></div>
 
         <footer class="app-powered-by" aria-label="技术栈">
             <span class="app-powered-by-label">Powered by</span>
@@ -172,7 +265,7 @@
         </footer>
     </div>
 
-    <div class="app-version-badge" aria-label="应用版本">v3.0.0</div>
+    <div class="app-version-badge" aria-label="应用版本">v3.0.1</div>
 
     <div id="modal-overlay" class="modal-overlay hidden"></div>
 
@@ -283,7 +376,7 @@
                 <p class="brand-kicker">Actions</p>
                 <h3 class="drawer-group-title">常用入口</h3>
             </div>
-            <button type="button" id="load-demo-chat" class="ghost-button drawer-button">填入示例问题</button>
+            <button type="button" id="load-demo-chat" class="ghost-button drawer-button hidden">填入示例问题</button>
             <button type="button" id="open-booking" class="ghost-button drawer-button">预约会议</button>
             <button type="button" id="open-knowledge" class="ghost-button drawer-button hidden">知识库管理</button>
             <button type="button" id="open-availability-editor"
@@ -737,7 +830,7 @@
         </div>
     </section>
 
-    <script src="./app.js?v=20260610-v3.0.0"></script>
+    <script src="./app.js?v=20260610-v3.0.1"></script>
 </body>
 
 </html>

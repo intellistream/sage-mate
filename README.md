@@ -47,6 +47,11 @@ curl -s -N http://127.0.0.1:55601/chat \
 - `DIGITAL_TWIN_MODEL_NAME`（例如 `meta-llama/Llama-3.1-8B-Instruct`）
 - `DIGITAL_TWIN_STREAM_CHAT_ANSWER=true`
 
+联网检索（可选）建议再配 2 个：
+
+- `TAVILY_TOKEN`（或 `DIGITAL_TWIN_TAVILY_TOKEN`）
+- `DIGITAL_TWIN_WEB_SEARCH_ENABLED=true`
+
 ## OpenAI 代理（可选）
 
 如果你想让 `vllm-hust` 通过 systemd 代理对外提供带鉴权的 OpenAI-compatible API，可以启用 `sage-faculty-twin-vllm-openai-proxy.service`。

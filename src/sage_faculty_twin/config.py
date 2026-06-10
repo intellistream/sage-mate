@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from pydantic import Field
+from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -57,6 +57,14 @@ class AppSettings(BaseSettings):
     neuromem_embedding_model: str = Field(default="BAAI/bge-small-zh-v1.5")
     neuromem_embedding_dim: int = Field(default=512, ge=32, le=4096)
     retrieval_top_k: int = Field(default=3, ge=1, le=10)
+    web_search_enabled: bool = Field(default=True)
+    web_search_timeout_seconds: float = Field(default=8.0, ge=1.0, le=30.0)
+    web_search_max_results: int = Field(default=3, ge=1, le=8)
+    web_search_auto_trigger: bool = Field(default=False)
+    tavily_token: str = Field(
+        default="",
+        validation_alias=AliasChoices("DIGITAL_TWIN_TAVILY_TOKEN", "TAVILY_TOKEN"),
+    )
     conversation_memory_dir: Path = Field(default=Path("data/conversation_memory"))
     online_presence_dir: Path = Field(default=Path(".runtime/online_presence"))
     online_presence_window_seconds: int = Field(default=300, ge=60, le=3600)

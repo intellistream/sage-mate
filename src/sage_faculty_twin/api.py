@@ -379,6 +379,8 @@ async def _parse_chat_request(raw_request: Request) -> ChatRequest:
                 form.get("deep_thinking_explicit")
             )
             not in ("false", "0", None),
+            "web_search": _coerce_optional_form_value(form.get("web_search"))
+            in ("true", "1", "on", "yes"),
             "attachments": await _parse_chat_attachments(files),
         }
         try:
