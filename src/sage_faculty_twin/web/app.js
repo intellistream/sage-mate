@@ -9,6 +9,7 @@ const topbarServiceStatus = document.getElementById("topbar-service-status");
 const topbarUserCount = document.getElementById("topbar-user-count");
 const topbarQuestionCount = document.getElementById("topbar-question-count");
 const topbarModelStatus = document.getElementById("topbar-model-status");
+const topbarMobileHistoryToggleButton = document.getElementById("topbar-mobile-history-toggle");
 const topbarActionsToggleButton = document.getElementById("topbar-actions-toggle");
 const topbarActions = document.querySelector(".topbar-actions");
 const topbarShell = document.querySelector(".topbar");
@@ -407,6 +408,7 @@ chatStream?.addEventListener("click", handleCopyAnswerClick);
 historyList?.addEventListener("click", handleConversationHistoryClick);
 historyRailToggleButton?.addEventListener("click", toggleHistoryRail);
 topbarHistoryToggleButton?.addEventListener("click", toggleHistoryRail);
+topbarMobileHistoryToggleButton?.addEventListener("click", toggleHistoryRail);
 topbarNewChatButton?.addEventListener("click", startFreshConversation);
 topbarActionsToggleButton?.addEventListener("click", toggleMobileTopbarActions);
 topbarActions?.addEventListener("click", handleTopbarActionsClick);
@@ -1161,6 +1163,16 @@ function handleOutsideDrawerClick(event) {
     const target = event.target;
     if (!(target instanceof Element)) {
         return;
+    }
+
+    if (
+        !document.body.classList.contains("history-rail-collapsed")
+        && !target.closest(".history-rail")
+        && !target.closest("#history-rail-toggle")
+        && !target.closest("#topbar-mobile-history-toggle")
+        && !target.closest("#topbar-history-toggle")
+    ) {
+        setHistoryRailCollapsed(true);
     }
 
     if (isMobileTopbarActionsOpen() && topbarShell && !topbarShell.contains(target)) {
@@ -3974,6 +3986,9 @@ async function handleConversationHistoryClick(event) {
 
     persistActiveConversationSnapshot();
     await restoreConversationFromHistory(conversationId);
+    if (isMobileWorkflowViewport()) {
+        setHistoryRailCollapsed(true);
+    }
 }
 
 function handleConversationRename(conversationId) {
@@ -4129,6 +4144,11 @@ function setHistoryRailCollapsed(collapsed) {
     if (historyRailToggleButton) {
         historyRailToggleButton.textContent = collapsed ? "展开" : "收起";
         historyRailToggleButton.setAttribute("aria-expanded", String(!collapsed));
+    }
+    if (topbarMobileHistoryToggleButton) {
+        topbarMobileHistoryToggleButton.setAttribute("aria-label", collapsed ? "历史对话" : "收起历史");
+        topbarMobileHistoryToggleButton.setAttribute("title", collapsed ? "历史对话" : "收起历史");
+        topbarMobileHistoryToggleButton.setAttribute("aria-expanded", String(!collapsed));
     }
     if (topbarHistoryToggleButton) {
         topbarHistoryToggleButton.setAttribute("aria-label", collapsed ? "历史对话" : "收起历史");

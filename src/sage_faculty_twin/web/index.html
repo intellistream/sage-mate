@@ -10,12 +10,17 @@
     <link
         href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@500;700&display=swap"
         rel="stylesheet" />
-    <link rel="stylesheet" href="./styles.css?v=20260604-deep-thinking-toggle" />
+    <link rel="stylesheet" href="./styles.css?v=20260610-v2.0.2" />
 </head>
 
 <body>
     <div class="app-shell">
         <header class="topbar">
+            <button type="button" id="topbar-mobile-history-toggle" class="icon-button topbar-mobile-history-toggle"
+                aria-expanded="false" aria-label="历史对话" title="历史对话">
+                <span class="topbar-action-icon" aria-hidden="true">◷</span>
+                <span class="sr-only">历史对话</span>
+            </button>
             <div class="topbar-brand" aria-label="学术分身介绍">
                 <div class="topbar-brand-mark" aria-hidden="true">S</div>
                 <div class="topbar-brand-copy">
@@ -124,23 +129,28 @@
                     <input id="chat-file-input" type="file" name="files" multiple hidden
                         accept=".pdf,.txt,.md,.csv,.json,.py,.yaml,.yml,.log,text/plain,text/markdown,text/csv,application/json,application/pdf" />
                     <div class="composer-row">
-                        <textarea id="chat-question" name="question" rows="1" required
-                            placeholder="如果是第一次来，可以先问研究方向、公开资料或预约方式。">张老师主要研究什么方向？</textarea>
-                        <button type="button" id="composer-upload-button" class="ghost-button composer-upload-button"
-                            aria-label="上传材料" title="上传材料">
-                            <svg viewBox="0 0 20 20" fill="none" aria-hidden="true" focusable="false">
-                                <path
-                                    d="M7.9 10.9 12.85 5.95a2.5 2.5 0 1 1 3.54 3.54l-6.01 6.01a4 4 0 1 1-5.66-5.66l6.37-6.36"
-                                    stroke="currentColor" stroke-width="1.7" stroke-linecap="round"
-                                    stroke-linejoin="round" />
-                            </svg>
-                            <span class="sr-only">上传材料</span>
-                        </button>
-                        <label class="deep-thinking-toggle" title="开启后模型会先推理再回答，质量更高但更慢">
-                            <input type="checkbox" id="deep-thinking-checkbox" />
-                            <span class="toggle-label">深度思考</span>
-                        </label>
-                        <button type="submit" class="send-button">发送</button>
+                        <div class="composer-main-row">
+                            <textarea id="chat-question" name="question" rows="1" required
+                                placeholder="如果是第一次来，可以先问研究方向、公开资料或预约方式。">张老师主要研究什么方向？</textarea>
+                            <button type="submit" class="send-button">发送</button>
+                        </div>
+                        <div class="composer-tools-row" aria-label="发送附加操作">
+                            <button type="button" id="composer-upload-button"
+                                class="ghost-button composer-upload-button" aria-label="上传材料" title="上传材料">
+                                <svg viewBox="0 0 20 20" fill="none" aria-hidden="true" focusable="false">
+                                    <path
+                                        d="M7.9 10.9 12.85 5.95a2.5 2.5 0 1 1 3.54 3.54l-6.01 6.01a4 4 0 1 1-5.66-5.66l6.37-6.36"
+                                        stroke="currentColor" stroke-width="1.7" stroke-linecap="round"
+                                        stroke-linejoin="round" />
+                                </svg>
+                                <span class="composer-tool-label" aria-hidden="true">上传材料</span>
+                                <span class="sr-only">上传材料</span>
+                            </button>
+                            <label class="deep-thinking-toggle" title="开启后模型会先推理再回答，质量更高但更慢">
+                                <input type="checkbox" id="deep-thinking-checkbox" />
+                                <span class="toggle-label">深度思考</span>
+                            </label>
+                        </div>
                     </div>
                     <p id="composer-upload-hint" class="composer-upload-hint">支持 PDF、TXT、MD、CSV、JSON、PY、YAML、LOG，最多 4
                         个文件。</p>
@@ -161,6 +171,8 @@
             </div>
         </footer>
     </div>
+
+    <div class="app-version-badge" aria-label="应用版本">v2.0.2</div>
 
     <div id="modal-overlay" class="modal-overlay hidden"></div>
 
@@ -720,7 +732,7 @@
         </div>
     </section>
 
-    <script src="./app.js?v=20260604-deep-thinking-toggle"></script>
+    <script src="./app.js?v=20260610-v2.0.2"></script>
 </body>
 
 </html>

@@ -1,3 +1,5 @@
 """SAGE my-twin application package."""
 
-__all__: list[str] = []
+__version__ = "2.0.2"
+
+__all__ = ["__version__"]

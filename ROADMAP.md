@@ -302,10 +302,11 @@ The current `v2` checkpoint has implemented the first operations-console slices:
 workbench APIs, the admin console shell, knowledge-gap drafts, student operations profiles, a
 unified operational task queue, task state overlays, and satisfaction metrics.
 
-The `v2.0.1` patch baseline freezes the post-release hardening that should be preserved before V3:
+The `v2.0.2` patch baseline freezes the post-release hardening that should be preserved before V3:
 mobile identity-prompt fixes, powered-by link cleanup, stronger local-model workflow routing,
-exact course-material retrieval, Chinese relative-time booking, owner-style clarification, and the
-refined inference-service frontend.
+exact course-material retrieval, Chinese relative-time booking, owner-style clarification, refined
+inference-service frontend, cache-busted CSS/JS delivery, and a subtle in-app version badge for
+runtime release visibility.
 
 Remaining release-facing work before V3 should be limited to regression fixes and operational
 evidence collection. New behavior should wait for the V3 planning layer unless it is needed to keep

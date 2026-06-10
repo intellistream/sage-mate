@@ -98,6 +98,10 @@ body.drawer-pinned .app-shell {
     backdrop-filter: none;
 }
 
+.topbar-mobile-history-toggle {
+    display: none;
+}
+
 .topbar-actions {
     position: absolute;
     top: calc(100% + 4px);
@@ -803,6 +807,23 @@ body.drawer-pinned .history-rail {
 
 .app-powered-by-chip:visited {
     color: var(--ink);
+}
+
+.app-version-badge {
+    position: fixed;
+    right: 10px;
+    bottom: calc(8px + var(--safe-bottom));
+    z-index: 6;
+    padding: 2px 8px;
+    border-radius: 999px;
+    border: 1px solid rgba(32, 33, 35, 0.12);
+    background: rgba(255, 255, 255, 0.64);
+    color: rgba(32, 33, 35, 0.62);
+    font-size: 0.68rem;
+    letter-spacing: 0.02em;
+    user-select: none;
+    pointer-events: none;
+    backdrop-filter: blur(6px);
 }
 
 .workflow-shell {
@@ -2044,24 +2065,42 @@ body.conversation-active .intro-card .message-body {
 }
 
 .composer-row {
-    display: flex;
+    display: grid;
     gap: 10px;
-    align-items: flex-end;
     width: min(100%, 820px);
     margin: 0 auto;
-    padding: 10px 12px;
+    padding: 12px;
     border: 1px solid rgba(32, 33, 35, 0.12);
     border-radius: 28px;
     background: #ffffff;
     box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
 }
 
+.composer-main-row {
+    display: flex;
+    align-items: flex-end;
+    gap: 10px;
+    min-width: 0;
+}
+
+.composer-tools-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    min-width: 0;
+}
+
 .composer-upload-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
     flex-shrink: 0;
     white-space: nowrap;
-    width: 42px;
+    width: auto;
     height: 42px;
-    padding: 0;
+    padding: 0 14px;
     border-color: transparent;
     background: var(--surface-soft);
 }
@@ -2070,7 +2109,13 @@ body.conversation-active .intro-card .message-body {
     width: 18px;
     height: 18px;
     display: block;
-    margin: 0 auto;
+    flex: 0 0 auto;
+}
+
+.composer-tool-label {
+    font-size: 0.82rem;
+    font-weight: 600;
+    line-height: 1;
 }
 
 .deep-thinking-toggle {
@@ -2200,8 +2245,8 @@ textarea {
 }
 
 .composer-row textarea {
-    flex: 1 1 0;
-    width: 0;
+    flex: 1 1 auto;
+    width: 100%;
     min-width: 0;
     border: 0;
     background: transparent;
@@ -3690,10 +3735,14 @@ body.workflow-shell-collapsed #workflow-toggle {
     .topbar {
         align-items: center;
         flex-direction: row;
+        justify-content: space-between;
     }
 
     .topbar-brand {
+        flex: 1 1 auto;
         min-width: 0;
+        justify-content: center;
+        text-align: center;
     }
 
     .topbar-actions {
@@ -3843,26 +3892,37 @@ body.workflow-shell-collapsed #workflow-toggle {
     }
 
     .composer-row {
-        flex-wrap: wrap;
+        gap: 8px;
+        padding: 10px;
+    }
+
+    .composer-main-row {
         align-items: center;
-        padding: 8px 10px;
+        gap: 8px;
+    }
+
+    .composer-tools-row {
+        justify-content: space-between;
+        gap: 8px;
+        padding-top: 4px;
+        border-top: 1px solid rgba(32, 33, 35, 0.08);
     }
 
     .composer-row textarea {
-        flex: 1 1 100%;
-        width: 100%;
         min-height: 20px;
+        padding: 8px 2px 8px 6px;
     }
 
     .composer-upload-button {
-        width: 38px;
+        min-width: 0;
         height: 38px;
-        flex-shrink: 0;
+        padding: 0 12px;
     }
 
     .send-button {
-        min-width: 60px;
+        min-width: 68px;
         flex-shrink: 0;
+        padding: 10px 14px;
     }
 
     .workflow-phase-rail {
@@ -3917,8 +3977,28 @@ body.workflow-shell-collapsed #workflow-toggle {
 
     /* 1. Topbar: single row, only name + drawer button */
     .topbar {
-        padding: 8px 4px;
+        padding: 8px 2px;
         gap: 8px;
+    }
+
+    .topbar-mobile-history-toggle {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        order: 0;
+        min-width: 42px;
+        width: 42px;
+        height: 42px;
+        padding: 0;
+    }
+
+    .topbar-brand {
+        order: 1;
+    }
+
+    .topbar-actions-toggle {
+        order: 2;
+        margin-left: 0;
     }
 
     .topbar-subtitle {
@@ -3929,6 +4009,11 @@ body.workflow-shell-collapsed #workflow-toggle {
         flex-wrap: nowrap;
         width: auto;
         margin-left: auto;
+    }
+
+    #topbar-history-toggle,
+    #topbar-new-chat {
+        display: none;
     }
 
     #open-suggestions {
@@ -3997,8 +4082,33 @@ body.workflow-shell-collapsed #workflow-toggle {
         display: none;
     }
 
+    .composer-tool-label {
+        display: none;
+    }
+
+    .composer-upload-button {
+        width: 40px;
+        padding: 0;
+        border-radius: 999px;
+    }
+
+    .deep-thinking-toggle {
+        min-height: 38px;
+        padding: 0 10px;
+        border-radius: 999px;
+        background: var(--surface-soft);
+    }
+
     .app-powered-by {
         display: none;
+    }
+
+    .app-version-badge {
+        right: 8px;
+        bottom: calc(6px + var(--safe-bottom));
+        font-size: 0.64rem;
+        padding: 2px 7px;
+        opacity: 0.82;
     }
 
     /* 5. Tighten overall spacing */

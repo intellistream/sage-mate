@@ -26,6 +26,23 @@
   a Pydantic `BaseModel` (e.g. `ChatResponse`) was shredded into one packet
   per `(field_name, value)` pair downstream of any non-linear topology.
 
+## v2.0.2 - 2026-06-10
+
+`v2.0.2` is a quick stabilization patch focused on pre-v3 release hygiene and
+runtime visibility.
+
+### Fixed
+
+- Updated frontend cache-busting so both CSS and JS assets ship with the same
+  fresh release token, reducing stale-browser UI behavior after deploy.
+
+### Changed
+
+- Added a subtle bottom-right in-app version badge (`v2.0.2`) so operators can
+  verify the running UI build without opening developer tools.
+- Bumped package version metadata to `2.0.2` and exported
+  `sage_faculty_twin.__version__` for runtime/version checks.
+
 ## v2.0.1 - 2026-05-29
 
 `v2.0.1` is the pre-v3 stabilization baseline. It keeps the `v2` operations-console scope but
