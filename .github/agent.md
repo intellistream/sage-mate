@@ -54,3 +54,20 @@ These incidents were mostly "false restart failures" rather than a crashed app p
 2. Outside-click close behavior verified.
 - With settings drawer open, tapping a blank area outside the drawer closes it.
 - Status drawer already supports outside-click close with the same interaction expectation.
+
+## Python environment notes
+
+1. Broken `.venv` can be present even when the repo appears to have a local environment.
+- In this repo, `.venv/bin/python3.11` was a symlink to `/usr/bin/python3.11`.
+- On this host, `/usr/bin/python3.11` did not exist, so `.venv/bin/python`, `.venv/bin/uvicorn`, and other console scripts failed even though the `.venv` directory was present.
+- If `.venv` points at a missing interpreter, treat it as stale and remove or rebuild it instead of assuming the environment is usable.
+
+2. `sagellm` is the reliable Python 3.11 execution path on this machine.
+- The working interpreter is `/home/shuhao/miniforge3/envs/sagellm/bin/python`.
+- It provides Python 3.11 plus the packages needed for `my-twin` regression checks.
+- When running tests manually, prefer invoking that interpreter directly with the repo `PYTHONPATH` instead of relying on `conda activate`.
+
+3. `conda` entrypoints under `miniforge3/bin` can be stale even if the env itself still works.
+- On this host, `/home/shuhao/miniforge3/bin/conda` still referenced `/workspace/miniforge3/bin/python` in its shebang.
+- That made `conda env list` fail, but did not mean `/home/shuhao/miniforge3/envs/sagellm/` was broken.
+- If `conda` wrapper scripts fail, inspect the target environment's `bin/python` directly before concluding the environment is unavailable.
