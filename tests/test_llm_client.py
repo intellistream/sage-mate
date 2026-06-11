@@ -463,6 +463,16 @@ def test_app_settings_defaults_to_lower_llm_timeout(
     assert settings.llm_timeout_seconds == 60
 
 
+def test_app_settings_does_not_load_sibling_sage_env(tmp_path, monkeypatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv("DIGITAL_TWIN_TAVILY_TOKEN", raising=False)
+    monkeypatch.delenv("TAVILY_TOKEN", raising=False)
+
+    settings = AppSettings(_env_file=None)
+
+    assert settings.tavily_token == ""
+
+
 def test_request_chat_completion_raises_after_retry_budget(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
