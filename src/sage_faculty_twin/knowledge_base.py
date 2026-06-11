@@ -243,6 +243,9 @@ class LocalKnowledgeStore:
     def list_documents(self) -> list[KnowledgeDocumentRecord]:
         return sorted(self._documents.values(), key=lambda item: item.created_at)
 
+    def get_document(self, document_id: str) -> KnowledgeDocumentRecord | None:
+        return self._documents.get(document_id)
+
     def delete_documents(
         self,
         document_ids: list[str],
@@ -829,11 +832,32 @@ class LocalKnowledgeStore:
             + self._document_intent_boost(document, query_profile)
             + self._document_visitor_profile_boost(document, query_profile)
             + self._document_course_scope_boost(document, query_profile)
+            + self._document_feedback_web_review_boost(document, query_profile)
         )
         if raw < 1.5 and query_profile.topic_domains & frozenset({"research", "general"}):
             if tag_tokens & {"profile", "overview"}:
                 return max(raw, 1.5)
         return raw
+
+    def _document_feedback_web_review_boost(
+        self,
+        document: KnowledgeDocumentRecord,
+        query_profile: "QueryProfile",
+    ) -> float:
+        if query_profile.admin_role:
+            return 0.0
+
+        source_name = str(document.source_name or "").lower()
+        tags = {str(tag).lower() for tag in document.tags}
+        if not (source_name.startswith("feedback-web:") or "feedback-web" in tags):
+            return 0.0
+
+        review_status = str(document.metadata.get("review_status") or "pending").strip().lower()
+        if review_status == "approved":
+            return 0.0
+        if review_status == "stale":
+            return -7.0
+        return -3.0
 
     def _document_course_scope_boost(
         self,

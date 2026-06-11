@@ -13,6 +13,7 @@ from sage_faculty_twin.models import (
 )
 from sage_faculty_twin.notifications import BookingNotificationError
 from sage_faculty_twin.service import DigitalTwinService
+from sage_faculty_twin.web_search import WebSearchResult
 
 
 class FailingLLMClient:
@@ -2045,6 +2046,219 @@ def test_service_normalizes_repeated_gap_title_prefixes_on_startup(
     ]
     assert len(documents) == 1
     assert documents[0].title == "常见问题：和老师约时间前，我应该先准备什么"
+
+
+def test_chat_auto_web_searches_when_local_knowledge_is_empty(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    settings = AppSettings(
+        knowledge_base_dir=tmp_path / "knowledge-base",
+        conversation_memory_dir=tmp_path / "conversation-memory",
+        knowledge_backend="local",
+        conversation_memory_index_type="bm25",
+        web_search_enabled=True,
+        web_search_auto_trigger=True,
+    )
+    service = DigitalTwinService(settings)
+    service._llm_client = RecordingLLMClient(
+        booking_intent=False,
+        answer="可以先从 vLLM、SGLang、PagedAttention 和 prefix caching 这些关键词入手。",
+    )
+
+    monkeypatch.setattr(
+        "sage_faculty_twin.web_search.WebSearchClient.search",
+        lambda self, query, max_results=None: [
+            WebSearchResult(
+                title="vLLM Documentation",
+                url="https://docs.vllm.ai/",
+                snippet="vLLM is a fast and easy-to-use library for LLM inference.",
+                score=9.5,
+            )
+        ],
+    )
+
+    response = asyncio.run(
+        service.answer(
+            ChatRequest(
+                student_name="Alice",
+                student_email="alice@example.com",
+                course_context="科研指导",
+                conversation_id="conv-auto-web-search",
+                question="如果我想系统了解大模型推理系统，建议先看哪些系统或关键词？",
+            )
+        )
+    )
+
+    assert [hit.title for hit in response.web_search_hits] == ["vLLM Documentation"]
+    assert any(item.basis_label == "联网检索" for item in response.answer_basis)
+
+
+def test_positive_feedback_writes_web_sources_back_to_knowledge_base(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    settings = AppSettings(
+        knowledge_base_dir=tmp_path / "knowledge-base",
+        conversation_memory_dir=tmp_path / "conversation-memory",
+        knowledge_backend="local",
+        conversation_memory_index_type="bm25",
+        web_search_enabled=True,
+        web_search_auto_trigger=True,
+    )
+    service = DigitalTwinService(settings)
+    service._llm_client = RecordingLLMClient(
+        booking_intent=False,
+        answer="我建议先看 vLLM 文档，再对照 SGLang 的调度与缓存机制。",
+    )
+
+    monkeypatch.setattr(
+        "sage_faculty_twin.web_search.WebSearchClient.search",
+        lambda self, query, max_results=None: [
+            WebSearchResult(
+                title="vLLM Documentation",
+                url="https://docs.vllm.ai/",
+                snippet="Overview of serving, PagedAttention, prefix caching, and scheduling.",
+                score=9.5,
+            )
+        ],
+    )
+
+    response = asyncio.run(
+        service.answer(
+            ChatRequest(
+                student_name="Alice",
+                student_email="alice@example.com",
+                course_context="科研指导",
+                conversation_id="conv-feedback-web-writeback",
+                question="如果我想系统了解大模型推理系统，建议先看哪些系统或关键词？",
+            )
+        )
+    )
+
+    assert response.exchange_id is not None
+
+    feedback = service.submit_chat_feedback(
+        {
+            "exchange_id": response.exchange_id,
+            "rating": "up",
+        }
+    )
+
+    assert len(feedback.knowledge_write_backs) == 1
+    assert feedback.knowledge_write_backs[0].created is True
+    documents = service.list_knowledge()
+    assert len(documents) == 1
+    assert documents[0].title == "联网补充：vLLM Documentation"
+    assert documents[0].source_name is not None
+    assert documents[0].source_name.startswith("feedback-web:")
+    assert "review:pending" in documents[0].tags
+    assert documents[0].metadata["review_status"] == "pending"
+    assert "https://docs.vllm.ai/" in documents[0].content
+    assert "如果我想系统了解大模型推理系统" in documents[0].content
+
+    second_response = asyncio.run(
+        service.answer(
+            ChatRequest(
+                student_name="Bob",
+                student_email="bob@example.com",
+                course_context="科研指导",
+                conversation_id="conv-feedback-web-writeback-2",
+                question="我想先快速理解 vLLM 的推理执行路径，应该看什么？",
+                web_search=True,
+            )
+        )
+    )
+    second_feedback = service.submit_chat_feedback(
+        {
+            "exchange_id": second_response.exchange_id,
+            "rating": "up",
+        }
+    )
+
+    assert len(second_feedback.knowledge_write_backs) == 1
+    assert second_feedback.knowledge_write_backs[0].created is False
+    assert len(service.list_knowledge()) == 1
+
+
+def test_review_feedback_web_document_and_delete_it(tmp_path: Path) -> None:
+    settings = AppSettings(
+        knowledge_base_dir=tmp_path / "knowledge-base",
+        conversation_memory_dir=tmp_path / "conversation-memory",
+        knowledge_backend="local",
+    )
+    service = DigitalTwinService(settings)
+
+    created = service.add_knowledge(
+        KnowledgeDocumentCreate(
+            title="联网补充：vLLM Documentation",
+            content="用于补充推理系统入门链接。",
+            tags=["feedback-web", "review:pending", "freshness:web"],
+            source_name="feedback-web:https://docs.vllm.ai/",
+            metadata={
+                "source_url": "https://docs.vllm.ai/",
+                "review_status": "pending",
+                "freshness_status": "web",
+            },
+        )
+    )
+
+    reviewed = service.review_knowledge_document(
+        created.document_id,
+        {"action": "approve"},
+    )
+    assert reviewed.action == "approve"
+    assert reviewed.document is not None
+    assert reviewed.document.metadata["review_status"] == "approved"
+    assert reviewed.document.metadata["freshness_status"] == "web"
+    assert "review:approved" in reviewed.document.tags
+    assert "review:pending" not in reviewed.document.tags
+
+    deleted = service.delete_knowledge_document(created.document_id)
+    assert deleted.action == "delete"
+    assert deleted.deleted_count == 1
+    assert service.list_knowledge() == []
+
+
+def test_pending_feedback_web_is_downgraded_for_non_admin_search(tmp_path: Path) -> None:
+    settings = AppSettings(
+        knowledge_base_dir=tmp_path / "knowledge-base",
+        conversation_memory_dir=tmp_path / "conversation-memory",
+        knowledge_backend="local",
+    )
+    service = DigitalTwinService(settings)
+
+    service.add_knowledge(
+        KnowledgeDocumentCreate(
+            title="推理系统入门",
+            content="PagedAttention 与 prefix caching 的基础说明。",
+            tags=["research", "overview"],
+            source_name="manual:notes",
+        )
+    )
+    service.add_knowledge(
+        KnowledgeDocumentCreate(
+            title="推理系统入门",
+            content="PagedAttention 与 prefix caching 的基础说明。",
+            tags=["research", "overview", "feedback-web", "review:pending"],
+            source_name="feedback-web:https://docs.vllm.ai/",
+            metadata={
+                "review_status": "pending",
+                "freshness_status": "web",
+            },
+        )
+    )
+
+    visitor_hits = service.search_knowledge("PagedAttention prefix caching", admin_role=None).hits
+    assert len(visitor_hits) >= 2
+    assert visitor_hits[0].source_name == "manual:notes"
+
+    admin_hits = service.search_knowledge(
+        "PagedAttention prefix caching",
+        admin_role="super_admin",
+    ).hits
+    assert len(admin_hits) >= 2
+    assert str(admin_hits[0].source_name).startswith("feedback-web:")
 
 
 def test_service_normalizes_truncated_gap_titles_on_startup(tmp_path: Path) -> None:

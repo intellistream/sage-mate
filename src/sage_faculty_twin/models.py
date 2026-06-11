@@ -189,6 +189,13 @@ class WebSearchHit(BaseModel):
     score: float = Field(default=0.0)
 
 
+class KnowledgeWriteBackResult(BaseModel):
+    document_id: str
+    title: str = Field(min_length=1, max_length=256)
+    source_name: str | None = Field(default=None, max_length=256)
+    created: bool = True
+
+
 class ChatResponse(BaseModel):
     answer: str
     owner_name: str
@@ -327,6 +334,17 @@ class KnowledgeDocumentRecord(BaseModel):
     created_at: datetime
 
 
+class KnowledgeDocumentReviewRequest(BaseModel):
+    action: str = Field(pattern="^(approve|stale)$")
+
+
+class KnowledgeDocumentActionResponse(BaseModel):
+    document_id: str
+    action: str
+    document: KnowledgeDocumentRecord | None = None
+    deleted_count: int = 0
+
+
 class KnowledgeSearchHit(BaseModel):
     document_id: str
     title: str
@@ -372,6 +390,7 @@ class ChatFeedbackResponse(BaseModel):
     resolved: bool
     needs_human_followup: bool
     issue_summary: str | None = None
+    knowledge_write_backs: list[KnowledgeWriteBackResult] = Field(default_factory=list)
     created_at: datetime
     updated_at: datetime
 

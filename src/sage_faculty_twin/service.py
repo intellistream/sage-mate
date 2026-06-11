@@ -75,12 +75,15 @@ from .models import (
     HandoffCategorySummary,
     InteractionIntent,
     KnowledgeDocumentCreate,
+    KnowledgeDocumentActionResponse,
     KnowledgeDocumentRecord,
+    KnowledgeDocumentReviewRequest,
     KnowledgeGapDraftCreateRequest,
     KnowledgeGapDraftRecordResponse,
     KnowledgeGapSuggestion,
     KnowledgeSearchHit,
     KnowledgeSearchResponse,
+    KnowledgeWriteBackResult,
     MemoryAuditItem,
     MemoryProfileListResponse,
     MemoryProfileRecordResponse,
@@ -120,7 +123,7 @@ from .planner_comparison_store import PlannerComparisonEntry, PlannerComparisonS
 from .planner_metrics_store import PlannerMetricsStore
 from .service_runtime import ServiceRuntimeManager
 from .suggestion_store import SuggestionBoardStore
-from .tavily_search import TavilySearchClient
+from .web_search import WebSearchClient
 from .user_store import UserAccountStore
 from .workflow_context import WorkflowRequestContext
 from .workflow_eval import (
@@ -131,6 +134,17 @@ from .workflow_eval import (
 from .workflow_planner import DeterministicWorkflowPlanner, PlannerDecision
 
 _FLOWNET_TICK = "__flownet_tick__"
+_THINK_BLOCK_RE = re.compile(r"<think>.*?</think>", re.IGNORECASE | re.DOTALL)
+
+
+def _strip_internal_thinking_content(answer: str | None) -> str:
+    if not answer:
+        return ""
+    stripped = _THINK_BLOCK_RE.sub("", answer)
+    stripped = re.sub(r"\n{3,}", "\n\n", stripped)
+    return stripped.strip()
+
+
 # Number of user-defined chat-workflow stages (the operator classes derived
 # from `_StageBase`). The DAG pipeline introduced by Task 4 adds two
 # internal `_ChatContextMergeN` co-map operators on top of these stages,
@@ -401,9 +415,7 @@ class FacultyTwinWorkflowSupport:
         self._shadow_planner_status = shadow_planner_status
         self._shadow_planner_message = shadow_planner_message
         self._planner_comparison = planner_comparison
-        tavily_token = settings.tavily_token.strip() or os.environ.get("TAVILY_TOKEN", "").strip()
-        self._web_search_client = TavilySearchClient(
-            tavily_token,
+        self._web_search_client = WebSearchClient(
             timeout_seconds=settings.web_search_timeout_seconds,
             max_results=settings.web_search_max_results,
         )
@@ -912,6 +924,11 @@ class FacultyTwinWorkflowSupport:
         if not self._settings.web_search_auto_trigger:
             return False
 
+        # Local grounding completely missing should always allow a web fallback
+        # when auto-trigger is enabled, even for non-realtime questions.
+        if local_hit_count == 0:
+            return True
+
         question = str(context.request.question or "")
         lowered = question.lower()
         asks_realtime = any(marker in question or marker in lowered for marker in _WEB_SEARCH_QUERY_MARKERS)
@@ -920,7 +937,7 @@ class FacultyTwinWorkflowSupport:
 
         # Keep local knowledge as first-class. Auto web search only when local
         # grounding is weak.
-        return local_hit_count == 0 or local_top_score < 8.0
+        return asks_realtime and local_top_score < 8.0
 
     def _retrieve_web_search_hits(
         self,
@@ -948,7 +965,7 @@ class FacultyTwinWorkflowSupport:
                 max_results=self._settings.web_search_max_results,
             )
         except Exception as exc:
-            _logger.warning("Tavily web search failed: %s", exc)
+            _logger.warning("Web search failed: %s", exc)
             return []
 
         return [
@@ -1299,6 +1316,7 @@ class FacultyTwinWorkflowSupport:
             ),
             knowledge_hit_count=len(context.knowledge_hits),
             booking_result=context.booking_result,
+            web_search_hits=context.web_search_hits,
         )
         self._record_artifact_memory_draft(context, started_at=started_at)
         self._append_trace(
@@ -1437,6 +1455,7 @@ class FacultyTwinWorkflowSupport:
                 context.user_prompt,
                 enable_thinking=enable_thinking,
             )
+        context.answer = _strip_internal_thinking_content(context.answer)
         context.workflow_action = (
             "advise_only" if context.decision_mode == "advise_only" else "answer"
         )
@@ -1634,6 +1653,8 @@ class FacultyTwinWorkflowSupport:
     def render_chat_response(self, context: ChatWorkflowContext) -> ChatResponse:
         if context.answer is None:
             raise RuntimeError("chat workflow completed without producing an answer")
+
+        context.answer = _strip_internal_thinking_content(context.answer)
 
         started_at = perf_counter()
 
@@ -1961,6 +1982,93 @@ class FacultyTwinWorkflowSupport:
     def list_knowledge(self) -> list[KnowledgeDocumentRecord]:
         return self._knowledge_store.list_documents()
 
+    def review_knowledge_document(
+        self,
+        document_id: str,
+        request: KnowledgeDocumentReviewRequest | dict[str, Any],
+    ) -> KnowledgeDocumentActionResponse:
+        normalized = (
+            request
+            if isinstance(request, KnowledgeDocumentReviewRequest)
+            else KnowledgeDocumentReviewRequest.model_validate(request)
+        )
+        existing = self._knowledge_store.get_document(document_id)
+        if existing is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="找不到对应的知识文档。",
+            )
+
+        source_name = str(existing.source_name or "").lower()
+        tags = {str(tag).lower() for tag in existing.tags}
+        if not (source_name.startswith("feedback-web:") or "feedback-web" in tags):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="当前仅支持审核 feedback-web 联网资料。",
+            )
+
+        next_tags: list[str] = []
+        for tag in existing.tags:
+            lowered = str(tag).lower()
+            if lowered.startswith("review:") or lowered.startswith("freshness:"):
+                continue
+            next_tags.append(tag)
+
+        if normalized.action == "approve":
+            next_tags.extend(["review:approved", "freshness:web"])
+            review_status = "approved"
+            freshness_status = "web"
+        else:
+            next_tags.extend(["review:stale", "freshness:stale"])
+            review_status = "stale"
+            freshness_status = "stale"
+
+        deduped_tags: list[str] = []
+        seen_tags: set[str] = set()
+        for tag in next_tags:
+            lowered = str(tag).lower()
+            if lowered in seen_tags:
+                continue
+            seen_tags.add(lowered)
+            deduped_tags.append(tag)
+
+        next_metadata = dict(existing.metadata)
+        next_metadata["review_status"] = review_status
+        next_metadata["freshness_status"] = freshness_status
+        next_metadata["reviewed_at"] = datetime.now(UTC).isoformat()
+
+        updated = self._knowledge_store.update_document(
+            document_id,
+            KnowledgeDocumentCreate(
+                title=existing.title,
+                content=existing.content,
+                tags=deduped_tags,
+                source_name=existing.source_name,
+                metadata=next_metadata,
+            ),
+        )
+        return KnowledgeDocumentActionResponse(
+            document_id=updated.document_id,
+            action=normalized.action,
+            document=updated,
+            deleted_count=0,
+        )
+
+    def delete_knowledge_document(self, document_id: str) -> KnowledgeDocumentActionResponse:
+        existing = self._knowledge_store.get_document(document_id)
+        if existing is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="找不到对应的知识文档。",
+            )
+        deleted_count = self._knowledge_store.delete_documents([document_id])
+        return KnowledgeDocumentActionResponse(
+            document_id=document_id,
+            action="delete",
+            document=None,
+            deleted_count=deleted_count,
+        )
+
     def search_knowledge(
         self,
         query: str,
@@ -2033,15 +2141,55 @@ class FacultyTwinWorkflowSupport:
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="找不到对应的问答记录。",
             ) from exc
+
+        knowledge_write_backs = self._write_back_feedback_knowledge(feedback.exchange_id, feedback)
+
         return ChatFeedbackResponse(
             exchange_id=feedback.exchange_id,
             rating=feedback.rating,
             resolved=feedback.resolved,
             needs_human_followup=feedback.needs_human_followup,
             issue_summary=feedback.issue_summary,
+            knowledge_write_backs=knowledge_write_backs,
             created_at=feedback.created_at,
             updated_at=feedback.updated_at,
         )
+
+    def _write_back_feedback_knowledge(
+        self,
+        exchange_id: str,
+        feedback,
+    ) -> list[KnowledgeWriteBackResult]:
+        if feedback.rating != "up" or not feedback.resolved:
+            return []
+
+        record = self._conversation_store.get_record(exchange_id)
+        if record is None or not record.web_search_hits:
+            return []
+
+        answer_text = str(record.answer or "")
+        if not any(self._answer_references_web_hit(answer_text, hit) for hit in record.web_search_hits):
+            return []
+
+        results: list[KnowledgeWriteBackResult] = []
+        seen_source_names: set[str] = set()
+        for index, hit in enumerate(record.web_search_hits[:2], start=1):
+            payload = self._build_feedback_web_knowledge_payload(record, hit, index=index)
+            if payload is None:
+                continue
+            if payload.source_name in seen_source_names:
+                continue
+            seen_source_names.add(payload.source_name)
+            stored, created = self._knowledge_store.upsert_document(payload)
+            results.append(
+                KnowledgeWriteBackResult(
+                    document_id=stored.document_id,
+                    title=stored.title,
+                    source_name=stored.source_name,
+                    created=created,
+                )
+            )
+        return results
 
     def submit_anonymous_suggestion(
         self, request: AnonymousSuggestionCreate
@@ -2568,7 +2716,7 @@ class FacultyTwinWorkflowSupport:
             return ""
 
         sections = [
-            "Real-time web search results (Tavily):",
+            "Real-time web search results (Bing):",
             "Use these results only when they directly support the user's current question.",
         ]
         for index, hit in enumerate(web_search_hits, start=1):
@@ -3425,7 +3573,7 @@ class FacultyTwinWorkflowSupport:
                     basis_label="联网检索",
                     title=self._clip_basis_text(hit.title, 256),
                     source_label=self._clip_basis_text(hit.url, 256),
-                    detail=self._clip_basis_text(hit.snippet or "来自 Tavily 的实时网页检索结果。", 1000),
+                    detail=self._clip_basis_text(hit.snippet or "来自联网检索的实时网页结果。", 1000),
                 )
             )
 
@@ -4056,6 +4204,97 @@ class FacultyTwinWorkflowSupport:
             "标签：advising, booking\n"
             "内容：学生预约前需要先发送 agenda、当前 blocker 和相关 draft。"
         )
+
+    def _build_feedback_web_knowledge_payload(
+        self,
+        record: ConversationMemoryRecord,
+        hit: WebSearchHit,
+        *,
+        index: int,
+    ) -> KnowledgeDocumentCreate | None:
+        title = str(hit.title or "").strip()
+        source_url = str(hit.url or "").strip()
+        snippet = str(hit.snippet or "").strip()
+        if not title or not source_url:
+            return None
+
+        domain = record.interaction_domain or "general"
+        canonical_url = self._canonical_feedback_source_url(source_url)
+        collected_at = datetime.now(UTC).isoformat()
+        content = "\n".join(
+            part
+            for part in (
+                f"问题：{record.question}",
+                f"回答：{record.answer}",
+                f"联网资料标题：{title}",
+                f"联网摘要：{snippet}" if snippet else "",
+                f"来源链接：{canonical_url}",
+                f"采集时间：{collected_at}",
+                "备注：该资料来自用户正向反馈的联网回答回写，可作为后续回答的补充依据；默认视为待审核网页资料，使用前仍应校验时效性。",
+            )
+            if part
+        )
+        url_digest = hashlib.sha1(canonical_url.encode("utf-8")).hexdigest()[:16]
+        source_name = f"feedback-web:{domain}:{url_digest}"
+        tags = ["feedback-web", "web-search", domain, "review:pending", "freshness:web"]
+        return KnowledgeDocumentCreate(
+            title=f"联网补充：{title}"[:256],
+            content=content[:20000],
+            tags=tags,
+            source_name=source_name[:256],
+            metadata={
+                "exchange_id": record.memory_id,
+                "source_url": canonical_url[:256],
+                "interaction_domain": domain,
+                "collected_at": collected_at,
+                "review_status": "pending",
+                "source_rank": str(index),
+            },
+        )
+
+    def _canonical_feedback_source_url(self, url: str) -> str:
+        normalized = str(url or "").strip()
+        normalized = re.sub(r"#.*$", "", normalized)
+        normalized = re.sub(r"([?&])utm_[^=&]+=[^&]*", "", normalized)
+        normalized = re.sub(r"[?&]$", "", normalized)
+        normalized = re.sub(r"/$", "", normalized)
+        return normalized[:1000]
+
+    def _answer_references_web_hit(self, answer_text: str, hit: WebSearchHit) -> bool:
+        normalized_answer = str(answer_text or "").lower()
+        if not normalized_answer:
+            return False
+
+        if str(hit.url or "").lower() in normalized_answer:
+            return True
+
+        title_tokens = {
+            token.lower()
+            for token in re.findall(r"[A-Za-z0-9_]+", str(hit.title or ""))
+            if len(token) >= 3
+        }
+        snippet_tokens = {
+            token.lower()
+            for token in re.findall(r"[A-Za-z0-9_]+", str(hit.snippet or ""))
+            if len(token) >= 5
+        }
+        answer_tokens = {
+            token.lower()
+            for token in re.findall(r"[A-Za-z0-9_]+", normalized_answer)
+            if len(token) >= 3
+        }
+
+        if title_tokens & answer_tokens:
+            return True
+        if len(snippet_tokens & answer_tokens) >= 2:
+            return True
+
+        cjk_terms = {
+            term
+            for term in re.findall(r"[\u4e00-\u9fff]{2,}", f"{hit.title} {hit.snippet}")
+            if len(term) >= 2
+        }
+        return any(term in answer_text for term in cjk_terms)
 
     def _build_admin_knowledge_success_message(self, record: KnowledgeDocumentRecord) -> str:
         tags_text = "、".join(record.tags) if record.tags else "未设置"
@@ -5163,6 +5402,21 @@ class DigitalTwinService:
             [(ListKnowledgeStage, support)],
             "SAGE runtime completed without producing a knowledge document list.",
         )
+
+    def review_knowledge_document(
+        self,
+        document_id: str,
+        request: KnowledgeDocumentReviewRequest | dict[str, Any],
+    ) -> KnowledgeDocumentActionResponse:
+        normalized_request = (
+            request
+            if isinstance(request, KnowledgeDocumentReviewRequest)
+            else KnowledgeDocumentReviewRequest.model_validate(request)
+        )
+        return self._build_support().review_knowledge_document(document_id, normalized_request)
+
+    def delete_knowledge_document(self, document_id: str) -> KnowledgeDocumentActionResponse:
+        return self._build_support().delete_knowledge_document(document_id)
 
     def search_knowledge(
         self,

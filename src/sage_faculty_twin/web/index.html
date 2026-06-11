@@ -142,6 +142,13 @@
                             <button type="submit" class="send-button">发送</button>
                         </div>
                         <div class="composer-tools-row" aria-label="发送附加操作">
+                            <button type="button" id="lucky-question-button"
+                                class="ghost-button composer-lucky-question-button" aria-label="随机生成一个可直接提问的问题"
+                                title="随便问一个随机问题">
+                                <span aria-hidden="true">🎲</span>
+                                <span class="composer-tool-label" aria-hidden="true">随便问</span>
+                                <span class="sr-only">随机生成一个可直接提问的问题</span>
+                            </button>
                             <button type="button" id="composer-upload-button"
                                 class="ghost-button composer-upload-button" aria-label="上传材料" title="上传材料">
                                 <svg viewBox="0 0 20 20" fill="none" aria-hidden="true" focusable="false">
@@ -157,10 +164,13 @@
                                 <input type="checkbox" id="deep-thinking-checkbox" />
                                 <span class="toggle-label">深度思考</span>
                             </label>
-                            <label class="deep-thinking-toggle web-search-toggle" title="开启后会先做 Tavily 联网检索，再结合本地知识回答">
+                            <label class="deep-thinking-toggle web-search-toggle" title="开启后会先做联网检索，再结合本地知识回答">
                                 <input type="checkbox" id="web-search-checkbox" />
                                 <span class="toggle-label">🌐 联网检索</span>
                             </label>
+                            <button type="button" id="mobile-workflow-trigger"
+                                class="deep-thinking-toggle composer-workflow-toggle" aria-expanded="false"
+                                aria-label="打开推理路径">查看推理路径</button>
                         </div>
                     </div>
                     <p id="composer-upload-hint" class="composer-upload-hint">支持 PDF、TXT、MD、CSV、JSON、PY、YAML、LOG，最多 4
@@ -248,8 +258,6 @@
             </aside>
         </main>
 
-        <button type="button" id="mobile-workflow-trigger" class="mobile-workflow-trigger" aria-expanded="false"
-            aria-label="打开推理路径面板">推理路径</button>
         <div id="workflow-mobile-backdrop" class="workflow-mobile-backdrop hidden" aria-hidden="true"></div>
 
         <footer class="app-powered-by" aria-label="技术栈">
@@ -540,6 +548,10 @@
             </div>
         </form>
         <div id="knowledge-response" class="inline-status inline-status-empty">暂无资料。</div>
+        <div id="knowledge-feedback-web-summary" class="memory-profile-summary"></div>
+        <h3>联网资料审查区</h3>
+        <div id="knowledge-feedback-web-list" class="list-stack"></div>
+        <h3>本地与人工资料</h3>
         <div id="knowledge-list" class="list-stack"></div>
     </section>
 

@@ -19,9 +19,12 @@ def test_chat_shell_exposes_topbar_action_entries() -> None:
 
     assert response.status_code == 200
     html = response.text
+    assert 'id="lucky-question-button"' in html
     assert 'id="open-suggestions"' in html
     assert 'id="suggestion-modal"' in html
     assert 'id="homepage-link" href="/home/"' in html
+    assert 'id="knowledge-feedback-web-list"' in html
+    assert "联网资料审查区" in html
 
 
 def test_frontend_script_uses_optional_overlay_modal_registry() -> None:
@@ -29,6 +32,15 @@ def test_frontend_script_uses_optional_overlay_modal_registry() -> None:
 
     assert response.status_code == 200
     script = response.text
+    assert 'const luckyQuestionButton = document.getElementById("lucky-question-button");' in script
+    assert 'const knowledgeFeedbackWebList = document.getElementById("knowledge-feedback-web-list");' in script
+    assert 'luckyQuestionButton?.addEventListener("click", handleLuckyQuestionClick);' in script
+    assert "function applyLuckyQuestionPreferences(selection)" in script
+    assert "function isFeedbackWebKnowledgeRecord(record)" in script
+    assert "function handleFeedbackWebKnowledgeAction(event)" in script
+    assert "data-feedback-web-review" in script
+    assert "/knowledge/${encodeURIComponent(documentId)}/review" in script
+    assert "const luckyEntries = RANDOM_CHAT_QUESTION_BANKS[profile] || RANDOM_CHAT_QUESTION_BANKS.general_visitor;" in script
     assert "const overlayModals = [" in script
     assert "].filter(Boolean);" in script
     assert "function hasVisibleOverlayModal()" in script

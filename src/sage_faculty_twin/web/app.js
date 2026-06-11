@@ -144,6 +144,7 @@ const webSearchCheckbox = document.getElementById("web-search-checkbox");
 const adminLoginForm = document.getElementById("admin-login-form");
 const userRegisterForm = document.getElementById("user-register-form");
 const userLoginForm = document.getElementById("user-login-form");
+const luckyQuestionButton = document.getElementById("lucky-question-button");
 const knowledgeForm = document.getElementById("knowledge-form");
 const bookingForm = document.getElementById("booking-form");
 const suggestionForm = document.getElementById("suggestion-form");
@@ -173,6 +174,8 @@ if (webSearchCheckbox) {
 const knowledgeResponse = document.getElementById("knowledge-response");
 const bookingResponse = document.getElementById("booking-response");
 const suggestionResponse = document.getElementById("suggestion-response");
+const knowledgeFeedbackWebSummary = document.getElementById("knowledge-feedback-web-summary");
+const knowledgeFeedbackWebList = document.getElementById("knowledge-feedback-web-list");
 const knowledgeList = document.getElementById("knowledge-list");
 const suggestionList = document.getElementById("suggestion-list");
 const memoryProfilesCategoryFilter = document.getElementById("memory-profiles-category");
@@ -303,6 +306,12 @@ let onlinePresenceHeartbeatTimer = null;
 let statusRefreshTimer = null;
 let lastHealthyStatusSnapshot = null;
 let lastHealthyStatusAt = 0;
+let lastLuckyQuestion = "";
+const stickyBranding = {
+    ownerName: topbarTitle?.textContent?.trim() || "",
+    ownerRole: topbarSubtitle?.textContent?.trim() || "",
+    homepageUrl: homepageLink?.getAttribute("href") || "/home/",
+};
 let resolvedApiOrigin = typeof globalThis.__SAGE_FACULTY_TWIN_API_ORIGIN__ === "string"
     ? globalThis.__SAGE_FACULTY_TWIN_API_ORIGIN__.trim()
     : "";
@@ -373,6 +382,99 @@ const VISITOR_PROFILE_CONFIGS = {
         ],
     },
 };
+const RANDOM_CHAT_QUESTION_BANKS = {
+    general_visitor: [
+        { question: "张老师主要研究什么方向？", context: "初次来访" },
+        { question: "有没有适合先看的公开资料？", context: "初次来访" },
+        { question: "如果想预约一次讨论，我需要先准备什么？", context: "初次来访" },
+        { question: "如果我对推理系统方向感兴趣，建议先从哪些关键词或系统开始了解？", context: "初次来访", deepThinking: true },
+        { question: "如果我想快速了解张老师的研究路线，最值得先问哪三个问题？", context: "初次来访", deepThinking: true },
+        { question: "如果我想进一步交流研究问题，第一次联系时最好附上哪些信息？", context: "初次来访" },
+    ],
+    hust_undergraduate: [
+        { question: "大模型推理引擎 Tutorial 7 主要讲了什么，我应该先看哪部分？", context: "大模型推理引擎课程答疑" },
+        { question: "数据库实验课开始前，我应该先准备哪些环境和材料？", context: "数据库实验课答疑" },
+        { question: "如果我要准备下一次 office hour，最值得先整理哪些实验现象？", context: "本科课程答疑", deepThinking: true },
+        { question: "如果我的实验结果不稳定，提问时最好带哪些日志或截图？", context: "大模型推理引擎课程答疑", deepThinking: true },
+        { question: "如果我想更快跟上课程节奏，最应该先补哪几块基础？", context: "本科课程答疑" },
+    ],
+    paper_writing_student: [
+        { question: "论文写作课第 7 讲主要讲什么？", context: "论文写作课" },
+        { question: "如果我现在只有一个粗略想法，应该怎么把它整理成论文提纲？", context: "论文写作课", deepThinking: true },
+        { question: "写 introduction 时，最常见的结构性问题有哪些？", context: "论文写作课" },
+        { question: "如果 related work 写得很散，我应该先从哪里开始重构？", context: "论文写作课", deepThinking: true },
+        { question: "投稿前自查时，最值得优先检查的三件事是什么？", context: "论文写作课" },
+    ],
+    lab_member: [
+        { question: "我上次提到的研究主题和 blocker 是什么？", context: "科研指导" },
+        { question: "我准备下次组会时，汇报结构最好怎么排？", context: "组会准备", deepThinking: true },
+        { question: "如果实验结果一般，怎么组织分析才更有说服力？", context: "科研指导", deepThinking: true },
+        { question: "这周如果想提高推进效率，我最该补哪块背景或工具链？", context: "科研指导" },
+        { question: "如果我这周只能推进一件事，最应该优先解决哪个 blocker？", context: "科研指导", deepThinking: true },
+    ],
+};
+
+function applyLuckyQuestionPreferences(selection) {
+    if (!selection || typeof selection !== "object") {
+        return;
+    }
+
+    if (typeof selection.webSearch === "boolean" && webSearchCheckbox) {
+        const nextState = Boolean(selection.webSearch);
+        webSearchCheckbox.checked = nextState;
+        try {
+            localStorage.setItem(WEB_SEARCH_TOGGLE_KEY, nextState ? "1" : "0");
+        } catch {
+            // Ignore storage access issues.
+        }
+    }
+}
+
+function getLuckyQuestionCandidates(profile = visitorProfileInput?.value) {
+    const config = getVisitorProfileConfig(profile);
+    const luckyEntries = RANDOM_CHAT_QUESTION_BANKS[profile] || RANDOM_CHAT_QUESTION_BANKS.general_visitor;
+    const entries = luckyEntries.length > 0
+        ? luckyEntries
+        : [
+            { question: config.defaultQuestion, context: config.defaultContext },
+            ...config.quickActions.map((action) => ({ question: action.question, context: action.context })),
+        ];
+    const seen = new Set();
+    return entries.filter((entry) => {
+        const normalizedQuestion = String(entry.question || "").trim();
+        const normalizedContext = String(entry.context || "").trim();
+        const key = `${normalizedQuestion}::${normalizedContext}`;
+        if (!normalizedQuestion || seen.has(key)) {
+            return false;
+        }
+        seen.add(key);
+        return true;
+    });
+}
+
+function pickLuckyQuestion(profile = visitorProfileInput?.value) {
+    const candidates = getLuckyQuestionCandidates(profile);
+    if (candidates.length === 0) {
+        return null;
+    }
+    const filteredCandidates = candidates.length > 1
+        ? candidates.filter((entry) => entry.question !== lastLuckyQuestion)
+        : candidates;
+    const pool = filteredCandidates.length > 0 ? filteredCandidates : candidates;
+    return pool[Math.floor(Math.random() * pool.length)] || null;
+}
+
+function handleLuckyQuestionClick() {
+    const selected = pickLuckyQuestion();
+    if (!selected) {
+        return;
+    }
+    lastLuckyQuestion = selected.question;
+    applyLuckyQuestionPreferences(selected);
+    seedChatQuestion(selected.question, selected.context || "");
+    updateComposerContextChips();
+}
+
 const adminOnlyDrawerButtons = [
     openKnowledgeButton,
     openAvailabilityEditorButton,
@@ -451,6 +553,7 @@ topbarActions?.addEventListener("click", handleTopbarActionsClick);
 historyNewChatButton?.addEventListener("click", () => {
     startFreshConversation();
 });
+luckyQuestionButton?.addEventListener("click", handleLuckyQuestionClick);
 composerUploadButton?.addEventListener("click", () => chatFileInput?.click());
 chatFileInput?.addEventListener("change", handleChatFileSelection);
 composerAttachmentList?.addEventListener("click", handleComposerAttachmentAction);
@@ -660,6 +763,7 @@ document.querySelectorAll("[data-close-modal]").forEach((button) => {
 });
 bookingList.addEventListener("click", handleBookingApprovalClick);
 escalationList?.addEventListener("click", handleEscalationResolveClick);
+knowledgeFeedbackWebList?.addEventListener("click", handleFeedbackWebKnowledgeAction);
 availabilityGrid.addEventListener("click", handleAvailabilityGridClick);
 
 document.getElementById("load-demo-chat").addEventListener("click", () => {
@@ -2096,28 +2200,205 @@ async function loadKnowledgeList() {
     }
     try {
         const documents = await apiRequest("/knowledge");
-        knowledgeList.innerHTML = "";
-        if (!documents.length) {
-            knowledgeList.innerHTML = '<div class="list-card"><p class="list-body">暂无资料。</p></div>';
-            return;
-        }
+        const orderedDocuments = documents.slice().reverse();
+        const feedbackWebDocuments = orderedDocuments.filter(isFeedbackWebKnowledgeRecord);
+        const regularDocuments = orderedDocuments.filter((record) => !isFeedbackWebKnowledgeRecord(record));
 
-        documents
-            .slice()
-            .reverse()
-            .forEach((record) => {
-                const card = document.createElement("article");
-                card.className = "list-card list-card-knowledge";
-                const tags = (record.tags || []).join(", ") || "无";
-                card.innerHTML = `
-                    <h3>${escapeHtml(record.title)}</h3>
-                    <p class="list-meta">${escapeHtml(record.source_name || "手动录入")} | 标签：${escapeHtml(tags)}</p>
-                    <p class="list-body">${escapeHtml(record.content)}</p>
-        `;
-                knowledgeList.appendChild(card);
-            });
+        renderKnowledgeFeedbackWebSummary(feedbackWebDocuments);
+        const feedbackWebPendingCount = feedbackWebDocuments.filter(
+            (record) => feedbackWebReviewStatus(record) === "pending"
+        ).length;
+        renderKnowledgeCards(knowledgeFeedbackWebList, feedbackWebDocuments, {
+            emptyMessage: "当前还没有待审核的联网回写资料。",
+            feedbackWeb: true,
+        });
+        renderKnowledgeCards(knowledgeList, regularDocuments, {
+            emptyMessage: documents.length ? "当前只有联网回写资料。" : "暂无资料。",
+            feedbackWeb: false,
+        });
+
+        setInlineStatus(
+            knowledgeResponse,
+            feedbackWebDocuments.length
+                ? `知识库共 ${documents.length} 条资料，其中 feedback-web ${feedbackWebDocuments.length} 条（待审核 ${feedbackWebPendingCount} 条）。`
+                : `知识库共 ${documents.length} 条资料。`,
+            feedbackWebDocuments.length ? "success" : "empty"
+        );
     } catch (error) {
         knowledgeList.innerHTML = `<div class="list-card"><p class="list-body">${escapeHtml(error.message)}</p></div>`;
+        if (knowledgeFeedbackWebList) {
+            knowledgeFeedbackWebList.innerHTML = "";
+        }
+        if (knowledgeFeedbackWebSummary) {
+            knowledgeFeedbackWebSummary.innerHTML = "";
+        }
+        setInlineStatus(knowledgeResponse, error.message, "error");
+    }
+}
+
+function isFeedbackWebKnowledgeRecord(record) {
+    const sourceName = String(record?.source_name || "").toLowerCase();
+    const tags = Array.isArray(record?.tags) ? record.tags.map((tag) => String(tag).toLowerCase()) : [];
+    return sourceName.startsWith("feedback-web:") || tags.includes("feedback-web");
+}
+
+function renderKnowledgeFeedbackWebSummary(records) {
+    if (!knowledgeFeedbackWebSummary) {
+        return;
+    }
+    if (!Array.isArray(records) || !records.length) {
+        knowledgeFeedbackWebSummary.innerHTML = "";
+        return;
+    }
+    const pendingCount = records.filter((record) => feedbackWebReviewStatus(record) === "pending").length;
+    const staleCount = records.filter((record) => feedbackWebAgeDays(record) > 14).length;
+    knowledgeFeedbackWebSummary.innerHTML = [
+        `<span class="memory-profile-chip">待审条目 · ${escapeHtml(String(records.length))}</span>`,
+        `<span class="memory-profile-chip">待审核 · ${escapeHtml(String(pendingCount))}</span>`,
+        `<span class="memory-profile-chip">超过 14 天 · ${escapeHtml(String(staleCount))}</span>`,
+    ].join("");
+}
+
+function renderKnowledgeCards(container, records, { emptyMessage, feedbackWeb = false } = {}) {
+    if (!container) {
+        return;
+    }
+    container.innerHTML = "";
+    if (!Array.isArray(records) || !records.length) {
+        container.innerHTML = `<div class="list-card"><p class="list-body">${escapeHtml(emptyMessage || "暂无资料。")}<\/p></div>`;
+        return;
+    }
+
+    records.forEach((record) => {
+        const card = document.createElement("article");
+        card.className = "list-card list-card-knowledge";
+        const tags = (record.tags || []).join(", ") || "无";
+        if (feedbackWeb) {
+            const documentId = String(record?.document_id || "").trim();
+            const sourceUrl = record?.metadata?.source_url || record?.source_name || "";
+            const sourceDomain = record?.metadata?.source_domain || sourceUrl;
+            const collectedAt = feedbackWebCollectedAt(record);
+            const ageDays = feedbackWebAgeDays(record);
+            const reviewStatus = feedbackWebReviewStatus(record);
+            const reviewLabel =
+                reviewStatus === "approved"
+                    ? "已通过"
+                    : reviewStatus === "stale"
+                      ? "已标记过期"
+                      : "待审核";
+            const freshnessLabel = ageDays <= 0 ? "今天采集" : `${ageDays} 天前采集`;
+            const freshnessClass = ageDays > 14 ? "status-badge-pending" : "status-badge-info";
+            card.innerHTML = `
+                <h3>${escapeHtml(record.title)}</h3>
+                <p class="list-meta">${escapeHtml(sourceDomain || "未知来源")} | ${escapeHtml(collectedAt ? formatDateTime(collectedAt) : "未知采集时间")}</p>
+                <p class="list-body">${escapeHtml(record.content)}</p>
+                <div class="list-card-actions">
+                    <div class="inline-action-group">
+                        <span class="status-badge status-badge-pending">${escapeHtml(reviewLabel)}</span>
+                        <span class="status-badge ${escapeHtml(freshnessClass)}">${escapeHtml(freshnessLabel)}</span>
+                    </div>
+                    ${
+                        documentId
+                            ? `<div class="inline-action-group">
+                        <button type="button" class="primary-button inline-action-button" data-feedback-web-review="${escapeHtml(documentId)}" data-feedback-web-action="approve">通过</button>
+                        <button type="button" class="ghost-button inline-action-button" data-feedback-web-review="${escapeHtml(documentId)}" data-feedback-web-action="stale">标记过期</button>
+                        <button type="button" class="ghost-button inline-action-button" data-feedback-web-delete="${escapeHtml(documentId)}">删除</button>
+                    </div>`
+                            : ""
+                    }
+                </div>
+                <p class="list-meta">${escapeHtml(sourceUrl)}</p>
+                <p class="list-meta">标签：${escapeHtml(tags)}</p>
+            `;
+        } else {
+            card.innerHTML = `
+                <h3>${escapeHtml(record.title)}</h3>
+                <p class="list-meta">${escapeHtml(record.source_name || "手动录入")} | 标签：${escapeHtml(tags)}</p>
+                <p class="list-body">${escapeHtml(record.content)}</p>
+            `;
+        }
+        container.appendChild(card);
+    });
+}
+
+function feedbackWebCollectedAt(record) {
+    return record?.metadata?.collected_at || record?.created_at || null;
+}
+
+function feedbackWebAgeDays(record) {
+    const collectedAt = feedbackWebCollectedAt(record);
+    const collectedAtTimestamp = collectedAt ? Date.parse(collectedAt) : Number.NaN;
+    if (!Number.isFinite(collectedAtTimestamp)) {
+        return 999;
+    }
+    return Math.max(0, Math.floor((Date.now() - collectedAtTimestamp) / 86400000));
+}
+
+function feedbackWebReviewStatus(record) {
+    return String(record?.metadata?.review_status || "pending").trim() || "pending";
+}
+
+async function handleFeedbackWebKnowledgeAction(event) {
+    if (!ensureAdminOnlyAccess({ responseElement: knowledgeResponse })) {
+        return;
+    }
+    const button = event.target.closest("[data-feedback-web-review], [data-feedback-web-delete]");
+    if (!button) {
+        return;
+    }
+
+    const reviewDocumentId = String(button.dataset.feedbackWebReview || "").trim();
+    const deleteDocumentId = String(button.dataset.feedbackWebDelete || "").trim();
+    const isDelete = Boolean(deleteDocumentId);
+    const documentId = isDelete ? deleteDocumentId : reviewDocumentId;
+    if (!documentId) {
+        return;
+    }
+
+    const action = String(button.dataset.feedbackWebAction || "").trim().toLowerCase();
+    if (!isDelete && action !== "approve" && action !== "stale") {
+        return;
+    }
+
+    if (isDelete) {
+        const confirmed = window.confirm("确认删除这条联网回写资料吗？该操作不可撤销。");
+        if (!confirmed) {
+            return;
+        }
+    }
+
+    const idleText = button.textContent || "提交";
+    button.disabled = true;
+    button.textContent = isDelete ? "删除中..." : action === "approve" ? "通过中..." : "处理中...";
+    setInlineStatus(
+        knowledgeResponse,
+        isDelete
+            ? "正在删除联网回写资料..."
+            : action === "approve"
+              ? "正在标记为已通过..."
+              : "正在标记为过期...",
+        "empty"
+    );
+
+    try {
+        if (isDelete) {
+            await apiRequest(`/knowledge/${encodeURIComponent(documentId)}`, {
+                method: "DELETE",
+            });
+            setInlineStatus(knowledgeResponse, "联网回写资料已删除。", "success");
+        } else {
+            const result = await apiRequest(`/knowledge/${encodeURIComponent(documentId)}/review`, {
+                method: "POST",
+                body: JSON.stringify({ action }),
+            });
+            const finalStatus = String(result?.document?.metadata?.review_status || action);
+            setInlineStatus(knowledgeResponse, `审核状态已更新为 ${finalStatus}。`, "success");
+        }
+        await loadKnowledgeList();
+    } catch (error) {
+        setInlineStatus(knowledgeResponse, error.message, "error");
+        button.disabled = false;
+        button.textContent = idleText;
     }
 }
 
@@ -5412,7 +5693,12 @@ async function submitFeedbackExchange(exchangeId, payload, ui) {
             body: JSON.stringify({ exchange_id: exchangeId, ...payload }),
         });
         submittedFeedbackExchangeIds.add(response.exchange_id);
-        ui.status.textContent = ui.submittedMessage;
+        const writeBackCount = Array.isArray(response.knowledge_write_backs)
+            ? response.knowledge_write_backs.length
+            : 0;
+        ui.status.textContent = writeBackCount
+            ? `${ui.submittedMessage} 已沉淀 ${writeBackCount} 条联网资料到知识库。`
+            : ui.submittedMessage;
         ui.upButton.disabled = true;
         ui.downButton.disabled = true;
         ui.form?.classList.add("hidden");
@@ -6081,8 +6367,18 @@ function updateMobileWorkflowTrigger(meta = latestWorkflowMeta, steps = activeWo
         ? document.body.classList.contains("workflow-shell-mobile-open")
         : !document.body.classList.contains("workflow-shell-collapsed");
     const currentLabel = formatWorkflowActionLabel(meta, steps);
-    mobileWorkflowTrigger.textContent = meta.isStreaming ? `处理中：${currentLabel}` : steps.length ? "查看处理进度" : "打开处理进度";
+    const buttonText = meta.isStreaming
+        ? `处理中 · ${currentLabel}`
+        : isOpen
+            ? "收起推理路径"
+            : (steps.length ? "查看推理路径" : "打开推理路径");
+    mobileWorkflowTrigger.textContent = buttonText;
+    mobileWorkflowTrigger.classList.toggle("composer-workflow-toggle-streaming", Boolean(meta.isStreaming));
     mobileWorkflowTrigger.setAttribute("aria-expanded", String(isOpen));
+    mobileWorkflowTrigger.setAttribute(
+        "aria-label",
+        meta.isStreaming ? `查看处理进度，当前阶段：${currentLabel}` : buttonText
+    );
     updateComposerContextChips();
 }
 
@@ -7000,22 +7296,39 @@ function formatWorkflowActionLabel(meta, steps) {
 }
 
 function applyBranding(ownerName, ownerRole, homepageUrl) {
-    assistantLabel = formatAssistantLabel(ownerName);
+    const normalizedOwnerName = ownerName ? String(ownerName).trim() : "";
+    const normalizedOwnerRole = ownerRole ? String(ownerRole).trim() : "";
+    const normalizedHomepageUrl = homepageUrl ? String(homepageUrl).trim() : "";
+
+    const effectiveOwnerName = normalizedOwnerName || stickyBranding.ownerName || "";
+    const effectiveOwnerRole = normalizedOwnerRole || stickyBranding.ownerRole || "";
+    const effectiveHomepageUrl = normalizedHomepageUrl || stickyBranding.homepageUrl || "/home/";
+
+    if (effectiveOwnerName) {
+        stickyBranding.ownerName = effectiveOwnerName;
+    }
+    if (effectiveOwnerRole) {
+        stickyBranding.ownerRole = effectiveOwnerRole;
+    }
+    if (effectiveHomepageUrl) {
+        stickyBranding.homepageUrl = effectiveHomepageUrl;
+    }
+
+    assistantLabel = formatAssistantLabel(effectiveOwnerName);
     document.title = assistantLabel;
     const currentAssistantName = document.getElementById("assistant-name");
     if (currentAssistantName) {
         currentAssistantName.textContent = assistantLabel;
     }
     if (topbarTitle) {
-        topbarTitle.textContent = formatWorkspaceTitle(ownerName);
+        topbarTitle.textContent = formatWorkspaceTitle(effectiveOwnerName);
     }
     if (topbarSubtitle) {
-        topbarSubtitle.textContent = formatWorkspaceSubtitle(ownerName, ownerRole);
+        topbarSubtitle.textContent = formatWorkspaceSubtitle(effectiveOwnerName, effectiveOwnerRole);
     }
     if (homepageLink) {
-        const normalizedHomepageUrl = homepageUrl ? String(homepageUrl).trim() : "";
         homepageLink.hidden = false;
-        homepageLink.href = normalizedHomepageUrl || "/home/";
+        homepageLink.href = effectiveHomepageUrl;
     }
     if (chatQuestion) {
         chatQuestion.placeholder = "直接说问题；预约请写 agenda、blocker 和 draft。";

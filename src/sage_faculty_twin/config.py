@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from pydantic import AliasChoices, Field
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -9,7 +9,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 class AppSettings(BaseSettings):
     model_config = SettingsConfigDict(
         env_prefix="DIGITAL_TWIN_",
-        env_file=".env",
+        env_file=(".env", str(REPO_ROOT.parent / "SAGE" / ".env")),
         env_file_encoding="utf-8",
         extra="ignore",
     )
@@ -61,10 +61,6 @@ class AppSettings(BaseSettings):
     web_search_timeout_seconds: float = Field(default=8.0, ge=1.0, le=30.0)
     web_search_max_results: int = Field(default=3, ge=1, le=8)
     web_search_auto_trigger: bool = Field(default=False)
-    tavily_token: str = Field(
-        default="",
-        validation_alias=AliasChoices("DIGITAL_TWIN_TAVILY_TOKEN", "TAVILY_TOKEN"),
-    )
     conversation_memory_dir: Path = Field(default=Path("data/conversation_memory"))
     online_presence_dir: Path = Field(default=Path(".runtime/online_presence"))
     online_presence_window_seconds: int = Field(default=300, ge=60, le=3600)

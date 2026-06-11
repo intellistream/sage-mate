@@ -46,8 +46,10 @@ from .models import (
     EscalationRecord,
     FollowUpDispatchResponse,
     FollowUpQueueRecord,
+    KnowledgeDocumentActionResponse,
     KnowledgeDocumentCreate,
     KnowledgeDocumentRecord,
+    KnowledgeDocumentReviewRequest,
     KnowledgeGapDraftCreateRequest,
     KnowledgeGapDraftRecordResponse,
     KnowledgeSearchResponse,
@@ -738,6 +740,23 @@ async def create_knowledge_document(
     _: dict = Depends(require_admin_session),
 ) -> KnowledgeDocumentRecord:
     return service.add_knowledge(request)
+
+
+@llm_app.post("/knowledge/{document_id}/review", response_model=KnowledgeDocumentActionResponse)
+async def review_knowledge_document(
+    document_id: str,
+    request: KnowledgeDocumentReviewRequest,
+    _: dict = Depends(require_admin_session),
+) -> KnowledgeDocumentActionResponse:
+    return service.review_knowledge_document(document_id, request)
+
+
+@llm_app.delete("/knowledge/{document_id}", response_model=KnowledgeDocumentActionResponse)
+async def delete_knowledge_document(
+    document_id: str,
+    _: dict = Depends(require_admin_session),
+) -> KnowledgeDocumentActionResponse:
+    return service.delete_knowledge_document(document_id)
 
 
 @llm_app.get("/knowledge", response_model=list[KnowledgeDocumentRecord])

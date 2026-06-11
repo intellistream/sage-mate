@@ -21,7 +21,7 @@ from sage.neuromem import (
 )
 
 from .config import AppSettings
-from .models import BookingResponse, ChatAttachment, ChatRequest
+from .models import BookingResponse, ChatAttachment, ChatRequest, WebSearchHit
 from .profile_summarizer import ConversationProfileSummarizer
 
 
@@ -67,6 +67,7 @@ class ConversationMemoryRecord:
     booking_summary: str | None
     created_at: datetime
     attachments: list[AttachmentMemoryRecord] = field(default_factory=list)
+    web_search_hits: list[WebSearchHit] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, object]:
         return {
@@ -83,6 +84,7 @@ class ConversationMemoryRecord:
             "booking_summary": self.booking_summary,
             "created_at": self.created_at.isoformat(),
             "attachments": [attachment.to_dict() for attachment in self.attachments],
+            "web_search_hits": [hit.model_dump(mode="json") for hit in self.web_search_hits],
         }
 
     @classmethod
@@ -111,6 +113,11 @@ class ConversationMemoryRecord:
                 for item in list(payload.get("attachments") or [])
                 if isinstance(item, dict)
             ],
+            web_search_hits=[
+                WebSearchHit.model_validate(item)
+                for item in list(payload.get("web_search_hits") or [])
+                if isinstance(item, dict)
+            ],
         )
 
     def retrieval_text(self) -> str:
@@ -132,6 +139,8 @@ class ConversationMemoryRecord:
         if self.attachments:
             attachment_labels = ", ".join(attachment.file_name for attachment in self.attachments)
             parts.append(f"attachments {attachment_labels}")
+        if self.web_search_hits:
+            parts.append(f"web_search_hits {len(self.web_search_hits)}")
         return " ".join(parts)
 
 
@@ -305,6 +314,7 @@ class NeuroMemConversationStore:
         interaction_domain: str | None,
         knowledge_hit_count: int,
         booking_result: BookingResponse | None,
+        web_search_hits: list[WebSearchHit] | None = None,
     ) -> ConversationMemoryRecord:
         started_at = time.time()
         record = ConversationMemoryRecord(
@@ -321,6 +331,7 @@ class NeuroMemConversationStore:
             booking_summary=self._booking_summary(booking_result),
             created_at=datetime.now(UTC),
             attachments=self._extract_attachment_records(request.attachments),
+            web_search_hits=[hit.model_copy(deep=True) for hit in (web_search_hits or [])],
         )
         self._records[record.memory_id] = record
         self._prepend_conversation_timeline(record)
