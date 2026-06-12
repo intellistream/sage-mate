@@ -206,6 +206,9 @@ const operationsArtifactDrafts = document.getElementById("operations-artifact-dr
 const operationsEscalations = document.getElementById("operations-escalations");
 const operationsFollowUps = document.getElementById("operations-follow-ups");
 const operationsSuggestions = document.getElementById("operations-suggestions");
+const poweredBySageVersion = document.getElementById("powered-by-sage-version");
+const poweredByNeuromemVersion = document.getElementById("powered-by-neuromem-version");
+const poweredByVllmVersion = document.getElementById("powered-by-vllm-version");
 const AVAILABILITY_SLOT_MINUTES = 30;
 const AVAILABILITY_START_HOUR = 9;
 const AVAILABILITY_END_HOUR = 18;
@@ -307,9 +310,41 @@ let statusRefreshTimer = null;
 let lastHealthyStatusSnapshot = null;
 let lastHealthyStatusAt = 0;
 let lastLuckyQuestion = "";
+
+function extractInitialOwnerRoleFromSubtitle(ownerName, subtitleText) {
+    const normalizedOwnerName = ownerName ? String(ownerName).trim() : "";
+    const normalizedSubtitle = subtitleText ? String(subtitleText).trim() : "";
+    if (!normalizedSubtitle) {
+        return "";
+    }
+    if (!normalizedOwnerName) {
+        return normalizedSubtitle;
+    }
+
+    const compactPrefix = `${normalizedOwnerName}·`;
+    const spacedPrefix = `${normalizedOwnerName} · `;
+    if (normalizedSubtitle.startsWith(spacedPrefix)) {
+        return normalizedSubtitle.slice(spacedPrefix.length).trim();
+    }
+    if (normalizedSubtitle.startsWith(compactPrefix)) {
+        return normalizedSubtitle.slice(compactPrefix.length).trim();
+    }
+
+    const parts = normalizedSubtitle.split("·").map((part) => part.trim()).filter(Boolean);
+    if (parts.length >= 2 && parts[0] === normalizedOwnerName) {
+        return parts.slice(1).join(" · ");
+    }
+    return normalizedSubtitle;
+}
+
+const initialOwnerName = topbarTitle?.textContent?.trim() || "";
+const initialOwnerRole = extractInitialOwnerRoleFromSubtitle(
+    initialOwnerName,
+    topbarSubtitle?.textContent?.trim() || ""
+);
 const stickyBranding = {
-    ownerName: topbarTitle?.textContent?.trim() || "",
-    ownerRole: topbarSubtitle?.textContent?.trim() || "",
+    ownerName: initialOwnerName,
+    ownerRole: initialOwnerRole,
     homepageUrl: homepageLink?.getAttribute("href") || "/home/",
 };
 let resolvedApiOrigin = typeof globalThis.__SAGE_FACULTY_TWIN_API_ORIGIN__ === "string"
@@ -1462,6 +1497,7 @@ async function refreshStatus() {
         lastHealthyStatusSnapshot = data;
         lastHealthyStatusAt = Date.now();
         applyBranding(data.owner_name, data.owner_role, data.homepage_public_url);
+        renderPoweredByVersions(data);
         statusPill.textContent = data.status === "ok" ? "服务正常" : `状态 ${data.status}`;
         modelPill.textContent = "连接已就绪";
         knowledgePill.textContent = `知识库 ${data.knowledge_documents}`;
@@ -1474,6 +1510,7 @@ async function refreshStatus() {
         if (hasRecentSnapshot) {
             const cached = lastHealthyStatusSnapshot;
             applyBranding(cached.owner_name, cached.owner_role, cached.homepage_public_url);
+            renderPoweredByVersions(cached);
             statusPill.textContent = "服务延迟";
             modelPill.textContent = "连接较慢";
             knowledgePill.textContent = `知识库 ${cached.knowledge_documents}`;
@@ -1482,11 +1519,41 @@ async function refreshStatus() {
             return;
         }
         applyBranding(null, null, "");
+        renderPoweredByVersions(null);
         statusPill.textContent = "服务不可用";
         modelPill.textContent = "连接状态未知";
         knowledgePill.textContent = "知识库未知";
         renderTopbarLiveStatus(null);
         renderOnlineOverview(null, error.message);
+    }
+}
+
+function normalizePoweredByVersion(rawVersion) {
+    const normalized = rawVersion ? String(rawVersion).trim() : "";
+    if (!normalized || normalized.toLowerCase() === "unknown") {
+        return "v--";
+    }
+    return normalized.startsWith("v") ? normalized : `v${normalized}`;
+}
+
+function renderPoweredByVersions(data) {
+    if (poweredBySageVersion) {
+        poweredBySageVersion.textContent = normalizePoweredByVersion(data?.stack_version_sage);
+    }
+    if (poweredByNeuromemVersion) {
+        poweredByNeuromemVersion.textContent = normalizePoweredByVersion(data?.stack_version_neuromem);
+    }
+    if (poweredByVllmVersion) {
+        poweredByVllmVersion.textContent = normalizePoweredByVersion(data?.stack_version_vllm_hust);
+    }
+}
+
+async function refreshPoweredByVersions() {
+    try {
+        const data = await apiRequest("/stack/versions", { timeoutMs: 8000 });
+        renderPoweredByVersions(data);
+    } catch {
+        // Keep current rendered values (or placeholders) on transient failures.
     }
 }
 
@@ -2199,15 +2266,16 @@ async function loadKnowledgeList() {
         return;
     }
     try {
-        const documents = await apiRequest("/knowledge");
+        const [documents, reviewSummary] = await Promise.all([
+            apiRequest("/knowledge"),
+            apiRequest("/knowledge/reviews/summary"),
+        ]);
         const orderedDocuments = documents.slice().reverse();
         const feedbackWebDocuments = orderedDocuments.filter(isFeedbackWebKnowledgeRecord);
         const regularDocuments = orderedDocuments.filter((record) => !isFeedbackWebKnowledgeRecord(record));
 
-        renderKnowledgeFeedbackWebSummary(feedbackWebDocuments);
-        const feedbackWebPendingCount = feedbackWebDocuments.filter(
-            (record) => feedbackWebReviewStatus(record) === "pending"
-        ).length;
+        renderKnowledgeFeedbackWebSummary(reviewSummary, feedbackWebDocuments);
+        const feedbackWebPendingCount = Number(reviewSummary?.pending_documents || 0);
         renderKnowledgeCards(knowledgeFeedbackWebList, feedbackWebDocuments, {
             emptyMessage: "当前还没有待审核的联网回写资料。",
             feedbackWeb: true,
@@ -2237,24 +2305,35 @@ async function loadKnowledgeList() {
 }
 
 function isFeedbackWebKnowledgeRecord(record) {
+    if (record?.is_feedback_web) {
+        return true;
+    }
     const sourceName = String(record?.source_name || "").toLowerCase();
     const tags = Array.isArray(record?.tags) ? record.tags.map((tag) => String(tag).toLowerCase()) : [];
     return sourceName.startsWith("feedback-web:") || tags.includes("feedback-web");
 }
 
-function renderKnowledgeFeedbackWebSummary(records) {
+function renderKnowledgeFeedbackWebSummary(summary, fallbackRecords = []) {
     if (!knowledgeFeedbackWebSummary) {
         return;
     }
-    if (!Array.isArray(records) || !records.length) {
+    const normalizedSummary = summary && typeof summary === "object" ? summary : null;
+    if (!normalizedSummary && (!Array.isArray(fallbackRecords) || !fallbackRecords.length)) {
         knowledgeFeedbackWebSummary.innerHTML = "";
         return;
     }
-    const pendingCount = records.filter((record) => feedbackWebReviewStatus(record) === "pending").length;
-    const staleCount = records.filter((record) => feedbackWebAgeDays(record) > 14).length;
+    const totalCount = Number(normalizedSummary?.feedback_web_documents || fallbackRecords.length);
+    const pendingCount = Number(
+        normalizedSummary?.pending_documents ?? fallbackRecords.filter((record) => feedbackWebReviewStatus(record) === "pending").length
+    );
+    const approvedCount = Number(normalizedSummary?.approved_documents || 0);
+    const staleCount = Number(normalizedSummary?.stale_documents || 0);
+    const reviewableCount = Number(normalizedSummary?.reviewable_documents || pendingCount);
     knowledgeFeedbackWebSummary.innerHTML = [
-        `<span class="memory-profile-chip">待审条目 · ${escapeHtml(String(records.length))}</span>`,
+        `<span class="memory-profile-chip">待审条目 · ${escapeHtml(String(totalCount))}</span>`,
         `<span class="memory-profile-chip">待审核 · ${escapeHtml(String(pendingCount))}</span>`,
+        `<span class="memory-profile-chip">可审核 · ${escapeHtml(String(reviewableCount))}</span>`,
+        `<span class="memory-profile-chip">已通过 · ${escapeHtml(String(approvedCount))}</span>`,
         `<span class="memory-profile-chip">超过 14 天 · ${escapeHtml(String(staleCount))}</span>`,
     ].join("");
 }
@@ -2284,8 +2363,8 @@ function renderKnowledgeCards(container, records, { emptyMessage, feedbackWeb = 
                 reviewStatus === "approved"
                     ? "已通过"
                     : reviewStatus === "stale"
-                      ? "已标记过期"
-                      : "待审核";
+                        ? "已标记过期"
+                        : "待审核";
             const freshnessLabel = ageDays <= 0 ? "今天采集" : `${ageDays} 天前采集`;
             const freshnessClass = ageDays > 14 ? "status-badge-pending" : "status-badge-info";
             card.innerHTML = `
@@ -2297,15 +2376,14 @@ function renderKnowledgeCards(container, records, { emptyMessage, feedbackWeb = 
                         <span class="status-badge status-badge-pending">${escapeHtml(reviewLabel)}</span>
                         <span class="status-badge ${escapeHtml(freshnessClass)}">${escapeHtml(freshnessLabel)}</span>
                     </div>
-                    ${
-                        documentId
-                            ? `<div class="inline-action-group">
+                    ${documentId
+                    ? `<div class="inline-action-group">
                         <button type="button" class="primary-button inline-action-button" data-feedback-web-review="${escapeHtml(documentId)}" data-feedback-web-action="approve">通过</button>
                         <button type="button" class="ghost-button inline-action-button" data-feedback-web-review="${escapeHtml(documentId)}" data-feedback-web-action="stale">标记过期</button>
                         <button type="button" class="ghost-button inline-action-button" data-feedback-web-delete="${escapeHtml(documentId)}">删除</button>
                     </div>`
-                            : ""
-                    }
+                    : ""
+                }
                 </div>
                 <p class="list-meta">${escapeHtml(sourceUrl)}</p>
                 <p class="list-meta">标签：${escapeHtml(tags)}</p>
@@ -2335,7 +2413,7 @@ function feedbackWebAgeDays(record) {
 }
 
 function feedbackWebReviewStatus(record) {
-    return String(record?.metadata?.review_status || "pending").trim() || "pending";
+    return String(record?.review_status || record?.metadata?.review_status || "pending").trim() || "pending";
 }
 
 async function handleFeedbackWebKnowledgeAction(event) {
@@ -2375,8 +2453,8 @@ async function handleFeedbackWebKnowledgeAction(event) {
         isDelete
             ? "正在删除联网回写资料..."
             : action === "approve"
-              ? "正在标记为已通过..."
-              : "正在标记为过期...",
+                ? "正在标记为已通过..."
+                : "正在标记为过期...",
         "empty"
     );
 
@@ -7830,6 +7908,7 @@ async function initializePage() {
     markPresentationReady();
     startOnlinePresenceHeartbeat();
     startStatusAutoRefresh();
+    await refreshPoweredByVersions();
     await refreshStatus();
     await refreshSession();
     await refreshUserSession();

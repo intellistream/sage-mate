@@ -4,6 +4,11 @@
 
 ### Changed
 
+- Upgraded the Neuromem integration baseline to `isage-neuromem>=0.2.1.12` and
+  aligned the app's knowledge-memory path with the newer BM25/numpy backend
+  behavior. Knowledge and conversation memory now keep the numpy BM25 path as
+  the default integration choice so the app can consume the newer Neuromem
+  runtime without relying on the old numba fallback path.
 - Rewired the chat workflow as a SAGE `DataStream` DAG instead of a 13-stage linear
   chain. Memory and knowledge retrieval now run in parallel through a 2-way
   `connect`/`comap` join, and the four post-answer side-effect stages

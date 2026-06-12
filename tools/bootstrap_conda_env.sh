@@ -103,12 +103,13 @@ echo "Installing runtime dependencies"
     pypdf \
     uvicorn \
     cloudpickle \
+    isage-anns>=0.1.3 \
     bm25s \
     sentence-transformers \
     faiss-cpu
 
-echo "Installing editable package: $repo_root"
-"$conda_bin" run -n "$env_name" python -m pip install --no-deps -e "$repo_root"
+echo "Installing editable package with vdb-anns extras: $repo_root"
+"$conda_bin" run -n "$env_name" python -m pip install --no-deps -e "$repo_root[vdb-anns]"
 
 printf '%s\n' "$python_bin" > "$marker_file"
 

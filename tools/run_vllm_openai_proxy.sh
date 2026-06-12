@@ -4,21 +4,10 @@ set -euo pipefail
 
 repo_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 runtime_dir="$repo_root/.runtime"
+source "$repo_root/tools/lib/runtime_env.sh"
 
-if [[ -n "${PYTHON_BIN:-}" ]]; then
-    python_bin="$PYTHON_BIN"
-elif command -v python3 >/dev/null 2>&1; then
-    python_bin=$(command -v python3)
-elif command -v python >/dev/null 2>&1; then
-    python_bin=$(command -v python)
-else
-    echo "Unable to locate a usable Python interpreter. Set PYTHON_BIN explicitly." >&2
-    exit 1
-fi
-
-pythonpath_entries=("$repo_root/src")
-pythonpath_default=$(IFS=:; printf '%s' "${pythonpath_entries[*]}")
-export PYTHONPATH="${PYTHONPATH:-$pythonpath_default}"
+export_repo_runtime_env "$repo_root"
+python_bin="$PYTHON_BIN"
 
 mkdir -p "$runtime_dir"
 cd "$repo_root"

@@ -116,7 +116,11 @@ def test_knowledge_store_backfills_metadata_for_legacy_records(tmp_path: Path) -
 
 
 def test_knowledge_store_supports_neuromem_backend(tmp_path: Path) -> None:
-    settings = AppSettings(knowledge_base_dir=tmp_path, knowledge_backend="neuromem")
+    settings = AppSettings(
+        knowledge_base_dir=tmp_path,
+        knowledge_backend="neuromem",
+        neuromem_index_type="bm25",
+    )
     store = LocalKnowledgeStore(settings)
 
     store.add_document(
@@ -1034,6 +1038,56 @@ def test_service_prompt_adds_draft_feedback_guidance(tmp_path: Path) -> None:
 
     assert "current goal, current version or evidence, main blocker" in prompt
     assert "Do not turn this into scheduling." in prompt
+
+
+def test_vamos_question_set_prioritizes_vamos_research_materials(tmp_path: Path) -> None:
+    for backend_name in ("local", "neuromem"):
+        settings = AppSettings(
+            knowledge_base_dir=tmp_path / f"vamos-{backend_name}",
+            knowledge_backend="neuromem" if backend_name == "neuromem" else "local",
+            neuromem_index_type="bm25",
+        )
+        store = LocalKnowledgeStore(settings)
+
+        store.add_document(
+            KnowledgeDocumentCreate(
+                title="Current Research | 2026 CCF-Ant Proposal (VAMOS)",
+                content=(
+                    "VAMOS 聚焦异构集群下显存感知和 SLO-aware 推理服务。"
+                    "核心目标是通过资源编排与请求调度提升稳定吞吐与时延表现。"
+                ),
+                tags=["research", "agenda", "vamos", "proposal", "slo-aware"],
+                source_name="workspace/vamos/proposal",
+            )
+        )
+        store.add_document(
+            KnowledgeDocumentCreate(
+                title="课件正文｜研究生论文写作课程材料｜第 7 讲 发表高水平论文",
+                content="本讲关注论文选题、贡献表达与投稿准备。",
+                tags=["homepage", "teaching", "courseware", "lecture"],
+                source_name="homepage:contents/teaching/graduate-paper-writing-course.md#lecture-7",
+            )
+        )
+        store.add_document(
+            KnowledgeDocumentCreate(
+                title="主页资料｜研究板块",
+                content="研究方向包括大模型推理基础设施与智能系统。",
+                tags=["homepage", "profile"],
+                source_name="homepage:contents/home.md#research",
+            )
+        )
+
+        question_set = [
+            "VAMOS 这个方向主要解决什么问题？",
+            "CCF-Ant proposal 里提到的 SLO-aware 推理服务是什么意思？",
+            "异构集群与显存感知调度这条研究线的核心目标是什么？",
+        ]
+
+        for question in question_set:
+            hits = store.search(question, top_k=3)
+            assert hits
+            assert hits[0].source_name == "workspace/vamos/proposal"
+            assert "vamos" in hits[0].title.lower() or "slo" in hits[0].excerpt.lower()
 
 
 def test_service_prompt_adds_teaching_question_logistics_guidance(

@@ -3,6 +3,7 @@
 set -euo pipefail
 
 repo_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
+source "$repo_root/tools/lib/runtime_env.sh"
 
 # Defaults can be overridden via env vars.
 VLLM_HOST="${VLLM_HOST:-127.0.0.1}"
@@ -39,7 +40,7 @@ update_env_file() {
     local env_file="$repo_root/.env"
     [[ -f "$env_file" ]] || cp "$repo_root/.env.example" "$env_file"
 
-    python3 - "$env_file" <<'PY'
+    "$PYTHON_BIN" - "$env_file" <<'PY'
 import sys
 from pathlib import Path
 
@@ -71,7 +72,7 @@ for key, value in updates.items():
 p.write_text("\n".join(out).rstrip() + "\n", encoding="utf-8")
 PY
 
-    python3 - "$env_file" "http://${VLLM_HOST}:${VLLM_PORT}/v1" "$DIGITAL_TWIN_API_KEY" "$VLLM_SERVED_MODEL_NAME" <<'PY'
+    "$PYTHON_BIN" - "$env_file" "http://${VLLM_HOST}:${VLLM_PORT}/v1" "$DIGITAL_TWIN_API_KEY" "$VLLM_SERVED_MODEL_NAME" <<'PY'
 import sys
 from pathlib import Path
 
@@ -120,12 +121,11 @@ start_vllm_if_needed() {
 
 main() {
     require_cmd curl
-    require_cmd python3
+
+    export_repo_runtime_env "$repo_root"
 
     start_vllm_if_needed
     update_env_file
-
-    export PYTHONPATH="$repo_root/src:$repo_root/../SAGE/src:$repo_root/../neuromem:$repo_root/../sageVDB:${PYTHONPATH:-}"
 
     echo "Launching my-twin with LLM base URL: http://${VLLM_HOST}:${VLLM_PORT}/v1"
     exec bash "$repo_root/tools/run_app_server.sh"

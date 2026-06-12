@@ -6,6 +6,10 @@ import json
 from pathlib import Path
 from typing import Any, Awaitable, Callable, Protocol, TypeVar
 
+from .runtime_env import bootstrap_runtime_env
+
+bootstrap_runtime_env(require_policy=True, require_fastapi=False)
+
 from pydantic import BaseModel, ConfigDict, Field
 
 from .config import AppSettings

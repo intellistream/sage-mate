@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import hashlib
 import inspect
 import logging
@@ -10,6 +11,8 @@ import threading
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field
 from datetime import UTC, date, datetime, time, timedelta
+from importlib import metadata
+from pathlib import Path
 from time import perf_counter
 from typing import Any
 from uuid import uuid4
@@ -78,6 +81,7 @@ from .models import (
     KnowledgeDocumentActionResponse,
     KnowledgeDocumentRecord,
     KnowledgeDocumentReviewRequest,
+    KnowledgeDocumentReviewSummary,
     KnowledgeGapDraftCreateRequest,
     KnowledgeGapDraftRecordResponse,
     KnowledgeGapSuggestion,
@@ -132,6 +136,48 @@ from .workflow_eval import (
     load_workflow_replay_scenarios,
 )
 from .workflow_planner import DeterministicWorkflowPlanner, PlannerDecision
+
+
+def _resolve_distribution_version(*candidates: str) -> str:
+    for name in candidates:
+        if not name:
+            continue
+        try:
+            return metadata.version(name)
+        except metadata.PackageNotFoundError:
+            continue
+        except Exception:
+            continue
+    return "unknown"
+
+
+def _resolve_vllm_hust_version() -> str:
+    direct = _resolve_distribution_version("vllm-hust", "vllm")
+    if direct != "unknown":
+        return direct
+
+    # Fallback: local workspace checkout used by this deployment.
+    repo_root = Path(__file__).resolve().parents[2]
+    upstream_meta_path = repo_root.parent / "vllm-hust" / "upstream_version.json"
+    if not upstream_meta_path.exists():
+        return "unknown"
+    try:
+        payload = json.loads(upstream_meta_path.read_text(encoding="utf-8"))
+    except Exception:
+        return "unknown"
+    if not isinstance(payload, dict):
+        return "unknown"
+    release_version = str(payload.get("release_version") or "").strip()
+    upstream_version = str(payload.get("upstream_version") or "").strip()
+    return release_version or upstream_version or "unknown"
+
+
+def build_stack_versions_payload() -> dict[str, str]:
+    return {
+        "stack_version_sage": _resolve_distribution_version("isage", "isage-common"),
+        "stack_version_neuromem": _resolve_distribution_version("isage-neuromem"),
+        "stack_version_vllm_hust": _resolve_vllm_hust_version(),
+    }
 
 _FLOWNET_TICK = "__flownet_tick__"
 _THINK_BLOCK_RE = re.compile(r"<think>.*?</think>", re.IGNORECASE | re.DOTALL)
@@ -1446,6 +1492,7 @@ class FacultyTwinWorkflowSupport:
             context.answer = self._call_answer_question_sync(
                 context.system_prompt,
                 context.user_prompt,
+                context=context,
                 token_callback=self._answer_chunk_callback,
                 enable_thinking=enable_thinking,
             )
@@ -1453,6 +1500,7 @@ class FacultyTwinWorkflowSupport:
             context.answer = self._call_answer_question_sync(
                 context.system_prompt,
                 context.user_prompt,
+                context=context,
                 enable_thinking=enable_thinking,
             )
         context.answer = _strip_internal_thinking_content(context.answer)
@@ -1482,6 +1530,7 @@ class FacultyTwinWorkflowSupport:
         system_prompt: str,
         user_prompt: str,
         *,
+        context: ChatWorkflowContext,
         token_callback: Callable[[str], None] | None = None,
         enable_thinking: bool,
     ) -> str:
@@ -1489,13 +1538,38 @@ class FacultyTwinWorkflowSupport:
         answer_fn = self._llm_client.answer_question_sync
         signature = inspect.signature(answer_fn)
         kwargs: dict[str, Any] = {}
+        policy_context = self._build_llm_serving_policy_context(context)
 
         if token_callback is not None and "token_callback" in signature.parameters:
             kwargs["token_callback"] = token_callback
         if "enable_thinking" in signature.parameters:
             kwargs["enable_thinking"] = enable_thinking
+        if "deadline_class" in signature.parameters:
+            kwargs["deadline_class"] = policy_context["deadline_class"]
+        if "request_priority" in signature.parameters:
+            kwargs["request_priority"] = policy_context["request_priority"]
+        if "target_e2e_ms" in signature.parameters:
+            kwargs["target_e2e_ms"] = policy_context["target_e2e_ms"]
 
         return answer_fn(system_prompt, user_prompt, **kwargs)
+
+    def _build_llm_serving_policy_context(self, context: ChatWorkflowContext) -> dict[str, Any]:
+        interaction_intent = context.interaction_intent
+        domain = interaction_intent.domain if interaction_intent is not None else "general"
+        decision_mode = context.decision_mode
+
+        if decision_mode == "advise_only" or domain in {"research", "advising", "teaching"}:
+            return {
+                "deadline_class": "interactive-high",
+                "request_priority": 90,
+                "target_e2e_ms": 2200.0,
+            }
+
+        return {
+            "deadline_class": "batch-standard",
+            "request_priority": 45,
+            "target_e2e_ms": 10000.0,
+        }
 
     def _should_enable_deep_thinking(self, context: ChatWorkflowContext) -> bool:
         # Chat Latency Optimizations Task 5: when an ``answer_chunk_callback``
@@ -1981,6 +2055,33 @@ class FacultyTwinWorkflowSupport:
 
     def list_knowledge(self) -> list[KnowledgeDocumentRecord]:
         return self._knowledge_store.list_documents()
+
+    def list_knowledge_review_summary(self, limit: int = 20) -> KnowledgeDocumentReviewSummary:
+        documents = self.list_knowledge()
+        feedback_web_documents = [document for document in documents if document.is_feedback_web]
+        pending_documents = [
+            document for document in feedback_web_documents if document.review_status == "pending"
+        ]
+        approved_documents = [
+            document for document in feedback_web_documents if document.review_status == "approved"
+        ]
+        stale_documents = [
+            document for document in feedback_web_documents if document.review_status == "stale"
+        ]
+        pending_items = sorted(
+            pending_documents,
+            key=lambda document: document.created_at,
+            reverse=True,
+        )[: max(0, int(limit))]
+        return KnowledgeDocumentReviewSummary(
+            total_documents=len(documents),
+            feedback_web_documents=len(feedback_web_documents),
+            pending_documents=len(pending_documents),
+            approved_documents=len(approved_documents),
+            stale_documents=len(stale_documents),
+            reviewable_documents=sum(1 for document in feedback_web_documents if document.reviewable),
+            pending_items=pending_items,
+        )
 
     def review_knowledge_document(
         self,
@@ -5403,6 +5504,9 @@ class DigitalTwinService:
             "SAGE runtime completed without producing a knowledge document list.",
         )
 
+    def list_knowledge_review_summary(self, limit: int = 20) -> KnowledgeDocumentReviewSummary:
+        return self._build_support().list_knowledge_review_summary(limit=limit)
+
     def review_knowledge_document(
         self,
         document_id: str,
@@ -6267,6 +6371,7 @@ class DigitalTwinService:
             ),
         }
         runtime_snapshot = getattr(self._llm_client, "runtime_snapshot", None)
+        payload.update(build_stack_versions_payload())
         if callable(runtime_snapshot):
             payload.update(runtime_snapshot())
         else:
@@ -6299,6 +6404,9 @@ class DigitalTwinService:
                 }
             )
         return payload
+
+    def stack_versions(self) -> dict[str, str]:
+        return build_stack_versions_payload()
 
     async def aclose(self) -> None:
         await self._llm_client.aclose()

@@ -22,6 +22,13 @@ cd /home/shuhao/sage-faculty-twin
 tools/run_full_stack_with_vllm_hust.sh
 ```
 
+日常开发/测试/benchmark 建议统一走同一个 Python 入口，避免多解释器与 `PYTHONPATH` 混用：
+
+```bash
+tools/run_repo_python.sh -m pytest -q tests/test_llm_policy_integration.py
+tools/run_repo_python.sh -m sage_faculty_twin.benchmark_adapter --help
+```
+
 该脚本会做三件事：
 
 1. 检查 `http://127.0.0.1:18000/v1/models` 是否可用（不可用时尝试启动 `vllm-hust serve`）。
@@ -90,6 +97,7 @@ tools/run_full_stack_with_vllm_hust.sh
 ## 最小排障
 
 - `No module named sage_faculty_twin`：确认通过脚本启动，避免外部 `PYTHONPATH` 覆盖。
+- `cannot import name policy from sage.serving.integrations`：说明命中了错误的 `sage` 包，改用 `tools/run_repo_python.sh ...`。
 - `/chat` 422：请求体必须至少包含 `student_name` 与 `question`。
 - 页面无流式输出：确认 `.env` 中 `DIGITAL_TWIN_STREAM_CHAT_ANSWER=true`，并确认上游 LLM 支持 chunked streaming。
 

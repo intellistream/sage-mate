@@ -231,6 +231,7 @@ class NeuroMemConversationStore:
         self._collections_dir.mkdir(parents=True, exist_ok=True)
         self._conversation_collection_dir = self._collections_dir / "conversation-memory"
         self._profile_collection_dir = self._collections_dir / "conversation-profile-memory"
+        self._conversation_collection_type = self._resolve_conversation_collection_type()
         self._records: dict[str, ConversationMemoryRecord] = {}
         self._profiles: dict[str, ProfileMemoryRecord] = {}
         self._conversation_timelines: dict[str, list[str]] = {}
@@ -241,10 +242,12 @@ class NeuroMemConversationStore:
         self._conversation_collection = self._load_or_create_collection(
             "conversation-memory",
             self._conversation_collection_dir,
+            collection_role="conversation",
         )
         self._profile_collection = self._load_or_create_collection(
             "conversation-profile-memory",
             self._profile_collection_dir,
+            collection_role="profile",
         )
         self._rebuild_runtime_state()
         if self._migrate_legacy_disk_layout():
@@ -261,6 +264,21 @@ class NeuroMemConversationStore:
         except Exception:
             available = set()
 
+        def _is_candidate_declared(index_type: str) -> bool:
+            return (not available) or (index_type in available)
+
+        def _check_index_readiness(index_type: str) -> tuple[bool, str]:
+            if index_type in {"sage_vdb_ann", "sagedb_ann"}:
+                try:
+                    import sage_anns  # noqa: F401
+                except Exception:
+                    return (
+                        False,
+                        "Index '{index_type}' requires optional dependency 'sage_anns'. "
+                        "Install it or set DIGITAL_TWIN_CONVERSATION_MEMORY_INDEX_TYPE=auto.",
+                    )
+            return True, ""
+
         if configured in {"", "auto"}:
             for candidate in (
                 "sage_vdb_ann",
@@ -269,23 +287,69 @@ class NeuroMemConversationStore:
                 "segment",
                 "fifo",
             ):
-                if not available or candidate in available:
+                if not _is_candidate_declared(candidate):
+                    continue
+                ready, _ = _check_index_readiness(candidate)
+                if ready:
                     return candidate
+
+            for candidate in sorted(available):
+                ready, _ = _check_index_readiness(candidate)
+                if ready:
+                    return candidate
+
             if available:
-                return sorted(available)[0]
+                raise RuntimeError(
+                    "No auto-selectable conversation memory index is ready in current environment. "
+                    f"Declared indexes: {sorted(available)}"
+                )
             return "segment"
 
-        if configured and (not available or configured in available):
-            return configured
-        if "segment" in available:
-            return "segment"
-        if "fifo" in available:
-            return "fifo"
-        if available:
-            return sorted(available)[0]
-        return "segment"
+        if configured and not _is_candidate_declared(configured):
+            if available:
+                raise ValueError(
+                    "DIGITAL_TWIN_CONVERSATION_MEMORY_INDEX_TYPE is not declared by neuromem: "
+                    f"'{configured}'. Available: {sorted(available)}"
+                )
+            raise ValueError(
+                "DIGITAL_TWIN_CONVERSATION_MEMORY_INDEX_TYPE is invalid or unavailable: "
+                f"'{configured}'."
+            )
+
+        ready, reason = _check_index_readiness(configured)
+        if not ready:
+            raise RuntimeError(reason.format(index_type=configured))
+        return configured
+
+    def _resolve_conversation_collection_type(self) -> str:
+        configured = (self._settings.conversation_memory_collection_type or "").strip().lower()
+        if configured in {"", "auto"}:
+            return "neural_continual"
+        if configured in {"neural_continual", "trainable", "online_continual_memory"}:
+            return "neural_continual"
+        if configured in {"unified", "standard"}:
+            return "unified"
+        raise ValueError(
+            "DIGITAL_TWIN_CONVERSATION_MEMORY_COLLECTION_TYPE must be one of "
+            "auto|neural_continual|online_continual_memory|trainable|unified|standard"
+        )
+
+    def _build_neural_collection_config(self) -> dict[str, Any]:
+        return {
+            "collection_type": "neural_continual",
+            "feature_dim": int(self._settings.conversation_memory_neural_feature_dim),
+            "learning_rate": float(self._settings.conversation_memory_neural_learning_rate),
+            "weight_decay": float(self._settings.conversation_memory_neural_weight_decay),
+            "replay_buffer_size": int(self._settings.conversation_memory_neural_replay_buffer_size),
+            "replay_batch_size": int(self._settings.conversation_memory_neural_replay_batch_size),
+            "score_blend": float(self._settings.conversation_memory_neural_score_blend),
+            "recency_bias": float(self._settings.conversation_memory_neural_recency_bias),
+            "query_overlap_bias": float(self._settings.conversation_memory_neural_query_overlap_bias),
+        }
 
     def _default_collection_index_config(self, index_type: str) -> dict[str, Any]:
+        if index_type == "bm25":
+            return {"backend": "numpy", "csc_backend": "numpy"}
         if index_type == "faiss":
             return {
                 "dim": int(self._settings.sagevdb_dimension),
@@ -303,6 +367,15 @@ class NeuroMemConversationStore:
                 "allow_faiss_fallback": False,
             }
         return {}
+
+    def _normalize_index_config(self, index_type: str, config: dict[str, Any]) -> dict[str, Any]:
+        normalized = dict(config)
+        if index_type == "bm25":
+            if not normalized.get("backend"):
+                normalized["backend"] = "numpy"
+            if not normalized.get("csc_backend"):
+                normalized["csc_backend"] = "numpy"
+        return normalized
 
     def add_exchange(
         self,
@@ -428,11 +501,7 @@ class NeuroMemConversationStore:
         started_at = time.time()
         limit = max(1, top_k or self._settings.conversation_memory_top_k)
         query_request = self._build_artifact_query_request(request, limit=limit)
-        results = self._conversation_collection.retrieve(
-            "search",
-            query_request.query,
-            top_k=query_request.top_k,
-        )
+        results = self._retrieve_from_collection(self._conversation_collection, query_request)
         retrieval_results = self._coerce_retrieval_results(results)
         hits: list[ConversationMemoryHit] = []
         seen_keys: set[tuple[str, int]] = set()
@@ -716,11 +785,7 @@ class NeuroMemConversationStore:
         query_request = self._build_short_term_query_request(
             request, conversation_id=conversation_id, limit=limit
         )
-        results = self._conversation_collection.retrieve(
-            "search",
-            query_request.query,
-            top_k=query_request.top_k,
-        )
+        results = self._retrieve_from_collection(self._conversation_collection, query_request)
         retrieval_results = self._coerce_retrieval_results(results)
         hits: list[ConversationMemoryHit] = []
         seen_memory_ids: set[str] = set()
@@ -789,11 +854,7 @@ class NeuroMemConversationStore:
         query_request = self._build_long_term_query_request(
             request, student_key=student_key, limit=limit
         )
-        results = self._profile_collection.retrieve(
-            "search",
-            query_request.query,
-            top_k=query_request.top_k,
-        )
+        results = self._retrieve_from_collection(self._profile_collection, query_request)
         retrieval_results = self._coerce_retrieval_results(results)
         hits: list[ConversationMemoryHit] = []
         seen_profile_ids: set[str] = set()
@@ -875,7 +936,33 @@ class NeuroMemConversationStore:
             categories.append("course_context")
         return categories
 
-    def _initialize_collection(self, name: str):
+    def _collection_type_for_role(self, collection_role: str) -> str:
+        if collection_role == "conversation":
+            return self._conversation_collection_type
+        return "unified"
+
+    def _is_neural_collection(self, collection: Any) -> bool:
+        return str(getattr(collection, "collection_type", "")).strip().lower() == "neural_continual"
+
+    def _initialize_collection(
+        self,
+        name: str,
+        *,
+        collection_type: str,
+        config_override: dict[str, Any] | None = None,
+    ):
+        if collection_type == "neural_continual":
+            try:
+                from sage.neuromem.memory_collection import NeuralMemoryCollection
+            except ImportError as exc:
+                raise RuntimeError(
+                    "Conversation memory trainable mode requires NeuralMemoryCollection from isage-neuromem."
+                ) from exc
+            config = self._build_neural_collection_config()
+            config.update(dict(config_override or {}))
+            config["collection_type"] = "neural_continual"
+            return NeuralMemoryCollection(name=name, config=config)
+
         try:
             from sage.neuromem import UnifiedCollection
         except ImportError as exc:
@@ -883,20 +970,28 @@ class NeuroMemConversationStore:
                 "Conversation memory requires isage-neuromem to be installed."
             ) from exc
 
-        collection = UnifiedCollection(name)
+        collection = UnifiedCollection(name, config=dict(config_override or {}))
+        collection.config.setdefault("collection_type", "unified")
         index_type = self._default_collection_index_type()
         collection.add_index("search", index_type, self._default_collection_index_config(index_type))
         return collection
 
-    def _load_or_create_collection(self, name: str, snapshot_dir: Path):
+    def _load_or_create_collection(self, name: str, snapshot_dir: Path, *, collection_role: str):
         if self._sqlite_has_collection_snapshot(name):
-            return self._load_collection_from_sqlite(name)
+            return self._load_collection_from_sqlite(name, collection_role=collection_role)
         if self._has_collection_snapshot(snapshot_dir):
-            collection = self._load_collection_snapshot(name, snapshot_dir)
+            collection = self._load_collection_snapshot(
+                name,
+                snapshot_dir,
+                collection_role=collection_role,
+            )
             # Migrate one-time legacy JSON snapshot into SQLite-backed persistence.
             self._persist_collection(collection, snapshot_dir)
             return collection
-        return self._initialize_collection(name)
+        return self._initialize_collection(
+            name,
+            collection_type=self._collection_type_for_role(collection_role),
+        )
 
     def _initialize_sqlite_store(self) -> None:
         with sqlite3.connect(self._sqlite_db_path) as connection:
@@ -921,7 +1016,7 @@ class NeuroMemConversationStore:
             ).fetchone()
         return row is not None
 
-    def _load_collection_from_sqlite(self, name: str):
+    def _load_collection_from_sqlite(self, name: str, *, collection_role: str):
         row: tuple[str, str, str] | None
         with sqlite3.connect(self._sqlite_db_path) as connection:
             row = connection.execute(
@@ -935,24 +1030,41 @@ class NeuroMemConversationStore:
             ).fetchone()
 
         if row is None:
-            return self._initialize_collection(name)
+            return self._initialize_collection(
+                name,
+                collection_type=self._collection_type_for_role(collection_role),
+            )
 
         raw_data = json.loads(row[0])
         config_payload = json.loads(row[1])
         index_metadata = json.loads(row[2])
 
-        collection = self._initialize_collection(name)
+        stored_type = str(dict(config_payload).get("collection_type") or "").strip().lower()
+        if stored_type not in {"neural_continual", "unified"}:
+            stored_type = self._collection_type_for_role(collection_role)
+
+        collection = self._initialize_collection(
+            name,
+            collection_type=stored_type,
+            config_override=dict(config_payload),
+        )
         collection.config = dict(config_payload)
         collection.storage.clear()
         for data_id, payload in dict(raw_data).items():
             collection.storage.put(str(data_id), dict(payload))
+
+        if self._is_neural_collection(collection):
+            return collection
 
         collection.indexes = {}
         collection.index_metadata = {}
 
         for index_name, metadata in dict(index_metadata).items():
             index_type = str(dict(metadata).get("type") or "bm25")
-            index_config = dict(dict(metadata).get("config") or {})
+            index_config = self._normalize_index_config(
+                index_type,
+                dict(dict(metadata).get("config") or {}),
+            )
             try:
                 collection.add_index(str(index_name), index_type, index_config)
             except ValueError:
@@ -979,16 +1091,31 @@ class NeuroMemConversationStore:
             snapshot_dir / "index_metadata.json"
         ).exists()
 
-    def _load_collection_snapshot(self, name: str, snapshot_dir: Path):
-        collection = self._initialize_collection(name)
-        raw_data = json.loads((snapshot_dir / "raw_data.json").read_text(encoding="utf-8"))
+    def _load_collection_snapshot(self, name: str, snapshot_dir: Path, *, collection_role: str):
+        config_payload: dict[str, Any] = {}
         config_path = snapshot_dir / "config.json"
         if config_path.exists():
-            collection.config = json.loads(config_path.read_text(encoding="utf-8"))
+            config_payload = json.loads(config_path.read_text(encoding="utf-8"))
+
+        stored_type = str(dict(config_payload).get("collection_type") or "").strip().lower()
+        if stored_type not in {"neural_continual", "unified"}:
+            stored_type = self._collection_type_for_role(collection_role)
+
+        collection = self._initialize_collection(
+            name,
+            collection_type=stored_type,
+            config_override=dict(config_payload),
+        )
+        raw_data = json.loads((snapshot_dir / "raw_data.json").read_text(encoding="utf-8"))
+        if config_payload:
+            collection.config = dict(config_payload)
 
         collection.storage.clear()
         for data_id, payload in raw_data.items():
             collection.storage.put(str(data_id), dict(payload))
+
+        if self._is_neural_collection(collection):
+            return collection
 
         collection.indexes = {}
         collection.index_metadata = json.loads(
@@ -998,7 +1125,12 @@ class NeuroMemConversationStore:
         from sage.neuromem.memory_collection.indexes import IndexFactory
 
         for index_name, metadata in collection.index_metadata.items():
-            index = IndexFactory.create(str(metadata["type"]), dict(metadata.get("config") or {}))
+            index_type = str(metadata["type"])
+            index_config = self._normalize_index_config(
+                index_type,
+                dict(metadata.get("config") or {}),
+            )
+            index = IndexFactory.create(index_type, index_config)
             index_path = snapshot_dir / f"index_{index_name}"
             if index_path.exists():
                 index.load(index_path)
@@ -1012,10 +1144,19 @@ class NeuroMemConversationStore:
         return collection
 
     def _persist_collection(self, collection: Any, snapshot_dir: Path) -> None:
+        del snapshot_dir
         raw_data = {
             str(data_id): dict(collection.storage.get(data_id) or {})
             for data_id in collection.storage.keys()
         }
+        config_payload = dict(getattr(collection, "config", {}) or {})
+        collection_type = str(
+            config_payload.get("collection_type")
+            or getattr(collection, "collection_type", "")
+        ).strip().lower()
+        if collection_type not in {"neural_continual", "unified"}:
+            collection_type = "neural_continual" if self._is_neural_collection(collection) else "unified"
+        config_payload["collection_type"] = collection_type
         with sqlite3.connect(self._sqlite_db_path) as connection:
             connection.execute(
                 """
@@ -1030,7 +1171,7 @@ class NeuroMemConversationStore:
                 (
                     str(collection.name),
                     json.dumps(raw_data, ensure_ascii=False),
-                    json.dumps(dict(collection.config), ensure_ascii=False),
+                    json.dumps(config_payload, ensure_ascii=False),
                     json.dumps(dict(collection.index_metadata), ensure_ascii=False),
                     datetime.now(UTC).isoformat(),
                 ),
@@ -1214,8 +1355,20 @@ class NeuroMemConversationStore:
 
     def _build_service_stats(self, collection: Any, *, memory_scope: str) -> dict[str, Any]:
         storage_stats: dict[str, Any] = dict(collection.get_storage_stats())
+        collection_type = str(
+            getattr(collection, "collection_type", "")
+            or dict(getattr(collection, "config", {}) or {}).get("collection_type")
+            or "unified"
+        ).strip().lower()
+        if collection_type not in {"neural_continual", "unified"}:
+            collection_type = "unified"
+
+        service_type = self.__class__.__name__
+        if memory_scope in {"conversation", "short_term"} and collection_type == "neural_continual":
+            service_type = "online_continual_memory"
+
         stats = ServiceStats(
-            service_type=self.__class__.__name__,
+            service_type=service_type,
             collection_name=collection.name,
             total_entries=collection.size(),
             index_count=len(collection.indexes),
@@ -1223,10 +1376,34 @@ class NeuroMemConversationStore:
             storage=storage_stats,
             extra={
                 "memory_scope": memory_scope,
+                "collection_type": collection_type,
                 "telemetry": self.get_telemetry_summary(),
             },
         )
         return stats.to_dict()
+
+    def _insert_collection_entry(self, collection: Any, entry: MemoryEntry) -> None:
+        if self._is_neural_collection(collection):
+            collection.insert(entry.text, entry.metadata)
+            return
+        collection.insert(entry.text, entry.metadata, index_names=["search"])
+
+    def _retrieve_from_collection(
+        self,
+        collection: Any,
+        query_request: QueryRequest,
+    ) -> list[RetrievalResult]:
+        if self._is_neural_collection(collection):
+            return collection.retrieve(
+                query=query_request.query,
+                top_k=query_request.top_k,
+                filters=query_request.filters,
+            )
+        return collection.retrieve(
+            "search",
+            query_request.query,
+            top_k=query_request.top_k,
+        )
 
     def _should_include_record(
         self,
@@ -1363,15 +1540,13 @@ class NeuroMemConversationStore:
 
     def _store_conversation_entry(self, record: ConversationMemoryRecord) -> None:
         entry = self._build_conversation_memory_entry(record)
-        self._conversation_collection.insert(entry.text, entry.metadata, index_names=["search"])
+        self._insert_collection_entry(self._conversation_collection, entry)
         for attachment_entry in self._build_attachment_memory_entries(record):
-            self._conversation_collection.insert(
-                attachment_entry.text, attachment_entry.metadata, index_names=["search"]
-            )
+            self._insert_collection_entry(self._conversation_collection, attachment_entry)
 
     def _store_profile_entry(self, profile: ProfileMemoryRecord) -> None:
         entry = self._build_profile_memory_entry(profile)
-        self._profile_collection.insert(entry.text, entry.metadata, index_names=["search"])
+        self._insert_collection_entry(self._profile_collection, entry)
 
     def _delete_profile_entries(self, profile_id: str, *, keep_data_id: str | None = None) -> int:
         deleted = 0

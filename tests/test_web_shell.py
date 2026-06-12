@@ -38,6 +38,7 @@ def test_frontend_script_uses_optional_overlay_modal_registry() -> None:
     assert "function applyLuckyQuestionPreferences(selection)" in script
     assert "function isFeedbackWebKnowledgeRecord(record)" in script
     assert "function handleFeedbackWebKnowledgeAction(event)" in script
+    assert 'apiRequest("/knowledge/reviews/summary")' in script
     assert "data-feedback-web-review" in script
     assert "/knowledge/${encodeURIComponent(documentId)}/review" in script
     assert "const luckyEntries = RANDOM_CHAT_QUESTION_BANKS[profile] || RANDOM_CHAT_QUESTION_BANKS.general_visitor;" in script

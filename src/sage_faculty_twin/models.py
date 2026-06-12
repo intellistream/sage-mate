@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import date, datetime
 from typing import Any
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 
 class ChatAttachment(BaseModel):
@@ -332,10 +332,62 @@ class KnowledgeDocumentRecord(BaseModel):
     source_name: str | None = None
     metadata: dict[str, str] = Field(default_factory=dict)
     created_at: datetime
+    is_feedback_web: bool = False
+    review_status: str = Field(default="unknown", pattern="^(unknown|pending|approved|stale)$")
+    freshness_status: str = Field(default="unknown", pattern="^(unknown|web|stale)$")
+    reviewed_at: datetime | None = None
+    reviewable: bool = False
+
+    @model_validator(mode="after")
+    def _sync_review_state(self) -> KnowledgeDocumentRecord:
+        source_name = str(self.source_name or "").lower()
+        tags = {str(tag).lower() for tag in self.tags}
+        is_feedback_web = source_name.startswith("feedback-web:") or "feedback-web" in tags
+
+        review_status = str(self.metadata.get("review_status") or "").strip().lower()
+        if review_status not in {"unknown", "pending", "approved", "stale"}:
+            review_status = "pending" if is_feedback_web else "unknown"
+        if not review_status:
+            review_status = "pending" if is_feedback_web else "unknown"
+
+        freshness_status = str(self.metadata.get("freshness_status") or "").strip().lower()
+        if freshness_status not in {"unknown", "web", "stale"}:
+            freshness_status = (
+                "web"
+                if review_status == "approved"
+                else "stale"
+                if review_status == "stale"
+                else "unknown"
+            )
+
+        reviewed_at = self.reviewed_at
+        reviewed_at_raw = self.metadata.get("reviewed_at")
+        if reviewed_at is None and reviewed_at_raw:
+            try:
+                reviewed_at = datetime.fromisoformat(reviewed_at_raw)
+            except ValueError:
+                reviewed_at = None
+
+        self.is_feedback_web = is_feedback_web
+        self.review_status = review_status
+        self.freshness_status = freshness_status
+        self.reviewed_at = reviewed_at
+        self.reviewable = is_feedback_web and review_status == "pending"
+        return self
 
 
 class KnowledgeDocumentReviewRequest(BaseModel):
     action: str = Field(pattern="^(approve|stale)$")
+
+
+class KnowledgeDocumentReviewSummary(BaseModel):
+    total_documents: int = 0
+    feedback_web_documents: int = 0
+    pending_documents: int = 0
+    approved_documents: int = 0
+    stale_documents: int = 0
+    reviewable_documents: int = 0
+    pending_items: list[KnowledgeDocumentRecord] = Field(default_factory=list)
 
 
 class KnowledgeDocumentActionResponse(BaseModel):

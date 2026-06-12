@@ -509,7 +509,11 @@ class LocalKnowledgeStore:
             self._batch_index_documents_with_faiss()
             return
 
-        self._neuromem_collection.add_index("search", "bm25", {})
+        self._neuromem_collection.add_index(
+            "search",
+            "bm25",
+            {"backend": "numpy", "csc_backend": "numpy"},
+        )
         if self._build_neuromem_search_index_batch():
             return
         for document in self.list_documents():
@@ -852,12 +856,12 @@ class LocalKnowledgeStore:
         if not (source_name.startswith("feedback-web:") or "feedback-web" in tags):
             return 0.0
 
-        review_status = str(document.metadata.get("review_status") or "pending").strip().lower()
+        review_status = str(document.review_status or "pending").strip().lower()
         if review_status == "approved":
             return 0.0
         if review_status == "stale":
-            return -7.0
-        return -3.0
+            return -8.5
+        return -4.5
 
     def _document_course_scope_boost(
         self,

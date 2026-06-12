@@ -14,6 +14,12 @@ from urllib.parse import urlsplit, urlunsplit
 import httpx
 from pydantic import BaseModel, Field, ValidationError
 
+from .runtime_env import bootstrap_runtime_env
+
+bootstrap_runtime_env(require_policy=True, require_fastapi=False)
+
+from sage.serving.integrations import policy as serving_policy
+
 from .config import AppSettings
 from .models import InteractionIntent
 from .workflow_context import WorkflowRequestContext
@@ -108,6 +114,9 @@ class VllmChatClient:
         self._vllm_prefix_cache_hits = 0.0
         self._vllm_external_prefix_cache_queries = 0.0
         self._vllm_external_prefix_cache_hits = 0.0
+        self._vllm_num_requests_running = 0.0
+        self._vllm_num_requests_waiting = 0.0
+        self._vllm_kv_cache_usage_perc = 0.0
         self._vllm_metrics_last_refresh_at = 0.0
 
     def _ensure_runtime_state(self) -> None:
@@ -169,6 +178,12 @@ class VllmChatClient:
             self._vllm_external_prefix_cache_queries = 0.0
         if not hasattr(self, "_vllm_external_prefix_cache_hits"):
             self._vllm_external_prefix_cache_hits = 0.0
+        if not hasattr(self, "_vllm_num_requests_running"):
+            self._vllm_num_requests_running = 0.0
+        if not hasattr(self, "_vllm_num_requests_waiting"):
+            self._vllm_num_requests_waiting = 0.0
+        if not hasattr(self, "_vllm_kv_cache_usage_perc"):
+            self._vllm_kv_cache_usage_perc = 0.0
         if not hasattr(self, "_vllm_metrics_last_refresh_at"):
             self._vllm_metrics_last_refresh_at = 0.0
 
@@ -218,6 +233,9 @@ class VllmChatClient:
                 "llm_vllm_external_prefix_cache_hit_rate": f"{external_prefix_cache_hit_rate:.4f}",
                 "llm_vllm_prefix_cache_queries": f"{self._vllm_prefix_cache_queries:.0f}",
                 "llm_vllm_prefix_cache_hits": f"{self._vllm_prefix_cache_hits:.0f}",
+                "llm_vllm_num_requests_running": f"{self._vllm_num_requests_running:.2f}",
+                "llm_vllm_num_requests_waiting": f"{self._vllm_num_requests_waiting:.2f}",
+                "llm_vllm_kv_cache_usage_perc": f"{self._vllm_kv_cache_usage_perc:.4f}",
                 "llm_avg_latency_ms": f"{(self._latency_total_ms / max(self._latency_observation_count, 1)):.2f}",
                 "llm_last_latency_ms": f"{self._last_latency_ms:.2f}",
                 "llm_max_latency_ms": f"{self._latency_max_ms:.2f}",
@@ -418,6 +436,9 @@ class VllmChatClient:
         token_callback: Callable[[str], None] | None = None,
         enable_thinking: bool = True,
         thinking_token_budget: int | None = None,
+        deadline_class: str | None = None,
+        request_priority: int | None = None,
+        target_e2e_ms: float | None = None,
     ) -> str:
         payload: dict[str, Any] = {
             "model": self._settings.model_name,
@@ -440,6 +461,13 @@ class VllmChatClient:
                 payload["thinking_token_budget"] = budget
         if max_tokens is not None:
             payload["max_tokens"] = max_tokens
+
+        self._apply_serving_policy_to_payload(
+            payload,
+            deadline_class=deadline_class,
+            request_priority=request_priority,
+            target_e2e_ms=target_e2e_ms,
+        )
 
         if token_callback is not None:
             # Chat Latency Optimizations Task 5: stream tokens via
@@ -591,6 +619,9 @@ class VllmChatClient:
                 if not content:
                     raise RuntimeError("vllm-hust returned an empty chat message")
                 answer = str(content)
+                finish_reason = str(choices[0].get("finish_reason") or "").strip().lower()
+                if finish_reason == "length":
+                    answer = self._continue_truncated_answer(payload, answer)
                 break
             except httpx.TimeoutException as exc:
                 if attempt >= max_retries:
@@ -609,6 +640,40 @@ class VllmChatClient:
         )
         self._store_cached_response(cache_key, answer, semantic_key)
         return answer
+
+    def _continue_truncated_answer(self, payload: dict[str, Any], partial_answer: str) -> str:
+        try:
+            messages = list(payload.get("messages") or [])
+            if not messages:
+                return partial_answer
+
+            continuation_messages = list(messages)
+            continuation_messages.append({"role": "assistant", "content": partial_answer})
+            continuation_messages.append(
+                {
+                    "role": "user",
+                    "content": "继续，直接从上句未完处接着写，保持同一语言，不要重复已写内容。",
+                }
+            )
+
+            continuation_payload = dict(payload)
+            continuation_payload["messages"] = continuation_messages
+            continuation_response = self._client.post(
+                "/chat/completions",
+                json=continuation_payload,
+            )
+            continuation_response.raise_for_status()
+            data = continuation_response.json()
+            choices = data.get("choices", [])
+            if not choices:
+                return partial_answer + "\n\n[回答因长度限制被截断]"
+            message = choices[0].get("message", {})
+            continuation_text = str(message.get("content") or "").strip()
+            if not continuation_text:
+                return partial_answer + "\n\n[回答因长度限制被截断]"
+            return partial_answer.rstrip() + "\n" + continuation_text
+        except Exception:
+            return partial_answer + "\n\n[回答因长度限制被截断]"
 
     async def answer_question(self, system_prompt: str, user_prompt: str) -> str:
         return await asyncio.to_thread(self.answer_question_sync, system_prompt, user_prompt)
@@ -1170,6 +1235,9 @@ class VllmChatClient:
         prefix_hits = 0.0
         external_prefix_queries = 0.0
         external_prefix_hits = 0.0
+        num_requests_running = self._vllm_num_requests_running
+        num_requests_waiting = self._vllm_num_requests_waiting
+        kv_cache_usage_perc = self._vllm_kv_cache_usage_perc
         for line in text.splitlines():
             if not line or line.startswith("#"):
                 continue
@@ -1195,12 +1263,115 @@ class VllmChatClient:
                 "vllm:external_prefix_cache_hits_total",
             ):
                 external_prefix_hits += value
+            elif metric_name in (
+                "vllm:num_requests_running",
+                "vllm:num_requests_running_requests",
+            ):
+                num_requests_running = value
+            elif metric_name in (
+                "vllm:num_requests_waiting",
+                "vllm:request_queue_size",
+            ):
+                num_requests_waiting = value
+            elif metric_name in (
+                "vllm:kv_cache_usage_perc",
+                "vllm:gpu_cache_usage_perc",
+                "vllm:gpu_kv_cache_usage_perc",
+            ):
+                kv_cache_usage_perc = value / 100.0 if value > 1.0 else value
 
         self._vllm_prefix_cache_queries = prefix_queries
         self._vllm_prefix_cache_hits = prefix_hits
         self._vllm_external_prefix_cache_queries = external_prefix_queries
         self._vllm_external_prefix_cache_hits = external_prefix_hits
+        self._vllm_num_requests_running = max(0.0, num_requests_running)
+        self._vllm_num_requests_waiting = max(0.0, num_requests_waiting)
+        self._vllm_kv_cache_usage_perc = min(max(0.0, kv_cache_usage_perc), 1.0)
         self._vllm_metrics_last_refresh_at = now
+
+    def _apply_serving_policy_to_payload(
+        self,
+        payload: dict[str, Any],
+        *,
+        deadline_class: str | None,
+        request_priority: int | None,
+        target_e2e_ms: float | None,
+    ) -> None:
+        if not self._settings.llm_policy_enabled:
+            return
+        if "max_tokens" not in payload:
+            return
+
+        requested_max_tokens = int(payload.get("max_tokens") or 0)
+        if requested_max_tokens <= 0:
+            return
+
+        self._refresh_vllm_prefix_cache_metrics()
+
+        policy_max_tokens_cap = max(1, int(self._settings.llm_policy_output_max_tokens_cap))
+
+        policy = serving_policy.variant_policy_for(
+            self._settings.llm_policy_variant_kind,
+            self._settings.llm_policy_variant_name,
+        )
+        serving_context = {
+            "deadline_class": str(deadline_class or "batch-standard"),
+            "priority": int(request_priority if request_priority is not None else 50),
+            "max_tokens": requested_max_tokens,
+            "target_e2e_ms": float(target_e2e_ms) if target_e2e_ms is not None else None,
+        }
+        snapshot = {
+            "num_requests_running": float(self._vllm_num_requests_running),
+            "num_requests_waiting": float(self._vllm_num_requests_waiting),
+            "kv_cache_usage_perc": float(self._vllm_kv_cache_usage_perc),
+        }
+
+        # Low-congestion path: keep the requested token budget (no shaping),
+        # but still enforce a global policy ceiling to avoid pathological long outputs.
+        if not self._is_high_congestion(snapshot):
+            payload["max_tokens"] = int(min(requested_max_tokens, policy_max_tokens_cap))
+            return
+
+        controller, _ = serving_policy.resolve_deadline_class_max_tokens(
+            type("_Args", (), {"deadline_class_max_tokens": None})(),
+            policy,
+        )
+        caps, _ = serving_policy.deadline_class_max_tokens_for_request(
+            policy,
+            controller,
+            snapshot,
+            event={"serving_context": serving_context},
+        )
+        _, effective_max_tokens = serving_policy.effective_output_len(serving_context, caps)
+        shaped_max_tokens = int(
+            max(1, min(requested_max_tokens, int(effective_max_tokens), policy_max_tokens_cap))
+        )
+
+        min_tokens_floor = max(1, int(self._settings.llm_policy_output_min_tokens_floor))
+        if (
+            str(serving_context.get("deadline_class") or "").startswith("interactive")
+            and requested_max_tokens >= min_tokens_floor
+        ):
+            shaped_max_tokens = max(shaped_max_tokens, min_tokens_floor)
+
+        payload["max_tokens"] = int(
+            min(requested_max_tokens, policy_max_tokens_cap, shaped_max_tokens)
+        )
+
+    def _is_high_congestion(self, snapshot: dict[str, float]) -> bool:
+        num_running = float(snapshot.get("num_requests_running") or 0.0)
+        num_waiting = float(snapshot.get("num_requests_waiting") or 0.0)
+        kv_usage = float(snapshot.get("kv_cache_usage_perc") or 0.0)
+
+        if num_waiting >= float(self._settings.llm_policy_congestion_waiting_threshold):
+            return True
+        if kv_usage >= float(self._settings.llm_policy_congestion_kv_usage_threshold):
+            return True
+        if (num_running + num_waiting) >= float(
+            self._settings.llm_policy_congestion_total_requests_threshold
+        ):
+            return True
+        return False
 
     def _format_timestamp(self, timestamp: float | None) -> str:
         if timestamp is None:

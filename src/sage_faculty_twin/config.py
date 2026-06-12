@@ -24,6 +24,17 @@ class AppSettings(BaseSettings):
     llm_timeout_seconds: int = Field(default=60, ge=1, le=300)
     llm_retry_attempts: int = Field(default=2, ge=0, le=5)
     llm_retry_backoff_seconds: float = Field(default=1.0, ge=0.0, le=30.0)
+    llm_policy_enabled: bool = Field(default=True)
+    llm_policy_variant_kind: str = Field(default="ablation")
+    llm_policy_variant_name: str = Field(default="adaptive-controller")
+    llm_policy_execution_priority_mode: str = Field(default="off")
+    llm_policy_output_max_tokens_cap: int = Field(default=512, ge=64, le=4096)
+    llm_policy_output_min_tokens_floor: int = Field(default=192, ge=32, le=4096)
+    llm_policy_congestion_waiting_threshold: float = Field(default=1.0, ge=0.0, le=10000.0)
+    llm_policy_congestion_kv_usage_threshold: float = Field(default=0.75, ge=0.0, le=1.0)
+    llm_policy_congestion_total_requests_threshold: float = Field(
+        default=8.0, ge=0.0, le=10000.0
+    )
     llm_cache_ttl_seconds: int = Field(default=3600, ge=0, le=86400)
     llm_cache_max_entries: int = Field(default=512, ge=0, le=4096)
     system_prompt: str = Field(
@@ -87,9 +98,20 @@ class AppSettings(BaseSettings):
     shadow_planner_temperature: float = Field(default=0.0, ge=0.0, le=1.0)
     shadow_planner_max_tokens: int = Field(default=384, ge=64, le=2048)
     conversation_memory_top_k: int = Field(default=4, ge=1, le=10)
+    # Conversation memory collection type. "auto" defaults to trainable
+    # neural continual memory for short-term conversation recall.
+    conversation_memory_collection_type: str = Field(default="auto")
     # Conversation memory index type. Use "auto" to prefer vector-capable indexes
     # (sage_vdb_ann/sagedb_ann/faiss) and fall back to segment/fifo when unavailable.
     conversation_memory_index_type: str = Field(default="auto")
+    conversation_memory_neural_feature_dim: int = Field(default=128, ge=32, le=2048)
+    conversation_memory_neural_learning_rate: float = Field(default=0.15, ge=0.001, le=1.0)
+    conversation_memory_neural_weight_decay: float = Field(default=0.01, ge=0.0, le=1.0)
+    conversation_memory_neural_replay_buffer_size: int = Field(default=256, ge=16, le=8192)
+    conversation_memory_neural_replay_batch_size: int = Field(default=8, ge=1, le=512)
+    conversation_memory_neural_score_blend: float = Field(default=0.5, ge=0.0, le=1.0)
+    conversation_memory_neural_recency_bias: float = Field(default=0.0, ge=0.0, le=2.0)
+    conversation_memory_neural_query_overlap_bias: float = Field(default=0.0, ge=0.0, le=2.0)
     sagevdb_embedding_backend: str = Field(default="sentence-transformers")
     sagevdb_embedding_model: str = Field(default="sentence-transformers/all-MiniLM-L6-v2")
     sagevdb_dimension: int = Field(default=256, ge=32, le=4096)

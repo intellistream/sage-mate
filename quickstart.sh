@@ -135,9 +135,9 @@ $mode_with_vllm && clone_if_missing vllm-hust https://github.com/intellistream/v
 ############################################################
 # 3. Python deps
 ############################################################
-log "Installing faculty-twin in editable mode"
+log "Installing faculty-twin in editable mode (with vdb-anns extras)"
 "$python_bin" -m pip install --quiet --upgrade pip
-"$python_bin" -m pip install --quiet -e "$repo_root"
+"$python_bin" -m pip install --quiet -e "$repo_root[vdb-anns]"
 
 # vllm-hust (only on request — heavy build)
 if $mode_with_vllm; then

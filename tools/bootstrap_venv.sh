@@ -103,12 +103,12 @@ else
     echo "Installing neuromem (isage-neuromem) from $neuromem_src ..."
     pip install --no-deps -e "$neuromem_src" 2>&1 | tail -3
     # Install neuromem's own deps (skip isage-libs which may not exist for this Python)
-    pip install bm25s sentence-transformers faiss-cpu 2>&1 | tail -3
+    pip install isage-anns bm25s sentence-transformers faiss-cpu 2>&1 | tail -3
 fi
 
 # --- Install sage-faculty-twin itself (editable) ---
 echo "Installing sage-faculty-twin from $repo_root ..."
-pip install --no-deps -e "$repo_root" 2>&1 | tail -3
+pip install --no-deps -e "$repo_root[vdb-anns]" 2>&1 | tail -3
 # Install its deps (excluding isage/isage-neuromem which we already have)
 pip install fastapi httpx pydantic pydantic-settings pypdf uvicorn cloudpickle 2>&1 | tail -3
 

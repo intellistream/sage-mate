@@ -7,6 +7,10 @@ from datetime import date
 from io import BytesIO
 from pathlib import Path
 
+from .runtime_env import bootstrap_runtime_env
+
+bootstrap_runtime_env(require_policy=True, require_fastapi=False)
+
 from fastapi import Depends, FastAPI, HTTPException, Query, Request, Response
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
@@ -50,6 +54,7 @@ from .models import (
     KnowledgeDocumentCreate,
     KnowledgeDocumentRecord,
     KnowledgeDocumentReviewRequest,
+    KnowledgeDocumentReviewSummary,
     KnowledgeGapDraftCreateRequest,
     KnowledgeGapDraftRecordResponse,
     KnowledgeSearchResponse,
@@ -68,7 +73,7 @@ from .models import (
     WorkflowReplayReportResponse,
 )
 from .history_auth import resolve_authenticated_history_email
-from .service import DigitalTwinService
+from .service import DigitalTwinService, build_stack_versions_payload
 
 
 def configure_local_cors(target_app: FastAPI) -> None:
@@ -532,9 +537,17 @@ async def health() -> dict[str, object]:
             "status": "starting",
             "message": "Service is initializing in background.",
             "model": settings.model_name,
+            "stack_version_sage": "unknown",
+            "stack_version_neuromem": "unknown",
+            "stack_version_vllm_hust": "unknown",
             "sage_runtime": "FlowNetEnvironment",
         }
     return service.health()
+
+
+@llm_app.get("/stack/versions")
+async def stack_versions() -> dict[str, str]:
+    return build_stack_versions_payload()
 
 
 @llm_app.post("/presence/heartbeat", response_model=OnlinePresenceHeartbeatResponse)
@@ -764,6 +777,14 @@ async def list_knowledge_documents(
     _: dict = Depends(require_admin_session),
 ) -> list[KnowledgeDocumentRecord]:
     return service.list_knowledge()
+
+
+@llm_app.get("/knowledge/reviews/summary", response_model=KnowledgeDocumentReviewSummary)
+async def get_knowledge_review_summary(
+    limit: int = Query(default=20, ge=1, le=100),
+    _: dict = Depends(require_admin_session),
+) -> KnowledgeDocumentReviewSummary:
+    return service.list_knowledge_review_summary(limit=limit)
 
 
 @llm_app.get("/knowledge/search", response_model=KnowledgeSearchResponse)

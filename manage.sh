@@ -3,6 +3,7 @@
 set -euo pipefail
 
 repo_root=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+source "$repo_root/tools/lib/runtime_env.sh"
 user_runtime_dir="/run/user/$(id -u)"
 user_bus_path="$user_runtime_dir/bus"
 
@@ -14,14 +15,8 @@ if [[ -z "${DBUS_SESSION_BUS_ADDRESS:-}" && -S "$user_bus_path" ]]; then
     export DBUS_SESSION_BUS_ADDRESS="unix:path=$user_bus_path"
 fi
 
-if command -v python3 >/dev/null 2>&1; then
-    python_bin=$(command -v python3)
-elif command -v python >/dev/null 2>&1; then
-    python_bin=$(command -v python)
-else
-    echo "Unable to locate a usable Python interpreter." >&2
-    exit 1
-fi
+export_repo_runtime_env "$repo_root"
+python_bin="$PYTHON_BIN"
 
 if [[ $# -lt 1 ]]; then
     echo "Usage: $0 <install|status|start|stop|restart> [--json] [--with-vllm-proxy] [--start]" >&2

@@ -2209,10 +2209,22 @@ def test_review_feedback_web_document_and_delete_it(tmp_path: Path) -> None:
     )
     assert reviewed.action == "approve"
     assert reviewed.document is not None
+    assert reviewed.document.is_feedback_web is True
+    assert reviewed.document.review_status == "approved"
+    assert reviewed.document.freshness_status == "web"
+    assert reviewed.document.reviewable is False
     assert reviewed.document.metadata["review_status"] == "approved"
     assert reviewed.document.metadata["freshness_status"] == "web"
     assert "review:approved" in reviewed.document.tags
     assert "review:pending" not in reviewed.document.tags
+
+    summary = service.list_knowledge_review_summary(limit=10)
+    assert summary.total_documents == 1
+    assert summary.feedback_web_documents == 1
+    assert summary.pending_documents == 0
+    assert summary.approved_documents == 1
+    assert summary.reviewable_documents == 0
+    assert summary.pending_items == []
 
     deleted = service.delete_knowledge_document(created.document_id)
     assert deleted.action == "delete"
