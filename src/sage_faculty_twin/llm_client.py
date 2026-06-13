@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import difflib
 import json
+import logging
 import re
 import threading
 import time
@@ -13,6 +14,8 @@ from urllib.parse import urlsplit, urlunsplit
 
 import httpx
 from pydantic import BaseModel, Field, ValidationError
+
+logger = logging.getLogger(__name__)
 
 from .runtime_env import bootstrap_runtime_env
 
@@ -85,7 +88,11 @@ class VllmChatClient:
             timeout=30.0,
             limits=httpx.Limits(max_connections=10, max_keepalive_connections=5),
         )
-        self._intent_model_name = self._settings.intent_model_name or self._settings.model_name
+        # Auto-detect model name from the connected LLM if not explicitly configured.
+        self.model_name: str = self._settings.model_name
+        if not self.model_name:
+            self.model_name = self._detect_model_name()
+        self._intent_model_name = self._settings.intent_model_name or self.model_name
         self._cache_lock = threading.Lock()
         self._response_cache: OrderedDict[str, tuple[float, str, str]] = OrderedDict()
         self._metrics_lock = threading.Lock()
@@ -118,6 +125,23 @@ class VllmChatClient:
         self._vllm_num_requests_waiting = 0.0
         self._vllm_kv_cache_usage_perc = 0.0
         self._vllm_metrics_last_refresh_at = 0.0
+
+    def _detect_model_name(self) -> str:
+        """Query the connected LLM's /models endpoint to discover the served model name."""
+        try:
+            response = self._client.get("/models", timeout=10.0)
+            response.raise_for_status()
+            data = response.json()
+            models = data.get("data", [])
+            if models:
+                detected = models[0].get("id", "")
+                if detected:
+                    logger.info("Auto-detected model name: %s", detected)
+                    return detected
+        except Exception as exc:
+            logger.warning("Failed to auto-detect model name from %s: %s",
+                           self._settings.llm_base_url, exc)
+        return ""
 
     def _ensure_runtime_state(self) -> None:
         if not hasattr(self, "_cache_lock"):
@@ -441,7 +465,7 @@ class VllmChatClient:
         target_e2e_ms: float | None = None,
     ) -> str:
         payload: dict[str, Any] = {
-            "model": self._settings.model_name,
+            "model": self.model_name,
             "messages": [
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt},

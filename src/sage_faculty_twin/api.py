@@ -515,7 +515,7 @@ async def health() -> dict[str, object]:
         return {
             "status": "starting",
             "message": "Service is initializing in background.",
-            "model": settings.model_name,
+            "model": settings.model_name or "detecting...",
             "owner_name": settings.owner_name,
             "owner_role": settings.owner_role,
             "homepage_public_url": settings.homepage_public_url,

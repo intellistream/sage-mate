@@ -16,7 +16,7 @@ class AppSettings(BaseSettings):
 
     owner_name: str = Field(default="张书豪")
     owner_role: str = Field(default="华中科技大学计算机学院教师")
-    model_name: str = Field(default="qwen2.5-14b")
+    model_name: str = Field(default="")
     llm_base_url: str = Field(default="http://127.0.0.1:8000/v1")
     api_key: str = Field(default="EMPTY")
     intent_model_name: str = Field(default="")
