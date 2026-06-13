@@ -14,7 +14,7 @@ bootstrap_runtime_env(require_policy=True, require_fastapi=False)
 from fastapi import Depends, FastAPI, HTTPException, Query, Request, Response
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, StreamingResponse
+from fastapi.responses import FileResponse, RedirectResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import ValidationError
 from sage.edge.app import create_app as create_edge_app
@@ -115,7 +115,6 @@ class LazyDigitalTwinService:
 
 service = LazyDigitalTwinService()
 web_dir = Path(__file__).with_name("web")
-homepage_dir = settings.homepage_dir.resolve()
 NO_STORE_HEADERS = {"Cache-Control": "no-store, no-cache, must-revalidate"}
 MAX_CHAT_ATTACHMENTS = 4
 MAX_CHAT_ATTACHMENT_BYTES = 5 * 1024 * 1024
@@ -420,22 +419,6 @@ def frontend_asset(filename: str) -> FileResponse:
     return FileResponse(web_dir / filename, headers=NO_STORE_HEADERS)
 
 
-def homepage_asset(asset_path: str = "index.html") -> FileResponse:
-    candidate = (homepage_dir / asset_path).resolve()
-    try:
-        candidate.relative_to(homepage_dir)
-    except ValueError as exc:
-        raise HTTPException(status_code=404, detail="Not Found") from exc
-
-    if candidate.is_dir():
-        candidate = candidate / "index.html"
-
-    if not candidate.is_file():
-        raise HTTPException(status_code=404, detail="Not Found")
-
-    return FileResponse(candidate, headers=NO_STORE_HEADERS)
-
-
 def require_admin_session(request: Request) -> dict:
     return service.require_admin_session(request.cookies.get(ADMIN_COOKIE_NAME))
 
@@ -455,13 +438,9 @@ async def styles() -> FileResponse:
 
 @llm_app.get("/home", include_in_schema=False)
 @llm_app.get("/home/", include_in_schema=False)
-async def homepage_index() -> FileResponse:
-    return homepage_asset()
-
-
-@llm_app.get("/home/{asset_path:path}", include_in_schema=False)
-async def homepage_files(asset_path: str) -> FileResponse:
-    return homepage_asset(asset_path)
+async def homepage_redirect() -> RedirectResponse:
+    target = settings.homepage_public_url or "https://shuhaozhangtony.github.io/"
+    return RedirectResponse(url=target, status_code=302)
 
 
 @llm_app.get("/app.js", include_in_schema=False)
@@ -537,6 +516,9 @@ async def health() -> dict[str, object]:
             "status": "starting",
             "message": "Service is initializing in background.",
             "model": settings.model_name,
+            "owner_name": settings.owner_name,
+            "owner_role": settings.owner_role,
+            "homepage_public_url": settings.homepage_public_url,
             "stack_version_sage": "unknown",
             "stack_version_neuromem": "unknown",
             "stack_version_vllm_hust": "unknown",

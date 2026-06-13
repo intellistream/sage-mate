@@ -46,7 +46,7 @@ Relevant variables:
 
 - `APP_PORT`: upstream app port, default `55601`
 - `SITE_PORT`: local proxy port, default `8088`
-- `HOMEPAGE_REDIRECT_ORIGIN`: canonical public homepage origin, default `https://home.shuhao.sage.org.ai`
+- `HOMEPAGE_REDIRECT_ORIGIN`: canonical public homepage origin, default `https://me.sage.org.ai`
 
 `/home` and `/home/` are compatibility paths at the site-proxy layer. They now redirect to the
 canonical public homepage origin, while local direct app access can still use the built-in FastAPI
@@ -64,7 +64,11 @@ This renders and installs:
 
 - `sage-faculty-twin-app.service`
 - `sage-faculty-twin-site.service`
-- `sage-faculty-twin-tunnel.service`
+
+Optional services (pass the flag to include):
+
+- `sage-faculty-twin-tunnel.service` (`--with-tunnel`)
+- `sage-faculty-twin-vllm-openai-proxy.service` (`--with-vllm-proxy`)
 
 The management entry points are:
 
@@ -98,7 +102,7 @@ Set the canonical public homepage URL for the web UI top-bar button with:
 export DIGITAL_TWIN_HOMEPAGE_PUBLIC_URL=https://faculty.example.edu/
 ```
 
-For this deployment, the canonical public homepage is `https://home.shuhao.sage.org.ai/`.
+For this deployment, the canonical public homepage is `https://me.sage.org.ai/`.
 
 If the variable is empty, the top-bar homepage link falls back to the app-local `/home/` route.
 That fallback is useful for local development, but it should not be treated as the public-facing

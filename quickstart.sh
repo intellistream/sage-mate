@@ -182,7 +182,7 @@ ensure_env_kv DIGITAL_TWIN_CHAT_PROMPT_SOFT_CAP_CHARS 12000
 if $mode_no_systemd; then
 	log "Skipping systemd install (--no-systemd)"
 else
-	log "Installing systemd --user units (app/site/tunnel)"
+	log "Installing systemd --user units (app/site)"
 	if $mode_start; then
 		PYTHON_BIN="$python_bin" "$repo_root/tools/install_user_services.sh" --start
 	else

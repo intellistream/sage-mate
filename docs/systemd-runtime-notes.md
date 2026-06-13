@@ -15,7 +15,8 @@ changes that came out of it.
   stack is:
   - `sage-faculty-twin-app.service`
   - `sage-faculty-twin-site.service`
-  - `sage-faculty-twin-tunnel.service`
+- `sage-faculty-twin-tunnel.service` is also optional (`--with-tunnel`). Hosts
+  using a separately-managed cloudflared service should NOT install this unit.
 - To include the OpenAI proxy explicitly, use `--with-vllm-proxy`.
 - `tools/run_app_server.sh` now seeds writable HuggingFace cache variables and
   defaults `HF_ENDPOINT` to `https://hf-mirror.com` for non-interactive

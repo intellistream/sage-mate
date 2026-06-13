@@ -100,8 +100,19 @@ def test_install_user_services_only_enables_proxy_with_explicit_flag(tmp_path: P
 
     subprocess.run(["bash", str(INSTALL_SCRIPT)], check=True, cwd=REPO_ROOT, env=env)
     default_log = systemctl_log.read_text(encoding="utf-8")
-    assert "enable sage-faculty-twin-app.service sage-faculty-twin-site.service sage-faculty-twin-tunnel.service" in default_log
+    assert "enable sage-faculty-twin-app.service sage-faculty-twin-site.service" in default_log
+    assert "sage-faculty-twin-tunnel.service" not in default_log
     assert "sage-faculty-twin-vllm-openai-proxy.service" not in default_log
+
+    systemctl_log.write_text("", encoding="utf-8")
+    subprocess.run(
+        ["bash", str(INSTALL_SCRIPT), "--with-tunnel"],
+        check=True,
+        cwd=REPO_ROOT,
+        env=env,
+    )
+    tunnel_log = systemctl_log.read_text(encoding="utf-8")
+    assert "sage-faculty-twin-tunnel.service" in tunnel_log
 
     systemctl_log.write_text("", encoding="utf-8")
     subprocess.run(

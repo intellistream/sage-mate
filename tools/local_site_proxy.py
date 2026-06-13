@@ -51,7 +51,7 @@ class ProxyHandler(BaseHTTPRequestHandler):
         self._proxy_request()
 
     def _proxy_request(self, include_body: bool = True) -> None:
-        if self.path == "/home":
+        if self.path in ("/", "/home"):
             self.send_response(302)
             self.send_header("Location", "/home/")
             self.send_header("Content-Length", "0")

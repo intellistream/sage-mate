@@ -24,8 +24,8 @@ You are the dedicated agent for `sage-faculty-twin` ("my-twin"), a 24/7 academic
 
 ## Public Runtime Services
 
-- Treat `sage-faculty-twin-app.service`, `sage-faculty-twin-site.service`, and `sage-faculty-twin-tunnel.service` as the production-like public exposure stack. They keep the app reachable through the local site proxy and Cloudflare tunnel.
-- On `train05`, shared public Cloudflare ingress is currently owned by the user-level host service `sage-public-cloudflared.service`, which reuses `sage-faculty-twin/.runtime/cloudflared/config.yml` for `shuhao.sage.org.ai`, `ws.sage.org.ai`, and `openai.sage.org.ai`.
+- Treat `sage-faculty-twin-app.service` and `sage-faculty-twin-site.service` as the default managed stack. `sage-faculty-twin-tunnel.service` is optional (`--with-tunnel`) and should only be installed on hosts that use a local cloudflared config file. Many hosts use a separately-managed cloudflared service instead.
+- Public Cloudflare ingress for this deployment is served via `me.sage.org.ai` (homepage), `shuhao.sage.org.ai` (chat app), `ws.sage.org.ai` (workstation), `api.sage.org.ai` / `openai.sage.org.ai` (LLM API).
 - Do not stop, kill, or disable these user systemd services during preview cleanup unless the user explicitly asks. Cleaning previews should only stop ad hoc/manual `uvicorn sage_faculty_twin.api:app` processes such as temporary `8010`-style local ports.
 - The systemd app service uses `APP_PORT=55601`, the local site proxy uses `SITE_PORT=8088`, and the tunnel service depends on the proxy. Verify them with `systemctl --user status ...`, `curl http://127.0.0.1:55601/health`, and a local proxy check when needed.
 - `sage-faculty-twin-vllm-openai-proxy.service` is optional. Default install/restart flows do not include it; pass `--with-vllm-proxy` only when the host actually wants the proxy and `VLLM_PROXY_PORT` is free. On `train05`, leave it disabled because port `18001` is occupied by a direct `vllm-hust` process.

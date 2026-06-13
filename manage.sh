@@ -19,7 +19,7 @@ export_repo_runtime_env "$repo_root"
 python_bin="$PYTHON_BIN"
 
 if [[ $# -lt 1 ]]; then
-    echo "Usage: $0 <install|status|start|stop|restart> [--json] [--with-vllm-proxy] [--start]" >&2
+    echo "Usage: $0 <install|status|start|stop|restart> [--json] [--with-vllm-proxy] [--with-tunnel] [--start]" >&2
     exit 1
 fi
 
@@ -32,11 +32,19 @@ fi
 
 json_output="false"
 include_vllm_proxy="false"
+include_tunnel="false"
+include_site_proxy="false"
 
 for arg in "$@"; do
     case "$arg" in
         --json)
             json_output="true"
+            ;;
+        --with-tunnel)
+            include_tunnel="true"
+            ;;
+        --with-site-proxy)
+            include_site_proxy="true"
             ;;
         --with-vllm-proxy)
             include_vllm_proxy="true"
@@ -46,9 +54,15 @@ done
 
 services=(
     "应用服务:sage-faculty-twin-app.service"
-    "本地代理:sage-faculty-twin-site.service"
-    "公网隧道:sage-faculty-twin-tunnel.service"
 )
+
+if [[ "$include_site_proxy" == "true" ]]; then
+    services+=("本地代理:sage-faculty-twin-site.service")
+fi
+
+if [[ "$include_tunnel" == "true" ]]; then
+    services+=("公网隧道:sage-faculty-twin-tunnel.service")
+fi
 
 if [[ "$include_vllm_proxy" == "true" ]]; then
     services=("模型代理:sage-faculty-twin-vllm-openai-proxy.service" "${services[@]}")

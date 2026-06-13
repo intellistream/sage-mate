@@ -21,6 +21,8 @@ if [[ -z "${DBUS_SESSION_BUS_ADDRESS:-}" && -S "$user_bus_path" ]]; then
 fi
 
 enable_vllm_proxy="false"
+enable_tunnel="false"
+enable_site_proxy="false"
 start_services="false"
 
 resolve_python_bin() {
@@ -63,6 +65,12 @@ while [[ $# -gt 0 ]]; do
     case "$1" in
         --start)
             start_services="true"
+            ;;
+        --with-tunnel)
+            enable_tunnel="true"
+            ;;
+        --with-site-proxy)
+            enable_site_proxy="true"
             ;;
         --with-vllm-proxy)
             enable_vllm_proxy="true"
@@ -123,9 +131,15 @@ systemctl --user daemon-reload
 # --- Enable services ---
 service_units=(
     sage-faculty-twin-app.service
-    sage-faculty-twin-site.service
-    sage-faculty-twin-tunnel.service
 )
+
+if [[ "$enable_site_proxy" == "true" ]]; then
+    service_units+=(sage-faculty-twin-site.service)
+fi
+
+if [[ "$enable_tunnel" == "true" ]]; then
+    service_units+=(sage-faculty-twin-tunnel.service)
+fi
 
 if [[ "$enable_vllm_proxy" == "true" ]]; then
     service_units+=(sage-faculty-twin-vllm-openai-proxy.service)
