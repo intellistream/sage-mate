@@ -56,6 +56,40 @@ def _ensure_local_policy_preferred(repo_root: Path) -> None:
         )
 
 
+def _validate_sagevdb_source(repo_root: Path) -> None:
+    """Verify the source sageVDB checkout can export its compiled API.
+
+    The source sageVDB directory is placed on PYTHONPATH so that local Python
+    edits take effect without a reinstall.  However, the source tree does NOT
+    ship the compiled C extension (.so files).  If those files are missing,
+    ``sagevdb/__init__.py`` silently catches the ImportError and sets
+    ``__all__ = []``, making DatabaseConfig / DistanceMetric / IndexType /
+    create_database unavailable — a notoriously confusing failure.
+
+    Fix: ``bash ../sageVDB/scripts/link_shared_libs.sh``
+    """
+    source_pkg = repo_root.parent / "sageVDB" / "sagevdb"
+    if not source_pkg.is_dir():
+        return  # source checkout absent — rely on the PyPI package
+
+    try:
+        mod = importlib.import_module("sagevdb")
+    except Exception as exc:
+        raise RuntimeError(
+            f"sagevdb is on PYTHONPATH ({source_pkg.parent}) but cannot be imported. "
+            "Run: bash ../sageVDB/scripts/link_shared_libs.sh"
+        ) from exc
+
+    # The critical check: DatabaseConfig must be accessible.
+    if not hasattr(mod, "DatabaseConfig"):
+        raise RuntimeError(
+            f"sagevdb was loaded from {getattr(mod, '__file__', '?')} but "
+            "DatabaseConfig is missing — the compiled C extension (.so) is likely "
+            "not linked into the source checkout.\n"
+            "  Fix: bash ../sageVDB/scripts/link_shared_libs.sh"
+        )
+
+
 def _require_module(module_name: str, install_hint: str) -> None:
     try:
         importlib.import_module(module_name)
@@ -76,6 +110,7 @@ def bootstrap_runtime_env(
     os.environ.setdefault("TORCH_DEVICE_BACKEND_AUTOLOAD", "0")
 
     _prepend_repo_paths(repo_root)
+    _validate_sagevdb_source(repo_root)
     _ensure_local_policy_preferred(repo_root)
 
     _require_module(

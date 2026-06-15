@@ -111,6 +111,17 @@ echo "Installing runtime dependencies"
 echo "Installing editable package with vdb-anns extras: $repo_root"
 "$conda_bin" run -n "$env_name" python -m pip install --no-deps -e "$repo_root[vdb-anns]"
 
+# --- Link sageVDB compiled .so into source checkout ---------------------------
+# The source sageVDB is on PYTHONPATH but does not ship compiled C extensions.
+# Symlink the .so files from the PyPI install so the source checkout works.
+if [[ -x "$parent_dir/sageVDB/scripts/link_shared_libs.sh" ]]; then
+    echo "Linking sageVDB shared libraries into source checkout"
+    PYTHON_BIN="$python_bin" bash "$parent_dir/sageVDB/scripts/link_shared_libs.sh"
+else
+    echo "WARNING: sageVDB link_shared_libs.sh not found — source checkout may fail at runtime."
+    echo "  Expected: $parent_dir/sageVDB/scripts/link_shared_libs.sh"
+fi
+
 printf '%s\n' "$python_bin" > "$marker_file"
 
 echo ""
