@@ -6433,6 +6433,28 @@ class DigitalTwinService:
             active_conversations=snapshot.active_conversations,
         )
 
+    def generate_lucky_question(
+        self,
+        *,
+        visitor_profile: str = "general_visitor",
+        recent_questions: list[str] | None = None,
+    ) -> dict[str, str]:
+        """Ask the LLM to generate a contextual question for the
+        'I'm feeling lucky' button.  Returns an empty dict on failure
+        so the caller can fall back to the static question bank."""
+        fn = getattr(self._llm_client, "generate_lucky_question_sync", None)
+        if not callable(fn):
+            return {}
+        try:
+            return fn(
+                owner_name=self._settings.owner_name,
+                owner_role=self._settings.owner_role,
+                visitor_profile=visitor_profile,
+                recent_questions=recent_questions,
+            )
+        except Exception:
+            return {}
+
     def control_managed_services(self, action: str) -> ServiceControlResponse:
         if action == "status":
             return self._runtime_manager.status()

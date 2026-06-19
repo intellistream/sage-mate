@@ -433,6 +433,84 @@ class VllmChatClient:
             course_context,
         )
 
+    def generate_lucky_question_sync(
+        self,
+        *,
+        owner_name: str,
+        owner_role: str,
+        visitor_profile: str = "general_visitor",
+        recent_questions: list[str] | None = None,
+    ) -> dict[str, str]:
+        """Use the intent model to generate a contextual question for the
+        "I'm feeling lucky" button.  Falls back gracefully on any error so
+        the caller can use the static question bank instead."""
+        profile_labels = {
+            "general_visitor": "general visitor",
+            "hust_undergraduate": "HUST undergraduate student",
+            "paper_writing_student": "paper-writing course student",
+            "lab_member": "lab member / graduate researcher",
+        }
+        profile_label = profile_labels.get(visitor_profile, "visitor")
+        avoided = ""
+        if recent_questions:
+            unique_recent = list(dict.fromkeys(recent_questions))[:8]
+            avoided = (
+                "\nDo NOT repeat or closely paraphrase any of these recent questions:\n"
+                + "\n".join(f"- {q}" for q in unique_recent)
+            )
+
+        system_prompt = (
+            "You generate one engaging, specific question that a "
+            f"{profile_label} could ask the digital twin of {owner_name} "
+            f"({owner_role}). "
+            "The question should be grounded in the owner's actual work: "
+            "research on LLM inference engines, Ascend NPU systems, "
+            "database/stream-processing/runtime systems, teaching courses "
+            "on large-model inference engines and databases, or academic advising. "
+            "Make it thought-provoking, not generic. "
+            "Return JSON only: {\"question\": \"...\", \"context\": \"...\"}. "
+            "context is a short label like '科研指导', '大模型推理引擎课程答疑', "
+            "'论文写作课', '初次来访', or '组会准备'. "
+            "The question must be in Chinese. Keep it under 40 characters."
+        )
+        user_prompt = (
+            f"Generate one question for a {profile_label} visiting "
+            f"{owner_name}'s digital twin."
+            f"{avoided}"
+        )
+        try:
+            payload: dict[str, Any] = {
+                "model": self._intent_model_name,
+                "messages": [
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt},
+                ],
+                "temperature": 0.85,
+                "max_tokens": 120,
+                "chat_template_kwargs": {"enable_thinking": False},
+            }
+            self._record_request_start()
+            started_at = perf_counter()
+            response = self._intent_client.post("/chat/completions", json=payload)
+            response.raise_for_status()
+            data = response.json()
+            choices = data.get("choices", [])
+            if not choices:
+                raise RuntimeError("Model returned no choices")
+            content = str(choices[0].get("message", {}).get("content") or "")
+            elapsed_ms = (perf_counter() - started_at) * 1000.0
+            self._record_request_success(latency_ms=elapsed_ms)
+            result = self._extract_json_object(content)
+            question = str(result.get("question") or "").strip()
+            context = str(result.get("context") or "").strip()
+            if not question:
+                return {}
+            return {"question": question, "context": context}
+        except Exception as exc:
+            self._record_request_error(exc)
+            logger.warning("generate_lucky_question failed: %s", exc)
+            return {}
+
     def propose_shadow_plan_candidate_sync(
         self,
         context: WorkflowRequestContext,

@@ -532,15 +532,34 @@ function pickLuckyQuestion(profile = visitorProfileInput?.value) {
     return pool[Math.floor(Math.random() * pool.length)] || null;
 }
 
-function handleLuckyQuestionClick() {
-    const selected = pickLuckyQuestion();
+async function handleLuckyQuestionClick() {
+    const profile = visitorProfileInput?.value || "general_visitor";
+    // Try LLM-powered generation first (with short timeout).
+    let selected = null;
+    try {
+        const recentParam = luckyQuestionHistory.length > 0
+            ? encodeURIComponent(luckyQuestionHistory.join(","))
+            : "";
+        const apiUrl = `/lucky-question?visitor_profile=${encodeURIComponent(profile)}&recent=${recentParam}`;
+        const result = await apiRequest(apiUrl, { timeoutMs: 6000 });
+        if (result && typeof result === "object" && result.question) {
+            selected = { question: result.question, context: result.context || "" };
+        }
+    } catch {
+        // API failed or timed out — fall through to static pool.
+    }
+
+    // Fall back to static question pool.
+    if (!selected) {
+        selected = pickLuckyQuestion(profile);
+    }
     if (!selected) {
         return;
     }
     lastLuckyQuestion = selected.question;
     luckyQuestionHistory.push(selected.question);
     // Keep history bounded to the current pool size so it resets naturally.
-    const poolSize = getLuckyQuestionCandidates().length;
+    const poolSize = getLuckyQuestionCandidates(profile).length;
     if (poolSize > 1 && luckyQuestionHistory.length >= poolSize) {
         luckyQuestionHistory = luckyQuestionHistory.slice(-1);
     }

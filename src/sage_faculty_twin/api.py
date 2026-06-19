@@ -546,6 +546,31 @@ async def record_presence_heartbeat(
     return service.record_online_presence(request)
 
 
+@llm_app.get("/lucky-question")
+async def lucky_question(
+    visitor_profile: str = Query(default="general_visitor"),
+    recent: str = Query(default="", description="Comma-separated recent questions to avoid"),
+) -> dict[str, str]:
+    """Ask the LLM to generate a contextual question for the
+    "I'm feeling lucky" button.  Returns ``{}`` on failure so the
+    frontend can fall back to the static question bank."""
+    if not service.is_initialized():
+        return {}
+    recent_questions = [q.strip() for q in recent.split(",") if q.strip()] if recent else None
+    try:
+        result = await asyncio.wait_for(
+            asyncio.to_thread(
+                service.generate_lucky_question,
+                visitor_profile=visitor_profile,
+                recent_questions=recent_questions,
+            ),
+            timeout=8.0,
+        )
+    except asyncio.TimeoutError:
+        return {}
+    return result if isinstance(result, dict) else {}
+
+
 @llm_app.get("/availability", response_model=AvailabilitySchedule)
 async def get_availability(
     _: dict = Depends(require_admin_session),

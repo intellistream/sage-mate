@@ -1,0 +1,117 @@
+{
+  "folders": [
+    {
+      "name": "twin | faculty-twin",
+      "path": "."
+    },
+    {
+      "name": "memory | NeuroMem [ICML 2026, →ATC 2026]",
+      "path": "../neuromem"
+    },
+    {
+      "name": "memory | NeuroMem-bench [ICML 2026]",
+      "path": "../neuromem-bench"
+    },
+    {
+      "name": "memory | FlowRAG [WWW 2026]",
+      "path": "../FlowRAG"
+    },
+    {
+      "name": "memory | StreamFP [WWW 2026]",
+      "path": "../StreamFP"
+    },
+    {
+      "name": "memory | temporal-memory [→SIGMOD 2027]",
+      "path": "../sage-temporal-memory"
+    },
+    {
+      "name": "bench | CANDOR-Bench [SIGMOD 2026]",
+      "path": "../CANDOR-Bench"
+    },
+    {
+      "name": "bench | ascend-workload-prof [→ASPLOS 2027]",
+      "path": "../ascend-llm-realworkload-prof"
+    },
+    {
+      "name": "serve | vllm-hust",
+      "path": "../vllm-hust"
+    },
+    {
+      "name": "serve | vllm-ascend-hust",
+      "path": "../vllm-ascend-hust"
+    },
+    {
+      "name": "serve | TraceLoom",
+      "path": "../vllm-hust-perf-analyzer"
+    },
+    {
+      "name": "serve | BidKV [→SC 2026]",
+      "path": "../bidkv"
+    },
+    {
+      "name": "serve | quality-bounded-inference",
+      "path": "../quality-bounded-inference-plugin"
+    },
+    {
+      "name": "serve | kv-materialization [ref: LEAP/SIGMOD 2024]",
+      "path": "../kv-materialization-plugin"
+    },
+    {
+      "name": "serve | vllm-segment-reuse [→ASPLOS 2027]",
+      "path": "../vllm-segment-reuse"
+    },
+    {
+      "name": "sage | SAGE [ICML 2026]",
+      "path": "../SAGE"
+    },
+    {
+      "name": "sage | VAMOS [→ATC 2026]",
+      "path": "../vamos"
+    },
+    {
+      "name": "sage | motto-lab [ref: MOTTO/ICDE 2017]",
+      "path": "../llm-serving-motto-lab"
+    },
+    {
+      "name": "sage | sglang-placement [→ATC 2026]",
+      "path": "../sglang-request-placement"
+    },
+    {
+      "name": "sage | serving-workloads",
+      "path": "../llm-serving-workloads"
+    },
+    {
+      "name": "app | workstation",
+      "path": "../vllm-hust-workstation"
+    }
+  ],
+  "settings": {
+    "git.openRepositoryInParentFolders": "never",
+    "terminal.integrated.shellIntegration.enabled": true,
+    "files.exclude": {
+      "**/.DS_Store": true
+    },
+    "files.watcherExclude": {
+      "**/.DS_Store": true,
+      "**/.preview/**": true,
+      "**/.pytest_cache/**": true,
+      "**/bin/**": true,
+      "**/gh_local/**": true,
+      "**/third_party/**": true,
+      "**/*.aux": true,
+      "**/*.bbl": true,
+      "**/*.bcf": true,
+      "**/*.blg": true,
+      "**/*.fdb_latexmk": true,
+      "**/*.fls": true,
+      "**/*.log": true,
+      "**/*.nav": true,
+      "**/*.out": true,
+      "**/*.run.xml": true,
+      "**/*.snm": true,
+      "**/*.synctex.gz": true,
+      "**/*.toc": true,
+      "**/*.xdv": true
+    }
+  }
+}
