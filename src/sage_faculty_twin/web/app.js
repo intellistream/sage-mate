@@ -312,6 +312,31 @@ let statusRefreshTimer = null;
 let lastHealthyStatusSnapshot = null;
 let lastHealthyStatusAt = 0;
 let lastLuckyQuestion = "";
+const LUCKY_QUESTION_HISTORY_KEY = "myTwinLuckyQuestionHistory";
+let luckyQuestionHistory = loadLuckyQuestionHistory();
+
+function loadLuckyQuestionHistory() {
+    try {
+        const raw = localStorage.getItem(LUCKY_QUESTION_HISTORY_KEY);
+        if (raw) {
+            const parsed = JSON.parse(raw);
+            if (Array.isArray(parsed)) {
+                return parsed.filter((item) => typeof item === "string" && item.trim());
+            }
+        }
+    } catch {
+        // Ignore parse or storage errors.
+    }
+    return [];
+}
+
+function saveLuckyQuestionHistory() {
+    try {
+        localStorage.setItem(LUCKY_QUESTION_HISTORY_KEY, JSON.stringify(luckyQuestionHistory));
+    } catch {
+        // Ignore storage errors.
+    }
+}
 
 function extractInitialOwnerRoleFromSubtitle(ownerName, subtitleText) {
     const normalizedOwnerName = ownerName ? String(ownerName).trim() : "";
@@ -494,10 +519,16 @@ function pickLuckyQuestion(profile = visitorProfileInput?.value) {
     if (candidates.length === 0) {
         return null;
     }
-    const filteredCandidates = candidates.length > 1
-        ? candidates.filter((entry) => entry.question !== lastLuckyQuestion)
-        : candidates;
-    const pool = filteredCandidates.length > 0 ? filteredCandidates : candidates;
+    // Filter out recently shown questions. Only reset the history once
+    // every question in the pool has been shown, so users see the full
+    // set before any repeats.
+    const unseenCandidates = candidates.filter(
+        (entry) => !luckyQuestionHistory.includes(entry.question)
+    );
+    const pool = unseenCandidates.length > 0 ? unseenCandidates : candidates;
+    if (unseenCandidates.length === 0) {
+        luckyQuestionHistory = [];
+    }
     return pool[Math.floor(Math.random() * pool.length)] || null;
 }
 
@@ -507,6 +538,13 @@ function handleLuckyQuestionClick() {
         return;
     }
     lastLuckyQuestion = selected.question;
+    luckyQuestionHistory.push(selected.question);
+    // Keep history bounded to the current pool size so it resets naturally.
+    const poolSize = getLuckyQuestionCandidates().length;
+    if (poolSize > 1 && luckyQuestionHistory.length >= poolSize) {
+        luckyQuestionHistory = luckyQuestionHistory.slice(-1);
+    }
+    saveLuckyQuestionHistory();
     applyLuckyQuestionPreferences(selected);
     seedChatQuestion(selected.question, selected.context || "");
     updateComposerContextChips();
