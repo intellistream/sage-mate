@@ -767,6 +767,28 @@ body.drawer-pinned .history-rail {
     text-transform: uppercase;
 }
 
+.app-hardware-bar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 4px;
+}
+
+.app-hardware-chip {
+    display: inline-flex;
+    align-items: center;
+    padding: 1px 8px;
+    border-radius: 4px;
+    background: rgba(32, 33, 35, 0.05);
+    color: var(--muted);
+    font-size: 0.7rem;
+    font-weight: 500;
+    font-family: ui-monospace, "Cascadia Code", "Source Code Pro", Menlo, monospace;
+    line-height: 1.6;
+}
+
 .app-powered-by-list {
     display: flex;
     align-items: center;

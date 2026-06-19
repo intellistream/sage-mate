@@ -31,6 +31,29 @@ if [[ -f "$repo_root/.env" ]]; then
     done < "$repo_root/.env"
 fi
 
+# --- Validate and auto-install knowledge backend dependencies ---
+# sagevdb (C extension) and sage-anns (ANNS algorithms) are required when
+# DIGITAL_TWIN_KNOWLEDGE_BACKEND=sagevdb.  Auto-install if missing.
+_ensure_knowledge_deps() {
+    local py="$1"
+    local missing=()
+
+    if ! "$py" -c "from sagevdb import DatabaseConfig" 2>/dev/null; then
+        missing+=("isage-vdb>=0.2.0.9")
+    fi
+    if ! "$py" -c "from sage_anns import create_index" 2>/dev/null; then
+        missing+=("isage-anns>=0.2.0")
+    fi
+
+    if [[ ${#missing[@]} -gt 0 ]]; then
+        echo "[runtime] Missing knowledge deps: ${missing[*]}" >&2
+        echo "[runtime] Auto-installing: ${missing[*]}" >&2
+        "$py" -m pip install --quiet "${missing[@]}"
+        echo "[runtime] Knowledge deps installed." >&2
+    fi
+}
+_ensure_knowledge_deps "$python_exec"
+
 # --- Start server ---
 cd "$repo_root"
 exec "$python_exec" -m uvicorn sage_faculty_twin.api:app \

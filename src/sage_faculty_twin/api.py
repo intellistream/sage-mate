@@ -73,7 +73,7 @@ from .models import (
     WorkflowReplayReportResponse,
 )
 from .history_auth import resolve_authenticated_history_email
-from .service import DigitalTwinService, build_stack_versions_payload
+from .service import DigitalTwinService, build_stack_versions_payload, build_hardware_payload
 
 
 def configure_local_cors(target_app: FastAPI) -> None:
@@ -522,6 +522,8 @@ async def health() -> dict[str, object]:
             "stack_version_sage": "unknown",
             "stack_version_neuromem": "unknown",
             "stack_version_vllm_hust": "unknown",
+            "stack_version_sagevdb": "unknown",
+            "stack_version_sage_anns": "unknown",
             "sage_runtime": "FlowNetEnvironment",
         }
     return service.health()
@@ -530,6 +532,11 @@ async def health() -> dict[str, object]:
 @llm_app.get("/stack/versions")
 async def stack_versions() -> dict[str, str]:
     return build_stack_versions_payload()
+
+
+@llm_app.get("/stack/hardware")
+async def stack_hardware() -> dict[str, str]:
+    return build_hardware_payload()
 
 
 @llm_app.post("/presence/heartbeat", response_model=OnlinePresenceHeartbeatResponse)

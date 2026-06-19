@@ -4,6 +4,16 @@
 
 ### Changed
 
+- Added SageVDB and SageANNS version chips to the Powered By footer. Version
+  resolution uses a unified `_resolve_source_version()` helper that tries pip
+  metadata, module import, and pyproject.toml parsing in order, so all stack
+  components (SAGE, NeuroMem, vLLM-HUST, SageVDB, SageANNS) show correct
+  versions regardless of install method.
+- `tools/run_app_server.sh` now validates `sagevdb` and `sage_anns` imports
+  before starting uvicorn and auto-installs `isage-vdb` / `isage-anns` from
+  PyPI if either is missing. No manual dependency installation required.
+- Created `.env.template` with all environment variables documented and
+  secrets replaced by `<placeholder>` markers.
 - Upgraded the Neuromem integration baseline to `isage-neuromem>=0.2.1.12` and
   aligned the app's knowledge-memory path with the newer BM25/numpy backend
   behavior. Knowledge and conversation memory now keep the numpy BM25 path as

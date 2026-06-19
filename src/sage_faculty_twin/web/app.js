@@ -209,6 +209,8 @@ const operationsSuggestions = document.getElementById("operations-suggestions");
 const poweredBySageVersion = document.getElementById("powered-by-sage-version");
 const poweredByNeuromemVersion = document.getElementById("powered-by-neuromem-version");
 const poweredByVllmVersion = document.getElementById("powered-by-vllm-version");
+const poweredBySagevdbVersion = document.getElementById("powered-by-sagevdb-version");
+const poweredBySageAnnsVersion = document.getElementById("powered-by-sage-anns-version");
 const AVAILABILITY_SLOT_MINUTES = 30;
 const AVAILABILITY_START_HOUR = 9;
 const AVAILABILITY_END_HOUR = 18;
@@ -1546,6 +1548,12 @@ function renderPoweredByVersions(data) {
     if (poweredByVllmVersion) {
         poweredByVllmVersion.textContent = normalizePoweredByVersion(data?.stack_version_vllm_hust);
     }
+    if (poweredBySagevdbVersion) {
+        poweredBySagevdbVersion.textContent = normalizePoweredByVersion(data?.stack_version_sagevdb);
+    }
+    if (poweredBySageAnnsVersion) {
+        poweredBySageAnnsVersion.textContent = normalizePoweredByVersion(data?.stack_version_sage_anns);
+    }
 }
 
 async function refreshPoweredByVersions() {
@@ -1554,6 +1562,24 @@ async function refreshPoweredByVersions() {
         renderPoweredByVersions(data);
     } catch {
         // Keep current rendered values (or placeholders) on transient failures.
+    }
+}
+
+async function refreshHardwareBar() {
+    try {
+        const data = await apiRequest("/stack/hardware", { timeoutMs: 5000 });
+        const bar = document.getElementById("app-hardware-bar");
+        const npuEl = document.getElementById("hw-npu");
+        const cpuEl = document.getElementById("hw-cpu");
+        const memEl = document.getElementById("hw-memory");
+        if (!bar) return;
+        const parts = [];
+        if (data?.npu && npuEl) { npuEl.textContent = data.npu; parts.push(npuEl); }
+        if (data?.cpu && cpuEl) { cpuEl.textContent = data.cpu; parts.push(cpuEl); }
+        if (data?.memory && memEl) { memEl.textContent = data.memory; parts.push(memEl); }
+        bar.style.display = parts.length > 0 ? "" : "none";
+    } catch {
+        // silently ignore
     }
 }
 
@@ -7909,6 +7935,7 @@ async function initializePage() {
     startOnlinePresenceHeartbeat();
     startStatusAutoRefresh();
     await refreshPoweredByVersions();
+    refreshHardwareBar();
     await refreshStatus();
     await refreshSession();
     await refreshUserSession();

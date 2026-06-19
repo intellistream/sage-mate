@@ -33,6 +33,13 @@ Or use the provided wrapper:
 ./tools/run_app_server.sh
 ```
 
+The wrapper script automatically:
+
+- Sets `PYTHONPATH` to include sibling source checkouts (SAGE, neuromem, sageVDB)
+- Validates that `sagevdb` and `sage_anns` are importable
+- Auto-installs `isage-vdb` and `isage-anns` from PyPI if either is missing
+- Loads `.env` into the process environment before starting uvicorn
+
 ## 2. Local Reverse Proxy
 
 The repository includes a repo-local Nginx launcher so you can serve the app and keep a local
@@ -176,7 +183,41 @@ support long-running answers either:
    long as bytes flow regularly), or
 3. Use a Cloudflare plan that supports custom timeouts.
 
-## 7. LLM Streaming and the chunked-transfer gotcha
+## 7. Knowledge Backend Stack
+
+The app uses **sagevdb** (vector database) + **SageANNS** (approximate nearest
+neighbor search) as its knowledge backend. Both are provided as source checkouts
+in sibling directories and auto-managed at startup.
+
+| Component | Source | pip package | Version resolution |
+|-----------|--------|-------------|--------------------|
+| SageVDB | `../sageVDB` | `isage-vdb` | `sagevdb` pyproject.toml |
+| SageANNS | (pure Python) | `isage-anns` | pip metadata |
+
+### Configuration (.env)
+
+```bash
+DIGITAL_TWIN_KNOWLEDGE_BACKEND=sagevdb      # knowledge backend type
+DIGITAL_TWIN_SAGEVDB_BACKEND=sage-anns       # ANNS backend (or "native" for flat index)
+DIGITAL_TWIN_SAGEVDB_ANNS_ALGORITHM=faiss_hnsw
+DIGITAL_TWIN_SAGEVDB_EMBEDDING_BACKEND=hash
+```
+
+### Auto-dependency installation
+
+`tools/run_app_server.sh` validates knowledge backend imports before starting
+uvicorn. If `sagevdb` or `sage_anns` is not importable, the script
+auto-installs the missing packages from PyPI. No manual `pip install` is ever
+required.
+
+### Powered By footer
+
+The web UI footer displays version chips for all stack components:
+SAGE, NeuroMem, vLLM-HUST, SageVDB, and SageANNS. Versions are resolved at
+runtime via `/stack/versions` (pip metadata → module import → pyproject.toml
+parse, in that order).
+
+## 8. LLM Streaming and the chunked-transfer gotcha
 
 Faculty-twin can stream LLM tokens to the browser per-token via SSE
 (`answer_delta` / `answer_done` events) when

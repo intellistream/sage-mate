@@ -151,33 +151,199 @@ def _resolve_distribution_version(*candidates: str) -> str:
     return "unknown"
 
 
-def _resolve_vllm_hust_version() -> str:
-    direct = _resolve_distribution_version("vllm-hust", "vllm")
-    if direct != "unknown":
-        return direct
-
-    # Fallback: local workspace checkout used by this deployment.
-    repo_root = Path(__file__).resolve().parents[2]
-    upstream_meta_path = repo_root.parent / "vllm-hust" / "upstream_version.json"
-    if not upstream_meta_path.exists():
-        return "unknown"
+def _parse_pyproject_version(pyproject_path: Path) -> str | None:
+    """Parse static version from pyproject.toml, or resolve dynamic version attr."""
+    import re as _re
+    if not pyproject_path.exists():
+        return None
     try:
-        payload = json.loads(upstream_meta_path.read_text(encoding="utf-8"))
+        text = pyproject_path.read_text(encoding="utf-8")
     except Exception:
-        return "unknown"
-    if not isinstance(payload, dict):
-        return "unknown"
-    release_version = str(payload.get("release_version") or "").strip()
-    upstream_version = str(payload.get("upstream_version") or "").strip()
-    return release_version or upstream_version or "unknown"
+        return None
+
+    # Static version: version = "x.y.z"
+    m = _re.search(r'^version\s*=\s*"([^"]+)"', text, _re.MULTILINE)
+    if m:
+        return m.group(1)
+
+    # Dynamic version via attr: attr = "module.submodule.__version__"
+    m = _re.search(r'attr\s*=\s*"([^"]+)"', text, _re.MULTILINE)
+    if m:
+        try:
+            attr_path = m.group(1)
+            parts = attr_path.rsplit(".", 1)
+            if len(parts) == 2:
+                mod = __import__(parts[0], fromlist=[parts[1]])
+                ver = getattr(mod, parts[1], None)
+                if ver and str(ver).strip() and str(ver) != "0.0.0+unknown":
+                    return str(ver)
+        except Exception:
+            pass
+
+    return None
+
+
+def _resolve_source_version(repo_name: str, *, pip_names: tuple[str, ...] = (),
+                             expect_name: str = "") -> str:
+    """Resolve version from local pyproject.toml first, pip metadata as fallback.
+
+    All IntelliStream packages have local source checkouts as sibling directories.
+    pyproject.toml is the single source of truth for the version string.
+
+    Args:
+        repo_name: Name of the sibling directory (e.g. "SAGE", "sageVDB").
+        pip_names: PyPI distribution names to try if pyproject.toml is absent.
+        expect_name: If set, verify pyproject.toml's ``name =`` matches before
+                     accepting the version.  Prevents picking up the wrong
+                     package when a repo hosts multiple distributions.
+    """
+    import re as _re
+    # Locate the sibling repo checkout (same parent as this repo).
+    this_repo = Path(__file__).resolve().parents[2]
+    repo_root = this_repo.parent / repo_name
+
+    # 1. Local source: pyproject.toml (static version or dynamic attr)
+    pyproject = repo_root / "pyproject.toml"
+    if pyproject.exists():
+        try:
+            text = pyproject.read_text(encoding="utf-8")
+            # If expect_name is set, verify this pyproject.toml is the right package
+            if expect_name:
+                nm = _re.search(r'^name\s*=\s*"([^"]+)"', text, _re.MULTILINE)
+                if nm and nm.group(1) != expect_name:
+                    pass  # wrong package — skip to pip fallback
+                else:
+                    ver = _parse_pyproject_version(pyproject)
+                    if ver:
+                        return ver
+            else:
+                ver = _parse_pyproject_version(pyproject)
+                if ver:
+                    return ver
+        except Exception:
+            pass
+
+    # 2. Fallback: pip metadata (for packages installed from PyPI)
+    for name in pip_names:
+        try:
+            return metadata.version(name)
+        except (metadata.PackageNotFoundError, Exception):
+            continue
+
+    return "unknown"
+
+
+def _resolve_vllm_hust_version() -> str:
+    """Resolve vLLM-HUST's own version (setuptools-scm, NOT upstream).
+
+    vllm-hust uses setuptools-scm so its version is derived from git tags:
+    ``{upstream_tag}.post{N}.dev{commits}+g{hash}``.
+    The local pyproject.toml has ``dynamic = ["version"]`` with no static
+    value, so _resolve_source_version will fall through to pip metadata
+    which carries the full setuptools-scm string.
+    """
+    return _resolve_source_version(
+        "vllm-hust", pip_names=("vllm-hust", "vllm"), expect_name="vllm-hust",
+    )
 
 
 def build_stack_versions_payload() -> dict[str, str]:
+    """Resolve all stack component versions from local source checkouts."""
     return {
-        "stack_version_sage": _resolve_distribution_version("isage", "isage-common"),
-        "stack_version_neuromem": _resolve_distribution_version("isage-neuromem"),
+        "stack_version_sage": _resolve_source_version(
+            "SAGE", pip_names=("isage", "isage-common"), expect_name="isage",
+        ),
+        "stack_version_neuromem": _resolve_source_version(
+            "neuromem", pip_names=("isage-neuromem",), expect_name="isage-neuromem",
+        ),
         "stack_version_vllm_hust": _resolve_vllm_hust_version(),
+        "stack_version_sagevdb": _resolve_source_version(
+            "sageVDB", pip_names=("isage-vdb",), expect_name="isage-vdb",
+        ),
+        "stack_version_sage_anns": _resolve_source_version(
+            "sage-anns", pip_names=("isage-anns",), expect_name="isage-anns",
+        ),
     }
+
+
+def build_hardware_payload() -> dict[str, str]:
+    """Collect host hardware info: NPU, CPU, memory."""
+    import shutil
+    import subprocess as _sp
+
+    info: dict[str, str] = {}
+
+    # --- NPU (Ascend) ---
+    npu_smi = shutil.which("npu-smi")
+    if npu_smi:
+        try:
+            out = _sp.check_output([npu_smi, "info"], text=True, timeout=5)
+            npu_names: list[str] = []
+            for line in out.splitlines():
+                parts = line.split("|")
+                if len(parts) < 3:
+                    continue
+                chip_col = parts[1].strip()
+                tokens = chip_col.split()
+                # NPU device lines: "<npu_id>     <model_name>" e.g. "0     910B2"
+                # Skip sub-lines (just "0") and process lines ("<npu_id> <large_pid>")
+                if len(tokens) == 2 and tokens[0].isdigit():
+                    name = tokens[1]
+                    # Model names are alphanumeric like "910B2", not pure digits
+                    if not name.isdigit():
+                        npu_names.append(name)
+            if npu_names:
+                unique = sorted(set(npu_names), key=npu_names.index)
+                info["npu"] = f"{len(npu_names)}\u00d7 {unique[0]}" if len(unique) == 1 else f"{len(npu_names)}\u00d7 {','.join(unique)}"
+        except Exception:
+            pass
+
+    # --- CPU ---
+    try:
+        import shutil as _sh
+        import subprocess as _sp2
+        lscpu_bin = _sh.which("lscpu")
+        if lscpu_bin:
+            lscpu_out = _sp2.check_output([lscpu_bin], text=True, timeout=5)
+            model = ""
+            cores = 0
+            for line in lscpu_out.splitlines():
+                if line.startswith("Model name:"):
+                    model = line.split(":", 1)[1].strip()
+                elif line.startswith("CPU(s):") and not line.startswith("CPU(s) list"):
+                    cores = int(line.split(":", 1)[1].strip())
+            if model:
+                short = model.split("@")[0].strip()
+                info["cpu"] = f"{short} \u00b7 {cores} cores" if cores else short
+        else:
+            # Fallback: /proc/cpuinfo
+            with open("/proc/cpuinfo", "r", encoding="utf-8") as f:
+                cpuinfo = f.read()
+            model_line = next((l for l in cpuinfo.splitlines() if l.startswith("model name")), "")
+            model = model_line.split(":", 1)[1].strip() if ":" in model_line else ""
+            core_count = cpuinfo.count("processor\t:")
+            if model:
+                short = model.split("@")[0].strip()
+                info["cpu"] = f"{short} \u00b7 {core_count} cores"
+    except Exception:
+        pass
+
+    # --- Memory ---
+    try:
+        with open("/proc/meminfo", "r", encoding="utf-8") as f:
+            for line in f:
+                if line.startswith("MemTotal:"):
+                    kb = int(line.split()[1])
+                    gib = kb / (1024 * 1024)
+                    if gib >= 1024:
+                        info["memory"] = f"{gib / 1024:.1f} TiB"
+                    else:
+                        info["memory"] = f"{gib:.0f} GiB"
+                    break
+    except Exception:
+        pass
+
+    return info
 
 _FLOWNET_TICK = "__flownet_tick__"
 _THINK_BLOCK_RE = re.compile(r"<think>.*?</think>", re.IGNORECASE | re.DOTALL)

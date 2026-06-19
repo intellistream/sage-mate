@@ -125,6 +125,13 @@ class VllmChatClient:
         self._vllm_num_requests_waiting = 0.0
         self._vllm_kv_cache_usage_perc = 0.0
         self._vllm_metrics_last_refresh_at = 0.0
+        self._vllm_request_success_total = 0.0
+        self._vllm_request_error_total = 0.0
+        self._vllm_prompt_tokens_prom_total = 0.0
+        self._vllm_generation_tokens_prom_total = 0.0
+        self._vllm_avg_generation_throughput_tps = 0.0
+        self._vllm_avg_time_to_first_token_s = 0.0
+        self._vllm_avg_time_per_output_token_s = 0.0
 
     def _detect_model_name(self) -> str:
         """Query the connected LLM's /models endpoint to discover the served model name."""
@@ -210,6 +217,20 @@ class VllmChatClient:
             self._vllm_kv_cache_usage_perc = 0.0
         if not hasattr(self, "_vllm_metrics_last_refresh_at"):
             self._vllm_metrics_last_refresh_at = 0.0
+        if not hasattr(self, "_vllm_request_success_total"):
+            self._vllm_request_success_total = 0.0
+        if not hasattr(self, "_vllm_request_error_total"):
+            self._vllm_request_error_total = 0.0
+        if not hasattr(self, "_vllm_prompt_tokens_prom_total"):
+            self._vllm_prompt_tokens_prom_total = 0.0
+        if not hasattr(self, "_vllm_generation_tokens_prom_total"):
+            self._vllm_generation_tokens_prom_total = 0.0
+        if not hasattr(self, "_vllm_avg_generation_throughput_tps"):
+            self._vllm_avg_generation_throughput_tps = 0.0
+        if not hasattr(self, "_vllm_avg_time_to_first_token_s"):
+            self._vllm_avg_time_to_first_token_s = 0.0
+        if not hasattr(self, "_vllm_avg_time_per_output_token_s"):
+            self._vllm_avg_time_per_output_token_s = 0.0
 
     def close(self) -> None:
         self._client.close()
@@ -225,13 +246,37 @@ class VllmChatClient:
         with self._metrics_lock:
             now = time.time()
             self._trim_throughput_samples_locked(now)
+
+            # When the internal request counter is zero but vLLM's Prometheus
+            # endpoint reports completed requests, use the Prometheus values
+            # so the dashboard reflects direct-to-vLLM inference activity.
+            eff_request_count = self._request_count
+            eff_success_count = self._success_count
+            eff_error_count = self._error_count
+            eff_prompt_tokens = self._prompt_tokens_total
+            eff_completion_tokens = self._completion_tokens_total
+            vllm_prom_success = int(self._vllm_request_success_total)
+            vllm_prom_error = int(self._vllm_request_error_total)
+            if self._request_count == 0 and vllm_prom_success > 0:
+                eff_request_count = vllm_prom_success + vllm_prom_error
+                eff_success_count = vllm_prom_success
+                eff_error_count = vllm_prom_error
+                eff_prompt_tokens = int(self._vllm_prompt_tokens_prom_total)
+                eff_completion_tokens = int(self._vllm_generation_tokens_prom_total)
+
             last_status = "not_checked"
-            if self._last_success_at is not None and (
-                self._last_error_at is None or self._last_success_at >= self._last_error_at
-            ):
-                last_status = "ok"
+            if eff_success_count > 0:
+                if self._last_success_at is not None and (
+                    self._last_error_at is None or self._last_success_at >= self._last_error_at
+                ):
+                    last_status = "ok"
+                elif self._last_error_at is not None and self._error_count > self._success_count:
+                    last_status = "error"
+                else:
+                    last_status = "ok"
             elif self._last_error_at is not None:
                 last_status = "error"
+
             app_cache_hit_rate = self._exact_cache_hit_count / max(self._cache_lookup_count, 1)
             semantic_cache_hit_rate = self._semantic_cache_hit_count / max(
                 self._cache_lookup_count, 1
@@ -244,11 +289,30 @@ class VllmChatClient:
             )
             recent_rps = self._compute_recent_request_throughput_locked(now)
             recent_tps = self._compute_recent_completion_throughput_locked(now)
+            # Supplement throughput with vLLM Prometheus values when internal
+            # samples are empty (i.e. no chat-pipeline requests in the window).
+            if recent_tps <= 0.0 and self._vllm_avg_generation_throughput_tps > 0.0:
+                recent_tps = self._vllm_avg_generation_throughput_tps
+
+            # Derive latency from vLLM Prometheus TTFT+TPOT when internal
+            # latency observations are absent.
+            avg_latency_ms = self._latency_total_ms / max(self._latency_observation_count, 1)
+            max_latency_ms = self._latency_max_ms
+            if self._latency_observation_count == 0 and (
+                self._vllm_avg_time_to_first_token_s > 0.0
+                or self._vllm_avg_time_per_output_token_s > 0.0
+            ):
+                avg_latency_ms = (
+                    self._vllm_avg_time_to_first_token_s
+                    + self._vllm_avg_time_per_output_token_s
+                ) * 1000.0
+                max_latency_ms = avg_latency_ms
+
             return {
                 "llm_status": last_status,
-                "llm_request_count": str(self._request_count),
-                "llm_success_count": str(self._success_count),
-                "llm_error_count": str(self._error_count),
+                "llm_request_count": str(eff_request_count),
+                "llm_success_count": str(eff_success_count),
+                "llm_error_count": str(eff_error_count),
                 "llm_cache_hit_count": str(self._cache_hit_count),
                 "llm_cache_entries": str(cache_entries),
                 "llm_app_cache_hit_rate": f"{app_cache_hit_rate:.4f}",
@@ -260,14 +324,14 @@ class VllmChatClient:
                 "llm_vllm_num_requests_running": f"{self._vllm_num_requests_running:.2f}",
                 "llm_vllm_num_requests_waiting": f"{self._vllm_num_requests_waiting:.2f}",
                 "llm_vllm_kv_cache_usage_perc": f"{self._vllm_kv_cache_usage_perc:.4f}",
-                "llm_avg_latency_ms": f"{(self._latency_total_ms / max(self._latency_observation_count, 1)):.2f}",
+                "llm_avg_latency_ms": f"{avg_latency_ms:.2f}",
                 "llm_last_latency_ms": f"{self._last_latency_ms:.2f}",
-                "llm_max_latency_ms": f"{self._latency_max_ms:.2f}",
+                "llm_max_latency_ms": f"{max_latency_ms:.2f}",
                 "llm_request_throughput_rps": f"{recent_rps:.4f}",
                 "llm_completion_throughput_tps": f"{recent_tps:.4f}",
-                "llm_prompt_tokens_total": str(self._prompt_tokens_total),
-                "llm_completion_tokens_total": str(self._completion_tokens_total),
-                "llm_total_tokens_total": str(self._total_tokens_total),
+                "llm_prompt_tokens_total": str(eff_prompt_tokens),
+                "llm_completion_tokens_total": str(eff_completion_tokens),
+                "llm_total_tokens_total": str(eff_prompt_tokens + eff_completion_tokens),
                 "llm_last_error": self._last_error_message or "",
                 "llm_last_request_at": self._format_timestamp(self._last_request_at),
                 "llm_last_success_at": self._format_timestamp(self._last_success_at),
@@ -1262,6 +1326,13 @@ class VllmChatClient:
         num_requests_running = self._vllm_num_requests_running
         num_requests_waiting = self._vllm_num_requests_waiting
         kv_cache_usage_perc = self._vllm_kv_cache_usage_perc
+        request_success_total = 0.0
+        request_error_total = 0.0
+        prompt_tokens_prom = 0.0
+        generation_tokens_prom = 0.0
+        avg_gen_throughput = 0.0
+        avg_ttft = 0.0
+        avg_tpot = 0.0
         for line in text.splitlines():
             if not line or line.startswith("#"):
                 continue
@@ -1303,6 +1374,35 @@ class VllmChatClient:
                 "vllm:gpu_kv_cache_usage_perc",
             ):
                 kv_cache_usage_perc = value / 100.0 if value > 1.0 else value
+            elif metric_name in (
+                "vllm:request_success_total",
+                "vllm:request_success",
+            ):
+                request_success_total += value
+            elif metric_name in (
+                "vllm:request_error_total",
+                "vllm:request_failure_total",
+            ):
+                request_error_total += value
+            elif metric_name in ("vllm:prompt_tokens_total",):
+                prompt_tokens_prom += value
+            elif metric_name in ("vllm:generation_tokens_total",):
+                generation_tokens_prom += value
+            elif metric_name in (
+                "vllm:avg_generation_throughput_tokens_per_second",
+                "vllm:generation_throughput_tokens_per_second",
+            ):
+                avg_gen_throughput = value
+            elif metric_name in (
+                "vllm:avg_time_to_first_token_seconds",
+                "vllm:time_to_first_token_seconds",
+            ):
+                avg_ttft = value
+            elif metric_name in (
+                "vllm:avg_time_per_output_token_seconds",
+                "vllm:time_per_output_token_seconds",
+            ):
+                avg_tpot = value
 
         self._vllm_prefix_cache_queries = prefix_queries
         self._vllm_prefix_cache_hits = prefix_hits
@@ -1311,6 +1411,13 @@ class VllmChatClient:
         self._vllm_num_requests_running = max(0.0, num_requests_running)
         self._vllm_num_requests_waiting = max(0.0, num_requests_waiting)
         self._vllm_kv_cache_usage_perc = min(max(0.0, kv_cache_usage_perc), 1.0)
+        self._vllm_request_success_total = max(0.0, request_success_total)
+        self._vllm_request_error_total = max(0.0, request_error_total)
+        self._vllm_prompt_tokens_prom_total = max(0.0, prompt_tokens_prom)
+        self._vllm_generation_tokens_prom_total = max(0.0, generation_tokens_prom)
+        self._vllm_avg_generation_throughput_tps = max(0.0, avg_gen_throughput)
+        self._vllm_avg_time_to_first_token_s = max(0.0, avg_ttft)
+        self._vllm_avg_time_per_output_token_s = max(0.0, avg_tpot)
         self._vllm_metrics_last_refresh_at = now
 
     def _apply_serving_policy_to_payload(
