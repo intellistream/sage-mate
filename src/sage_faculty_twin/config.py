@@ -72,6 +72,7 @@ class AppSettings(BaseSettings):
     web_search_timeout_seconds: float = Field(default=8.0, ge=1.0, le=30.0)
     web_search_max_results: int = Field(default=3, ge=1, le=8)
     web_search_auto_trigger: bool = Field(default=False)
+    tavily_api_key: str = Field(default="")
     conversation_memory_dir: Path = Field(default=Path("data/conversation_memory"))
     online_presence_dir: Path = Field(default=Path(".runtime/online_presence"))
     online_presence_window_seconds: int = Field(default=300, ge=60, le=3600)

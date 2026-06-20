@@ -93,16 +93,19 @@ class WebSearchResult:
 
 
 class WebSearchClient:
-    """Small sync web search client using Bing RSS first, then Bing HTML."""
+    """Sync web search client.  Prefers Tavily (purpose-built for AI),
+    falls back to Bing RSS / Bing HTML when Tavily is unavailable."""
 
     def __init__(
         self,
         *,
         timeout_seconds: float,
         max_results: int,
+        tavily_api_key: str = "",
     ) -> None:
         self._timeout_seconds = max(1.0, float(timeout_seconds))
         self._max_results = max(1, min(int(max_results), 8))
+        self._tavily_api_key = (tavily_api_key or "").strip()
 
     @property
     def enabled(self) -> bool:
@@ -114,8 +117,18 @@ class WebSearchClient:
             return []
 
         limit = self._max_results if max_results is None else max(1, min(int(max_results), 8))
-        search_query = self._rewrite_query_for_bing(normalized_query)
 
+        # --- Tavily (primary) ---
+        if self._tavily_api_key:
+            try:
+                tavily_results = self._search_tavily(normalized_query, limit)
+                if tavily_results:
+                    return tavily_results
+            except Exception:
+                pass  # fall through to Bing
+
+        # --- Bing fallback ---
+        search_query = self._rewrite_query_for_bing(normalized_query)
         for searcher in (self._search_bing_rss, self._search_bing_html):
             try:
                 results = searcher(search_query, limit)
@@ -126,6 +139,33 @@ class WebSearchClient:
                 if reranked:
                     return reranked
         return []
+
+    # ---- Tavily backend ----
+
+    def _search_tavily(self, query: str, max_results: int) -> list[WebSearchResult]:
+        from tavily import TavilyClient
+
+        client = TavilyClient(api_key=self._tavily_api_key)
+        response = client.search(
+            query,
+            max_results=max_results,
+            include_raw_content=False,
+        )
+        hits: list[WebSearchResult] = []
+        for index, item in enumerate(response.get("results", [])):
+            title = (item.get("title") or "").strip()
+            url = (item.get("url") or "").strip()
+            if not title or not url:
+                continue
+            hits.append(
+                WebSearchResult(
+                    title=title[:300],
+                    url=url[:1000],
+                    snippet=(item.get("content") or "")[:500],
+                    score=float(item.get("score", max_results - index)),
+                )
+            )
+        return hits
 
     def _client(self) -> httpx.Client:
         return httpx.Client(

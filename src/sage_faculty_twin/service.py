@@ -629,6 +629,7 @@ class FacultyTwinWorkflowSupport:
         self._web_search_client = WebSearchClient(
             timeout_seconds=settings.web_search_timeout_seconds,
             max_results=settings.web_search_max_results,
+            tavily_api_key=settings.tavily_api_key,
         )
 
     def bootstrap_chat(self, request: ChatRequest) -> ChatWorkflowContext:
@@ -1035,7 +1036,7 @@ class FacultyTwinWorkflowSupport:
         web_count = len(context.web_search_hits)
 
         # --- Post-retrieval: clarification override or demotion ---
-        trace_summary, trace_detail, trace_status = None, None, None
+        trace_summary, trace_detail, trace_status = None, None, "completed"
         if context.pending_clarification_message is not None and needs_retrieval:
             if hit_count > 0 and top_score >= 12.0:
                 # Strong KB hit → cancel clarification, proceed to answer
