@@ -34,6 +34,7 @@ mode_check=false
 mode_with_venv=false
 mode_with_vllm=false
 mode_no_systemd=false
+mode_no_siblings=false
 mode_start=false
 mode_yes=false
 svc_engine=false
@@ -51,6 +52,7 @@ for arg in "$@"; do
 	--with-site-proxy)  svc_site=true ;;
 	--with-tunnel)      svc_tunnel=true ;;
 	--no-systemd)     mode_no_systemd=true ;;
+	--no-siblings)    mode_no_siblings=true ;;
 	--start)          mode_start=true ;;
 	--yes | -y)       mode_yes=true ;;
 	-h | --help)      sed -n '2,32p' "$0"; exit 0 ;;
@@ -138,10 +140,14 @@ clone_if_missing() {
 	fi
 }
 
-clone_if_missing SAGE     https://github.com/intellistream/SAGE.git
-clone_if_missing neuromem https://github.com/intellistream/neuromem.git
-clone_if_missing sageVDB  https://github.com/intellistream/sageVDB.git
-$mode_with_vllm && clone_if_missing vllm-hust https://github.com/intellistream/vllm-hust.git
+if $mode_no_siblings; then
+	log "Skipping sibling repo cloning (--no-siblings)"
+else
+	clone_if_missing SAGE      https://github.com/intellistream/SAGE.git
+	clone_if_missing neuromem  https://github.com/intellistream/neuromem.git
+	clone_if_missing sageVDB   https://github.com/intellistream/sageVDB.git
+	$mode_with_vllm && clone_if_missing vllm-hust https://github.com/intellistream/vllm-hust.git
+fi
 
 # ── 4. Python dependencies ───────────────────────────────────────────────────
 log "Installing sage-faculty-twin (editable, with vdb-anns extras)"

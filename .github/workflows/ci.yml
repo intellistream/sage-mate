@@ -15,7 +15,7 @@ jobs:
         with:
           python-version: "3.11"
       - name: Install via quickstart.sh
-        run: ./quickstart.sh --no-systemd --yes
+        run: ./quickstart.sh --no-systemd --no-siblings --yes
       - name: Install dev extras (ruff)
         run: pip install -e '.[dev]'
       - name: Ruff lint
@@ -32,7 +32,7 @@ jobs:
         with:
           python-version: "3.11"
       - name: Install via quickstart.sh
-        run: ./quickstart.sh --no-systemd --yes
+        run: ./quickstart.sh --no-systemd --no-siblings --yes
       - name: Install dev extras (pytest)
         run: pip install -e '.[dev]'
       - name: Validate frontend script syntax
@@ -48,7 +48,7 @@ jobs:
         with:
           python-version: "3.11"
       - name: Install via quickstart.sh
-        run: ./quickstart.sh --no-systemd --yes
+        run: ./quickstart.sh --no-systemd --no-siblings --yes
       - name: Install dev extras (pytest, pytest-asyncio)
         run: pip install -e '.[dev]'
       - name: Run test suite
