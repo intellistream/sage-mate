@@ -4,6 +4,7 @@ from datetime import UTC, datetime
 
 import pytest
 
+from conftest import available_knowledge_backends, requires_neuromem_model
 from sage_faculty_twin.config import AppSettings
 from sage_faculty_twin.knowledge_base import LocalKnowledgeStore
 from sage_faculty_twin.models import (
@@ -190,6 +191,7 @@ def test_knowledge_store_prefers_matching_teaching_material_type(
     assert experiment_hits[0].tags[-1] == "experiment"
 
 
+@requires_neuromem_model
 def test_neuromem_backend_prefers_matching_teaching_material_type(
     tmp_path: Path,
 ) -> None:
@@ -228,6 +230,7 @@ def test_neuromem_backend_prefers_matching_teaching_material_type(
     )
 
 
+@requires_neuromem_model
 def test_neuromem_backend_finds_exact_tutorial_ordinal(tmp_path: Path) -> None:
     settings = AppSettings(knowledge_base_dir=tmp_path, knowledge_backend="neuromem")
     store = LocalKnowledgeStore(settings)
@@ -296,7 +299,9 @@ def test_neuromem_backend_finds_exact_tutorial_ordinal(tmp_path: Path) -> None:
 def test_knowledge_store_separates_same_lecture_number_across_courses(
     tmp_path: Path,
 ) -> None:
-    for backend_name in ("local", "neuromem"):
+    for backend_name in available_knowledge_backends():
+        if backend_name == "sagevdb":
+            continue  # this test only exercises local + neuromem
         settings = AppSettings(
             knowledge_base_dir=tmp_path / backend_name,
             knowledge_backend="neuromem" if backend_name == "neuromem" else "local",
@@ -411,6 +416,7 @@ def test_knowledge_store_prioritizes_research_materials_over_courseware_noise(
     assert all("teaching" not in hit.tags for hit in hits[:2])
 
 
+@requires_neuromem_model
 def test_neuromem_backend_prioritizes_research_materials_over_courseware_noise(
     tmp_path: Path,
 ) -> None:
@@ -449,6 +455,7 @@ def test_neuromem_backend_prioritizes_research_materials_over_courseware_noise(
     assert all("teaching" not in hit.tags for hit in hits[:2])
 
 
+@requires_neuromem_model
 def test_neuromem_backend_prioritizes_named_paper_queries_over_courseware_noise(
     tmp_path: Path,
 ) -> None:
@@ -500,7 +507,9 @@ def test_neuromem_backend_prioritizes_named_paper_queries_over_courseware_noise(
 
 
 def test_search_dedupes_adjacent_chunks_from_same_courseware(tmp_path: Path) -> None:
-    for backend_name in ("local", "neuromem"):
+    for backend_name in available_knowledge_backends():
+        if backend_name == "sagevdb":
+            continue  # this test only exercises local + neuromem
         settings = AppSettings(
             knowledge_base_dir=tmp_path / backend_name,
             knowledge_backend="neuromem" if backend_name == "neuromem" else "local",
@@ -579,7 +588,9 @@ def test_search_dedupes_adjacent_chunks_from_same_courseware(tmp_path: Path) -> 
 def test_knowledge_store_prefers_research_and_preparation_materials_over_courseware(
     tmp_path: Path,
 ) -> None:
-    for backend_name in ("local", "neuromem"):
+    for backend_name in available_knowledge_backends():
+        if backend_name == "sagevdb":
+            continue  # this test only exercises local + neuromem
         knowledge_dir = tmp_path / backend_name
         settings = AppSettings(
             knowledge_base_dir=knowledge_dir,
@@ -653,6 +664,7 @@ def test_knowledge_store_prefers_research_and_preparation_materials_over_coursew
         assert all("teaching" not in hit.tags for hit in preparation_hits)
 
 
+@requires_neuromem_model
 def test_neuromem_backend_prefers_research_materials_for_research_queries(
     tmp_path: Path,
 ) -> None:
@@ -686,7 +698,9 @@ def test_neuromem_backend_prefers_research_materials_for_research_queries(
 def test_knowledge_store_reweights_paper_writing_results_by_visitor_profile(
     tmp_path: Path,
 ) -> None:
-    for backend_name in ("local", "neuromem"):
+    for backend_name in available_knowledge_backends():
+        if backend_name == "sagevdb":
+            continue  # this test only exercises local + neuromem
         knowledge_dir = tmp_path / f"visitor-profile-{backend_name}"
         settings = AppSettings(
             knowledge_base_dir=knowledge_dir,
@@ -733,7 +747,9 @@ def test_knowledge_store_reweights_paper_writing_results_by_visitor_profile(
 def test_knowledge_store_enforces_audience_visibility_by_visitor_profile(
     tmp_path: Path,
 ) -> None:
-    for backend_name in ("local", "neuromem"):
+    for backend_name in available_knowledge_backends():
+        if backend_name == "sagevdb":
+            continue  # this test only exercises local + neuromem
         knowledge_dir = tmp_path / f"audience-{backend_name}"
         settings = AppSettings(
             knowledge_base_dir=knowledge_dir,
@@ -1048,10 +1064,7 @@ def test_service_prompt_adds_draft_feedback_guidance(tmp_path: Path) -> None:
 
 
 def test_vamos_question_set_prioritizes_vamos_research_materials(tmp_path: Path) -> None:
-    has_sagevdb = find_spec("sagevdb") is not None
-    backends = ["local"]
-    if has_sagevdb:
-        backends.append("sagevdb")
+    backends = [b for b in available_knowledge_backends() if b in ("local", "sagevdb")]
 
     for backend_name in backends:
         settings = AppSettings(
