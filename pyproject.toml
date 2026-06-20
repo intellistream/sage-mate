@@ -66,5 +66,10 @@ where = ["src"]
 [tool.setuptools.package-data]
 sage_faculty_twin = ["web/*"]
 
+[tool.ruff.lint.per-file-ignores]
+"src/sage_faculty_twin/api.py" = ["E402"]
+"src/sage_faculty_twin/benchmark_adapter.py" = ["E402"]
+"src/sage_faculty_twin/llm_client.py" = ["E402"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]

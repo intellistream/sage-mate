@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import asyncio
-import json
 import hashlib
 import inspect
 import logging
@@ -319,7 +318,7 @@ def build_hardware_payload() -> dict[str, str]:
             # Fallback: /proc/cpuinfo
             with open("/proc/cpuinfo", "r", encoding="utf-8") as f:
                 cpuinfo = f.read()
-            model_line = next((l for l in cpuinfo.splitlines() if l.startswith("model name")), "")
+            model_line = next((line for line in cpuinfo.splitlines() if line.startswith("model name")), "")
             model = model_line.split(":", 1)[1].strip() if ":" in model_line else ""
             core_count = cpuinfo.count("processor\t:")
             if model:

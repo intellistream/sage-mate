@@ -85,7 +85,7 @@ def test_planner_metrics_store_record_entry_survives_runtime_dir_wipe(
     shutil.rmtree(settings.conversation_memory_dir)
     assert not metrics_dir.exists()
 
-    entry = store.record_entry(
+    store.record_entry(
         conversation_id="conv-resilience",
         planner_stage="deterministic",
         planner_mode="deterministic",
@@ -122,7 +122,7 @@ def test_planner_comparison_store_record_comparison_survives_runtime_dir_wipe(
     shutil.rmtree(settings.conversation_memory_dir)
     assert not comparisons_dir.exists()
 
-    entry = store.record_comparison(
+    store.record_comparison(
         conversation_id="conv-resilience",
         exchange_id="exchange-1",
         workflow_action="answer",

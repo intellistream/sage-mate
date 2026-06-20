@@ -3,7 +3,6 @@ from __future__ import annotations
 import json
 import re
 import sqlite3
-import shutil
 import time
 from collections import Counter
 from dataclasses import dataclass, field
