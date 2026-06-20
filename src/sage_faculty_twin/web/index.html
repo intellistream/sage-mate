@@ -10,7 +10,7 @@
     <link
         href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@500;700&display=swap"
         rel="stylesheet" />
-    <link rel="stylesheet" href="./styles.css?v=20260611-v3.0.2" />
+    <link rel="stylesheet" href="./styles.css?v=20260620-v3.0.3" />
     <style>
         html {
             opacity: 0;
@@ -300,7 +300,7 @@
         </footer>
     </div>
 
-    <button class="app-version-badge" aria-label="查看更新日志" onclick="toggleChangelogModal()">v3.4.0</button>
+    <button id="app-version-badge" class="app-version-badge" aria-label="查看更新日志" onclick="toggleChangelogModal()">v--</button>
 
     <div id="changelog-modal" class="modal-overlay hidden" onclick="if(event.target===this)toggleChangelogModal()">
         <div class="changelog-modal">
@@ -879,7 +879,7 @@
         </div>
     </section>
 
-    <script src="./app.js?v=20260611-v3.0.2"></script>
+    <script src="./app.js?v=20260620-v3.0.3"></script>
 </body>
 
 </html>

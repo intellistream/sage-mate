@@ -213,6 +213,7 @@ const poweredByNeuromemVersion = document.getElementById("powered-by-neuromem-ve
 const poweredByVllmVersion = document.getElementById("powered-by-vllm-version");
 const poweredBySagevdbVersion = document.getElementById("powered-by-sagevdb-version");
 const poweredBySageAnnsVersion = document.getElementById("powered-by-sage-anns-version");
+const appVersionBadge = document.getElementById("app-version-badge");
 const AVAILABILITY_SLOT_MINUTES = 30;
 const AVAILABILITY_START_HOUR = 9;
 const AVAILABILITY_END_HOUR = 18;
@@ -1035,19 +1036,26 @@ chatForm.addEventListener("submit", async (event) => {
             void syncConversationHistoryFromServer();
             break;
         } catch (error) {
+            // Retry on transient failures: gateway timeout (504) or network
+            // errors (fetch threw, no HTTP status — common on mobile when
+            // the carrier proxy or Cloudflare tunnel drops the connection).
+            const isTransientNetworkError = error?.status === undefined;
             const canRetry =
                 attempt < maxAttempts &&
-                error?.status === 504 &&
+                (error?.status === 504 || isTransientNetworkError) &&
                 submittedFiles.length === 0;
             if (canRetry) {
                 stopWorkflowTraceStream();
                 workflowRequestIdActive = createConversationId();
+                const retryLabel = error?.status === 504
+                    ? "后端响应超时，正在自动重试…"
+                    : "网络连接中断，正在自动重试…";
                 renderPendingAssistantMessage(
                     pendingMessage,
-                    "后端响应超时，正在自动重试…",
+                    retryLabel,
                     []
                 );
-                await new Promise((resolve) => globalThis.setTimeout(resolve, 1500));
+                await new Promise((resolve) => globalThis.setTimeout(resolve, 2000));
                 await openWorkflowTraceStream(workflowRequestIdActive);
                 continue;
             }
@@ -1630,6 +1638,12 @@ function renderPoweredByVersions(data) {
     }
     if (poweredBySageAnnsVersion) {
         poweredBySageAnnsVersion.textContent = normalizePoweredByVersion(data?.stack_version_sage_anns);
+    }
+    if (appVersionBadge) {
+        const v = normalizePoweredByVersion(data?.app_version);
+        if (v !== "v--") {
+            appVersionBadge.textContent = v;
+        }
     }
 }
 
@@ -4150,7 +4164,7 @@ async function apiRequest(path, options = {}) {
         if (error instanceof DOMException && error.name === "AbortError") {
             throw new Error("请求超时，请稍后重试。", { cause: error });
         }
-        throw new Error("当前无法连接服务，请确认页面后端已经启动。", { cause: error });
+        throw new Error("网络连接失败，请检查网络后重试。如果问题持续，请确认后端服务已启动。", { cause: error });
     } finally {
         globalThis.clearTimeout(timeoutId);
     }

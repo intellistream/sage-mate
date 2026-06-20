@@ -20,6 +20,7 @@ from fastapi import HTTPException, status
 from sage.foundation import BaseCoMapFunction, MapFunction, SinkFunction
 from sage.runtime import FlowNetEnvironment
 
+from . import __version__ as _app_version
 from .analytics_store import ConversationAnalyticsStore
 from .artifact_memory_draft_store import (
     ArtifactMemoryDraftRecord,
@@ -43,6 +44,7 @@ from .light_agent import LightweightActionPlanner
 from .llm_client import VllmChatClient
 from .meeting import MeetingService
 from .memory_store import (
+    ConversationDigestStore,
     ConversationMemoryHit,
     ConversationMemoryRecord,
     NeuroMemConversationStore,
@@ -433,12 +435,14 @@ _POST_ANSWER_BACKGROUND_DEFAULT: bool = os.environ.get(
     "DIGITAL_TWIN_POST_ANSWER_BACKGROUND", "true"
 ).strip().lower() not in {"0", "false", "no", "off"}
 
-# Chat Latency Optimizations Task 3: soft cap on assembled prompt size.
+# Chat Latency Optimizations Task 3 + V4.1 context compression:
+# soft cap on assembled prompt size.
 # When ``len(system_prompt) + len(user_prompt)`` exceeds this threshold the
 # prompt builder truncates inputs in this order:
 #   (a) drop oldest memory hits beyond the top 3,
 #   (b) cap each knowledge hit excerpt at ``_KNOWLEDGE_HIT_BODY_CAP`` chars,
-#   (c) cap each attachment ``text_content`` at ``_ATTACHMENT_BODY_CAP`` chars.
+#   (c) cap each attachment ``text_content`` at ``_ATTACHMENT_BODY_CAP`` chars,
+#   (d) drop the rolling session digest (compressed older turns).
 # Override via ``DIGITAL_TWIN_PROMPT_SOFT_CAP``. ~24000 chars roughly maps to
 # 6k tokens for typical Chinese/English mixed content, well below the model
 # context window but small enough to keep decode latency bounded.
@@ -599,6 +603,7 @@ class FacultyTwinWorkflowSupport:
         meeting_service: MeetingService,
         llm_client: VllmChatClient,
         email_notifier: BookingEmailNotifier,
+        digest_store: ConversationDigestStore | None = None,
         admin_session_payload: dict[str, Any] | None = None,
         trace_callback: WorkflowTraceCallback | None = None,
         answer_chunk_callback: Callable[[str], None] | None = None,
@@ -622,6 +627,7 @@ class FacultyTwinWorkflowSupport:
         self._meeting_service = meeting_service
         self._llm_client = llm_client
         self._email_notifier = email_notifier
+        self._digest_store = digest_store
         self._admin_session_payload = admin_session_payload
         self._trace_callback = trace_callback
         self._answer_chunk_callback = answer_chunk_callback
@@ -1357,11 +1363,12 @@ class FacultyTwinWorkflowSupport:
 
         context.system_prompt = build_system_prompt(self._settings)
 
-        # Chat Latency Optimizations Task 3: assemble the prompt with the
-        # full inputs first, then progressively truncate when the combined
-        # system + user prompt exceeds the soft cap. Order matters: memory
-        # hits beyond the top 3 are dropped first (cheapest signal loss),
-        # then knowledge excerpts, then attachment bodies.
+        # Chat Latency Optimizations Task 3 + V4.1 context compression:
+        # assemble the prompt with the full inputs first, then progressively
+        # truncate when the combined system + user prompt exceeds the soft
+        # cap. Order matters: memory hits beyond the top 3 are dropped first
+        # (cheapest signal loss), then knowledge excerpts, then attachment
+        # bodies, and finally the rolling session digest.
         memory_hits = list(context.memory_hits)
         knowledge_hits = list(context.knowledge_hits)
         attachments = list(getattr(context.request, "attachments", None) or [])
@@ -1439,6 +1446,25 @@ class FacultyTwinWorkflowSupport:
                 attachments = new_attachments
                 truncation_actions.append(f"attachment≤{_ATTACHMENT_BODY_CAP}({capped_count})")
                 user_prompt = _build(memory_hits, knowledge_hits, context.web_search_hits, attachments)
+
+        # (d) Drop the rolling session digest if still over cap.
+        # The raw recent turns are more immediately useful than the
+        # compressed digest, so the digest is the first thing removed
+        # when all other truncation steps have been exhausted.
+        if _over_cap() and "Session digest" in (context.recent_session_context or ""):
+            stripped_lines: list[str] = []
+            skip_digest = False
+            for line in (context.recent_session_context or "").split("\n"):
+                if line.startswith("Session digest"):
+                    skip_digest = True
+                    continue
+                if skip_digest and line.startswith("Immediate session context"):
+                    skip_digest = False
+                if not skip_digest:
+                    stripped_lines.append(line)
+            context.recent_session_context = "\n".join(stripped_lines)
+            truncation_actions.append("digest_dropped")
+            user_prompt = _build(memory_hits, knowledge_hits, context.web_search_hits, attachments)
 
         context.user_prompt = user_prompt
         context.prompt_truncated = bool(truncation_actions)
@@ -1521,6 +1547,8 @@ class FacultyTwinWorkflowSupport:
             web_search_hits=context.web_search_hits,
         )
         self._record_artifact_memory_draft(context, started_at=started_at)
+        # Trigger rolling conversation digest update (V4.1 context compression).
+        self._update_conversation_digest(context)
         self._append_trace(
             context,
             key="memory_persist",
@@ -1591,6 +1619,116 @@ class FacultyTwinWorkflowSupport:
             detail=provenance_note,
             duration_ms=self._elapsed_ms(started_at),
         )
+
+    def _update_conversation_digest(self, context: ChatWorkflowContext) -> None:
+        """Update the rolling conversation digest after a new exchange.
+
+        Checks whether enough new turns have accumulated since the last
+        digest update and, if so, asks the LLM to produce a compressed
+        summary that replaces the older history in future prompts.
+        """
+        if self._digest_store is None or not self._settings.context_digest_enabled:
+            return
+        conversation_id = context.conversation_id
+        if not conversation_id:
+            return
+
+        threshold = self._settings.context_digest_turn_threshold
+        max_chars = self._settings.context_digest_max_chars
+
+        # Determine how many unsummarized turns exist.
+        all_records = self._conversation_store.list_recent_conversation_records(
+            conversation_id, limit=64,
+        )
+        existing_digest = self._digest_store.get_digest(conversation_id)
+        turns_already_digested = existing_digest.turns_summarized if existing_digest else 0
+        new_turns = len(all_records) - turns_already_digested
+
+        if new_turns < threshold:
+            return  # Not enough new turns to justify a summarization call.
+
+        # Select the turns to compress: those between the old frontier and now.
+        # Records are returned newest-first; take the slice that is new.
+        turns_to_summarize = list(reversed(all_records[:len(all_records) - turns_already_digested]))
+        # Cap at a reasonable number to avoid oversized prompts on first digest.
+        if len(turns_to_summarize) > 16:
+            turns_to_summarize = turns_to_summarize[-16:]
+
+        new_digest_text = self._summarize_digest_turns(
+            existing_digest_text=existing_digest.digest_text if existing_digest else "",
+            new_turns=turns_to_summarize,
+            max_chars=max_chars,
+        )
+        if not new_digest_text:
+            return  # Summarization failed; leave digest unchanged.
+
+        total_turns = turns_already_digested + len(turns_to_summarize)
+        self._digest_store.update_digest(
+            conversation_id, new_digest_text, total_turns,
+        )
+        _logger.info(
+            "Updated conversation digest for %s: %d turns compressed, %d chars",
+            conversation_id[:8], total_turns, len(new_digest_text),
+        )
+
+    def _summarize_digest_turns(
+        self,
+        *,
+        existing_digest_text: str,
+        new_turns: list[ConversationMemoryRecord],
+        max_chars: int,
+    ) -> str:
+        """Ask the LLM to compress conversation turns into a rolling digest.
+
+        Falls back to a simple concatenation strategy when the LLM call
+        fails, so that digest updates never block the chat workflow.
+        """
+        new_turns_text = "\n".join(
+            f"- User: {r.question[:300]}\n  Assistant: {r.answer[:300]}"
+            for r in new_turns
+        )
+
+        if existing_digest_text:
+            user_prompt = (
+                f"已有摘要：\n{existing_digest_text}\n\n"
+                f"新增对话轮次：\n{new_turns_text}\n\n"
+                f"请将以上摘要和新对话合并为一段简洁的滚动摘要，不超过 {max_chars} 字符。"
+                "保留关键话题、结论和待办事项，去除余和重复内容。"
+                "直接输出摘要文本，不要加任何前缀或标记。"
+            )
+        else:
+            user_prompt = (
+                f"对话轮次：\n{new_turns_text}\n\n"
+                f"请将以上对话压缩为一段简洁的滚动摘要，不超过 {max_chars} 字符。"
+                "保留关键话题、结论和待办事项。"
+                "直接输出摘要文本，不要加任何前缀或标记。"
+            )
+
+        system_prompt = (
+            "You are a conversation summarizer. Produce a concise rolling "
+            "summary that preserves key topics, decisions, action items, and "
+            "important context. Output plain text only, no headers or markers."
+        )
+
+        try:
+            result = self._llm_client.answer_question_sync(
+                system_prompt,
+                user_prompt,
+                temperature=0.1,
+                max_tokens=256,
+                enable_thinking=False,
+            )
+            result = result.strip()
+            if len(result) > max_chars:
+                result = result[:max_chars].rsplit("\n", 1)[0] + "…"
+            return result
+        except Exception as exc:
+            _logger.warning("Digest summarization failed: %s", exc)
+            # Fallback: simple concatenation truncated to max_chars.
+            fallback = f"[自动摘要失败] 最近 {len(new_turns)} 轮对话涉及："
+            topics = [r.question[:80] for r in new_turns[-4:]]
+            fallback += "；".join(topics)
+            return fallback[:max_chars]
 
     def consolidate_profile_memory(self, context: ChatWorkflowContext) -> ChatWorkflowContext:
         started_at = perf_counter()
@@ -2813,22 +2951,33 @@ class FacultyTwinWorkflowSupport:
             "remind the user they can enable the 联网检索 toggle for real-time sources."
         )
 
-    def _format_recent_session_context(self, request: ChatRequest, limit: int = 2) -> str:
+    def _format_recent_session_context(self, request: ChatRequest, limit: int = 4) -> str:
         conversation_id = str(getattr(request, "conversation_id", "") or "").strip()
         if not conversation_id or limit <= 0:
             return ""
+
+        # Prepend the rolling digest (compressed older turns) when available.
+        digest_text = ""
+        if self._digest_store is not None and self._settings.context_digest_enabled:
+            digest_record = self._digest_store.get_digest(conversation_id)
+            if digest_record is not None and digest_record.digest_text.strip():
+                digest_text = digest_record.digest_text.strip()
 
         recent_records = self._conversation_store.list_recent_conversation_records(
             conversation_id,
             exclude_question=str(getattr(request, "question", "") or ""),
             limit=limit,
         )
-        if not recent_records:
+        if not digest_text and not recent_records:
             return ""
 
-        sections = ["Immediate session context (same conversation):"]
-        for index, record in enumerate(reversed(recent_records), start=1):
-            sections.append(f"{index}. User: {record.question}\nAssistant: {record.answer}")
+        sections: list[str] = []
+        if digest_text:
+            sections.append(f"Session digest (earlier turns, {digest_record.turns_summarized} turns compressed):\n{digest_text}")
+        if recent_records:
+            sections.append("Immediate session context (same conversation):")
+            for index, record in enumerate(reversed(recent_records), start=1):
+                sections.append(f"{index}. User: {record.question}\nAssistant: {record.answer}")
         return "\n".join(sections) + "\n"
 
     def _build_recent_session_meta_answer(self, request: ChatRequest) -> str | None:
@@ -5304,6 +5453,7 @@ class DigitalTwinService:
         self._suggestion_store = SuggestionBoardStore(settings)
         self._user_store = UserAccountStore(settings)
         self._online_presence_store = OnlinePresenceStore(settings)
+        self._digest_store = ConversationDigestStore(settings.context_digest_dir)
         self._meeting_service = MeetingService(settings)
         self._email_notifier = BookingEmailNotifier(settings)
         self._runtime_manager = ServiceRuntimeManager(settings)
@@ -5311,7 +5461,6 @@ class DigitalTwinService:
             policy_path=settings.workflow_policy_path
         )
         # Agent skill system (V4.0)
-        from . import __version__ as _app_version
 
         self._skill_tool_registry = SkillToolRegistry(
             knowledge_store=self._knowledge_store,
@@ -5425,7 +5574,6 @@ class DigitalTwinService:
                     skill_context,
                 )
                 if skill_result.success:
-                    from . import __version__ as _app_version
 
                     return ChatResponse(
                         answer=skill_result.answer,
@@ -6548,6 +6696,7 @@ class DigitalTwinService:
         top_rejected_step = next(iter((planner_metrics.get("rejected_steps") or {}).keys()), "")
         payload = {
             "status": "ok",
+            "app_version": _app_version,
             "owner_name": self._settings.owner_name,
             "owner_role": self._settings.owner_role,
             "homepage_public_url": self._settings.homepage_public_url,
@@ -6712,6 +6861,7 @@ class DigitalTwinService:
             self._meeting_service,
             self._llm_client,
             self._email_notifier,
+            self._digest_store,
             admin_session_payload=admin_session_payload,
             trace_callback=trace_callback,
             answer_chunk_callback=answer_chunk_callback,

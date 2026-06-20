@@ -7,6 +7,7 @@ from datetime import date
 from io import BytesIO
 from pathlib import Path
 
+from . import __version__
 from .runtime_env import bootstrap_runtime_env
 
 bootstrap_runtime_env(require_policy=True, require_fastapi=False)
@@ -531,6 +532,7 @@ async def health() -> dict[str, object]:
     if not service.is_initialized():
         return {
             "status": "starting",
+            "app_version": __version__,
             "message": "Service is initializing in background.",
             "model": settings.model_name or "detecting...",
             "owner_name": settings.owner_name,
@@ -1027,8 +1029,6 @@ async def get_capabilities(
     _: dict = Depends(require_admin_session),
 ) -> list[CapabilityPluginStatus]:
     """Return loaded capability plugin statuses for the operations console."""
-    from . import __version__
-
     registry = CapabilityPluginRegistry(
         plugin_dir=settings.capability_plugin_dir,
         current_version=__version__,
