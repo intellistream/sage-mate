@@ -2,44 +2,48 @@
 
 ## Unreleased
 
+## v3.1.0 - 2026-06-20
+
+`v3.1.0` is the retrieval and workflow modernization release. It replaces the BM25 knowledge backend with SageVDB/SageANNS, adds Tavily-powered web search, migrates the chat workflow to a parallel SAGE DataStream DAG, and introduces markdown table rendering and external knowledge ingestion.
+
+### Added
+
+- Integrated Tavily as primary web search engine with Bing as fallback, including conversational filler stripping from search queries and search result count surfaced in UI capability chips.
+- Added markdown table rendering to the chat frontend (`| col | col |` syntax now renders as proper HTML tables with styled headers and borders).
+- Added external PDF/article knowledge ingestion pipeline (first entry: S. Keshav's "How to Read a Paper" three-pass methodology).
+- Added SageVDB and SageANNS version chips to the Powered By footer, using a unified `_resolve_source_version()` helper that resolves versions from pip metadata, module import, or pyproject.toml.
+- Added auto-detect model name from connected LLM `/v1/models` endpoint — no more hardcoded model display names.
+- Created `.env.template` with all environment variables documented and secrets replaced by `<placeholder>` markers.
+- Added `tools/start_all_services.sh` orchestration script for multi-service startup.
+- Persisted lucky question history to localStorage for cross-session continuity.
+
 ### Changed
 
-- Added SageVDB and SageANNS version chips to the Powered By footer. Version
-  resolution uses a unified `_resolve_source_version()` helper that tries pip
-  metadata, module import, and pyproject.toml parsing in order, so all stack
-  components (SAGE, NeuroMem, vLLM-HUST, SageVDB, SageANNS) show correct
-  versions regardless of install method.
-- `tools/run_app_server.sh` now validates `sagevdb` and `sage_anns` imports
-  before starting uvicorn and auto-installs `isage-vdb` / `isage-anns` from
-  PyPI if either is missing. No manual dependency installation required.
-- Created `.env.template` with all environment variables documented and
-  secrets replaced by `<placeholder>` markers.
-- Upgraded the Neuromem integration baseline to `isage-neuromem>=0.2.1.12` and
-  aligned the app's knowledge-memory path with the newer BM25/numpy backend
-  behavior. Knowledge and conversation memory now keep the numpy BM25 path as
-  the default integration choice so the app can consume the newer Neuromem
-  runtime without relying on the old numba fallback path.
-- Rewired the chat workflow as a SAGE `DataStream` DAG instead of a 13-stage linear
-  chain. Memory and knowledge retrieval now run in parallel through a 2-way
-  `connect`/`comap` join, and the four post-answer side-effect stages
-  (`memory_persist`, `memory_profile_consolidate`, `follow_up_plan`,
-  `memory_usefulness_score`) fan out through a 4-way `connect`/`comap` join.
-  The legacy linear `_run_pipeline` is preserved for the admin / auth /
-  booking single-stage callers. The `workflow_trace` contract (canonical key
-  order and statuses) is unchanged: a deterministic post-processing pass in
-  `ChatResponseRenderStage` re-sorts the trace into
-  `_CANONICAL_TRACE_ORDER` so any out-of-order arrivals from parallel
-  branches are normalised before the response leaves the service.
+- Migrated knowledge backend from BM25 lexical search to SageVDB/SageANNS vector search with reranking, significantly improving retrieval quality for large knowledge corpora.
+- Rewired the chat workflow as a SAGE `DataStream` DAG instead of a 13-stage linear chain. Memory and knowledge retrieval now run in parallel through a 2-way `connect`/`comap` join, and post-answer side-effect stages fan out through a 4-way parallel join. The `workflow_trace` contract (canonical key order and statuses) is preserved via deterministic post-processing normalization.
+- Upgraded Neuromem integration to `isage-neuromem>=0.2.1.12` with numpy BM25 as the default backend path.
+- Consolidated operational scripts into `quickstart.sh` + `manage.sh` (CI uses consolidated entry points per two-script root policy).
+- Migrated homepage hosting to GitHub Pages; tunnel/site-proxy is now optional.
+- Widened chat content area to reduce side whitespace in the UI.
+- Bumped `isage` to `0.3.2.4` and fixed version constraint definitions.
+- Migrated conversation memory databases to updated schema.
 
 ### Fixed
 
-- (SAGE) `PipelineCompiler._normalize_outputs` no longer fragments arbitrary
-  iterable results from `Map`/`CoMap` transformations. It now flattens only
-  when the caller opts in (`flatten=True`), which is correct for `FlatMap`
-  and `Join` (whose contracts emit zero-or-more items per input) but wrong
-  for `Map`/`CoMap` (single output per input). Previously a `Map` returning
-  a Pydantic `BaseModel` (e.g. `ChatResponse`) was shredded into one packet
-  per `(field_name, value)` pair downstream of any non-linear topology.
+- `PipelineCompiler._normalize_outputs` no longer fragments arbitrary iterable results from `Map`/`CoMap` transformations — flattens only when the caller opts in (`flatten=True`), fixing `Map` outputs that return Pydantic `BaseModel` instances.
+- Fixed all 28 ruff lint errors across the codebase.
+- Fixed web search running regardless of clarification or planner skip paths.
+- Auto-linked SageVDB shared libs on bootstrap — no manual `ldconfig` or symlink step required.
+- Prevented tests from downloading embedding models from the network.
+- Fixed duplicate CI workflow content and added `--no-siblings` flag for CI isolation.
+- Consolidated `retrieve_knowledge` traces for cleaner workflow visibility.
+
+### Validation
+
+- `PYTHONPATH=src:../SAGE/src pytest tests/ -q`
+- `node --check src/sage_faculty_twin/web/app.js`
+- `ruff check src/ tests/`
+- Live smoke tests against `qwen32b` with SageVDB knowledge backend and Tavily web search.
 
 ## v3.0.0 - 2026-06-10
 

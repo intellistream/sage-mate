@@ -340,6 +340,21 @@ cases to judge whether a generated plan is better than a fixed template.
 - Operations console includes a Workflow Replay quality board for operator-visible pass/fail review.
 - Live behavior keeps fallback-safe execution boundaries, preserving V2 operational stability.
 
+### V3.1 Status (2026-06-20)
+
+`v3.1.0` is the retrieval and workflow modernization release, delivered before V3.1 (LLM-Assisted Planner):
+
+- Knowledge backend migrated from BM25 to SageVDB/SageANNS vector search with reranking.
+- Tavily integrated as primary web search engine with Bing fallback and query normalization.
+- Chat workflow rewired as a parallel SAGE DataStream DAG (memory + knowledge retrieval run in parallel; post-answer side effects fan out in 4-way parallel join).
+- External PDF/article knowledge ingestion pipeline operational.
+- Markdown table rendering added to the chat frontend.
+- Operational scripts consolidated into `quickstart.sh` + `manage.sh`.
+- Homepage migrated to GitHub Pages; tunnel/site-proxy is optional.
+- All 28 ruff lint errors resolved; CI pipeline stabilized.
+
+This release establishes the retrieval quality and workflow parallelism foundation that V3.1 (LLM-Assisted Planner) can build on: hybrid retrieval policy choices, vector-search evidence contracts, and parallel stage traces are all directly usable as planner inputs.
+
 The important design choice is that V3 is not an unconstrained agent that invents code or freely
 calls tools. It is a planner that assembles an approved workflow graph from registered steps,
 validated policy, and bounded side-effect rules. The generated plan should be understandable before
