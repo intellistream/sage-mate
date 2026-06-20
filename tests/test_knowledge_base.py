@@ -84,7 +84,7 @@ def test_knowledge_store_derives_and_returns_explicit_metadata(tmp_path: Path) -
         )
     )
 
-    hits = store.search("研究生论文写作 第 7 讲讲什么？")
+    hits = store.search("研究生论文写作 第 7 讲讲什么？", visitor_profile="paper_writing_student")
 
     assert record.metadata["identity"] == "teacher"
     assert record.metadata["domain"] == "teaching"

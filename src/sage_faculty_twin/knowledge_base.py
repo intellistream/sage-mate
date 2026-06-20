@@ -831,12 +831,10 @@ class LocalKnowledgeStore:
         query_tokens: set[str],
         query_profile: "QueryProfile",
     ) -> float:
-        title_tokens = self._tokenize(document.title)
-        content_tokens = self._tokenize(document.content)
         tag_tokens = {tag.lower() for tag in document.tags}
 
-        title_overlap = len(query_tokens & title_tokens)
-        content_overlap = len(query_tokens & content_tokens)
+        title_overlap = _span_overlap_score(document.title, query_tokens)
+        content_overlap = _span_overlap_score(document.content, query_tokens)
         tag_overlap = len(query_tokens & tag_tokens)
 
         base_score = float((title_overlap * 3) + (tag_overlap * 2) + content_overlap)
@@ -1152,6 +1150,51 @@ def _tokenize_text(text: str) -> set[str]:
             for index in range(len(span) - width + 1):
                 tokens.add(span[index : index + width])
     return tokens
+
+
+def _span_overlap_score(text: str, query_tokens: set[str]) -> float:
+    """Compute overlap score using maximal span deduplication.
+
+    Instead of counting every overlapping n-gram token independently (which
+    inflates scores for Chinese text due to abundant bigrams), this function
+    identifies *maximal* matching spans and scores them by length squared,
+    rewarding longer, more specific matches over short, generic ones.
+    """
+    # Collect all matching spans as (start, end) tuples.
+    matching_spans: list[tuple[int, int]] = []
+
+    for match in re.finditer(r"[A-Za-z0-9_]+", text):
+        token = match.group().lower()
+        if len(token) > 1 and token in query_tokens:
+            matching_spans.append((match.start(), match.end()))
+
+    for char_span in re.finditer(r"[\u4e00-\u9fff]+", text):
+        s = char_span.group()
+        base = char_span.start()
+        for width in (3, 2, 1):
+            if len(s) < width:
+                continue
+            for index in range(len(s) - width + 1):
+                token = s[index : index + width]
+                if token in query_tokens:
+                    matching_spans.append((base + index, base + index + width))
+
+    if not matching_spans:
+        return 0.0
+
+    # Sort by start position, then by length descending.
+    matching_spans.sort(key=lambda span: (span[0], -(span[1] - span[0])))
+
+    # Greedily select non-overlapping maximal spans.
+    selected: list[tuple[int, int]] = []
+    consumed_end = -1
+    for start, end in matching_spans:
+        if start >= consumed_end:
+            selected.append((start, end))
+            consumed_end = end
+
+    # Score: length squared per span, rewarding longer specific matches.
+    return float(sum((end - start) ** 2 for start, end in selected))
 
 
 @dataclass(frozen=True)

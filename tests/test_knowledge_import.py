@@ -212,7 +212,7 @@ def test_import_homepage_materials_includes_teaching_material_indexes(tmp_path: 
     assert tutorial_sections[0].metadata["audience"] == "graduate"
     assert tutorial_sections[0].metadata["course_id"] == "llm-inference"
     assert tutorial_sections[0].metadata["material_type"] == "tutorial"
-    hits = store.search("KV 缓存是第几讲？")
+    hits = store.search("KV 缓存是第几讲？", visitor_profile="paper_writing_student")
     assert hits
     assert any(hit.title.startswith("课程资料｜大模型推理基础设施课程材料") for hit in hits)
 
@@ -249,7 +249,7 @@ def test_import_homepage_materials_includes_database_lab_office_attachments(tmp_
     assert all("course:database-lab" in document.tags for document in database_documents)
     assert all(document.metadata["course_id"] == "database-lab" for document in database_documents)
     assert all(document.metadata["audience"] == "undergraduate" for document in database_documents)
-    hits = store.search("数据库实验课 头歌平台 clone 代码怎么准备？", top_k=3)
+    hits = store.search("数据库实验课 头歌平台 clone 代码怎么准备？", top_k=3, visitor_profile="hust_undergraduate")
     assert hits
     assert "course:database-lab" in hits[0].tags
 
@@ -431,7 +431,7 @@ def test_import_homepage_materials_extracts_teaching_pdf_text(
     report = knowledge_import.import_homepage_materials(store, homepage_dir)
 
     assert any(title.startswith("课件正文｜大模型推理基础设施课程材料｜第 5 讲 KV 缓存") for title in report.created_titles)
-    hits = store.search("prefill 和 decode 阶段的状态管理")
+    hits = store.search("prefill 和 decode 阶段的状态管理", visitor_profile="paper_writing_student")
     assert hits
     assert any(hit.title.startswith("课件正文｜大模型推理基础设施课程材料｜第 5 讲 KV 缓存") for hit in hits)
 

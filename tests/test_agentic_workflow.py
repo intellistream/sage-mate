@@ -1847,9 +1847,9 @@ def test_chat_returns_recommended_reading_and_resource_actions(tmp_path: Path) -
     )
     service.add_knowledge(
         {
-            "title": "Tutorial 7：执行优化与异构路径",
-            "content": "介绍实验优化、执行路径和常见性能分析方法。",
-            "tags": ["teaching", "tutorial", "courseware"],
+            "title": "Tutorial 7：和老师约时间前的准备指南",
+            "content": "和老师约时间前，建议先准备 agenda、当前 blocker 和性能分析方法。",
+            "tags": ["teaching", "tutorial", "courseware", "advising"],
             "source_name": "tutorials/week7.md",
         }
     )

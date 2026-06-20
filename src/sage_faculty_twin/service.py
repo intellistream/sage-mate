@@ -999,6 +999,35 @@ class FacultyTwinWorkflowSupport:
         if not self._planner_requests_any_step(
             context, "retrieve_knowledge", "retrieve_hybrid_knowledge"
         ):
+            # Even when the planner skips knowledge retrieval, honour an
+            # explicit web_search checkbox so the user can force web
+            # grounding for questions like greetings or bookings.
+            if bool(getattr(context.request, "web_search", False)):
+                interaction_intent = context.interaction_intent or self._build_fallback_interaction_intent(
+                    context.request
+                )
+                context.web_search_hits = self._retrieve_web_search_hits(
+                    context,
+                    interaction_intent=interaction_intent,
+                    local_hit_count=0,
+                    local_top_score=0.0,
+                )
+                web_hit_count = len(context.web_search_hits)
+                self._append_trace(
+                    context,
+                    key="knowledge_retrieve",
+                    title="知识检索",
+                    summary=(
+                        f"工作流规划跳过本地检索，但用户显式开启联网搜索，"
+                        f"联网补充 {web_hit_count} 条。"
+                    ),
+                    detail=(
+                        f"deterministic planner 未规划知识检索步骤，"
+                        f"因用户勾选了联网搜索，仍执行联网补充 {web_hit_count} 条。"
+                    ),
+                    duration_ms=self._elapsed_ms(started_at),
+                )
+                return context
             self._append_trace(
                 context,
                 key="knowledge_retrieve",
@@ -1025,6 +1054,17 @@ class FacultyTwinWorkflowSupport:
         hit_count = len(context.knowledge_hits)
         top_score = context.knowledge_hits[0].score if context.knowledge_hits else 0.0
 
+        # Run web search immediately after local KB retrieval so it is always
+        # available regardless of downstream early-return paths (clarification
+        # override, weak-hit clarification, etc.).
+        context.web_search_hits = self._retrieve_web_search_hits(
+            context,
+            interaction_intent=interaction_intent,
+            local_hit_count=hit_count,
+            local_top_score=top_score,
+        )
+        web_hit_count = len(context.web_search_hits)
+
         # Task 3 post-retrieval revisit: if the classifier originally wanted to
         # ask a follow-up but retrieval surfaced a strong hit, demote to answer
         # so the downstream prompt builder grounds on KB. Otherwise emit the
@@ -1048,11 +1088,13 @@ class FacultyTwinWorkflowSupport:
                     key="knowledge_retrieve",
                     title="知识检索",
                     summary=(
-                        f"命中 {hit_count} 条相关资料，已取消澄清，直接依据 KB 回答。"
+                        f"命中本地 {hit_count} 条资料，联网补充 {web_hit_count} 条，"
+                        f"已取消澄清，直接依据 KB 回答。"
                     ),
                     detail=(
                         f"top-1 得分 {top_score:.1f} 超过阈值 12，"
-                        f"将 ask_followup 降级为 answer。意图域：{interaction_intent.domain}。"
+                        f"将 ask_followup 降级为 answer。意图域：{interaction_intent.domain}；"
+                        f"联网补充 {web_hit_count} 条。"
                     ),
                     duration_ms=self._elapsed_ms(started_at),
                 )
@@ -1077,26 +1119,20 @@ class FacultyTwinWorkflowSupport:
                 key="knowledge_retrieve",
                 title="知识检索",
                 summary=(
-                    f"命中 {hit_count} 条相关资料，但 top 得分 {top_score:.1f} 不足，附上标题后发出澄清。"
+                    f"命中本地 {hit_count} 条资料，联网补充 {web_hit_count} 条，"
+                    f"但 top 得分 {top_score:.1f} 不足，附上标题后发出澄清。"
                     if hit_count
-                    else "未检索到直接相关资料，发出澄清。"
+                    else f"本地无命中，联网补充 {web_hit_count} 条，发出澄清。"
                 ),
                 detail=(
-                    f"已将 top-{min(hit_count, 3)} 标题附在澄清中，避免盲反思循环。"
+                    f"已将 top-{min(hit_count, 3)} 标题附在澄清中，避免盲反思循环；"
+                    f"联网补充 {web_hit_count} 条。"
                     if top_titles
-                    else "本轮检索未命中，仅发送澄清话术。"
+                    else f"本轮本地检索未命中，联网补充 {web_hit_count} 条，仅发送澄清话术。"
                 ),
                 duration_ms=self._elapsed_ms(started_at),
             )
             return context
-
-        context.web_search_hits = self._retrieve_web_search_hits(
-            context,
-            interaction_intent=interaction_intent,
-            local_hit_count=hit_count,
-            local_top_score=top_score,
-        )
-        web_hit_count = len(context.web_search_hits)
 
         self._append_trace(
             context,

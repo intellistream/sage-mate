@@ -50,6 +50,22 @@ _VLLM_METRICS_REFRESH_SECONDS = 5.0
 _THROUGHPUT_WINDOW_SECONDS = 60.0
 
 
+class StreamingServerError(RuntimeError):
+    """Raised when the vLLM SSE stream delivers an error event.
+
+    vLLM sometimes returns HTTP 200 with an error payload embedded in
+    the SSE stream (e.g. ``thinking_token_budget`` rejected because
+    ``--reasoning-config`` was not set).  The standard
+    ``response.raise_for_status()`` cannot detect this because the HTTP
+    status is 200.  This exception carries the original error message
+    and an optional HTTP-like status code so callers can react.
+    """
+
+    def __init__(self, message: str, status_code: int = 500) -> None:
+        super().__init__(message)
+        self.status_code = status_code
+
+
 class _InteractionIntentPayload(BaseModel):
     action: Literal["answer", "book_meeting", "ask_followup", "review_queue", "human_handoff"] = (
         "answer"
@@ -657,6 +673,15 @@ class VllmChatClient:
                     stream_payload["stream_options"] = {"include_usage": True}
                     return self._request_chat_completion_stream(stream_payload, token_callback)
                 raise
+            except StreamingServerError as exc:
+                if self._is_thinking_budget_message(str(exc)):
+                    self._supports_thinking_budget = False
+                    payload.pop("thinking_token_budget", None)
+                    stream_payload = dict(payload)
+                    stream_payload["stream"] = True
+                    stream_payload["stream_options"] = {"include_usage": True}
+                    return self._request_chat_completion_stream(stream_payload, token_callback)
+                raise RuntimeError(str(exc)) from exc
 
         try:
             return self._request_chat_completion_sync(payload)
@@ -681,6 +706,11 @@ class VllmChatClient:
             message = str(error.get("message", ""))
         else:
             message = str(body.get("message", ""))
+        return self._is_thinking_budget_message(message)
+
+    @staticmethod
+    def _is_thinking_budget_message(message: str) -> bool:
+        """Return True when an error message references thinking budget config."""
         return "reasoning_config" in message or "thinking_token_budget" in message
 
     def _request_chat_completion_stream(
@@ -737,6 +767,25 @@ class VllmChatClient:
                             chunk = json.loads(data_text)
                         except json.JSONDecodeError:
                             continue
+                        # vLLM may return HTTP 200 with an error payload
+                        # embedded in the SSE stream (e.g. when
+                        # thinking_token_budget is rejected because
+                        # --reasoning-config was not set at startup).
+                        # Detect this early and surface it as an
+                        # exception so the caller can retry without
+                        # the offending parameter.
+                        sse_error = chunk.get("error")
+                        if isinstance(sse_error, dict):
+                            err_msg = str(sse_error.get("message", ""))
+                            err_code = int(sse_error.get("code") or 500)
+                        elif isinstance(sse_error, str) and sse_error:
+                            err_msg = sse_error
+                            err_code = 500
+                        else:
+                            err_msg = ""
+                            err_code = 0
+                        if err_msg:
+                            raise StreamingServerError(err_msg, err_code)
                         choices = chunk.get("choices") or []
                         usage = chunk.get("usage") or {}
                         if isinstance(usage, dict):

@@ -3,6 +3,7 @@ from __future__ import annotations
 import importlib
 import os
 import sys
+import warnings
 from pathlib import Path
 
 
@@ -74,20 +75,32 @@ def _validate_sagevdb_source(repo_root: Path) -> None:
 
     try:
         mod = importlib.import_module("sagevdb")
-    except Exception as exc:
-        raise RuntimeError(
-            f"sagevdb is on PYTHONPATH ({source_pkg.parent}) but cannot be imported. "
-            "Run: bash ../sageVDB/scripts/link_shared_libs.sh"
-        ) from exc
+    except Exception:
+        _remove_sagevdb_from_path(repo_root)
+        warnings.warn(
+            "sageVDB source checkout could not be imported; falling back to PyPI package.",
+            stacklevel=2,
+        )
+        return
 
     # The critical check: DatabaseConfig must be accessible.
     if not hasattr(mod, "DatabaseConfig"):
-        raise RuntimeError(
-            f"sagevdb was loaded from {getattr(mod, '__file__', '?')} but "
-            "DatabaseConfig is missing — the compiled C extension (.so) is likely "
-            "not linked into the source checkout.\n"
-            "  Fix: bash ../sageVDB/scripts/link_shared_libs.sh"
+        _remove_sagevdb_from_path(repo_root)
+        # Invalidate cached import so subsequent imports pick up PyPI version.
+        sys.modules.pop("sagevdb", None)
+        warnings.warn(
+            "sageVDB source checkout is missing compiled C extension (.so); "
+            "falling back to PyPI package. "
+            "Run: bash ../sageVDB/scripts/link_shared_libs.sh to fix.",
+            stacklevel=2,
         )
+        return
+
+
+def _remove_sagevdb_from_path(repo_root: Path) -> None:
+    """Remove the sageVDB source directory from sys.path."""
+    sagevdb_entry = str(repo_root.parent / "sageVDB")
+    sys.path[:] = [p for p in sys.path if p != sagevdb_entry]
 
 
 def _require_module(module_name: str, install_hint: str) -> None:

@@ -25,3 +25,4 @@ build/
 
 # Project-local venv
 .venv/
+.venv311/
