@@ -6570,11 +6570,10 @@ function updateMobileWorkflowTrigger(meta = latestWorkflowMeta, steps = activeWo
         : isOpen
             ? "收起推理路径"
             : (steps.length ? "查看推理路径" : "打开推理路径");
-    mobileWorkflowTrigger.textContent = buttonText;
+    mobileWorkflowTrigger.title = buttonText;
     mobileWorkflowTrigger.classList.toggle("composer-workflow-toggle-streaming", Boolean(meta.isStreaming));
     mobileWorkflowTrigger.setAttribute("aria-expanded", String(isOpen));
-    mobileWorkflowTrigger.setAttribute(
-        "aria-label",
+    mobileWorkflowTrigger.setAttribute("aria-label",
         meta.isStreaming ? `查看处理进度，当前阶段：${currentLabel}` : buttonText
     );
     updateComposerContextChips();
@@ -7820,7 +7819,6 @@ function updateTokenUsageBadge(usage) {
 function resetTokenUsageBadge() {
     const badge = document.getElementById("token-usage-badge");
     if (!badge) return;
-    badge.hidden = true;
     const detail = document.getElementById("token-usage-detail");
     if (detail) detail.hidden = true;
     document.getElementById("token-usage-summary").textContent = "0";

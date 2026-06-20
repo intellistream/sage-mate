@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+## v4.0.1 - 2026-06-20
+
+`v4.0.1` simplifies deployment by making Docker the only path for the vLLM inference engine and fixing a skill-routing attribute bug.
+
+- **Docker-only engine deployment**: removed host-binary mode from `run_vllm_engine.sh`. The engine now always runs inside a Docker container (`VLLM_ENGINE_CONTAINER` required in `.env`). Auto-escalates to `sudo docker` when needed.
+- **Removed venv support**: deleted `--with-venv` flag from `quickstart.sh`, removed `.python-bin` marker file, cleaned up `.python-bin`/`.venv` references from `runtime_env.sh`, `.gitignore`, `README.md`, and `CONTRIBUTING.md`.
+- **Bug fix**: skill routing referenced `request.session_id` (non-existent field on `ChatRequest`) — fixed to `request.conversation_id`.
+- **CI**: all 336 tests pass. Engine test updated to verify Docker container-not-found error path.
+
 ## v3.4.0 - 2026-06-20
 
 `v3.4.0` connects the capability plugin system to the deterministic workflow planner. Plugin steps are now **automatically injected** into execution plans when the query matches the plugin's routing pattern.

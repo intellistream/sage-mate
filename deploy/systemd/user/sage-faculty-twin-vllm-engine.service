@@ -9,8 +9,8 @@ WorkingDirectory=__REPO_ROOT__
 ExecStart=__REPO_ROOT__/tools/run_vllm_engine.sh
 Restart=on-failure
 RestartSec=10
-# Graph mode needs time to compile on first request
-TimeoutStartSec=300
+# Graph mode + 32B model loading needs generous startup time
+TimeoutStartSec=600
 
 [Install]
 WantedBy=default.target

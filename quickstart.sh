@@ -4,7 +4,6 @@
 # Usage:
 #   ./quickstart.sh                      # install env, deps, systemd units
 #   ./quickstart.sh --check              # preflight only — diagnose, do not change
-#   ./quickstart.sh --with-venv          # create isolated .venv first
 #   ./quickstart.sh --with-vllm          # also install vllm-hust (editable)
 #   ./quickstart.sh --with-vllm-engine   # enable vLLM engine systemd service
 #   ./quickstart.sh --with-vllm-proxy    # enable vLLM OpenAI auth proxy service
@@ -31,7 +30,6 @@ parent_dir="${FACULTY_TWIN_PARENT_DIR:-$(dirname "$repo_root")}"
 
 # ── CLI flags ────────────────────────────────────────────────────────────────
 mode_check=false
-mode_with_venv=false
 mode_with_vllm=false
 mode_no_systemd=false
 mode_no_siblings=false
@@ -45,7 +43,6 @@ svc_tunnel=false
 for arg in "$@"; do
 	case "$arg" in
 	--check)          mode_check=true ;;
-	--with-venv)      mode_with_venv=true ;;
 	--with-vllm)      mode_with_vllm=true ;;
 	--with-vllm-engine) svc_engine=true ;;
 	--with-vllm-proxy)  svc_proxy=true ;;
@@ -90,41 +87,6 @@ else
 fi
 
 $mode_check && { log "Preflight only (--check). Done."; exit 0; }
-
-# ── 2. Virtual environment (optional) ────────────────────────────────────────
-if $mode_with_venv; then
-	venv_dir="$repo_root/.venv"
-	log "Creating venv at $venv_dir"
-	if [[ -d "$venv_dir" ]]; then
-		log "  venv already exists — removing"
-		rm -rf "$venv_dir"
-	fi
-	"$python_bin" -m venv "$venv_dir"
-	# shellcheck disable=SC1091
-	source "$venv_dir/bin/activate"
-	pip install --quiet --upgrade pip setuptools wheel
-	python_bin="$venv_dir/bin/python"
-	log "  venv python: $python_bin ($($python_bin --version 2>&1))"
-
-	# Install SAGE monorepo if found
-	for sage_candidate in "$parent_dir/SAGE" "$HOME/SAGE"; do
-		if [[ -f "$sage_candidate/pyproject.toml" ]]; then
-			log "  Installing SAGE from $sage_candidate"
-			pip install --quiet -e "$sage_candidate"
-			break
-		fi
-	done
-
-	# Install neuromem if found
-	for nm_candidate in "$parent_dir/neuromem" "$HOME/neuromem"; do
-		if [[ -f "$nm_candidate/pyproject.toml" ]]; then
-			log "  Installing neuromem from $nm_candidate"
-			pip install --quiet --no-deps -e "$nm_candidate"
-			pip install --quiet isage-anns bm25s sentence-transformers faiss-cpu
-			break
-		fi
-	done
-fi
 
 # ── 3. Sibling repositories ─────────────────────────────────────────────────
 mkdir -p "$parent_dir"
@@ -208,20 +170,10 @@ else
 		export DBUS_SESSION_BUS_ADDRESS="unix:path=$user_bus_path"
 	fi
 
-	# Resolve Python binary (prefer .python-bin marker, then venv, then current)
+	# Resolve Python binary (prefer PYTHON_BIN env var, then python3 in PATH)
 	resolve_python_bin() {
-		# Explicit PYTHON_BIN env var always wins (used by tests and operators).
 		if [[ -n "${PYTHON_BIN:-}" && -x "$PYTHON_BIN" ]]; then
 			printf '%s\n' "$PYTHON_BIN"; return 0
-		fi
-		local marker_file="$repo_root/.python-bin"
-		if [[ -f "$marker_file" ]]; then
-			local candidate
-			candidate=$(sed -n '1p' "$marker_file" | tr -d '\r')
-			if [[ -x "$candidate" ]]; then printf '%s\n' "$candidate"; return 0; fi
-		fi
-		if [[ -x "$repo_root/.venv/bin/python" ]]; then
-			printf '%s\n' "$repo_root/.venv/bin/python"; return 0
 		fi
 		printf '%s\n' "$python_bin"
 	}
@@ -295,14 +247,9 @@ Next steps
      DIGITAL_TWIN_MODEL_NAME    e.g. qwen3-32b
      DIGITAL_TWIN_ADMIN_PASSWORD
 
-2. Launch vllm-hust (if not already running):
-     ./manage.sh start --with-model
-
-   Or manually — Ascend 910B3 TP=4, graph mode (no --enforce-eager):
-     vllm-hust serve /data/shared-models/Qwen3-32B \\
-         --served-model-name Qwen3-32B --host 0.0.0.0 --port 8000 \\
-         --tensor-parallel-size 4 --max-model-len 32768 \\
-         --gpu-memory-utilization 0.85
+2. The vLLM engine runs inside a Docker container.
+   Make sure VLLM_ENGINE_CONTAINER is set in .env, then:
+     ./manage.sh start --with-vllm-engine
 
 3. Manage the stack:
      ./manage.sh status --all

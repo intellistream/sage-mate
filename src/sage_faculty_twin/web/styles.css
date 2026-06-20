@@ -2544,64 +2544,35 @@ body.conversation-active .intro-card .message-body {
     flex-shrink: 0;
 }
 
-.composer-upload-button {
+.composer-icon-button {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: 6px;
     flex-shrink: 0;
-    white-space: nowrap;
-    height: auto;
-    padding: 6px 12px;
+    width: 32px;
+    height: 32px;
+    padding: 0;
     border-radius: 999px;
     border: 1px solid rgba(22, 35, 56, 0.08);
     background: rgba(255, 255, 255, 0.72);
-    font-size: 0.78rem;
     color: var(--muted);
-    transition: background 150ms ease, border-color 150ms ease, color 150ms ease;
+    font-size: 1rem;
+    line-height: 1;
     cursor: pointer;
+    transition: background 150ms ease, border-color 150ms ease, color 150ms ease;
 }
 
-.composer-upload-button:hover {
+.composer-icon-button:hover {
     background: rgba(255, 255, 255, 0.95);
     border-color: rgba(99, 102, 241, 0.18);
+    color: var(--ink);
 }
 
-.composer-upload-button svg {
-    width: 14px;
-    height: 14px;
+.composer-icon-button svg {
+    width: 15px;
+    height: 15px;
     display: block;
     flex: 0 0 auto;
-}
-
-.composer-lucky-question-button {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 6px;
-    flex-shrink: 0;
-    white-space: nowrap;
-    min-width: 0;
-    height: auto;
-    padding: 6px 12px;
-    border-radius: 999px;
-    border: 1px solid rgba(22, 35, 56, 0.08);
-    background: rgba(255, 255, 255, 0.72);
-    font-size: 0.78rem;
-    color: var(--muted);
-    transition: background 150ms ease, border-color 150ms ease, color 150ms ease;
-    cursor: pointer;
-}
-
-.composer-lucky-question-button:hover {
-    background: rgba(255, 255, 255, 0.95);
-    border-color: rgba(99, 102, 241, 0.18);
-}
-
-.composer-tool-label {
-    font-size: inherit;
-    font-weight: 500;
-    line-height: 1;
 }
 
 @keyframes lucky-spinner-rotate {
@@ -2697,21 +2668,10 @@ body.conversation-active .intro-card .message-body {
     color: var(--accent-deep);
 }
 
-.composer-workflow-toggle-streaming {
+.composer-icon-button.composer-workflow-toggle-streaming {
     color: #0f6f6c;
     border-color: rgba(20, 125, 120, 0.28);
     background: rgba(20, 125, 120, 0.08);
-}
-
-.composer-workflow-toggle-streaming::before {
-    content: "";
-    width: 8px;
-    height: 8px;
-    border-radius: 999px;
-    background: #139089;
-    box-shadow: 0 0 0 0 rgba(19, 144, 137, 0.28);
-    animation: workflow-stream-dot 1.5s ease-out infinite;
-    flex: 0 0 auto;
 }
 
 @keyframes workflow-stream-dot {
@@ -2731,20 +2691,7 @@ body.conversation-active .intro-card .message-body {
     }
 }
 
-.composer-workflow-toggle.composer-workflow-toggle-streaming {
-    background: rgba(36, 90, 166, 0.1);
-    border-color: rgba(36, 90, 166, 0.24);
-    color: var(--accent-deep);
-}
-
-.composer-workflow-toggle.composer-workflow-toggle-streaming::before {
-    width: 8px;
-    height: 8px;
-    margin-right: 1px;
-    background: #2f6fed;
-    box-shadow: 0 0 0 0 rgba(47, 111, 237, 0.36);
-    animation: workflow-live-dot 1.4s ease-out infinite;
-}
+/* legacy workflow toggle text button — kept for compatibility */
 
 @keyframes workflow-live-dot {
     0% {
@@ -4698,16 +4645,6 @@ body.workflow-shell-collapsed #workflow-toggle {
         padding: 8px 2px 8px 6px;
     }
 
-    .composer-upload-button {
-        min-width: 0;
-        padding: 5px 10px;
-    }
-
-    .composer-lucky-question-button {
-        min-width: 0;
-        padding: 5px 10px;
-    }
-
     .send-button {
         min-width: 68px;
         flex-shrink: 0;
@@ -4871,16 +4808,6 @@ body.workflow-shell-collapsed #workflow-toggle {
         display: none;
     }
 
-    .composer-tool-label {
-        display: none;
-    }
-
-    .composer-upload-button {
-        width: 40px;
-        padding: 0;
-        border-radius: 999px;
-    }
-
     .deep-thinking-toggle {
         min-height: 38px;
         padding: 0 10px;
@@ -5017,8 +4944,9 @@ body.workflow-shell-collapsed #workflow-toggle {
 .token-usage-toggle {
     display: inline-flex;
     align-items: center;
-    gap: 6px;
-    padding: 6px 12px;
+    gap: 4px;
+    height: 32px;
+    padding: 0 8px;
     border: 1px solid rgba(22, 35, 56, 0.08);
     border-radius: 999px;
     background: rgba(255, 255, 255, 0.72);

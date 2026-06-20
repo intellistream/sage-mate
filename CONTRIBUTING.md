@@ -2,7 +2,7 @@
 
 ## Development Environment
 
-- Use an existing non-venv Python environment.
+- Use your system Python (e.g. conda env `vllm-hust-dev` or any Python 3.11+).
 - Install local dependencies with `python -m pip install -e .[dev]`.
 - When working against sibling checkouts, prefer `PYTHONPATH="$PWD/src:$PWD/../SAGE/src:$PWD/../neuromem:$PWD/../sageVDB"`.
 

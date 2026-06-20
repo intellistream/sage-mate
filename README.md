@@ -12,16 +12,15 @@
 ## 前置条件（最小）
 
 - Linux
-- Python 3.11（使用现有非 venv 环境）
+- Python 3.11
 - 同级目录存在：`../SAGE`、`../neuromem`、`../sageVDB`
-- 本机可访问 vllm-hust OpenAI 端点（默认 `127.0.0.1:18000`）
+- vLLM 推理引擎运行在 Docker 容器内（设置 `VLLM_ENGINE_CONTAINER`）
+- 本机可访问 vllm-hust OpenAI 端点（默认 `127.0.0.1:8000`）
 
 ## 首次部署
 
 ```bash
 ./quickstart.sh                        # 安装环境、依赖、.env、systemd 服务
-./quickstart.sh --with-venv            # 创建隔离 .venv 后再安装
-./quickstart.sh --with-vllm            # 同时安装 vllm-hust（editable）
 ./quickstart.sh --with-vllm-engine     # 启用 vLLM 推理引擎服务
 ./quickstart.sh --start                # 安装并启动 systemd 服务
 ```
@@ -40,7 +39,7 @@ curl -s -N http://127.0.0.1:55601/chat \
 
 最关键只有这 4 个：
 
-- `DIGITAL_TWIN_LLM_BASE_URL`（例如 `http://127.0.0.1:18000/v1`）
+- `DIGITAL_TWIN_LLM_BASE_URL`（例如 `http://127.0.0.1:8000/v1`）
 - `DIGITAL_TWIN_API_KEY`（本地直连可用 `EMPTY`；如果启用 systemd OpenAI 代理，请换成真实密钥）
 - `DIGITAL_TWIN_MODEL_NAME`（例如 `qwen3-32b`）
 - `DIGITAL_TWIN_STREAM_CHAT_ANSWER=true`
@@ -77,24 +76,15 @@ vLLM 推理引擎配置（用于 `--with-vllm-engine`）：
 ./manage.sh restart --with-vllm-proxy
 ```
 
-代理默认监听 `127.0.0.1:18001`，上游转发到 `127.0.0.1:18000/v1`。启用后，把 `.env` 里的 `DIGITAL_TWIN_API_KEY` 改成真实密钥，并将 `DIGITAL_TWIN_LLM_BASE_URL` 指向 `http://127.0.0.1:18001/v1`。
+代理默认监听 `127.0.0.1:18001`，上游转发到 `127.0.0.1:8000/v1`。启用后，把 `.env` 里的 `DIGITAL_TWIN_API_KEY` 改成真实密钥，并将 `DIGITAL_TWIN_LLM_BASE_URL` 指向 `http://127.0.0.1:18001/v1`。
 
 ## Qwen3-32B 模型服务
 
-推荐使用 managed service（graph mode，无 `--enforce-eager`）：
+推理引擎始终运行在 Docker 容器内（设置 `VLLM_ENGINE_CONTAINER` 指向已运行的容器）：
 
 ```bash
 ./quickstart.sh --with-vllm-engine --start
 ./manage.sh logs engine
-```
-
-或手动启动：
-
-```bash
-vllm-hust serve /data/shared-models/Qwen3-32B \
-    --served-model-name Qwen3-32B --host 0.0.0.0 --port 18000 \
-    --tensor-parallel-size 4 --max-model-len 32768 \
-    --gpu-memory-utilization 0.85
 ```
 
 ## 最小排障

@@ -5415,7 +5415,7 @@ class DigitalTwinService:
                 question=request.question,
                 visitor_profile=request.visitor_profile or "general_visitor",
                 pre_fetched_context=recent_session_context,
-                session_identity=request.session_id or "anonymous",
+                session_identity=request.conversation_id or "anonymous",
                 course_context=getattr(request, "course_context", None),
             )
             try:

@@ -7,20 +7,10 @@ set -euo pipefail
 
 resolve_repo_python() {
     local repo_root="$1"
-    local marker_file="$repo_root/.python-bin"
-    local candidate=""
 
     if [[ -n "${PYTHON_BIN:-}" && -x "${PYTHON_BIN}" ]]; then
         printf '%s\n' "${PYTHON_BIN}"
         return 0
-    fi
-
-    if [[ -f "$marker_file" ]]; then
-        candidate=$(sed -n '1p' "$marker_file" | tr -d '\r')
-        if [[ -x "$candidate" ]]; then
-            printf '%s\n' "$candidate"
-            return 0
-        fi
     fi
 
     if command -v python3 >/dev/null 2>&1; then

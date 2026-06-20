@@ -191,16 +191,12 @@ def test_run_vllm_openai_proxy_fails_fast_when_port_is_occupied(tmp_path: Path) 
     assert "VLLM_PROXY_PORT" in result.stderr
 
 
-def test_run_vllm_engine_script_prints_config_summary(tmp_path: Path) -> None:
-    """Engine launcher prints a config summary before exec-ing vllm-hust."""
+def test_run_vllm_engine_script_errors_without_container(tmp_path: Path) -> None:
+    """Engine launcher fails fast when the Docker container is not found."""
     env = os.environ.copy()
-    env.update(
-        {
-            "VLLM_ENGINE_MODEL_PATH": "/tmp/nonexistent-model",
-            "VLLM_ENGINE_BIN": "false",  # exits immediately after config print
-            "VLLM_ENGINE_TP_SIZE": "2",
-        }
-    )
+    # Set a non-empty value so the .env loader skips it (already set).
+    # docker inspect will fail because this container doesn't exist.
+    env["VLLM_ENGINE_CONTAINER"] = "nonexistent-test-container"
 
     result = subprocess.run(
         ["bash", str(ENGINE_SCRIPT)],
@@ -211,6 +207,5 @@ def test_run_vllm_engine_script_prints_config_summary(tmp_path: Path) -> None:
         check=False,
     )
 
-    assert "vllm-engine" in result.stdout
-    assert "tp_size" in result.stdout
-    assert "graph_mode" in result.stdout
+    assert result.returncode != 0
+    assert "nonexistent-test-container" in result.stderr

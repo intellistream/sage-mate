@@ -143,27 +143,9 @@
                         </div>
                         <div class="composer-tools-row" aria-label="发送附加操作">
                             <div class="composer-tools-left">
-                                <button type="button" id="lucky-question-button"
-                                    class="ghost-button composer-lucky-question-button" aria-label="随机生成一个可直接提问的问题"
-                                    title="随便问一个随机问题">
-                                    <span aria-hidden="true">🎲</span>
-                                    <span class="composer-tool-label" aria-hidden="true">随便问</span>
-                                    <span class="sr-only">随机生成一个可直接提问的问题</span>
-                                </button>
-                                <button type="button" id="composer-upload-button"
-                                    class="ghost-button composer-upload-button" aria-label="上传材料" title="上传材料">
-                                    <svg viewBox="0 0 20 20" fill="none" aria-hidden="true" focusable="false">
-                                        <path
-                                            d="M7.9 10.9 12.85 5.95a2.5 2.5 0 1 1 3.54 3.54l-6.01 6.01a4 4 0 1 1-5.66-5.66l6.37-6.36"
-                                            stroke="currentColor" stroke-width="1.7" stroke-linecap="round"
-                                            stroke-linejoin="round" />
-                                    </svg>
-                                    <span class="composer-tool-label" aria-hidden="true">上传材料</span>
-                                    <span class="sr-only">上传材料</span>
-                                </button>
                                 <label class="deep-thinking-toggle" title="开启后模型会先推理再回答，质量更高但更慢">
                                     <input type="checkbox" id="deep-thinking-checkbox" />
-                                    <span class="toggle-label">深度思考</span>
+                                    <span class="toggle-label">🧠 深度思考</span>
                                 </label>
                                 <label class="deep-thinking-toggle web-search-toggle" title="开启后会先做联网检索，再结合本地知识回答">
                                     <input type="checkbox" id="web-search-checkbox" />
@@ -171,9 +153,25 @@
                                 </label>
                             </div>
                             <div class="composer-tools-right">
-                                <div id="token-usage-badge" class="token-usage-inline" hidden aria-label="Token 使用量">
+                                <button type="button" id="lucky-question-button"
+                                    class="composer-icon-button" aria-label="随机生成一个可直接提问的问题"
+                                    title="随便问一个随机问题">
+                                    <span aria-hidden="true">🎲</span>
+                                    <span class="sr-only">随机生成一个可直接提问的问题</span>
+                                </button>
+                                <button type="button" id="composer-upload-button"
+                                    class="composer-icon-button" aria-label="上传材料" title="上传材料">
+                                    <svg viewBox="0 0 20 20" fill="none" aria-hidden="true" focusable="false">
+                                        <path
+                                            d="M7.9 10.9 12.85 5.95a2.5 2.5 0 1 1 3.54 3.54l-6.01 6.01a4 4 0 1 1-5.66-5.66l6.37-6.36"
+                                            stroke="currentColor" stroke-width="1.7" stroke-linecap="round"
+                                            stroke-linejoin="round" />
+                                    </svg>
+                                    <span class="sr-only">上传材料</span>
+                                </button>
+                                <div id="token-usage-badge" class="token-usage-inline" aria-label="Token 使用量">
                                     <button type="button" class="token-usage-toggle" title="查看 Token 使用详情">
-                                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20V10"/><path d="M18 20V4"/><path d="M6 20v-4"/></svg>
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20V10"/><path d="M18 20V4"/><path d="M6 20v-4"/></svg>
                                         <span id="token-usage-summary" class="token-usage-summary">0</span>
                                     </button>
                                     <div id="token-usage-detail" class="token-usage-detail" hidden>
@@ -185,8 +183,10 @@
                                     </div>
                                 </div>
                                 <button type="button" id="mobile-workflow-trigger"
-                                    class="deep-thinking-toggle composer-workflow-toggle" aria-expanded="false"
-                                    aria-label="打开推理路径">查看推理路径</button>
+                                    class="composer-icon-button" aria-expanded="false"
+                                    aria-label="打开推理路径" title="查看推理路径">
+                                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+                                </button>
                             </div>
                         </div>
                     </div>
