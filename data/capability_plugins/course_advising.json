@@ -1,0 +1,38 @@
+{
+    "plugin_id": "course_advising",
+    "name": "Course Advising Pack",
+    "description": "Adds course-specific advising steps: syllabus lookup, prerequisite check, and grade-tracking awareness.",
+    "min_app_version": "3.0.0",
+    "enabled": false,
+    "steps": [
+        {
+            "step_id": "retrieve_syllabus",
+            "description": "Retrieve the course syllabus for the active course context.",
+            "required_inputs": ["course_context", "profile_context"],
+            "produces_outputs": ["syllabus_hits"],
+            "timeout_budget_ms": 1500,
+            "trace_key": "plugin_syllabus"
+        },
+        {
+            "step_id": "check_prerequisites",
+            "description": "Check prerequisite completion for the target course.",
+            "required_inputs": ["course_context", "visitor_profile"],
+            "produces_outputs": ["prerequisite_status"],
+            "timeout_budget_ms": 800,
+            "trace_key": "plugin_prerequisites"
+        }
+    ],
+    "policy_requirements": [
+        {
+            "step_id": "retrieve_syllabus",
+            "requires_admin": false,
+            "allowed_side_effects": []
+        },
+        {
+            "step_id": "check_prerequisites",
+            "requires_admin": false,
+            "allowed_side_effects": []
+        }
+    ],
+    "test_scenario_ids": ["course-question-basic", "prerequisite-check"]
+}

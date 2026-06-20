@@ -108,6 +108,9 @@ class VllmChatClient:
         self.model_name: str = self._settings.model_name
         if not self.model_name:
             self.model_name = self._detect_model_name()
+        else:
+            # Even with a configured name, try to discover max context length.
+            self._probe_model_max_len()
         self._intent_model_name = self._settings.intent_model_name or self.model_name
         self._cache_lock = threading.Lock()
         self._response_cache: OrderedDict[str, tuple[float, str, str]] = OrderedDict()
@@ -173,6 +176,21 @@ class VllmChatClient:
             logger.warning("Failed to auto-detect model name from %s: %s",
                            self._settings.llm_base_url, exc)
         return ""
+
+    def _probe_model_max_len(self) -> None:
+        """Query /models to discover max_model_len when model name is pre-configured."""
+        try:
+            response = self._client.get("/models", timeout=10.0)
+            response.raise_for_status()
+            data = response.json()
+            models = data.get("data", [])
+            if models:
+                max_len = models[0].get("max_model_len")
+                if isinstance(max_len, int) and max_len > 0:
+                    self._model_max_len = max_len
+                    logger.info("Probed model max context: %d", max_len)
+        except Exception:
+            pass
 
     def _ensure_runtime_state(self) -> None:
         if not hasattr(self, "_cache_lock"):

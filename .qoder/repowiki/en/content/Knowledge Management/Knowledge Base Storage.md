@@ -7,6 +7,7 @@
 - [config.py](file://src/sage_faculty_twin/config.py)
 - [knowledge_import.py](file://src/sage_faculty_twin/knowledge_import.py)
 - [test_knowledge_base.py](file://tests/test_knowledge_base.py)
+- [test_knowledge_import.py](file://tests/test_knowledge_import.py)
 - [test_sagevdb_knowledge_store.py](file://tests/test_sagevdb_knowledge_store.py)
 - [test_bm25_backend_config.py](file://tests/test_bm25_backend_config.py)
 - [conftest.py](file://tests/conftest.py)
@@ -14,11 +15,11 @@
 
 ## Update Summary
 **Changes Made**
-- Enhanced backend selection system with improved model caching detection and automatic backend validation
-- Added comprehensive knowledge backend plugins documentation covering new features
-- Improved automatic backend validation with enhanced model availability checking
-- Updated backend selection logic to prioritize FAISS over BM25 based on model caching detection
-- Enhanced knowledge backend plugins documentation with new automatic validation features
+- Enhanced content rendering capabilities with comprehensive markdown table support in knowledge base ingestion
+- Improved academic paper ingestion pipeline with dedicated publication digest processing
+- Enhanced markdown normalization with table cell extraction and semantic preservation
+- Added specialized publication metadata parsing for research paper content
+- Improved knowledge base ingestion workflow for academic materials
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -43,10 +44,12 @@ This document explains the knowledge base storage system that powers multi-backe
 - Unlimited search operations without k-limit caps for comprehensive retrieval
 - Enhanced embedding strategies: HashingTextEmbedder, SentenceTransformerTextEmbedder, and NeuromemBgeEmbedder
 - Automatic backend migration from BM25 to SageVDB/SageANNs system with intelligent index type detection
+- **Enhanced Content Rendering**: Comprehensive markdown table support with semantic cell extraction
+- **Improved Academic Paper Ingestion**: Dedicated publication digest processing with metadata extraction
 - Practical ingestion and search workflows with improved accuracy and performance
 
 ## Project Structure
-The knowledge base module centers around a single class that orchestrates document lifecycle and retrieval across multiple backends. Supporting modules define data models, configuration, and ingestion utilities.
+The knowledge base module centers around a single class that orchestrates document lifecycle and retrieval across multiple backends. Supporting modules define data models, configuration, and enhanced ingestion utilities with improved academic paper processing capabilities.
 
 ```mermaid
 graph TB
@@ -60,14 +63,17 @@ subgraph "Models and Config"
 M["Models<br/>Enhanced Scoring Algorithms"]
 C["AppSettings<br/>retrieval_top_k Setting"]
 end
-subgraph "Ingestion"
-I["Knowledge Import<br/>Advanced Processing"]
+subgraph "Enhanced Ingestion"
+I["Knowledge Import<br/>Academic Paper Pipeline"]
+MD["_normalize_markdown<br/>Table Support"]
+PD["_build_publication_digest_payloads<br/>Metadata Extraction"]
 end
 subgraph "Testing and Validation"
 T1["test_knowledge_base.py<br/>Hybrid Search Tests"]
-T2["test_sagevdb_knowledge_store.py"]
-T3["test_bm25_backend_config.py"]
-T4["conftest.py<br/>Model Caching Detection"]
+T2["test_knowledge_import.py<br/>Enhanced Ingestion Tests"]
+T3["test_sagevdb_knowledge_store.py"]
+T4["test_bm25_backend_config.py"]
+T5["conftest.py<br/>Model Caching Detection"]
 end
 KB --> E1
 KB --> E2
@@ -75,11 +81,14 @@ KB --> E3
 KB --> M
 KB --> C
 I --> KB
+I --> MD
+I --> PD
 I --> M
 T1 --> KB
-T2 --> KB
+T2 --> I
 T3 --> KB
 T4 --> KB
+T5 --> KB
 ```
 
 **Diagram sources**
@@ -88,6 +97,7 @@ T4 --> KB
 - [config.py](file://src/sage_faculty_twin/config.py)
 - [knowledge_import.py](file://src/sage_faculty_twin/knowledge_import.py)
 - [test_knowledge_base.py](file://tests/test_knowledge_base.py)
+- [test_knowledge_import.py](file://tests/test_knowledge_import.py)
 - [test_sagevdb_knowledge_store.py](file://tests/test_sagevdb_knowledge_store.py)
 - [test_bm25_backend_config.py](file://tests/test_bm25_backend_config.py)
 - [conftest.py](file://tests/conftest.py)
@@ -98,6 +108,7 @@ T4 --> KB
 - [config.py](file://src/sage_faculty_twin/config.py)
 - [knowledge_import.py](file://src/sage_faculty_twin/knowledge_import.py)
 - [test_knowledge_base.py](file://tests/test_knowledge_base.py)
+- [test_knowledge_import.py](file://tests/test_knowledge_import.py)
 - [test_sagevdb_knowledge_store.py](file://tests/test_sagevdb_knowledge_store.py)
 - [test_bm25_backend_config.py](file://tests/test_bm25_backend_config.py)
 - [conftest.py](file://tests/conftest.py)
@@ -111,6 +122,9 @@ T4 --> KB
 - Query Profiling: Intelligent query analysis that extracts document types, topics, courses, and named entities
 - Unlimited Search Operations: Removed k-limit caps for comprehensive retrieval without artificial constraints
 - Automatic Backend Migration: Automatically migrates from BM25 to SageVDB/SageANNs system with FAISS preference
+- **Enhanced Content Rendering**: Comprehensive markdown table support with semantic cell extraction and preservation
+- **Improved Academic Paper Processing**: Dedicated publication digest pipeline with metadata extraction and research theme classification
+- **Advanced Ingestion Pipeline**: Specialized processing for academic papers, research summaries, and publication metadata
 
 Key responsibilities:
 - Persistence: Documents are stored as JSON under a configured directory and kept in-memory for fast iteration
@@ -120,6 +134,7 @@ Key responsibilities:
 - Enhanced Search: Implements hybrid approach with sagevdb candidate recall and precise lexical scoring
 - Backend Migration: Automatically migrates from BM25 to SageVDB/SageANNs system with FAISS preference
 - Model Caching Detection: Validates embedding model availability before enabling FAISS backend
+- **Enhanced Ingestion**: Processes academic papers with publication digests, metadata extraction, and table support
 
 **Section sources**
 - [knowledge_base.py](file://src/sage_faculty_twin/knowledge_base.py)
@@ -129,7 +144,7 @@ Key responsibilities:
 - [conftest.py](file://tests/conftest.py)
 
 ## Architecture Overview
-The system supports three backends with enhanced hybrid search capabilities and improved backend validation:
+The system supports three backends with enhanced hybrid search capabilities and improved backend validation, now featuring enhanced content rendering for academic materials:
 
 - Local: Pure Python lexical scoring with advanced token overlap and tag-boost algorithms
 - SageVDB: Vector database with SageANNs integration and automatic FAISS preference
@@ -142,22 +157,79 @@ Store["LocalKnowledgeStore<br/>Enhanced Hybrid Search"]
 Local["Local Backend<br/>Advanced Lexical Scoring"]
 SageVDB["SageVDB Backend<br/>Vector Index with SageANNs<br/>Candidate Recall"]
 Neuromem["Neuromem Backend<br/>Unified Collection<br/>Auto Index Detection<br/>Model Caching Validation"]
+EnhancedIngestion["Enhanced Ingestion Pipeline<br/>Academic Paper Processing<br/>Table Support"]
 Client --> Store
 Store --> Local
 Store --> SageVDB
 Store --> Neuromem
 SageVDB --> Local
 Neuromem --> Local
-Neuromem --> Validation["Model Caching Detection<br/>Automatic Backend Validation"]
-Validation --> FAISS["FAISS Index<br/>Dense Retrieval"]
-Validation --> BM25["BM25 Index<br/>Sparse Retrieval"]
+EnhancedIngestion --> Store
+EnhancedIngestion --> MD["_normalize_markdown<br/>Table Cell Extraction"]
+EnhancedIngestion --> PD["_build_publication_digest_payloads<br/>Metadata Parsing"]
 ```
 
 **Diagram sources**
 - [knowledge_base.py](file://src/sage_faculty_twin/knowledge_base.py)
+- [knowledge_import.py](file://src/sage_faculty_twin/knowledge_import.py)
 - [conftest.py](file://tests/conftest.py)
 
 ## Detailed Component Analysis
+
+### Enhanced Content Rendering and Academic Paper Processing
+The knowledge base ingestion system now features comprehensive markdown table support and enhanced academic paper processing capabilities:
+
+**Enhanced Markdown Table Support:**
+- Table cell extraction transforms pipe-delimited tables into semicolon-separated text
+- Preserves semantic meaning while removing markdown formatting
+- Handles complex table structures with mixed content types
+- Maintains readability for search and indexing purposes
+
+**Academic Paper Digest Processing:**
+- Dedicated pipeline for research paper summaries and metadata extraction
+- Publication metadata parsing with venue, year, authors, and status information
+- Research theme classification based on content keywords
+- One-line summary generation for quick paper understanding
+- Structured content formatting with standardized sections
+
+**Enhanced Ingestion Pipeline Features:**
+- Academic paper page processing with research theme tagging
+- Publication overview extraction with thematic organization
+- Stale document cleanup with intelligent source tracking
+- Enhanced payload creation with metadata enrichment
+
+```mermaid
+classDiagram
+class EnhancedIngestionPipeline {
++import_homepage_materials(store, homepage_dir)
++_normalize_markdown(text)
++_build_publication_digest_payloads(path)
++_build_publication_digest_content(title, body)
++_parse_publication_metadata(text)
++_build_author_role_summary(metadata)
++_infer_publication_theme(title, body)
++_infer_publication_tags(title, body)
+}
+class TableProcessing {
++_normalize_markdown(text)
++table_cell_extraction(cells)
++semantic_preservation()
+}
+class AcademicPaperProcessing {
++_build_publication_digest_payloads(path)
++_parse_publication_metadata(text)
++_infer_publication_theme(title, body)
++_infer_publication_tags(title, body)
+}
+EnhancedIngestionPipeline --> TableProcessing : "uses"
+EnhancedIngestionPipeline --> AcademicPaperProcessing : "uses"
+```
+
+**Diagram sources**
+- [knowledge_import.py](file://src/sage_faculty_twin/knowledge_import.py)
+
+**Section sources**
+- [knowledge_import.py](file://src/sage_faculty_twin/knowledge_import.py)
 
 ### Enhanced Backend Selection System
 The LocalKnowledgeStore now implements an enhanced backend selection system with improved model caching detection and automatic backend validation:
@@ -248,6 +320,7 @@ The LocalKnowledgeStore now implements an enhanced hybrid search approach that c
 - **Removed K-Limit Caps**: Unlimited search operations for comprehensive retrieval
 - **Profile-Based Scoring**: Advanced query profiling with visitor profiles, course contexts, and document intents
 - Deduplicate documents by source_name and normalize metadata
+- **Enhanced Ingestion Integration**: Seamless integration with improved academic paper processing pipeline
 
 **Enhanced Lifecycle Highlights:**
 - Initialization loads persisted documents, infers missing metadata, and removes duplicates
@@ -432,10 +505,11 @@ The system implements comprehensive text processing for improved search accuracy
 - Greedy algorithm for optimal span selection
 - Support for both English tokens and Chinese character spans
 
-**Query Expansion:**
-- Automatic retrieval text expansion with tokenized versions
-- Enhanced text composition combining title, tags, aliases, and content
-- Metadata integration for comprehensive search coverage
+**Enhanced Markdown Processing:**
+- **Table Support**: Pipe-delimited table extraction with cell content transformation
+- Code block skipping to avoid indexing non-content sections
+- Inline markdown cleaning with semantic preservation
+- Paragraph normalization and spacing optimization
 
 ```mermaid
 flowchart TD
@@ -444,16 +518,20 @@ Tokenize --> EnglishTokens["Extract English Tokens"]
 Tokenize --> ChineseChars["Extract Chinese Characters"]
 EnglishTokens --> Normalize["Normalize & Deduplicate"]
 ChineseChars --> Ngrams["Generate N-grams (1,2,3)"]
-Ngrams --> Combine["Combine All Tokens"]
-Normalize --> Combine
-Combine --> Output["Query Tokens"]
+Normalize --> Combine["Combine All Tokens"]
+Combine --> MDProcessing["Markdown Processing"]
+MDProcessing --> TableSupport["Table Cell Extraction"]
+TableSupport --> CleanInline["Clean Inline Markdown"]
+CleanInline --> Output["Processed Content"]
 ```
 
 **Diagram sources**
 - [knowledge_base.py](file://src/sage_faculty_twin/knowledge_base.py)
+- [knowledge_import.py](file://src/sage_faculty_twin/knowledge_import.py)
 
 **Section sources**
 - [knowledge_base.py](file://src/sage_faculty_twin/knowledge_base.py)
+- [knowledge_import.py](file://src/sage_faculty_twin/knowledge_import.py)
 
 ### Document Lifecycle and Persistence
 - Add: Creates a new record with UUID, persists JSON, updates in-memory registry, and optionally rebuilds backend index
@@ -507,22 +585,25 @@ Persist --> End(["Ready"])
 **Section sources**
 - [knowledge_base.py](file://src/sage_faculty_twin/knowledge_base.py)
 
-### Ingestion Pipeline
-- Homepage ingestion: Parses markdown pages, extracts sections, builds payloads with tags and source_name, upserts into store, prunes stale documents, and rebuilds indexes
-- Chunking: Long content split into parts with ::part-N suffix for source grouping
-- Attachments: PDFs and office docs parsed and ingested as separate documents
+### Enhanced Ingestion Pipeline
+- **Enhanced Homepage Ingestion**: Comprehensive processing with academic paper support and table rendering
+- **Publication Digest Processing**: Dedicated pipeline for research paper summaries with metadata extraction
+- **Academic Paper Pages**: Specialized processing for individual paper content with research theme tagging
+- **Enhanced Markdown Normalization**: Table cell extraction and semantic preservation for improved searchability
+- **Stale Document Cleanup**: Intelligent source tracking and removal of outdated content
 
 ```mermaid
 flowchart TD
 A["Scan Homepage Directory"] --> B["Parse Markdown Sections"]
 B --> C["Build Payloads (title, content, tags, source_name)"]
-C --> D["Upsert into LocalKnowledgeStore"]
-D --> E{"Stale documents?"}
-E -- Yes --> F["Delete stale by source_name"]
-E -- No --> G["Skip deletion"]
-F --> H["Rebuild indexes"]
-G --> H
-H --> I["Done"]
+C --> D["Enhanced Processing (Table Support, Metadata)"]
+D --> E["Upsert into LocalKnowledgeStore"]
+E --> F{"Stale documents?"}
+F -- Yes --> G["Delete stale by source_name"]
+F -- No --> H["Skip deletion"]
+G --> I["Rebuild indexes"]
+H --> I
+I --> J["Done"]
 ```
 
 **Diagram sources**
@@ -540,7 +621,8 @@ H --> I["Done"]
   - Backend libraries (sagevdb, isage-neuromem) when enabled
   - Enhanced model caching detection system for automatic backend validation
 - Embedding strategies depend on external packages (numpy, sentence-transformers)
-- Ingestion utilities depend on LocalKnowledgeStore and models
+- Ingestion utilities depend on LocalKnowledgeStore and models with enhanced academic paper processing
+- **Enhanced Dependencies**: Additional requirements for academic paper processing (advanced tokenizers, metadata extraction)
 
 ```mermaid
 graph LR
@@ -552,7 +634,11 @@ Store --> Embed1["HashingTextEmbedder"]
 Store --> Embed2["SentenceTransformerTextEmbedder"]
 Store --> Embed3["NeuromemBgeEmbedder"]
 Store --> Validation["Model Caching Detection<br/>Automatic Backend Validation"]
+Store --> EnhancedIngestion["Enhanced Ingestion Pipeline<br/>Academic Paper Processing"]
 Import["knowledge_import.py"] --> Store
+Import --> EnhancedIngestion
+EnhancedIngestion --> TableSupport["Table Processing<br/>Cell Extraction"]
+EnhancedIngestion --> MetadataExtraction["Publication Metadata<br/>Research Theme Classification"]
 ```
 
 **Diagram sources**
@@ -591,15 +677,18 @@ Import["knowledge_import.py"] --> Store
   - Efficient for small to medium corpora; leverage advanced tokenization and scoring heuristics
   - **Maximal Span Deduplication**: Prevents inflated scores from overlapping matches
   - **Profile-Based Filtering**: Early filtering reduces computational overhead
+  - **Enhanced Table Processing**: Optimized table cell extraction for improved search performance
 
 - **Memory Management:**
   - Keep only necessary documents in memory; rely on persistent JSON for durability
   - Defer index rebuilds to batch operations (e.g., after ingestion)
   - **Enhanced Deduplication**: Improved source group handling reduces memory footprint
+  - **Optimized Academic Paper Processing**: Efficient metadata extraction and caching
 
 - **Index Rebuilding:**
   - Rebuild indexes after bulk operations to maintain accuracy and performance
   - **Dynamic Limit Calculation**: Backend-specific optimization based on document counts
+  - **Enhanced Ingestion Optimization**: Batch processing for academic paper content
 
 - **Backend Migration Benefits:**
   - Automatic migration from BM25 to SageVDB/SageANNs system improves retrieval quality and performance
@@ -610,12 +699,18 @@ Import["knowledge_import.py"] --> Store
   - Ensures consistent performance by avoiding network-dependent model loading
   - Automatic fallback to BM25 when models are not available
 
-**Updated** Enhanced performance considerations now include hybrid search benefits, removed k-limit caps, advanced scoring optimizations, and model caching validation
+- **Enhanced Academic Paper Processing Benefits:**
+  - Optimized metadata extraction reduces processing overhead
+  - Efficient table cell extraction improves search accuracy
+  - Batch processing for publication digests minimizes latency
+
+**Updated** Enhanced performance considerations now include hybrid search benefits, removed k-limit caps, advanced scoring optimizations, model caching validation, and enhanced academic paper processing capabilities
 
 **Section sources**
 - [knowledge_base.py](file://src/sage_faculty_twin/knowledge_base.py)
 - [config.py](file://src/sage_faculty_twin/config.py)
 - [conftest.py](file://tests/conftest.py)
+- [knowledge_import.py](file://src/sage_faculty_twin/knowledge_import.py)
 
 ## Troubleshooting Guide
 Common issues and resolutions:
@@ -623,36 +718,37 @@ Common issues and resolutions:
   - SageVDB: Install via package or expose checkout on PYTHONPATH
   - Neuromem: Install isage-neuromem
   - sentence-transformers: Install for dense embeddings
-  - **Enhanced Dependencies**: Additional requirements for hybrid search (numpy, advanced tokenizers)
+  - **Enhanced Dependencies**: Additional requirements for hybrid search (numpy, advanced tokenizers, academic paper processing)
 
 - **Dimension mismatches:**
   - Verify embedding model reports a dimension; ensure settings match
-  - **Enhanced Verification**: Additional checks for hybrid scoring algorithms
+  - **Enhanced Verification**: Additional checks for hybrid scoring algorithms and academic paper processing
 
 - **SageVDB ANN configuration:**
   - Provide algorithm name for sage-anns backend
-  - **Enhanced Configuration**: Additional parameters for hybrid search optimization
+  - **Enhanced Configuration**: Additional parameters for hybrid search optimization and academic paper processing
 
 - **Visibility filtering:**
   - Ensure audience tags or metadata align with visitor/admin roles
-  - **Enhanced Profile Matching**: Improved visitor profile handling
+  - **Enhanced Profile Matching**: Improved visitor profile handling for academic contexts
 
 - **Duplicate documents:**
   - Use upsert with source_name to deduplicate automatically
-  - **Enhanced Deduplication**: Improved source group canonicalization
+  - **Enhanced Deduplication**: Improved source group canonicalization for academic paper collections
 
 - **Index rebuild failures:**
   - Trigger rebuild_indexes after ingestion or configuration changes
-  - **Enhanced Rebuild Logic**: Better handling of hybrid search indexes
+  - **Enhanced Rebuild Logic**: Better handling of hybrid search indexes and academic paper content
 
 - **Backend migration issues:**
   - Automatic migration handles BM25 to SageVDB/SageANNs transition seamlessly
-  - **Enhanced Migration**: Improved hybrid search integration
+  - **Enhanced Migration**: Improved hybrid search integration with academic paper processing
 
 - **Search Performance Issues:**
   - **Check retrieval_top_k setting**: Default is 3, adjust based on query complexity
   - **Monitor hybrid search performance**: SageVDB candidate recall combined with lexical scoring
   - **Verify tokenization**: Ensure proper English/Chinese text processing
+  - **Enhanced Academic Paper Search**: Verify publication digest processing and metadata extraction
 
 - **Model Caching Issues:**
   - **Check embedding model availability**: Use `_embedding_model_is_cached()` to validate model presence
@@ -663,26 +759,32 @@ Common issues and resolutions:
   - **Verify backend configuration**: Check `neuromem_index_type` setting and model availability
   - **Runtime validation errors**: Enhanced error messages for missing dependencies or invalid configurations
 
-**Updated** Added troubleshooting guidance for enhanced hybrid search, removed k-limit caps, advanced scoring algorithms, and model caching validation
+- **Enhanced Academic Paper Processing Issues:**
+  - **Table Processing Errors**: Verify markdown table format and cell extraction
+  - **Publication Metadata Extraction**: Ensure proper metadata formatting in academic papers
+  - **Ingestion Pipeline Failures**: Check file paths and content structure for academic materials
+
+**Updated** Added troubleshooting guidance for enhanced hybrid search, removed k-limit caps, advanced scoring algorithms, model caching validation, and enhanced academic paper processing capabilities
 
 **Section sources**
 - [knowledge_base.py](file://src/sage_faculty_twin/knowledge_base.py)
 - [test_sagevdb_knowledge_store.py](file://tests/test_sagevdb_knowledge_store.py)
 - [test_knowledge_base.py](file://tests/test_knowledge_base.py)
 - [test_bm25_backend_config.py](file://tests/test_bm25_backend_config.py)
+- [test_knowledge_import.py](file://tests/test_knowledge_import.py)
 - [conftest.py](file://tests/conftest.py)
 
 ## Conclusion
-The knowledge base storage system now offers a sophisticated, multi-backend architecture with enhanced hybrid search capabilities and improved backend validation. The recent enhancements include advanced token-overlap plus tag-boost scoring, profile-based relevance calculation, unlimited search operations without k-limit caps, and an enhanced backend selection system with model caching detection. The hybrid approach combining sagevdb candidate recall with precise lexical scoring provides superior accuracy for technical queries while maintaining excellent performance. By leveraging local advanced scoring, dense retrieval with SageVDB, and hybrid FAISS/BM25 with Neuromem, it scales from small deployments to large knowledge bases while delivering exceptional search quality and user experience. The enhanced model caching detection system ensures reliable backend selection and prevents runtime model downloads, making the system more robust and production-ready.
+The knowledge base storage system now offers a sophisticated, multi-backend architecture with enhanced hybrid search capabilities and improved backend validation. The recent enhancements include advanced token-overlap plus tag-boost scoring, profile-based relevance calculation, unlimited search operations without k-limit caps, and an enhanced backend selection system with model caching detection. The system now features comprehensive markdown table support, specialized academic paper processing pipelines, and enhanced content rendering capabilities. The hybrid approach combining sagevdb candidate recall with precise lexical scoring provides superior accuracy for technical queries while maintaining excellent performance. By leveraging local advanced scoring, dense retrieval with SageVDB, and hybrid FAISS/BM25 with Neuromem, it scales from small deployments to large knowledge bases while delivering exceptional search quality and user experience. The enhanced model caching detection system ensures reliable backend selection and prevents runtime model downloads, making the system more robust and production-ready. The specialized academic paper processing pipeline enables efficient ingestion and search of research publications, making it particularly valuable for academic and research environments.
 
-**Updated** Enhanced conclusion reflecting the successful implementation of hybrid search, advanced scoring algorithms, performance optimizations, and improved backend validation with model caching detection
+**Updated** Enhanced conclusion reflecting the successful implementation of hybrid search, advanced scoring algorithms, performance optimizations, model caching validation, and enhanced academic paper processing capabilities
 
 ## Appendices
 
 ### Practical Examples
 
 **Enhanced Document ingestion from homepage:**
-- Use the ingestion pipeline to parse markdown sections and attachments, upsert payloads, prune stale documents, and rebuild indexes with improved hybrid search capabilities.
+- Use the enhanced ingestion pipeline to parse markdown sections with table support, process academic papers with publication digests, extract metadata, upsert payloads, prune stale documents, and rebuild indexes with improved hybrid search capabilities.
 
 **Upsert with source_name tracking:**
 - Upsert preserves created_at and avoids unnecessary writes when content is unchanged; duplicates are removed and indexes rebuilt if requested with enhanced deduplication logic.
@@ -708,10 +810,17 @@ The knowledge base storage system now offers a sophisticated, multi-backend arch
 **Automatic Backend Selection:**
 - Configure `neuromem_index_type` to "auto" for automatic FAISS vs BM25 selection based on model caching detection and availability.
 
+**Enhanced Academic Paper Processing:**
+- Process research papers with publication digest extraction, metadata parsing, and academic-specific content rendering for improved searchability and accuracy.
+
+**Table Support in Knowledge Base:**
+- Leverage enhanced markdown table processing to extract and render tabular content from academic papers, research summaries, and structured documents.
+
 **Section sources**
 - [knowledge_import.py](file://src/sage_faculty_twin/knowledge_import.py)
 - [knowledge_base.py](file://src/sage_faculty_twin/knowledge_base.py)
 - [test_knowledge_base.py](file://tests/test_knowledge_base.py)
+- [test_knowledge_import.py](file://tests/test_knowledge_import.py)
 - [test_sagevdb_knowledge_store.py](file://tests/test_sagevdb_knowledge_store.py)
 - [test_bm25_backend_config.py](file://tests/test_bm25_backend_config.py)
 - [conftest.py](file://tests/conftest.py)

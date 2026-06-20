@@ -1,0 +1,3 @@
+- **Runtime Bootstrap**: `runtime_env.py` initializes the environment, requiring policy enforcement.
+- **Service Management**: `service_runtime.py` delegates start/stop/restart actions to an external `manage.sh` script via `subprocess`, optionally queuing actions via `systemd-run`.
+- **Environment Variables**: Extensive use of `DIGITAL_TWIN_*` prefixed env vars for configuration (e.g., `DIGITAL_TWIN_POST_ANSWER_BACKGROUND`, `DIGITAL_TWIN_STREAM_CHAT_ANSWER`).

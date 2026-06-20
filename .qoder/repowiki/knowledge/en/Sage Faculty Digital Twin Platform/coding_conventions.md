@@ -1,0 +1,2 @@
+- Shared environment configuration via `.env` and `.env.example` files at the root, governing secrets and runtime parameters for both the application and deployment services.
+- Consistent use of UUID-based filenames for knowledge base and user account records in `data/`, ensuring unique identification across runtime state and persistence layers.

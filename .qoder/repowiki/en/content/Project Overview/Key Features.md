@@ -14,7 +14,18 @@
 - [auth.py](file://src/sage_faculty_twin/auth.py)
 - [models.py](file://src/sage_faculty_twin/models.py)
 - [test_chat_streaming.py](file://tests/test_chat_streaming.py)
+- [index.html](file://src/sage_faculty_twin/web/index.html)
+- [app.js](file://src/sage_faculty_twin/web/app.js)
+- [styles.css](file://src/sage_faculty_twin/web/styles.css)
+- [ROADMAP.md](file://ROADMAP.md)
 </cite>
+
+## Update Summary
+**Changes Made**
+- Added version changelog modal interface documentation
+- Enhanced markdown table support documentation
+- Improved answer evidence panel with retry mechanism documentation
+- Updated roadmap status for V3.1 LLM-Assisted JSON Planner
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -36,6 +47,9 @@ This document explains the key features of Sage Faculty Twin and how they collec
 - Appointment scheduling and booking
 - Web search integration
 - Administrative controls and user/session management
+- **Version changelog modal interface** for release transparency
+- **Enhanced markdown table support** for better content presentation
+- **Improved answer evidence panel with retry mechanism** for better user experience
 
 Each feature is described with its purpose, implementation highlights, and how it contributes to a responsive, policy-aware, and scalable academic assistant.
 
@@ -77,6 +91,9 @@ API --> Auth["Auth Utilities<br/>Admin/User sessions"]
 - Appointment scheduling and booking: Availability management with conflict detection and slot suggestions.
 - Web search integration: Bing-based search with query rewriting and result reranking.
 - Administrative features: Session-based admin/user controls, presence tracking, and operational visibility.
+- **Version changelog modal**: Clickable version badge opens a modal with concise release highlights for transparency.
+- **Enhanced markdown support**: Comprehensive markdown rendering including tables, lists, formatting, and safe link handling.
+- **Answer evidence panel**: Structured evidence display with retry mechanism for failed requests.
 
 **Section sources**
 - [api.py:170-256](file://src/sage_faculty_twin/api.py#L170-L256)
@@ -87,6 +104,9 @@ API --> Auth["Auth Utilities<br/>Admin/User sessions"]
 - [meeting.py:11-16](file://src/sage_faculty_twin/meeting.py#L11-L16)
 - [availability.py:11-26](file://src/sage_faculty_twin/availability.py#L11-L26)
 - [auth.py:16-17](file://src/sage_faculty_twin/auth.py#L16-L17)
+- [index.html:286-298](file://src/sage_faculty_twin/web/index.html#L286-L298)
+- [app.js:7835-7896](file://src/sage_faculty_twin/web/app.js#L7835-L7896)
+- [app.js:6949-6988](file://src/sage_faculty_twin/web/app.js#L6949-L6988)
 
 ## Architecture Overview
 The runtime architecture couples FastAPI endpoints with a Sage-based workflow engine. The workflow planner evaluates intent and selects a deterministic plan, which the service executes through retrieval, prompting, LLM inference, and post-answer actions. Knowledge and memory backends are abstracted behind unified interfaces. Optional web search augments grounding. Administrative controls and user sessions protect sensitive operations.
@@ -329,6 +349,94 @@ A-->>C : OnlinePresenceHeartbeatResponse
 - [api.py:451-510](file://src/sage_faculty_twin/api.py#L451-L510)
 - [api.py:542-547](file://src/sage_faculty_twin/api.py#L542-L547)
 
+### Version Changelog Modal Interface
+- **Clickable version badge**: Positioned in the bottom-right corner, displays current version (v3.2.0) and triggers modal display.
+- **Modal overlay**: Semi-transparent background that covers the main interface when changelog is open.
+- **Responsive design**: Modal adapts to different screen sizes with max-width constraints and scrollable content area.
+- **Close functionality**: Clicking outside the modal or using the close button returns to the main interface.
+
+```mermaid
+sequenceDiagram
+participant U as "User"
+participant VB as "Version Badge Button"
+participant CM as "Changelog Modal"
+U->>VB : Click version badge
+VB->>CM : toggleChangelogModal()
+CM-->>U : Display changelog content
+U->>CM : Click close button or overlay
+CM->>VB : toggleChangelogModal()
+VB-->>U : Return to main interface
+```
+
+**Diagram sources**
+- [index.html:286-298](file://src/sage_faculty_twin/web/index.html#L286-L298)
+- [index.html:302-310](file://src/sage_faculty_twin/web/index.html#L302-L310)
+
+**Section sources**
+- [index.html:286-298](file://src/sage_faculty_twin/web/index.html#L286-L298)
+- [index.html:302-310](file://src/sage_faculty_twin/web/index.html#L302-L310)
+- [styles.css:825-889](file://src/sage_faculty_twin/web/styles.css#L825-L889)
+
+### Enhanced Markdown Table Support
+- **Comprehensive table rendering**: Converts markdown tables with headers and body rows into proper HTML table elements.
+- **Header processing**: First row processed as table headers with `<th>` elements.
+- **Body row processing**: Subsequent rows processed as table body with `<td>` elements.
+- **Row validation**: Filters out separator rows (lines with only dashes, pipes, and colons).
+- **Safe formatting**: Maintains table structure while applying proper HTML semantics.
+
+```mermaid
+flowchart TD
+MT["Markdown Table Input"] --> Parse["Parse Consecutive Pipe-delimited Lines"]
+Parse --> Header["Extract Header Cells"]
+Header --> Body["Process Body Rows"]
+Body --> Validate["Filter Separator Rows"]
+Validate --> HTML["Generate HTML Table"]
+HTML --> Output["Rendered Table Output"]
+```
+
+**Diagram sources**
+- [app.js:7835-7856](file://src/sage_faculty_twin/web/app.js#L7835-L7856)
+
+**Section sources**
+- [app.js:7835-7856](file://src/sage_faculty_twin/web/app.js#L7835-L7856)
+
+### Answer Evidence Panel with Retry Mechanism
+- **Structured evidence display**: Shows retrieved knowledge, memory, and profile sources used to generate the answer.
+- **Retry functionality**: Provides "重试" (retry) button for failed requests with automatic question restoration.
+- **Error handling**: Displays retry button when requests fail and maintains last failed question context.
+- **User experience**: Enables quick resubmission of failed queries without manual re-entry.
+
+```mermaid
+sequenceDiagram
+participant U as "User"
+participant AP as "Answer Panel"
+participant RB as "Retry Button"
+U->>AP : Submit question
+AP->>AP : Process request
+AP-->>U : Display error message
+AP->>RB : Show retry button
+U->>RB : Click retry
+RB->>AP : Restore last failed question
+AP->>AP : Resubmit request
+```
+
+**Diagram sources**
+- [app.js:6949-6988](file://src/sage_faculty_twin/web/app.js#L6949-L6988)
+
+**Section sources**
+- [app.js:6949-6988](file://src/sage_faculty_twin/web/app.js#L6949-L6988)
+
+### Updated Roadmap Status for V3.1 LLM-Assisted JSON Planner
+- **V3.1 Implemented**: LLM-Assisted JSON Planner is now part of the v3.x baseline with shadow planning enabled by default.
+- **Shadow comparison**: Both deterministic and LLM shadow plans are generated and compared for every chat request.
+- **Planner comparison persistence**: Results stored under `data/conversation_memory/planner-comparisons/` with SQLite tracking.
+- **Policy validation**: Both plan types undergo identical policy validation through step registry and side-effect rules.
+- **Operations console integration**: Surfaces `workflow_plan_preview` and `shadow_planner_preview` in workflow traces.
+
+**Section sources**
+- [ROADMAP.md:343-363](file://ROADMAP.md#L343-L363)
+- [ROADMAP.md:365-372](file://ROADMAP.md#L365-L372)
+
 ## Dependency Analysis
 The system exhibits layered dependencies:
 - API depends on Service for orchestration and on Auth for session enforcement.
@@ -336,6 +444,7 @@ The system exhibits layered dependencies:
 - KnowledgeStore abstracts multiple backends; MemoryStore encapsulates conversation and profile memory.
 - WebSearchClient is optional and gated by configuration.
 - Persona builds system prompts from owner settings and style profiles.
+- **Frontend components**: HTML structure, JavaScript rendering functions, and CSS styling work together for user interface.
 
 ```mermaid
 graph LR
@@ -349,6 +458,8 @@ Service --> Avail["availability.py"]
 Service --> Persona["persona.py"]
 API --> Auth["auth.py"]
 API --> Models["models.py"]
+UI["index.html"] --> AppJS["app.js"]
+AppJS --> Styles["styles.css"]
 ```
 
 **Diagram sources**
@@ -362,6 +473,9 @@ API --> Models["models.py"]
 - [persona.py:22-39](file://src/sage_faculty_twin/persona.py#L22-L39)
 - [auth.py:16-17](file://src/sage_faculty_twin/auth.py#L16-L17)
 - [models.py:16-31](file://src/sage_faculty_twin/models.py#L16-L31)
+- [index.html:286-298](file://src/sage_faculty_twin/web/index.html#L286-L298)
+- [app.js:7835-7896](file://src/sage_faculty_twin/web/app.js#L7835-L7896)
+- [styles.css:825-889](file://src/sage_faculty_twin/web/styles.css#L825-L889)
 
 **Section sources**
 - [service.py:581-634](file://src/sage_faculty_twin/service.py#L581-L634)
@@ -371,21 +485,26 @@ API --> Models["models.py"]
 - Streaming and SSE: Keep-alive events prevent proxy timeouts; enable DIGITAL_TWIN_STREAM_CHAT_ANSWER for progressive UI updates.
 - Prompt soft cap: Truncation of memory hits, knowledge excerpts, and attachments bounds decode latency.
 - Backend selection: FAISS batching and ANN backends can accelerate retrieval; BM25 remains lightweight.
-- Concurrency: The planner’s DAG groups post-answer stages to minimize tail latency while preserving determinism.
-
-[No sources needed since this section provides general guidance]
+- Concurrency: The planner's DAG groups post-answer stages to minimize tail latency while preserving determinism.
+- **Frontend optimizations**: Enhanced markdown rendering and modal interfaces designed for efficient DOM manipulation and memory usage.
 
 ## Troubleshooting Guide
 - Streaming not observed: Verify DIGITAL_TWIN_STREAM_CHAT_ANSWER is enabled and upstream LLM supports chunked streaming.
 - Chat 504 timeout: The system enforces a configurable request timeout; adjust DIGITAL_TWIN_CHAT_REQUEST_TIMEOUT_SECONDS if upstream latency is high.
 - Attachment errors: Ensure supported MIME/type and size limits; UTF-8 decoding failures will raise validation errors.
 - Admin session issues: Confirm cookie signing secret and expiration; use admin login endpoints and inspect session via /auth/session.
+- **Changelog modal issues**: Verify version badge click handler and modal CSS classes are properly loaded; check browser console for JavaScript errors.
+- **Markdown table rendering**: Ensure table syntax follows pipe-delimited format with proper header separation using dashes and pipes.
+- **Retry mechanism**: Last failed question is maintained in memory; verify JavaScript event handlers are properly attached to retry buttons.
 
 **Section sources**
 - [README.md:111-117](file://README.md#L111-L117)
 - [api.py:127-129](file://src/sage_faculty_twin/api.py#L127-L129)
 - [api.py:328-368](file://src/sage_faculty_twin/api.py#L328-L368)
 - [auth.py:119-179](file://src/sage_faculty_twin/auth.py#L119-L179)
+- [index.html:286-298](file://src/sage_faculty_twin/web/index.html#L286-L298)
+- [app.js:7835-7856](file://src/sage_faculty_twin/web/app.js#L7835-L7856)
+- [app.js:6949-6988](file://src/sage_faculty_twin/web/app.js#L6949-L6988)
 
 ## Conclusion
-Sage Faculty Twin integrates an intelligent chat interface, robust workflow planning, multi-backend knowledge management, personalized memory systems, scheduling, and web search into a cohesive academic support platform. Administrative controls and session management ensure safe, auditable operations. Together, these features enable a responsive, policy-aligned, and scalable assistant tailored to a faculty member’s needs.
+Sage Faculty Twin integrates an intelligent chat interface, robust workflow planning, multi-backend knowledge management, personalized memory systems, scheduling, and web search into a cohesive academic support platform. Administrative controls and session management ensure safe, auditable operations. The recent enhancements include a comprehensive version changelog modal for release transparency, enhanced markdown table support for better content presentation, and an improved answer evidence panel with retry mechanism for better user experience. The roadmap confirms the successful implementation of V3.1 LLM-Assisted JSON Planner, marking a significant milestone in the evolution toward governed dynamic workflow generation. Together, these features enable a responsive, policy-aligned, and scalable assistant tailored to a faculty member's needs.

@@ -2525,8 +2525,23 @@ body.conversation-active .intro-card .message-body {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 10px;
+    gap: 6px;
     min-width: 0;
+}
+
+.composer-tools-left {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.composer-tools-right {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: nowrap;
+    flex-shrink: 0;
 }
 
 .composer-upload-button {
@@ -4648,11 +4663,21 @@ body.workflow-shell-collapsed #workflow-toggle {
     }
 
     .composer-tools-row {
-        justify-content: flex-start;
+        justify-content: space-between;
         flex-wrap: wrap;
-        gap: 8px;
+        gap: 6px;
         padding-top: 4px;
         border-top: 1px solid rgba(32, 33, 35, 0.08);
+    }
+
+    .composer-tools-left {
+        flex-wrap: wrap;
+        gap: 6px;
+    }
+
+    .composer-tools-right {
+        flex-wrap: wrap;
+        gap: 6px;
     }
 
     .composer-row textarea {
@@ -4969,4 +4994,83 @@ body.workflow-shell-collapsed #workflow-toggle {
         border-radius: 8px;
         font-size: 0.66rem;
     }
+}
+
+/* ── Token usage badge (inline in composer tools row) ── */
+.token-usage-inline {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+}
+
+.token-usage-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 8px;
+    border: 1px solid rgba(22, 35, 56, 0.08);
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.72);
+    color: var(--muted);
+    font-size: 0.75rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 120ms ease, color 120ms ease;
+}
+
+.token-usage-toggle:hover {
+    background: var(--surface-soft);
+    color: var(--ink);
+}
+
+.token-usage-summary {
+    font-variant-numeric: tabular-nums;
+}
+
+.token-usage-detail {
+    position: absolute;
+    bottom: 100%;
+    right: 0;
+    margin-bottom: 6px;
+    min-width: 180px;
+    padding: 10px 14px;
+    border-radius: 12px;
+    border: 1px solid var(--line);
+    background: var(--surface);
+    box-shadow: 0 6px 20px rgba(15, 23, 42, 0.1);
+    z-index: 20;
+}
+
+.token-usage-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 3px 0;
+    font-size: 0.8rem;
+    color: var(--muted);
+    font-variant-numeric: tabular-nums;
+}
+
+.token-usage-row span:last-child {
+    font-weight: 600;
+    color: var(--ink);
+    margin-left: 16px;
+}
+
+.token-usage-total {
+    border-top: 1px solid var(--line);
+    margin-top: 4px;
+    padding-top: 6px;
+}
+
+.token-usage-limit {
+    border-top: 1px solid var(--line);
+    margin-top: 4px;
+    padding-top: 6px;
+    color: var(--muted);
+}
+
+.token-usage-limit span:last-child {
+    color: var(--muted);
+    font-weight: 500;
 }

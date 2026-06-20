@@ -1,4 +1,0 @@
-- All Pydantic models use `ConfigDict(extra="forbid")` to prevent silent acceptance of unknown fields
-- Workflow steps are defined as immutable `WorkflowStepDefinition` records with explicit input/output contracts and side-effect labels
-- Service methods follow a stage-pattern where each method accepts and returns a `ChatWorkflowContext` to maintain state across the pipeline
-- Intent classification defaults to 'answer' action unless specific ambiguity markers are present, reducing unnecessary clarification loops

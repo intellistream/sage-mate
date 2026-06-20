@@ -1,0 +1,1 @@
+Root-level shell scripts (`manage.sh`, `quickstart.sh`) provide unified entry points for environment setup, service management, and local development, abstracting the complexity of individual child module configurations.

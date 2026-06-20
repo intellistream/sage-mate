@@ -1,0 +1,5 @@
+- Data is organized into domain-specific subdirectories (e.g., `conversation_memory`, `knowledge_base`, `user_accounts`) using a flat file-store architecture.
+- Structured data is persisted as individual JSON documents keyed by UUIDs, enabling simple append-only writes and easy manual inspection.
+- Conversation memory utilizes a hybrid approach with JSON for raw data and configuration, alongside SQLite databases (`memory_store.sqlite3`, `planner_metrics.sqlite3`) for structured querying and metrics.
+- Availability data is partitioned into current state (`current_week.json`) and historical logs (`history/*.json`), supporting time-series tracking of schedules.
+- Persona and policy configurations are stored as static Markdown and JSON files (`style_profile.md`, `faculty-default-2026-05.json`), serving as immutable references for agent behavior and workflow constraints.

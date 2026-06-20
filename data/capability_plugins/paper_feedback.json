@@ -1,0 +1,53 @@
+{
+    "plugin_id": "paper_feedback",
+    "name": "Paper Feedback Pack",
+    "description": "Adds paper review and feedback steps: rubric lookup, structured critique generation, and revision tracking.",
+    "min_app_version": "3.0.0",
+    "enabled": false,
+    "steps": [
+        {
+            "step_id": "retrieve_rubric",
+            "description": "Retrieve the grading rubric for the submission type.",
+            "required_inputs": ["course_context", "interaction_intent"],
+            "produces_outputs": ["rubric_hits"],
+            "timeout_budget_ms": 1000,
+            "trace_key": "plugin_rubric"
+        },
+        {
+            "step_id": "generate_structured_critique",
+            "description": "Generate structured paper feedback using rubric and retrieved examples.",
+            "required_inputs": ["prompt_context", "rubric_hits"],
+            "produces_outputs": ["structured_critique"],
+            "timeout_budget_ms": 4000,
+            "trace_key": "plugin_critique"
+        },
+        {
+            "step_id": "draft_revision_notes",
+            "description": "Draft revision tracking notes for the paper feedback.",
+            "required_inputs": ["structured_critique", "answer"],
+            "produces_outputs": ["revision_draft"],
+            "side_effect": "draft_write",
+            "timeout_budget_ms": 600,
+            "trace_key": "plugin_revision_draft"
+        }
+    ],
+    "policy_requirements": [
+        {
+            "step_id": "retrieve_rubric",
+            "requires_admin": false,
+            "allowed_side_effects": []
+        },
+        {
+            "step_id": "generate_structured_critique",
+            "requires_admin": false,
+            "allowed_side_effects": []
+        },
+        {
+            "step_id": "draft_revision_notes",
+            "requires_admin": false,
+            "requires_owner_review": true,
+            "allowed_side_effects": ["draft_write"]
+        }
+    ],
+    "test_scenario_ids": ["paper-feedback-basic", "rubric-retrieval"]
+}

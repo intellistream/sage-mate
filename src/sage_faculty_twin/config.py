@@ -119,6 +119,8 @@ class AppSettings(BaseSettings):
     sagevdb_backend: str = Field(default="cpp")
     sagevdb_anns_algorithm: str = Field(default="faiss_hnsw")
     service_manager_script: Path = Field(default=REPO_ROOT / "manage.sh")
+    capability_plugin_dir: Path = Field(default=Path("data/capability_plugins"))
+    changelog_path: Path = Field(default=Path("data/changelog.json"))
     admin_username: str = Field(default="admin")
     admin_password: str = Field(default="change-me-admin-password")
     manager_username: str = Field(default="manager")

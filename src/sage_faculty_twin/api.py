@@ -74,6 +74,7 @@ from .models import (
 )
 from .history_auth import resolve_authenticated_history_email
 from .service import DigitalTwinService, build_stack_versions_payload, build_hardware_payload
+from .capability_plugins import CapabilityPluginRegistry, CapabilityPluginStatus
 
 
 def configure_local_cors(target_app: FastAPI) -> None:
@@ -1004,6 +1005,36 @@ async def reject_booking(
     _: dict = Depends(require_admin_session),
 ) -> BookingResponse:
     return service.reject_booking(booking_id, request)
+
+
+@llm_app.get("/changelog")
+async def get_changelog() -> list[dict[str, object]]:
+    """Return version changelog entries from data/changelog.json."""
+    changelog_file = settings.changelog_path
+    if not changelog_file.is_file():
+        return []
+    try:
+        raw = json.loads(changelog_file.read_text(encoding="utf-8"))
+        if not isinstance(raw, list):
+            return []
+        return raw  # type: ignore[return-value]
+    except Exception:
+        return []
+
+
+@llm_app.get("/capabilities")
+async def get_capabilities(
+    _: dict = Depends(require_admin_session),
+) -> list[CapabilityPluginStatus]:
+    """Return loaded capability plugin statuses for the operations console."""
+    from . import __version__
+
+    registry = CapabilityPluginRegistry(
+        plugin_dir=settings.capability_plugin_dir,
+        current_version=__version__,
+    )
+    registry.load()
+    return registry.statuses
 
 
 app = create_edge_app(mount_llm=True, llm_prefix="/", llm_app=llm_app)

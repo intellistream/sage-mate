@@ -1,1 +1,0 @@
-Orchestrates a policy-governed, multi-stage chat pipeline that integrates deterministic workflow planning with LLM-driven intent classification and retrieval-augmented generation.

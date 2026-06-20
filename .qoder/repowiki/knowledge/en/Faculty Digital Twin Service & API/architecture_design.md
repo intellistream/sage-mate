@@ -1,0 +1,5 @@
+- **Entry Point**: `api.py` defines the FastAPI application (`llm_app`), handling HTTP routing, CORS, static file serving, and session authentication.
+- **Service Layer**: `service.py` implements `DigitalTwinService`, orchestrating complex chat workflows (intent classification, knowledge retrieval, LLM generation, memory persistence) via a step-based pipeline defined in `workflow_planner.py` and `workflow_steps.py`.
+- **Data & Memory**: Modular stores (`memory_store.py`, `knowledge_base.py`, `user_store.py`, etc.) manage persistent state using SQLite and local JSON/JSONL files, with `NeuroMemConversationStore` supporting neural continual memory.
+- **LLM Integration**: `llm_client.py` wraps vLLM/OpenAI-compatible endpoints, featuring streaming support, semantic caching, and intent-specific model routing.
+- **Configuration**: `config.py` uses `pydantic-settings` to manage environment-driven configuration for all subsystems.

@@ -2,6 +2,27 @@
 
 ## Unreleased
 
+## v3.3.0 - 2026-06-20
+
+`v3.3.0` delivers V3.3 Faculty-Specific Capability Plugins and replaces the hardcoded changelog with a data-driven API.
+
+### Added
+
+- **Capability Plugin System** (`capability_plugins.py`): manifest-driven plugin architecture with `CapabilityPluginManifest`, `CapabilityPluginRegistry`, validation, compatibility checks, and step registry merging.
+- **Two example plugin manifests** shipped in `data/capability_plugins/`:
+  - `course_advising.json`: syllabus lookup + prerequisite check steps
+  - `paper_feedback.json`: rubric retrieval + structured critique + revision draft steps
+- **`GET /changelog` endpoint**: serves release notes from `data/changelog.json` (no auth required).
+- **`GET /capabilities` endpoint**: returns plugin statuses for the operations console (admin auth required).
+- **`capability_plugin_dir` and `changelog_path`** added to `AppSettings`.
+- **24 tests** covering manifest loading, compatibility, validation, registry merging, and real manifest loading.
+
+### Changed
+
+- Changelog modal now fetches from `/changelog` API instead of hardcoded `CHANGELOG_DATA` in `app.js`.
+- Release notes content simplified and moved to `data/changelog.json`.
+- Plugin manifests are disabled by default (`"enabled": false`); enable via manifest edit when ready.
+
 ## v3.2.0 - 2026-06-20
 
 `v3.2.0` adds a user-facing version changelog modal and completes a full ROADMAP audit.

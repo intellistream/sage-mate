@@ -1,1 +1,0 @@
-Persists runtime state, user profiles, conversation memory, and domain knowledge for the faculty twin agent using a file-based JSON store and SQLite.

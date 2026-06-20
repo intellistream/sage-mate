@@ -3,12 +3,22 @@
 <cite>
 **Referenced Files in This Document**
 - [memory_store.py](file://src/sage_faculty_twin/memory_store.py)
+- [analytics_store.py](file://src/sage_faculty_twin/analytics_store.py)
+- [service.py](file://src/sage_faculty_twin/service.py)
 - [index_metadata.json](file://data/conversation_memory/collections/conversation-memory/index_metadata.json)
 - [index_metadata.json](file://data/conversation_memory/collections/conversation-profile-memory/index_metadata.json)
 - [raw_data.json](file://data/conversation_memory/collections/conversation-profile-memory/raw_data.json)
 - [test_memory_store.py](file://tests/test_memory_store.py)
-- [service.py](file://src/sage_faculty_twin/service.py)
+- [test_store_resilience.py](file://tests/test_store_resilience.py)
 </cite>
+
+## Update Summary
+**Changes Made**
+- Removed legacy conversation memory feedback system documentation
+- Updated knowledge-driven architecture section to reflect new approach
+- Revised telemetry system documentation to focus on memory usefulness scoring
+- Enhanced neural continual memory integration documentation
+- Updated troubleshooting section to remove feedback-related issues
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -23,15 +33,16 @@
 10. [Appendices](#appendices)
 
 ## Introduction
-This document explains the conversation memory system that powers contextual recall for chat workflows. It covers the ConversationMemoryRecord data structure, persistence and indexing mechanisms, retrieval algorithms, short-term versus long-term memory distinction, neural continual memory integration, attachment handling, and telemetry for performance monitoring. It also documents usage patterns, context preservation across conversations, and integration with workflow execution.
+This document explains the conversation memory system that powers contextual recall for chat workflows. The system has evolved to a knowledge-driven architecture that emphasizes automated memory evaluation and continuous improvement. It covers the ConversationMemoryRecord data structure, persistence and indexing mechanisms, retrieval algorithms, short-term versus long-term memory distinction, neural continual memory integration, attachment handling, and telemetry for performance monitoring. The system now focuses on memory usefulness scoring and automated quality assessment rather than manual feedback collection.
 
 ## Project Structure
-The conversation memory system is implemented in a dedicated store class backed by a layered memory collection abstraction. Data is persisted to SQLite snapshots and indexed via configurable backends. Profiles are derived from conversation exchanges and stored separately for long-term recall.
+The conversation memory system is implemented in a dedicated store class backed by a layered memory collection abstraction. Data is persisted to SQLite snapshots and indexed via configurable backends. Profiles are derived from conversation exchanges and stored separately for long-term recall. The system now emphasizes knowledge-driven evaluation through memory usefulness scoring.
 
 ```mermaid
 graph TB
 subgraph "Runtime Store"
 NCS["NeuroMemConversationStore<br/>manages records, profiles,<br/>timelines, and collections"]
+KUS["Knowledge-Driven Evaluation<br/>Memory Usefulness Scoring"]
 end
 subgraph "Collections"
 ConvColl["Conversation Collection<br/>short-term"]
@@ -48,6 +59,7 @@ Segment["Segment Index (optional)"]
 end
 NCS --> ConvColl
 NCS --> ProfColl
+NCS --> KUS
 ConvColl --> SQLite
 ProfColl --> SQLite
 ConvColl -. optional .-> BM25
@@ -60,12 +72,14 @@ SQLite --> Disk
 - [memory_store.py:223-257](file://src/sage_faculty_twin/memory_store.py#L223-L257)
 - [memory_store.py:996-1087](file://src/sage_faculty_twin/memory_store.py#L996-L1087)
 - [memory_store.py:1146-1179](file://src/sage_faculty_twin/memory_store.py#L1146-L1179)
+- [memory_store.py:1320-1353](file://src/sage_faculty_twin/memory_store.py#L1320-L1353)
 - [index_metadata.json:1-7](file://data/conversation_memory/collections/conversation-memory/index_metadata.json#L1-L7)
 
 **Section sources**
 - [memory_store.py:223-257](file://src/sage_faculty_twin/memory_store.py#L223-L257)
 - [memory_store.py:996-1087](file://src/sage_faculty_twin/memory_store.py#L996-L1087)
 - [memory_store.py:1146-1179](file://src/sage_faculty_twin/memory_store.py#L1146-L1179)
+- [memory_store.py:1320-1353](file://src/sage_faculty_twin/memory_store.py#L1320-L1353)
 - [index_metadata.json:1-7](file://data/conversation_memory/collections/conversation-memory/index_metadata.json#L1-L7)
 - [index_metadata.json:1-7](file://data/conversation_memory/collections/conversation-profile-memory/index_metadata.json#L1-L7)
 
@@ -74,7 +88,8 @@ SQLite --> Disk
 - ProfileMemoryRecord: Long-term user profile entries derived from conversations.
 - ConversationMemoryHit: Lightweight retrieval result for UI presentation.
 - AttachmentMemoryRecord: Minimal record for extracted attachment excerpts.
-- NeuroMemConversationStore: Central orchestrator for adding, persisting, and retrieving memories; managing timelines and profiles; and emitting telemetry.
+- NeuroMemConversationStore: Central orchestrator for adding, persisting, and retrieving memories; managing timelines and profiles; emitting telemetry; and evaluating memory usefulness.
+- ConversationAnalyticsStore: Analytics engine for processing conversation data and generating insights.
 
 Key responsibilities:
 - Build MemoryEntry payloads for conversation and profile collections.
@@ -83,20 +98,24 @@ Key responsibilities:
 - Persist collections to SQLite snapshots.
 - Select and configure indexes (BM25, FAISS, Sage VDB ANN, Segment).
 - Integrate with neural continual memory collection type.
+- Evaluate memory usefulness through automated scoring.
+- Generate knowledge gap recommendations based on conversation patterns.
 
 **Section sources**
 - [memory_store.py:55-121](file://src/sage_faculty_twin/memory_store.py#L55-L121)
 - [memory_store.py:160-194](file://src/sage_faculty_twin/memory_store.py#L160-L194)
 - [memory_store.py:147-158](file://src/sage_faculty_twin/memory_store.py#L147-L158)
 - [memory_store.py:223-257](file://src/sage_faculty_twin/memory_store.py#L223-L257)
+- [analytics_store.py:14-49](file://src/sage_faculty_twin/analytics_store.py#L14-L49)
 
 ## Architecture Overview
-The system separates short-term (conversation) and long-term (profile) memory into distinct collections. Short-term memory is optimized for recency and conversation context; long-term memory captures stable user characteristics. Retrieval combines both scopes according to a dynamic search plan.
+The system separates short-term (conversation) and long-term (profile) memory into distinct collections. Short-term memory is optimized for recency and conversation context; long-term memory captures stable user characteristics. Retrieval combines both scopes according to a dynamic search plan. The system now emphasizes knowledge-driven evaluation through memory usefulness scoring.
 
 ```mermaid
 sequenceDiagram
 participant WF as "Workflow"
 participant Store as "NeuroMemConversationStore"
+participant Eval as "Memory Usefulness Evaluator"
 participant Conv as "Conversation Collection"
 participant Prof as "Profile Collection"
 participant DB as "SQLite Snapshot"
@@ -105,6 +124,8 @@ Store->>Store : build MemoryEntry(s)
 Store->>Conv : insert entry(s)
 Store->>Prof : derive and upsert profiles
 Store->>DB : persist collection snapshot
+Store->>Eval : record_memory_usefulness()
+Eval->>Store : score_memory_usefulness()
 Store-->>WF : ConversationMemoryRecord
 WF->>Store : search(request, conversation_id, top_k)
 Store->>Store : _select_search_plan()
@@ -123,7 +144,7 @@ Store-->>WF : list[ConversationMemoryHit]
 - [memory_store.py:380-424](file://src/sage_faculty_twin/memory_store.py#L380-L424)
 - [memory_store.py:446-489](file://src/sage_faculty_twin/memory_store.py#L446-L489)
 - [memory_store.py:757-776](file://src/sage_faculty_twin/memory_store.py#L757-L776)
-- [memory_store.py:1391-1406](file://src/sage_faculty_twin/memory_store.py#L1391-L1406)
+- [memory_store.py:1320-1353](file://src/sage_faculty_twin/memory_store.py#L1320-L1353)
 - [memory_store.py:1146-1179](file://src/sage_faculty_twin/memory_store.py#L1146-L1179)
 
 ## Detailed Component Analysis
@@ -213,7 +234,7 @@ Neural continual memory collection type enables:
 - Runtime detection of service type for statistics reporting.
 
 Behavior:
-- On unified collections, service type becomes “online_continual_memory” when collection type is neural_continual.
+- On unified collections, service type becomes "online_continual_memory" when collection type is neural_continual.
 - Persistence preserves collection type across restarts.
 
 **Section sources**
@@ -251,16 +272,64 @@ Storage:
 - [memory_store.py:1566-1596](file://src/sage_faculty_twin/memory_store.py#L1566-L1596)
 - [raw_data.json:1-200](file://data/conversation_memory/collections/conversation-profile-memory/raw_data.json#L1-L200)
 
+### Knowledge-Driven Architecture and Memory Usefulness Scoring
+**Updated** The system now emphasizes knowledge-driven evaluation through automated memory usefulness scoring instead of manual feedback collection.
+
+The memory usefulness evaluation system assesses:
+- Whether memory and knowledge materials helped answer the question effectively.
+- The quality and relevance of retrieved context.
+- The freshness and recency of memory usage.
+- The balance between short-term and long-term memory utilization.
+
+Scoring criteria:
+- Helpful: Memory significantly contributed to answer quality and context continuity.
+- Stale: Memory is outdated and lacks supporting knowledge materials.
+- Low confidence: No retrievable evidence found to support the answer.
+- Review worthy: Memory used but lacks sufficient knowledge material support.
+
+Integration:
+- Automatically triggered after answer generation in workflow execution.
+- Records detailed telemetry with signal, reason, and usage metrics.
+- Generates knowledge gap recommendations based on patterns.
+
+**Section sources**
+- [memory_store.py:1320-1353](file://src/sage_faculty_twin/memory_store.py#L1320-L1353)
+- [service.py:1812-1876](file://src/sage_faculty_twin/service.py#L1812-L1876)
+- [service.py:1936-1999](file://src/sage_faculty_twin/service.py#L1936-L1999)
+
+### Analytics and Knowledge Gap Recommendations
+**Updated** The analytics system now focuses on knowledge-driven insights rather than feedback-based metrics.
+
+Capabilities:
+- Cluster similar conversation exchanges based on question patterns and domains.
+- Identify knowledge gaps and generate actionable recommendations.
+- Track satisfaction trends and resolution rates.
+- Provide weekly reports on memory effectiveness and knowledge coverage.
+
+Knowledge gap detection:
+- Analyzes unresolved questions and common themes.
+- Suggests FAQ content and knowledge base improvements.
+- Generates draft content for knowledge base enhancement.
+
+**Section sources**
+- [analytics_store.py:99-141](file://src/sage_faculty_twin/analytics_store.py#L99-L141)
+- [analytics_store.py:149-192](file://src/sage_faculty_twin/analytics_store.py#L149-L192)
+- [analytics_store.py:559-591](file://src/sage_faculty_twin/analytics_store.py#L559-L591)
+
 ### Telemetry and Performance Monitoring
-Telemetry tracks:
+**Updated** Telemetry now focuses on memory usefulness scoring and knowledge-driven metrics.
+
+Tracking includes:
 - Write events for conversation and profile writes.
 - Retrieve events for general retrieval, artifact retrieval, and search plans.
-- Memory usefulness signals with counts and reasons.
+- Memory usefulness signals with counts, reasons, and quality assessments.
 - Event counters by type and recent event summaries.
+- Knowledge gap detection and recommendation generation.
 
 Statistics:
 - Service stats include storage stats, index counts, and telemetry summaries.
 - Runtime snapshot exposes conversation and profile stats along with recent events.
+- Memory usefulness telemetry provides insights into retrieval quality and effectiveness.
 
 **Section sources**
 - [memory_store.py:413-423](file://src/sage_faculty_twin/memory_store.py#L413-L423)
@@ -273,14 +342,18 @@ Statistics:
 - [memory_store.py:743-755](file://src/sage_faculty_twin/memory_store.py#L743-L755)
 
 ### Integration with Workflow Execution
-The workflow integrates memory persistence and retrieval:
-- After generating an answer, the workflow persists the exchange to memory store.
-- Attachment artifacts are recorded as part of the memory draft.
-- Retrieval is invoked prior to response generation to enrich context.
+**Updated** The workflow integrates memory persistence, retrieval, and knowledge-driven evaluation.
+
+Enhanced integration includes:
+- Automatic memory usefulness scoring after answer generation.
+- Knowledge gap detection and recommendation generation.
+- Automated quality assessment of memory usage.
+- Integration with analytics for continuous improvement.
 
 **Section sources**
 - [service.py:1519-1532](file://src/sage_faculty_twin/service.py#L1519-L1532)
 - [service.py:3958-3984](file://src/sage_faculty_twin/service.py#L3958-L3984)
+- [service.py:1812-1876](file://src/sage_faculty_twin/service.py#L1812-L1876)
 
 ## Dependency Analysis
 ```mermaid
@@ -336,6 +409,17 @@ class ConversationMemoryHit {
 +string topic
 +string source_label
 }
+class ConversationFeedbackRecord {
++string exchange_id
++string rating
++bool resolved
++bool needs_human_followup
++string issue_summary
++datetime created_at
++datetime updated_at
++to_dict()
++from_dict()
+}
 class NeuroMemConversationStore {
 +add_exchange(...)
 +search(...)
@@ -347,23 +431,34 @@ class NeuroMemConversationStore {
 +runtime_snapshot()
 +get_telemetry_events(...)
 +get_telemetry_summary(...)
++record_memory_usefulness(...)
+}
+class ConversationAnalyticsStore {
++submit_feedback(...)
++get_feedback(...)
++count_feedback(...)
++build_weekly_report(...)
++build_satisfaction_report(...)
 }
 NeuroMemConversationStore --> ConversationMemoryRecord : "creates"
 NeuroMemConversationStore --> ProfileMemoryRecord : "derives/upserts"
 ConversationMemoryRecord --> AttachmentMemoryRecord : "contains"
 ConversationMemoryRecord --> ConversationMemoryHit : "used in results"
 ProfileMemoryRecord --> ConversationMemoryHit : "used in results"
+ConversationAnalyticsStore --> ConversationFeedbackRecord : "processes"
 ```
 
 **Diagram sources**
 - [memory_store.py:55-121](file://src/sage_faculty_twin/memory_store.py#L55-L121)
 - [memory_store.py:160-194](file://src/sage_faculty_twin/memory_store.py#L160-L194)
 - [memory_store.py:223-257](file://src/sage_faculty_twin/memory_store.py#L223-L257)
+- [analytics_store.py:14-49](file://src/sage_faculty_twin/analytics_store.py#L14-L49)
 
 **Section sources**
 - [memory_store.py:55-121](file://src/sage_faculty_twin/memory_store.py#L55-L121)
 - [memory_store.py:160-194](file://src/sage_faculty_twin/memory_store.py#L160-L194)
 - [memory_store.py:223-257](file://src/sage_faculty_twin/memory_store.py#L223-L257)
+- [analytics_store.py:14-49](file://src/sage_faculty_twin/analytics_store.py#L14-L49)
 
 ## Performance Considerations
 - Index selection: BM25 is default for unified collections; FAISS/Sage VDB ANN require optional dependencies and enable vector-based retrieval when configured.
@@ -371,15 +466,17 @@ ProfileMemoryRecord --> ConversationMemoryHit : "used in results"
 - Recency bias: Recent same-conversation items are prioritized for short-term retrieval.
 - Deduplication: Results are de-duplicated by memory_id or attachment index to avoid redundant context.
 - Telemetry sampling: Recent telemetry events are capped to control overhead.
-
-[No sources needed since this section provides general guidance]
+- Memory usefulness scoring: Automated evaluation reduces manual overhead while improving quality assessment.
 
 ## Troubleshooting Guide
-Common issues and resolutions:
+**Updated** Common issues and resolutions for the knowledge-driven architecture:
+
 - Missing optional dependency for Sage VDB ANN index: The store raises a runtime error when the required package is absent; switch index type or install the dependency.
 - Legacy disk layout migration: Old JSON directories are migrated once; ensure cleanup completes and verify SQLite snapshot exists.
 - Duplicate profile entries: Canonicalization removes older duplicates; verify the latest profile is retained after reload.
 - Neural continual collection type persistence: After setting the collection type, confirm it persists across restarts.
+- Memory usefulness scoring failures: Check workflow configuration for memory usefulness evaluation steps.
+- Knowledge gap detection issues: Verify analytics store initialization and feedback data availability.
 
 **Section sources**
 - [memory_store.py:324-322](file://src/sage_faculty_twin/memory_store.py#L324-L322)
@@ -388,21 +485,28 @@ Common issues and resolutions:
 - [test_memory_store.py:324-344](file://tests/test_memory_store.py#L324-L344)
 - [test_memory_store.py:255-289](file://tests/test_memory_store.py#L255-L289)
 - [test_memory_store.py:291-322](file://tests/test_memory_store.py#L291-L322)
+- [test_store_resilience.py:173-190](file://tests/test_store_resilience.py#L173-L190)
 
 ## Conclusion
-The conversation memory system provides robust, layered recall across short-term and long-term contexts, with flexible indexing and neural continual memory integration. It preserves context across conversations, handles attachments, and offers comprehensive telemetry for performance monitoring. The design supports both unified and neural continual collection types, with automatic persistence and migration for reliability.
+The conversation memory system provides robust, layered recall across short-term and long-term contexts, with flexible indexing and neural continual memory integration. The system has evolved to a knowledge-driven architecture that emphasizes automated memory evaluation and continuous improvement through memory usefulness scoring. It preserves context across conversations, handles attachments, generates knowledge gap recommendations, and offers comprehensive telemetry for performance monitoring. The design supports both unified and neural continual collection types, with automatic persistence and migration for reliability.
 
 ## Appendices
 
 ### Example Usage Patterns
-- Writing a conversation exchange and deriving profiles:
-  - Add exchange via the store’s add_exchange method.
+**Updated** Enhanced usage patterns for the knowledge-driven architecture:
+
+- Writing a conversation exchange with automatic memory usefulness evaluation:
+  - Add exchange via the store's add_exchange method.
+  - Memory usefulness scoring automatically triggered in workflow.
   - Consolidate profiles to persist long-term characteristics.
-- Retrieving context-aware results:
+- Retrieving context-aware results with knowledge gap insights:
   - Call search with top_k and include flags for short-term/long-term.
   - Use search_artifacts for attachment excerpts.
-- Inspecting runtime health:
+  - Access knowledge gap recommendations from analytics store.
+- Inspecting runtime health and memory effectiveness:
   - Use runtime_snapshot and telemetry APIs to review stats and recent events.
+  - Monitor memory usefulness signals and quality metrics.
+  - Review knowledge gap reports and recommendations.
 
 **Section sources**
 - [service.py:1519-1532](file://src/sage_faculty_twin/service.py#L1519-L1532)
@@ -410,3 +514,4 @@ The conversation memory system provides robust, layered recall across short-term
 - [memory_store.py:491-582](file://src/sage_faculty_twin/memory_store.py#L491-L582)
 - [memory_store.py:743-755](file://src/sage_faculty_twin/memory_store.py#L743-L755)
 - [memory_store.py:675-741](file://src/sage_faculty_twin/memory_store.py#L675-L741)
+- [analytics_store.py:149-192](file://src/sage_faculty_twin/analytics_store.py#L149-L192)

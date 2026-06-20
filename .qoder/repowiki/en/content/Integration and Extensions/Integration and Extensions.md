@@ -11,6 +11,8 @@
 - [service.py](file://src/sage_faculty_twin/service.py)
 - [workflow_steps.py](file://src/sage_faculty_twin/workflow_steps.py)
 - [config.py](file://src/sage_faculty_twin/config.py)
+- [models.py](file://src/sage_faculty_twin/models.py)
+- [analytics_store.py](file://src/sage_faculty_twin/analytics_store.py)
 - [systemd user services](file://deploy/systemd/user/sage-faculty-twin-vllm-openai-proxy.service)
 - [local site proxy](file://tools/local_site_proxy.py)
 - [run local proxy](file://tools/run_local_proxy.sh)
@@ -21,11 +23,11 @@
 
 ## Update Summary
 **Changes Made**
-- Enhanced LLM client integration with intelligent compatibility detection for thinking token budget feature
-- Added automatic detection of vllm instance support for reasoning-config parameter
-- Updated LLM client architecture documentation to reflect dynamic thinking budget support
-- Added configuration documentation for thinking_token_budget setting
-- Updated troubleshooting guide to include reasoning-config compatibility issues
+- Updated to reflect deprecated legacy data structures and feedback collection mechanisms in favor of new knowledge-driven approach
+- Added comprehensive documentation for feedback-web knowledge integration and review workflow
+- Enhanced knowledge base documentation to include feedback collection and review status management
+- Updated troubleshooting guide to address feedback-web integration issues
+- Added new section on feedback-driven knowledge enhancement workflow
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -40,10 +42,10 @@
 10. [Appendices](#appendices)
 
 ## Introduction
-This document explains how to integrate and extend the SAGE Faculty Twin platform. It covers API integration patterns, SSE-based streaming, OpenAI-compatible proxy configuration, web search integration, LLM client architecture, knowledge base backends, memory collections, and extension points for custom workflows, knowledge backends, and memory collections. The platform now features enhanced LLM client integration with intelligent compatibility detection for thinking token budget features and automatic detection of vllm instance support for reasoning-config parameter. Guidance is provided for connecting external systems, exporting data, consuming APIs, and adding new functionality while preserving stability and performance.
+This document explains how to integrate and extend the SAGE Faculty Twin platform. It covers API integration patterns, SSE-based streaming, OpenAI-compatible proxy configuration, web search integration, LLM client architecture, knowledge base backends, memory collections, and extension points for custom workflows, knowledge backends, and memory collections. The platform now features a knowledge-driven approach that has deprecated legacy data structures and feedback collection mechanisms, replacing them with integrated feedback-web knowledge processing and automated review workflows.
 
 ## Project Structure
-The platform is organized around a FastAPI application that exposes REST endpoints, integrates with an LLM via an OpenAI-compatible interface, and orchestrates retrieval from knowledge and memory backends. Supporting utilities include a vLLM OpenAI proxy, web search client, and systemd-managed services for local development and deployment.
+The platform is organized around a FastAPI application that exposes REST endpoints, integrates with an LLM via an OpenAI-compatible interface, and orchestrates retrieval from knowledge and memory backends. Supporting utilities include a vLLM OpenAI proxy, web search client, and systemd-managed services for local development and deployment. The system now emphasizes knowledge-driven feedback collection through dedicated feedback-web sources with integrated review workflows.
 
 ```mermaid
 graph TB
@@ -57,22 +59,26 @@ LLM["Enhanced LLM Client<br/>/src/sage_faculty_twin/llm_client.py"]
 KB["Knowledge Store<br/>/src/sage_faculty_twin/knowledge_base.py"]
 Mem["Memory Store<br/>/src/sage_faculty_twin/memory_store.py"]
 WS["Web Search Client<br/>/src/sage_faculty_twin/web_search.py"]
+Analytics["Analytics Store<br/>/src/sage_faculty_twin/analytics_store.py"]
 end
 subgraph "External Systems"
 Upstream["vLLM/OpenAI-Compatible LLM<br/>with Reasoning Config Support"]
 VDB["sageVDB / ANN Index"]
 NM["Neuromem Index"]
 Bing["Bing Search"]
+FeedbackWeb["Feedback-Web Integration"]
 end
 API --> Service
 Service --> LLM
 Service --> KB
 Service --> Mem
 Service --> WS
+Service --> Analytics
 LLM --> Upstream
 KB --> VDB
 KB --> NM
 WS --> Bing
+KB --> FeedbackWeb
 Proxy --> Upstream
 ```
 
@@ -84,6 +90,7 @@ Proxy --> Upstream
 - [knowledge_base.py:121-140](file://src/sage_faculty_twin/knowledge_base.py#L121-L140)
 - [memory_store.py:223-257](file://src/sage_faculty_twin/memory_store.py#L223-L257)
 - [web_search.py:93-127](file://src/sage_faculty_twin/web_search.py#L93-L127)
+- [analytics_store.py:485-510](file://src/sage_faculty_twin/analytics_store.py#L485-L510)
 
 **Section sources**
 - [api.py:90-120](file://src/sage_faculty_twin/api.py#L90-L120)
@@ -94,10 +101,11 @@ Proxy --> Upstream
 - REST API surface: Authentication, chat orchestration, knowledge management, presence, and operational endpoints.
 - Streaming: SSE-based workflow tracing and optional token streaming for answers.
 - Enhanced LLM client: OpenAI-compatible HTTP client with intelligent compatibility detection for thinking token budget features, caching, metrics, and streaming support.
-- Knowledge base: Pluggable backends (sageVDB, Neuromem, BM25) with embedding and lexical retrieval.
+- Knowledge base: Pluggable backends (sageVDB, Neuromem, BM25) with embedding and lexical retrieval, now featuring integrated feedback-web knowledge processing.
 - Memory collections: Neural layered memory with configurable index backends and telemetry.
 - Web search: Bing-based client with query rewriting and result reranking.
 - OpenAI-compatible proxy: Secure forwarding to upstream LLM with API key enforcement and streaming passthrough.
+- **Deprecated**: Legacy feedback collection mechanisms have been replaced with knowledge-driven feedback-web integration.
 
 **Section sources**
 - [api.py:597-700](file://src/sage_faculty_twin/api.py#L597-L700)
@@ -108,7 +116,7 @@ Proxy --> Upstream
 - [vllm_openai_proxy.py:123-257](file://src/sage_faculty_twin/vllm_openai_proxy.py#L123-L257)
 
 ## Architecture Overview
-The system integrates multiple data sources and compute backends behind a unified API. The service orchestrates retrieval, LLM prompting, and post-answer actions, emitting structured trace events for observability. The enhanced LLM client now features intelligent compatibility detection for thinking token budget features and automatic reasoning-config parameter support.
+The system integrates multiple data sources and compute backends behind a unified API. The service orchestrates retrieval, LLM prompting, and post-answer actions, emitting structured trace events for observability. The enhanced LLM client now features intelligent compatibility detection for thinking token budget features and automatic reasoning-config parameter support. The knowledge base has been enhanced with feedback-web integration that replaces legacy feedback collection mechanisms.
 
 ```mermaid
 sequenceDiagram
@@ -119,6 +127,7 @@ participant LLM as "Enhanced LLM Client"
 participant KB as "Knowledge Store"
 participant Mem as "Memory Store"
 participant WS as "Web Search"
+participant Analytics as "Analytics Store"
 Client->>API : POST /chat (JSON or multipart)
 API->>Service : answer(ChatRequest, callbacks)
 Service->>Service : bootstrap_chat()
@@ -134,6 +143,9 @@ Service->>LLM : answer_question_sync(system, user, thinking_token_budget)
 Note over LLM : Intelligent compatibility detection for reasoning-config
 LLM-->>Service : answer (streaming chunks if enabled)
 Service->>Service : post-answer actions (persist, profile, follow-up)
+Service->>Analytics : submit_feedback(exchange_id, rating, resolved, needs_human_followup)
+Analytics-->>Service : ExchangeAnalyticsSample
+Service->>KB : write_back_feedback_knowledge(exchange_id, feedback)
 Service-->>API : ChatResponse
 API-->>Client : ChatResponse or SSE events
 ```
@@ -145,6 +157,7 @@ API-->>Client : ChatResponse or SSE events
 - [web_search.py:109-127](file://src/sage_faculty_twin/web_search.py#L109-L127)
 - [knowledge_base.py:273-295](file://src/sage_faculty_twin/knowledge_base.py#L273-L295)
 - [memory_store.py:446-489](file://src/sage_faculty_twin/memory_store.py#L446-L489)
+- [analytics_store.py:485-510](file://src/sage_faculty_twin/analytics_store.py#L485-L510)
 
 ## Detailed Component Analysis
 
@@ -284,11 +297,12 @@ Rerank --> Out["WebSearchResults"]
 - [web_search.py:93-127](file://src/sage_faculty_twin/web_search.py#L93-L127)
 - [web_search.py:222-252](file://src/sage_faculty_twin/web_search.py#L222-L252)
 
-### Knowledge Backend Plugins
-The knowledge store supports multiple backends:
+### Knowledge Backend Plugins with Feedback-Web Integration
+The knowledge store supports multiple backends with enhanced feedback-web integration:
 - sageVDB: Flat or ANN indices with configurable distance metric and algorithm.
 - Neuromem: BM25 or FAISS indexes with batched embedding for FAISS.
 - Local JSON storage: Fallback lexical search with visibility rules and de-duplication.
+- **New**: Integrated feedback-web knowledge processing with review status management.
 
 ```mermaid
 classDiagram
@@ -299,6 +313,11 @@ class LocalKnowledgeStore {
 +update_document(document_id, payload, rebuild_indexes) KnowledgeDocumentRecord
 +delete_documents(ids, rebuild_indexes) int
 +rebuild_indexes() void
+}
+class FeedbackWebProcessor {
++_process_feedback_web_source(document) void
++_apply_review_boost(document, query_profile) float
++_update_review_status(document, action) void
 }
 class HashingTextEmbedder {
 +encode(text) ndarray
@@ -312,17 +331,20 @@ class NeuromemBgeEmbedder {
 LocalKnowledgeStore --> HashingTextEmbedder : "uses"
 LocalKnowledgeStore --> SentenceTransformerTextEmbedder : "uses"
 LocalKnowledgeStore --> NeuromemBgeEmbedder : "uses"
+LocalKnowledgeStore --> FeedbackWebProcessor : "uses"
 ```
 
 **Diagram sources**
 - [knowledge_base.py:121-140](file://src/sage_faculty_twin/knowledge_base.py#L121-L140)
 - [knowledge_base.py:18-76](file://src/sage_faculty_twin/knowledge_base.py#L18-L76)
 - [knowledge_base.py:78-119](file://src/sage_faculty_twin/knowledge_base.py#L78-L119)
+- [knowledge_base.py:861-880](file://src/sage_faculty_twin/knowledge_base.py#L861-L880)
 
 **Section sources**
 - [knowledge_base.py:121-140](file://src/sage_faculty_twin/knowledge_base.py#L121-L140)
 - [knowledge_base.py:18-76](file://src/sage_faculty_twin/knowledge_base.py#L18-L76)
 - [knowledge_base.py:78-119](file://src/sage_faculty_twin/knowledge_base.py#L78-L119)
+- [knowledge_base.py:861-880](file://src/sage_faculty_twin/knowledge_base.py#L861-L880)
 
 ### Memory Collection Additions
 The memory store provides:
@@ -355,6 +377,45 @@ class NeuroMemConversationStore {
 - [memory_store.py:223-257](file://src/sage_faculty_twin/memory_store.py#L223-L257)
 - [memory_store.py:380-424](file://src/sage_faculty_twin/memory_store.py#L380-L424)
 - [memory_store.py:446-489](file://src/sage_faculty_twin/memory_store.py#L446-L489)
+
+### Feedback-Driven Knowledge Enhancement Workflow
+**Deprecated Legacy Mechanisms**: Legacy feedback collection mechanisms have been replaced with a comprehensive knowledge-driven approach that integrates feedback-web sources directly into the knowledge base with automated review workflows.
+
+The new feedback-web integration includes:
+- **Feedback-Web Source Processing**: Documents with source names starting with "feedback-web:" or tags containing "feedback-web" are automatically identified as feedback sources.
+- **Review Status Management**: Documents maintain review_status ("pending", "approved", "stale") and freshness_status ("web", "stale").
+- **Review Boost Logic**: Non-admin users receive negative relevance boosts for pending/stale feedback-web documents and strong negative boosts for stale documents.
+- **Administrative Review Interface**: Admin-only access to approve or mark feedback-web documents as stale.
+- **Knowledge Write-Back**: Feedback submissions automatically generate knowledge entries for continuous improvement.
+
+```mermaid
+flowchart TD
+Feedback["User Feedback Submission"] --> Submit["Submit Chat Feedback"]
+Submit --> Analytics["Analytics Store Process"]
+Analytics --> CreateDoc["Create Knowledge Document (feedback-web)"]
+CreateDoc --> Pending["Set Review Status: pending"]
+Pending --> AdminReview["Admin Review Interface"]
+AdminReview --> Approve{"Approve or Stale?"}
+Approve --> |Approve| Approved["Set Status: approved<br/>Freshness: web"]
+Approve --> |Stale| Stale["Set Status: stale<br/>Freshness: stale"]
+Approved --> Boost["Apply Positive Review Boost"]
+Stale --> NegativeBoost["Apply Negative Review Boost"]
+Boost --> Search["Search with Feedback-Web Boost"]
+NegativeBoost --> Search
+Search --> Improved["Improved Knowledge Retrieval"]
+```
+
+**Diagram sources**
+- [service.py:2396-2419](file://src/sage_faculty_twin/service.py#L2396-L2419)
+- [service.py:2251-2321](file://src/sage_faculty_twin/service.py#L2251-L2321)
+- [knowledge_base.py:861-880](file://src/sage_faculty_twin/knowledge_base.py#L861-L880)
+- [models.py:342-383](file://src/sage_faculty_twin/models.py#L342-L383)
+
+**Section sources**
+- [service.py:2396-2419](file://src/sage_faculty_twin/service.py#L2396-L2419)
+- [service.py:2251-2321](file://src/sage_faculty_twin/service.py#L2251-L2321)
+- [knowledge_base.py:861-880](file://src/sage_faculty_twin/knowledge_base.py#L861-L880)
+- [models.py:342-383](file://src/sage_faculty_twin/models.py#L342-L383)
 
 ### Custom Workflow Extensions
 The workflow step registry defines the canonical steps and their properties. To add a custom step:
@@ -393,11 +454,13 @@ Registry --> WorkflowStepDefinition : "returns copies"
 - Upstream LLM: Configured via base URL and API key; metrics and health endpoints exposed.
 - Web search: Bing endpoints with query normalization and result scoring.
 - Data export: Knowledge CRUD endpoints, conversation history endpoints, and telemetry summaries.
+- **New**: Feedback-web knowledge review endpoints for administrative oversight.
 
 Operational endpoints:
 - Health and diagnostics: /health, /stack/versions, /stack/hardware.
-- Knowledge management: CRUD endpoints for knowledge documents.
+- Knowledge management: CRUD endpoints for knowledge documents, including feedback-web review.
 - Conversations: List and fetch transcripts with privacy controls.
+- **New**: Feedback-web review management: List review summaries, approve/reject feedback-web documents.
 
 **Section sources**
 - [api.py:512-540](file://src/sage_faculty_twin/api.py#L512-L540)
@@ -413,6 +476,7 @@ Service["service.py"] --> LLM["llm_client.py"]
 Service --> KB["knowledge_base.py"]
 Service --> Mem["memory_store.py"]
 Service --> WS["web_search.py"]
+Service --> Analytics["analytics_store.py"]
 API["api.py"] --> Service
 Proxy["vllm_openai_proxy.py"] --> Upstream["Upstream LLM"]
 ```
@@ -432,6 +496,7 @@ Proxy["vllm_openai_proxy.py"] --> Upstream["Upstream LLM"]
 - Prompt soft cap: Truncation policies reduce prompt size to maintain bounded decode latency.
 - Caching and metrics: Response cache and semantic similarity cache reduce repeated work; metrics track throughput and latency.
 - **Enhanced**: Intelligent compatibility detection reduces unnecessary thinking token budget requests for older vllm instances.
+- **New**: Feedback-web review boost computation adds minimal overhead during search scoring.
 - Index backends: Choose appropriate knowledge and memory backends for query latency and recall trade-offs.
 - Concurrency limits: HTTP client limits and thread-safe caches balance throughput and resource usage.
 
@@ -444,8 +509,9 @@ Common areas to check:
 - **New**: Thinking token budget compatibility: If you encounter 400 errors with "reasoning_config" or "thinking_token_budget" messages, the vllm instance doesn't support the reasoning-config parameter. The system automatically disables thinking budget features for such instances.
 - Knowledge backend failures: Confirm backend selection and embedding model availability.
 - Memory backend readiness: Ensure index type is available and properly initialized.
+- **New**: Feedback-web integration issues: Verify feedback-web source naming conventions and review status synchronization.
 
-**Updated** Added troubleshooting guidance for thinking token budget compatibility issues with vllm instances.
+**Updated** Added troubleshooting guidance for thinking token budget compatibility issues and feedback-web integration problems.
 
 **Section sources**
 - [api.py:451-510](file://src/sage_faculty_twin/api.py#L451-L510)
@@ -456,7 +522,7 @@ Common areas to check:
 - [memory_store.py:258-322](file://src/sage_faculty_twin/memory_store.py#L258-L322)
 
 ## Conclusion
-The platform offers a robust foundation for integrating external LLMs, knowledge bases, and memory systems. Its modular design enables extending workflows, adding new knowledge backends, and augmenting memory collections while maintaining performance and observability. The enhanced LLM client now features intelligent compatibility detection for thinking token budget features and automatic reasoning-config parameter support, improving reliability across different vllm instance configurations. Use the provided proxy, streaming, and diagnostic endpoints to safely integrate and monitor new components.
+The platform offers a robust foundation for integrating external LLMs, knowledge bases, and memory systems. Its modular design enables extending workflows, adding new knowledge backends, and augmenting memory collections while maintaining performance and observability. The enhanced LLM client now features intelligent compatibility detection for thinking token budget features and automatic reasoning-config parameter support, improving reliability across different vllm instance configurations. The deprecated legacy feedback collection mechanisms have been replaced with a comprehensive knowledge-driven feedback-web integration that provides better data quality and automated review workflows. Use the provided proxy, streaming, and diagnostic endpoints to safely integrate and monitor new components.
 
 ## Appendices
 
@@ -476,8 +542,10 @@ The platform offers a robust foundation for integrating external LLMs, knowledge
   - **New**: DIGITAL_TWIN_THINKING_TOKEN_BUDGET: Default thinking token budget (default: 512).
 - Web search:
   - DIGITAL_TWIN_WEB_SEARCH_TIMEOUT_SECONDS/DIGITAL_TWIN_WEB_SEARCH_MAX_RESULTS: Limits for web search.
+- **New**: Feedback-web integration:
+  - Automatic feedback-web document processing and review workflow.
 
-**Updated** Added DIGITAL_TWIN_THINKING_TOKEN_BUDGET configuration for thinking token budget feature.
+**Updated** Added DIGITAL_TWIN_THINKING_TOKEN_BUDGET configuration for thinking token budget feature and feedback-web integration documentation.
 
 **Section sources**
 - [vllm_openai_proxy.py:36-66](file://src/sage_faculty_twin/vllm_openai_proxy.py#L36-L66)
@@ -520,3 +588,20 @@ The LLM client now includes intelligent compatibility detection for thinking tok
 - [llm_client.py:628-634](file://src/sage_faculty_twin/llm_client.py#L628-L634)
 - [llm_client.py:652-667](file://src/sage_faculty_twin/llm_client.py#L652-L667)
 - [llm_client.py:670-685](file://src/sage_faculty_twin/llm_client.py#L670-L685)
+
+### Feedback-Web Knowledge Integration Details
+**Deprecated Legacy Feedback Mechanisms**: The platform has deprecated legacy feedback collection mechanisms in favor of integrated feedback-web knowledge processing.
+
+Key aspects of the new feedback-web integration:
+- **Source Identification**: Documents with source names starting with "feedback-web:" or tags containing "feedback-web" are automatically processed as feedback sources.
+- **Review Status Tracking**: Documents maintain review_status ("unknown", "pending", "approved", "stale") and freshness_status ("unknown", "web", "stale").
+- **Administrative Controls**: Admin-only access to review and approve feedback-web documents.
+- **Search Integration**: Non-admin users receive negative relevance boosts for pending/stale feedback-web documents to prioritize approved content.
+- **Automated Processing**: Feedback submissions automatically generate knowledge entries for continuous system improvement.
+
+**Section sources**
+- [models.py:342-383](file://src/sage_faculty_twin/models.py#L342-L383)
+- [knowledge_base.py:861-880](file://src/sage_faculty_twin/knowledge_base.py#L861-L880)
+- [service.py:2251-2321](file://src/sage_faculty_twin/service.py#L2251-L2321)
+- [service.py:2396-2419](file://src/sage_faculty_twin/service.py#L2396-L2419)
+- [analytics_store.py:485-510](file://src/sage_faculty_twin/analytics_store.py#L485-L510)

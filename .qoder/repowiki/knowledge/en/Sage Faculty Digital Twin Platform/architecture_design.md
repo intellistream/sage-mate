@@ -1,0 +1,3 @@
+- The root module acts as the deployment and operational boundary, wiring child modules through shared filesystem state in `data/` (runtime memory, knowledge base) and unified service definitions in `deploy/systemd/`.
+- Child modules interact via file-based contracts: `app_source` reads/writes `runtime_data` JSON/SQLite stores, while `deployment` units manage the lifecycle of the application server and its inference proxies.
+- `tests` validate end-to-end flows across these boundaries, ensuring the LLM workflow, memory persistence, and API contracts remain consistent with the product vision outlined in `docs`.

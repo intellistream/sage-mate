@@ -362,6 +362,17 @@ In addition, `v3.1.0` delivered the retrieval and workflow modernization that su
 - Homepage migrated to GitHub Pages; tunnel/site-proxy is optional.
 - All 28 ruff lint errors resolved; CI pipeline stabilized.
 
+### V3.3 Status (2026-06-20) — Capability Plugins & Changelog API
+
+`V3.3: Faculty-Specific Capability Plugins` is **implemented and integrated**:
+
+- **Manifest-driven plugin system** (`capability_plugins.py`): `CapabilityPluginManifest` Pydantic model declares plugin_id, steps, policy requirements, min app version, and test scenario IDs.
+- **Plugin registry** loads JSON manifests from `data/capability_plugins/`, validates step metadata, checks version compatibility, and merges enabled plugin steps into the core step registry.
+- **Two example manifests shipped**: `course_advising.json` (syllabus + prerequisite steps) and `paper_feedback.json` (rubric + critique + revision draft).
+- **Operations API**: `GET /capabilities` returns plugin statuses for the admin console.
+- **Changelog refactored**: release notes moved from hardcoded JS to `data/changelog.json`, served via `GET /changelog` API.
+- **24 tests** cover loading, validation, compatibility, registry merging, and real manifest integrity.
+
 ### V3.2 Status (2026-06-20) — Guarded Side-Effects & Release Notes
 
 `V3.2: Guarded Side-Effect Planning` is **implemented and integrated**:
@@ -746,18 +757,16 @@ Exit criteria:
 
 Side-effect planning remains draft-only by design. Direct confirmation, external sending, knowledge publication, and calendar writes stay outside the planner unless an explicit owner policy, admin session, review trace, and rollback story are present.
 
-#### V3.3: Faculty-Specific Capability Plugins
+#### V3.3: Faculty-Specific Capability Plugins (Implemented)
 
-- Let a faculty deployment register optional step packs such as course advising, paper feedback,
-  project matching, lab onboarding, recommendation-letter triage, or group meeting preparation.
-- Require plugin steps to define the same metadata, policy hooks, tests, and trace renderer as core
-  steps.
-- Add a plugin compatibility report to the operations console so owners can see which capabilities
-  are enabled and which policies constrain them.
+- [x] Manifest-driven plugin architecture: `CapabilityPluginManifest` declares plugin_id, steps, policy requirements, min app version, and test scenario IDs.
+- [x] Plugin steps must define the same `WorkflowStepDefinition` metadata, policy hooks, and trace renderer as core steps.
+- [x] Plugin compatibility report via `GET /capabilities` endpoint for operations console.
+- [x] Capability pack declares steps, policy requirements, test scenarios, and minimum app version before enabling.
+- [x] Two example manifests shipped: `course_advising` (2 steps) and `paper_feedback` (3 steps).
+- [x] 24 tests cover loading, validation, compatibility, registry merging.
 
-Plugin support should be driven by manifests, not ad hoc imports in the chat service. A capability
-pack should declare its steps, policy requirements, test scenarios, UI trace renderer, and minimum
-app version before it can be enabled.
+Plugin manifests are disabled by default; enable via `"enabled": true` in the manifest when ready.
 
 ### V3 Immediate Backlog (Completed)
 

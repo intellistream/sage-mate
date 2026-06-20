@@ -2,19 +2,19 @@
 schema_version: 1
 locale: en-US
 branch: main
-exported_at: "2026-06-20T04:02:51Z"
+exported_at: "2026-06-20T04:35:41Z"
 modules:
     "":
-        dir_name: Faculty Digital Twin Orchestrator
-        title: Faculty Digital Twin Orchestrator
+        dir_name: Sage Faculty Digital Twin Platform
+        title: Sage Faculty Digital Twin Platform
         scope: []
         source_files: []
         children: []
         depends_on: []
         related_to: []
     app_source:
-        dir_name: LLM Interaction & Workflow Orchestration
-        title: LLM Interaction & Workflow Orchestration
+        dir_name: Faculty Digital Twin Service & API
+        title: Faculty Digital Twin Service & API
         scope:
             - src/sage_faculty_twin/
         source_files: []
@@ -45,8 +45,8 @@ modules:
         related_to:
             - path: deployment
     runtime_data:
-        dir_name: Runtime State & Knowledge Persistence
-        title: Runtime State & Knowledge Persistence
+        dir_name: Faculty Twin Runtime State & Knowledge Store
+        title: Faculty Twin Runtime State & Knowledge Store
         scope:
             - data/
         source_files: []

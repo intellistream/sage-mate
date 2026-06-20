@@ -1,0 +1,3 @@
+- UUIDv4 strings are used as primary identifiers for filenames in collections like `knowledge_base`, `user_accounts`, and `conversation_memory/feedback`.
+- JSON documents consistently include `created_at` and `updated_at` timestamps in ISO 8601 format for auditability and state tracking.
+- Configuration files (e.g., `config.json`, `index_metadata.json`) are kept minimal, often empty or containing only essential metadata like search type and creation timestamps.

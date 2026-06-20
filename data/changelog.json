@@ -1,0 +1,42 @@
+[
+    {
+        "version": "v3.3.0",
+        "date": "2026-06-20",
+        "summary": "Capability Plugins & Changelog API",
+        "highlights": [
+            "V3.3 Manifest 驱动的 Capability Plugin 系统上线",
+            "版本日志改为数据驱动，通过 API 动态加载"
+        ]
+    },
+    {
+        "version": "v3.2.0",
+        "date": "2026-06-20",
+        "summary": "版本更新日志 & ROADMAP 全面审计",
+        "highlights": [
+            "点击右下角版本号查看更新日志",
+            "V3.0–V3.2 全部确认为已实现"
+        ]
+    },
+    {
+        "version": "v3.1.0",
+        "date": "2026-06-20",
+        "summary": "LLM Shadow Planner & 检索现代化",
+        "highlights": [
+            "Shadow Planner 默认开启，每次对话自动对比",
+            "知识检索迁移至向量搜索 + 重排序",
+            "Tavily 网络搜索集成",
+            "Chat 工作流重构为并行 DAG",
+            "Markdown 表格渲染 & PDF 知识摄入"
+        ]
+    },
+    {
+        "version": "v3.0.0",
+        "date": "2026-06-10",
+        "summary": "V3 只读规划器预览",
+        "highlights": [
+            "确定性规划器与策略验证",
+            "工作流回放测试 & 运营看板",
+            "回退安全保障"
+        ]
+    }
+]
