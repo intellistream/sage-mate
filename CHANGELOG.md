@@ -2,6 +2,19 @@
 
 ## Unreleased
 
+## v3.4.0 - 2026-06-20
+
+`v3.4.0` connects the capability plugin system to the deterministic workflow planner. Plugin steps are now **automatically injected** into execution plans when the query matches the plugin's routing pattern.
+
+### Added
+
+- **Plugin routing in deterministic planner**: `_plugin_steps_for()` method inspects the question and returns applicable plugin read-only + draft-write steps.
+- **5 routing patterns**: meeting prep (booking prep), research mentoring (research + mentoring keywords), thesis review, course advising, paper feedback.
+- **Safe fallback**: plugin steps are only injected if they exist in the step registry. Without plugins loaded, the planner behaves identically to v3.3.
+- **`step_registry` constructor parameter**: `DeterministicWorkflowPlanner` now accepts an optional merged registry.
+- **18 plugin step reason strings** added to the planner's explanation mapping.
+- **7 new tests** covering all 5 routing patterns, ordering guarantees, safe fallback, and risk-level upgrade. Total: 308 tests.
+
 ## v3.3.1 - 2026-06-20
 
 `v3.3.1` ships 5 real, enabled capability plugin packs covering core academic workflows.

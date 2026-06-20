@@ -94,9 +94,10 @@ class DeterministicWorkflowPlanner:
         planner_version: str = "v3.0.0",
         policy: WorkflowPolicy | None = None,
         policy_path: Path | None = None,
+        step_registry: dict[str, WorkflowStepDefinition] | None = None,
     ) -> None:
         self._planner_version = planner_version
-        self._step_registry = get_default_step_registry()
+        self._step_registry = step_registry if step_registry is not None else get_default_step_registry()
         self._policy = policy or build_default_workflow_policy(policy_path)
 
     @property
@@ -179,6 +180,8 @@ class DeterministicWorkflowPlanner:
     def _build_plan(self, context: WorkflowRequestContext) -> PlanSpec:
         question = context.question.lower()
         include_recent_memory = _should_include_recent_memory(context)
+        # Collect applicable plugin steps for this query
+        plugin_read_steps, plugin_draft_steps = self._plugin_steps_for(question)
         if (
             _looks_like_admin_only_request(question)
             and context.session_identity != "admin"
@@ -392,6 +395,41 @@ class DeterministicWorkflowPlanner:
             )
 
         steps = [self._build_step_spec(step_id, goal) for step_id in step_ids]
+
+        # Inject plugin read-only steps before assemble_prompt_context
+        # and plugin draft_write steps after render_user_response
+        if plugin_read_steps or plugin_draft_steps:
+            assembled_idx = None
+            render_idx = None
+            for i, s in enumerate(steps):
+                if s.step_id == "assemble_prompt_context" and assembled_idx is None:
+                    assembled_idx = i
+                if s.step_id == "render_user_response":
+                    render_idx = i
+            injected_ids: list[str] = []
+            for pid in plugin_read_steps:
+                if pid in self._step_registry:
+                    injected_ids.append(pid)
+            if assembled_idx is not None and injected_ids:
+                for offset, pid in enumerate(injected_ids):
+                    steps.insert(
+                        assembled_idx + offset,
+                        self._build_step_spec(pid, goal),
+                    )
+                # Adjust render_idx after insertion
+                if render_idx is not None:
+                    render_idx += len(injected_ids)
+            draft_injected: list[str] = []
+            for pid in plugin_draft_steps:
+                if pid in self._step_registry:
+                    draft_injected.append(pid)
+            if render_idx is not None and draft_injected:
+                for offset, pid in enumerate(draft_injected):
+                    steps.insert(
+                        render_idx + 1 + offset,
+                        self._build_step_spec(pid, goal),
+                    )
+
         estimated_latency_budget_ms = sum(
             self._step_registry[step.step_id].timeout_budget_ms for step in steps
         )
@@ -475,6 +513,61 @@ class DeterministicWorkflowPlanner:
         order = {"none": 0, "draft_write": 1, "owner_review": 2, "admin_only": 3}
         return candidate if order[candidate] > order[current] else current
 
+    def _plugin_steps_for(
+        self, question: str
+    ) -> tuple[list[str], list[str]]:
+        """Return (read_only_step_ids, draft_write_step_ids) from enabled plugins that match this query.
+
+        Only returns step IDs that actually exist in the current step registry.
+        """
+        read_steps: list[str] = []
+        draft_steps: list[str] = []
+
+        # meeting_prep: extends booking_preparation
+        if _looks_like_booking_preparation(question):
+            read_steps.extend([
+                "retrieve_team_schedule",
+                "retrieve_blocker_memory",
+                "retrieve_follow_up_artifacts",
+            ])
+            draft_steps.append("draft_meeting_agenda")
+
+        # research_mentoring: research questions with mentoring intent
+        if _looks_like_research_question(question) and _looks_like_research_mentoring(question):
+            read_steps.extend([
+                "retrieve_research_overview",
+                "match_research_direction",
+                "retrieve_reading_methodology",
+            ])
+            draft_steps.append("draft_research_plan")
+
+        # thesis_review: paper review workflows
+        if _looks_like_thesis_review(question):
+            read_steps.extend([
+                "retrieve_paper_digest",
+                "retrieve_paper_writing_guidance",
+                "generate_review_checklist",
+            ])
+            draft_steps.append("draft_review_comments")
+
+        # course_advising: course selection guidance
+        if _looks_like_course_advising(question):
+            read_steps.extend([
+                "retrieve_courseware_index",
+                "retrieve_teaching_resources",
+            ])
+            draft_steps.append("draft_course_plan")
+
+        # paper_feedback: student paper feedback
+        if _looks_like_paper_feedback(question):
+            read_steps.extend([
+                "retrieve_writing_rubric",
+                "generate_structured_critique",
+            ])
+            draft_steps.append("draft_revision_notes")
+
+        return read_steps, draft_steps
+
 
 def _default_step_reason(definition: WorkflowStepDefinition, goal: str) -> str:
     mapping = {
@@ -496,8 +589,34 @@ def _default_step_reason(definition: WorkflowStepDefinition, goal: str) -> str:
         "draft_knowledge_gap": "The system can prepare a reviewable knowledge-gap draft instead of publishing new content.",
         "record_conversation_memory": "Memory writes should be deliberate, reviewable, and policy constrained.",
         "record_artifact_memory": "Artifact memory writes should remain reviewable and provenance-aware before later V3 activation.",
+        # ── Plugin: research_mentoring ──
+        "retrieve_research_overview": "Plugin step retrieves the lab research overview to ground mentoring advice.",
+        "match_research_direction": "Plugin step matches student interests to available research directions.",
+        "retrieve_reading_methodology": "Plugin step retrieves paper-reading methodology to guide literature review.",
+        "draft_research_plan": "Plugin step drafts a structured research plan for owner review.",
+        # ── Plugin: meeting_prep ──
+        "retrieve_team_schedule": "Plugin step retrieves team schedule context for meeting preparation.",
+        "retrieve_blocker_memory": "Plugin step retrieves prior blockers and unresolved items for the agenda.",
+        "retrieve_follow_up_artifacts": "Plugin step retrieves prior follow-up artifacts to carry context forward.",
+        "draft_meeting_agenda": "Plugin step drafts a structured meeting agenda for owner review.",
+        # ── Plugin: thesis_review ──
+        "retrieve_paper_digest": "Plugin step retrieves paper digest entries for quick review grounding.",
+        "retrieve_paper_writing_guidance": "Plugin step retrieves writing-course materials to inform review quality.",
+        "generate_review_checklist": "Plugin step generates a structured review checklist based on the paper type.",
+        "draft_review_comments": "Plugin step drafts structured review comments for owner review.",
+        # ── Plugin: course_advising ──
+        "retrieve_courseware_index": "Plugin step retrieves the courseware index to ground course recommendations.",
+        "retrieve_teaching_resources": "Plugin step retrieves public teaching resources for advising context.",
+        "draft_course_plan": "Plugin step drafts a personalized course plan for owner review.",
+        # ── Plugin: paper_feedback ──
+        "retrieve_writing_rubric": "Plugin step retrieves the writing rubric to ground feedback criteria.",
+        "generate_structured_critique": "Plugin step generates structured multi-dimension feedback.",
+        "draft_revision_notes": "Plugin step drafts revision notes for owner review.",
     }
-    return mapping[definition.step_id]
+    # Fall back to a generic description for unregistered plugin steps
+    if definition.step_id in mapping:
+        return mapping[definition.step_id]
+    return f"Step {definition.step_id} is part of an enabled capability plugin for {goal}."
 
 
 def _looks_like_admin_only_request(question: str) -> bool:
@@ -656,3 +775,71 @@ def _should_include_artifact_memory(context: WorkflowRequestContext) -> bool:
 def _looks_like_simple_greeting(question: str) -> bool:
     normalized = re.sub(r"\s+", "", question)
     return normalized in {"你好", "您好", "hello", "hi", "早上好"}
+
+
+# ── Plugin routing helpers ──────────────────────────────────────────────────
+
+
+def _looks_like_research_mentoring(question: str) -> bool:
+    markers = (
+        "研究方向",
+        "选题",
+        "研究计划",
+        "文献阅读",
+        "怎么读论文",
+        "入门",
+        "新生",
+        "research direction",
+        "research plan",
+        "how to read",
+        "topic selection",
+    )
+    return any(marker in question for marker in markers)
+
+
+def _looks_like_thesis_review(question: str) -> bool:
+    markers = (
+        "审阅",
+        "审稿",
+        "评审",
+        "修改意见",
+        "review",
+        "reviewer",
+        "thesis review",
+        "学位论文",
+        "论文评审",
+        "peer review",
+    )
+    return any(marker in question for marker in markers)
+
+
+def _looks_like_course_advising(question: str) -> bool:
+    markers = (
+        "选课",
+        "修课",
+        "课程推荐",
+        "先修",
+        "培养方案",
+        "课程计划",
+        "course plan",
+        "course selection",
+        "prerequisite",
+        "which course",
+    )
+    return any(marker in question for marker in markers)
+
+
+def _looks_like_paper_feedback(question: str) -> bool:
+    markers = (
+        "批改",
+        "打分",
+        "评分",
+        "写作建议",
+        "feedback",
+        "rubric",
+        "writing feedback",
+        "修改建议",
+        "论文反馈",
+        "paper feedback",
+    )
+    return any(marker in question for marker in markers)

@@ -397,3 +397,142 @@ def test_record_artifact_memory_is_enabled_for_explicit_archive_requests() -> No
     assert decision.validation_errors == []
     assert decision.plan.risk_level == "draft_write"
     assert decision.plan.requires_owner_review is True
+
+
+# ── Plugin Routing Tests ────────────────────────────────────────────────────
+
+
+def _planner_with_plugins() -> DeterministicWorkflowPlanner:
+    """Create a planner with the merged core + plugin step registry."""
+    from pathlib import Path
+
+    from sage_faculty_twin import __version__
+    from sage_faculty_twin.capability_plugins import CapabilityPluginRegistry
+
+    registry = CapabilityPluginRegistry(
+        plugin_dir=Path("data/capability_plugins"),
+        current_version=__version__,
+    )
+    registry.load()
+    merged = registry.merged_step_registry()
+    return DeterministicWorkflowPlanner(step_registry=merged)
+
+
+def test_plugin_meeting_prep_injects_steps_for_booking_prep() -> None:
+    planner = _planner_with_plugins()
+    context = WorkflowRequestContext.from_chat_request(
+        ChatRequest(
+            student_name="Bob",
+            student_email="bob@example.com",
+            question="明天见面需要准备什么？",
+        )
+    )
+    decision = planner.plan(context)
+    step_ids = [s.step_id for s in decision.plan.steps]
+    assert "retrieve_team_schedule" in step_ids
+    assert "retrieve_blocker_memory" in step_ids
+    assert "draft_meeting_agenda" in step_ids
+    # Read steps should be before assemble_prompt_context
+    read_idx = step_ids.index("retrieve_team_schedule")
+    assemble_idx = step_ids.index("assemble_prompt_context")
+    assert read_idx < assemble_idx
+    # Draft step should be after render_user_response
+    draft_idx = step_ids.index("draft_meeting_agenda")
+    render_idx = step_ids.index("render_user_response")
+    assert draft_idx > render_idx
+
+
+def test_plugin_research_mentoring_injects_for_research_direction() -> None:
+    planner = _planner_with_plugins()
+    context = WorkflowRequestContext.from_chat_request(
+        ChatRequest(
+            student_name="Alice",
+            student_email="alice@example.com",
+            question="我是新生，想了解一下研究方向和选题建议",
+        )
+    )
+    decision = planner.plan(context)
+    step_ids = [s.step_id for s in decision.plan.steps]
+    assert "retrieve_research_overview" in step_ids
+    assert "match_research_direction" in step_ids
+    assert "retrieve_reading_methodology" in step_ids
+    assert "draft_research_plan" in step_ids
+
+
+def test_plugin_thesis_review_injects_for_review_query() -> None:
+    planner = _planner_with_plugins()
+    context = WorkflowRequestContext.from_chat_request(
+        ChatRequest(
+            student_name="Carol",
+            student_email="carol@example.com",
+            question="帮我审阅一下这篇学位论文，给出修改意见",
+        )
+    )
+    decision = planner.plan(context)
+    step_ids = [s.step_id for s in decision.plan.steps]
+    assert "retrieve_paper_digest" in step_ids
+    assert "generate_review_checklist" in step_ids
+    assert "draft_review_comments" in step_ids
+
+
+def test_plugin_course_advising_injects_for_course_selection() -> None:
+    planner = _planner_with_plugins()
+    context = WorkflowRequestContext.from_chat_request(
+        ChatRequest(
+            student_name="Dave",
+            student_email="dave@example.com",
+            question="研究生选课有什么推荐？先修课要求是什么？",
+        )
+    )
+    decision = planner.plan(context)
+    step_ids = [s.step_id for s in decision.plan.steps]
+    assert "retrieve_courseware_index" in step_ids
+    assert "retrieve_teaching_resources" in step_ids
+    assert "draft_course_plan" in step_ids
+
+
+def test_plugin_paper_feedback_injects_for_feedback_query() -> None:
+    planner = _planner_with_plugins()
+    context = WorkflowRequestContext.from_chat_request(
+        ChatRequest(
+            student_name="Eve",
+            student_email="eve@example.com",
+            question="请给我这篇论文批改打分和写作建议",
+        )
+    )
+    decision = planner.plan(context)
+    step_ids = [s.step_id for s in decision.plan.steps]
+    assert "retrieve_writing_rubric" in step_ids
+    assert "generate_structured_critique" in step_ids
+    assert "draft_revision_notes" in step_ids
+
+
+def test_plugin_steps_not_injected_without_registry() -> None:
+    """Without plugin steps in registry, no injection should happen."""
+    planner = DeterministicWorkflowPlanner()  # core-only registry
+    context = WorkflowRequestContext.from_chat_request(
+        ChatRequest(
+            student_name="Frank",
+            student_email="frank@example.com",
+            question="研究生选课有什么推荐？先修课要求是什么？",
+        )
+    )
+    decision = planner.plan(context)
+    step_ids = [s.step_id for s in decision.plan.steps]
+    assert "retrieve_courseware_index" not in step_ids
+    assert "draft_course_plan" not in step_ids
+
+
+def test_plugin_risk_level_upgrades_on_draft_injection() -> None:
+    """When a draft_write plugin step is injected, risk_level must be draft_write."""
+    planner = _planner_with_plugins()
+    context = WorkflowRequestContext.from_chat_request(
+        ChatRequest(
+            student_name="Grace",
+            student_email="grace@example.com",
+            question="帮我审阅这篇学位论文",
+        )
+    )
+    decision = planner.plan(context)
+    assert decision.plan.risk_level == "draft_write"
+    assert decision.plan.requires_owner_review is True

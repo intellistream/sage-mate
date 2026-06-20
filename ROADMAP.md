@@ -362,6 +362,17 @@ In addition, `v3.1.0` delivered the retrieval and workflow modernization that su
 - Homepage migrated to GitHub Pages; tunnel/site-proxy is optional.
 - All 28 ruff lint errors resolved; CI pipeline stabilized.
 
+### V3.4 Status (2026-06-20) — Plugin Routing Integration
+
+`V3.4: Plugin Routing` is **implemented and production-ready**:
+
+- **Deterministic planner now auto-injects plugin steps**: `_plugin_steps_for()` inspects the question, returns applicable read-only + draft-write step IDs from enabled plugins.
+- **5 routing patterns active**: meeting_prep (booking prep queries), research_mentoring (research + mentoring keywords), thesis_review, course_advising, paper_feedback.
+- **Ordering guarantees**: read-only plugin steps inserted before `assemble_prompt_context`; draft_write plugin steps inserted after `render_user_response`.
+- **Safe fallback**: if plugin steps aren't in the registry (plugins not loaded), planner behaves identically to v3.3 — no errors, no missing steps.
+- **`step_registry` constructor param**: allows injecting a merged core+plugin registry into the planner.
+- **308 tests** total, including 7 new plugin routing tests covering injection, ordering, fallback, and risk-level upgrade.
+
 ### V3.3 Status (2026-06-20) — Real Capability Plugins & Changelog API
 
 `V3.3: Faculty-Specific Capability Plugins` is **implemented and production-ready**:
