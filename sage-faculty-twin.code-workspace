@@ -61,6 +61,14 @@
       "path": "../vllm-segment-reuse"
     },
     {
+      "name": "serve | DeltaKV [→ASPLOS 2027]",
+      "path": "../vllm-kvdelta-plugin"
+    },
+    {
+      "name": "serve | AgentKV [→EuroSys 2027]",
+      "path": "../agent-kv-system"
+    },
+    {
       "name": "sage | SAGE [ICML 2026]",
       "path": "../SAGE"
     },
