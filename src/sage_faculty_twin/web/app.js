@@ -151,6 +151,7 @@ const bookingForm = document.getElementById("booking-form");
 const suggestionForm = document.getElementById("suggestion-form");
 const chatSubmitButton = chatForm.querySelector('button[type="submit"]');
 let deepThinkingExplicitlyEnabled = Boolean(deepThinkingCheckbox?.checked);
+let lastFailedQuestion = null;
 
 deepThinkingCheckbox?.addEventListener("change", () => {
     deepThinkingExplicitlyEnabled = Boolean(deepThinkingCheckbox.checked);
@@ -650,6 +651,7 @@ if (workflowTrace) {
 chatStream?.addEventListener("click", handleMessageSectionToggle);
 chatStream?.addEventListener("click", handleIntroQuickActionClick);
 chatStream?.addEventListener("click", handleCopyAnswerClick);
+chatStream?.addEventListener("click", handleRetryRequestClick);
 historyList?.addEventListener("click", handleConversationHistoryClick);
 historyRailToggleButton?.addEventListener("click", toggleHistoryRail);
 topbarHistoryToggleButton?.addEventListener("click", toggleHistoryRail);
@@ -955,6 +957,7 @@ chatForm.addEventListener("submit", async (event) => {
         return;
     }
 
+    lastFailedQuestion = null;
     noteOutgoingConversationQuestion(question);
 
     const payload = {
@@ -1047,6 +1050,7 @@ chatForm.addEventListener("submit", async (event) => {
                 continue;
             }
             stopWorkflowTraceStream();
+            lastFailedQuestion = payload.question;
             renderWorkflowTraceError(error.message);
             renderAssistantMessage(pendingMessage, error.message, [], [], [], null, true, null, activeWorkflowSteps);
             noteConversationAnswerPreview(error.message);
@@ -4993,6 +4997,7 @@ function renderAssistantMessage(
                     ${basisHtml}
                     ${followUpHtml}
                     ${buildFeedbackSectionHtml(exchangeId, isError)}
+                    ${buildRetryButtonHtml(isError)}
                 </div>
             </div>
         </div>
@@ -5623,7 +5628,7 @@ function buildAnswerBasisItemHtml(item) {
                 ${card.badge ? `<span class="message-basis-source">${escapeHtml(card.badge)}</span>` : ""}
             </div>
             <p class="message-basis-title">${escapeHtml(card.title)}</p>
-            ${card.detail ? `<p class="message-basis-detail">${escapeHtml(card.detail)}</p>` : ""}
+            ${card.detail ? `<div class="message-basis-detail message-body">${formatMessageContent(card.detail)}</div>` : ""}
         </article>
     `;
 }
@@ -5770,12 +5775,19 @@ function cleanAnswerBasisSource(sourceLabel) {
 }
 
 function cleanAnswerBasisDetail(detail, title) {
-    const normalized = cleanFollowUpDetail(detail);
+    const raw = String(detail || "").trim();
     const titleText = String(title || "").trim();
-    if (!normalized || normalized === titleText) {
+    if (!raw || raw === titleText) {
         return "";
     }
-    return normalized;
+    // Truncate long content but preserve markdown structure (don't collapse whitespace)
+    if (raw.length > 600) {
+        // Cut at a line boundary near the limit
+        const cut = raw.slice(0, 600);
+        const lastNewline = cut.lastIndexOf("\n");
+        return (lastNewline > 400 ? cut.slice(0, lastNewline) : cut) + "\n\n…";
+    }
+    return raw;
 }
 
 function buildFeedbackSectionHtml(exchangeId, isError) {
@@ -6932,6 +6944,32 @@ function handleCopyAnswerClick(event) {
             button.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
         }, 2000);
     }).catch(() => { });
+}
+
+// Retry failed request handler (delegated on chatStream)
+function handleRetryRequestClick(event) {
+    const button = event.target.closest("[data-retry-request]");
+    if (!button || !chatStream || !chatStream.contains(button)) {
+        return;
+    }
+    if (!lastFailedQuestion) return;
+    const chatQuestion = document.getElementById("chat-question");
+    if (chatQuestion) {
+        chatQuestion.value = lastFailedQuestion;
+        chatQuestion.dispatchEvent(new Event("input", { bubbles: true }));
+    }
+    lastFailedQuestion = null;
+    chatForm.requestSubmit(chatSubmitButton);
+}
+
+function buildRetryButtonHtml(isError) {
+    if (!isError || !lastFailedQuestion) return "";
+    return `
+        <button type="button" class="message-retry-button" data-retry-request>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+            重试
+        </button>
+    `;
 }
 
 function workflowStatusLabel(status) {

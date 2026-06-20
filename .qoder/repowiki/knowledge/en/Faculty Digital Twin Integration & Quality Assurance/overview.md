@@ -1,0 +1,1 @@
+Validates the end-to-end behavior of the faculty digital twin, including LLM proxying, memory persistence, prompt engineering, and UI integration.

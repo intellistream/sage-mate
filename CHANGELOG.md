@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+## v3.1.1 - 2026-06-20
+
+`v3.1.1` is a targeted fix for the evidence/support panel rendering.
+
+### Fixed
+
+- Knowledge base content in the "回答依据" (answer evidence) panel now renders with proper markdown formatting (headers, tables, bold, lists) instead of a single collapsed line of raw text.
+- `cleanAnswerBasisDetail` preserves markdown structure and truncates at ~600 chars (line boundary) instead of collapsing all whitespace into a single line.
+- `buildAnswerBasisItemHtml` now uses `formatMessageContent()` for the detail field (same markdown renderer as chat messages) and wraps it in `<div>` instead of `<p>`.
+- Added scrollable max-height (240px) and compact typography for basis detail cards so long knowledge entries don't overflow the card.
+
 ## v3.1.0 - 2026-06-20
 
 `v3.1.0` is the retrieval and workflow modernization release. It replaces the BM25 knowledge backend with SageVDB/SageANNS, adds Tavily-powered web search, migrates the chat workflow to a parallel SAGE DataStream DAG, and introduces markdown table rendering and external knowledge ingestion.

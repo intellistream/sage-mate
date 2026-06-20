@@ -1,0 +1,3 @@
+- Dual sync/async method pairs (e.g., `answer_question_sync` and `answer_question`) where async variants delegate to sync implementations via `asyncio.to_thread`.
+- Automatic retry logic with exponential backoff for transient HTTP errors in chat completion requests.
+- Structured JSON output enforcement using Pydantic models with automated repair loops that re-prompt the LLM on validation errors.

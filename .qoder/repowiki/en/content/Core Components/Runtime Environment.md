@@ -13,14 +13,15 @@
 - [run_app_server.sh](file://tools/run_app_server.sh)
 - [runtime_env.sh](file://tools/lib/runtime_env.sh)
 - [test_systemd_service_scripts.py](file://tests/test_systemd_service_scripts.py)
+- [test_sagevdb_knowledge_store.py](file://tests/test_sagevdb_knowledge_store.py)
 </cite>
 
 ## Update Summary
 **Changes Made**
-- Enhanced runtime environment with hardened fail-fast strategy for sageVDB source validation
-- Added explicit RuntimeError exceptions for broken sageVDB source checkout requiring manual intervention
-- Improved error reporting with detailed guidance for missing compiled C extensions and unavailable database configurations
-- Strengthened policy module validation with clear error messaging for non-local imports
+- Enhanced sageVDB validation with automatic shared library management and two-stage validation approach
+- Improved environment detection with automatic shared library linking capabilities
+- Added auto-fixing functionality for broken sageVDB source checkouts
+- Strengthened error reporting with detailed guidance for missing compiled C extensions
 - Enhanced test-level runtime bootstrap with conditional policy validation
 
 ## Table of Contents
@@ -38,7 +39,7 @@
 ## Introduction
 This document describes the runtime environment management system for the Sage Faculty Twin project. It focuses on how the application initializes, validates its environment, detects and reports hardware resources (including NPUs), resolves stack component versions, and integrates with systemd-managed services. The system now employs a hardened fail-fast strategy to prevent silent failures and provides explicit error reporting for critical dependency issues.
 
-**Updated** Enhanced with hardened runtime environment validation that prevents silent failures through explicit RuntimeError exceptions. The system now requires manual intervention for broken sageVDB source checkouts and provides detailed guidance for resolving missing compiled C extensions and unavailable database configurations.
+**Updated** Enhanced with hardened runtime environment validation that prevents silent failures through explicit RuntimeError exceptions. The system now includes automatic shared library management for sageVDB with a two-stage validation approach that can auto-fix broken source checkouts by linking compiled C extensions from PyPI installations.
 
 ## Project Structure
 The runtime environment spans several layers:
@@ -48,7 +49,7 @@ The runtime environment spans several layers:
 - Service orchestration via systemd units and shell scripts with enhanced error reporting
 - Operational diagnostics and tests with improved test collection handling
 - Sophisticated test-level runtime bootstrap through conftest.py with conditional validation
-- **Enhanced sageVDB dependency management**: Explicit RuntimeError exceptions for broken source checkouts requiring manual intervention
+- **Enhanced sageVDB dependency management**: Automatic shared library linking with two-stage validation and auto-fixing capabilities
 
 ```mermaid
 graph TB
@@ -59,7 +60,8 @@ C["service.py<br/>build_hardware_payload()<br/>build_stack_versions_payload()"]
 D["config.py<br/>AppSettings"]
 E["models.py<br/>ServiceControlResponse"]
 F["tests/conftest.py<br/>Test-level bootstrap<br/>Conditional validation"]
-G["runtime_env.py<br/>_validate_sagevdb_source()<br/>Explicit RuntimeError"]
+G["runtime_env.py<br/>_validate_sagevdb_source()<br/>Two-stage validation"]
+H["runtime_env.py<br/>_auto_link_sagevdb_shared_libs()<br/>Auto-fixing"]
 end
 subgraph "Systemd Services"
 S1["sage-faculty-twin-app.service"]
@@ -78,31 +80,33 @@ S1 --> T1
 S2 --> T1
 T1 --> L1
 F --> A
+G --> H
 G --> A
 ```
 
 **Diagram sources**
-- [runtime_env.py:102-136](file://src/sage_faculty_twin/runtime_env.py#L102-L136)
+- [runtime_env.py:152-186](file://src/sage_faculty_twin/runtime_env.py#L152-L186)
 - [service_runtime.py:13-69](file://src/sage_faculty_twin/service_runtime.py#L13-L69)
 - [service.py:250-266](file://src/sage_faculty_twin/service.py#L250-L266)
 - [service.py:269-346](file://src/sage_faculty_twin/service.py#L269-L346)
 - [config.py:9-132](file://src/sage_faculty_twin/config.py#L9-L132)
 - [models.py:1-200](file://src/sage_faculty_twin/models.py#L1-L200)
 - [conftest.py:1-68](file://tests/conftest.py#L1-L68)
-- [runtime_env.py:59-91](file://src/sage_faculty_twin/runtime_env.py#L59-L91)
+- [runtime_env.py:95-141](file://src/sage_faculty_twin/runtime_env.py#L95-L141)
+- [runtime_env.py:60-93](file://src/sage_faculty_twin/runtime_env.py#L60-L93)
 - [sage-faculty-twin-app.service:1-18](file://deploy/systemd/user/sage-faculty-twin-app.service#L1-L18)
 - [sage-faculty-twin-vllm-openai-proxy.service:1-20](file://deploy/systemd/user/sage-faculty-twin-vllm-openai-proxy.service#L1-L20)
 - [run_app_server.sh:1-60](file://tools/run_app_server.sh#L1-L60)
 - [runtime_env.sh:62-92](file://tools/lib/runtime_env.sh#L62-L92)
 
 **Section sources**
-- [runtime_env.py:102-136](file://src/sage_faculty_twin/runtime_env.py#L102-L136)
+- [runtime_env.py:152-186](file://src/sage_faculty_twin/runtime_env.py#L152-L186)
 - [service_runtime.py:13-69](file://src/sage_faculty_twin/service_runtime.py#L13-L69)
 - [service.py:250-346](file://src/sage_faculty_twin/service.py#L250-L346)
 - [config.py:9-132](file://src/sage_faculty_twin/config.py#L9-L132)
 - [models.py:1-200](file://src/sage_faculty_twin/models.py#L1-L200)
 - [conftest.py:1-68](file://tests/conftest.py#L1-L68)
-- [runtime_env.py:59-91](file://src/sage_faculty_twin/runtime_env.py#L59-L91)
+- [runtime_env.py:95-141](file://src/sage_faculty_twin/runtime_env.py#L95-L141)
 - [sage-faculty-twin-app.service:1-18](file://deploy/systemd/user/sage-faculty-twin-app.service#L1-L18)
 - [sage-faculty-twin-vllm-openai-proxy.service:1-20](file://deploy/systemd/user/sage-faculty-twin-vllm-openai-proxy.service#L1-L20)
 - [run_app_server.sh:1-60](file://tools/run_app_server.sh#L1-L60)
@@ -111,25 +115,25 @@ G --> A
 ## Core Components
 - ServiceRuntimeManager: Orchestrates service actions (status, start, stop, restart) by invoking a service manager script and parsing JSON responses into typed models.
 - Runtime environment bootstrap: Prepares Python path, enforces local policy preference, validates external dependencies, and sets environment variables for device backends with fail-fast error handling.
-- **Enhanced sageVDB dependency validation**: Validates source installations for compiled C extensions and raises explicit RuntimeError exceptions requiring manual intervention when source checkouts are broken.
+- **Enhanced sageVDB dependency validation**: Implements two-stage validation with automatic shared library linking that can auto-fix broken source checkouts by symlinking compiled C extensions from PyPI installations.
 - Hardware detection: Gathers NPU, CPU, and memory details from system tools and procfs with comprehensive error handling.
 - Stack version resolution: Resolves versions for SAGE, neuromem, vLLM-HUST, sageVDB, and sage-anns from local pyproject.toml or PyPI metadata.
 - Systemd integration: Units define service lifecycles and ExecStart scripts that initialize runtime environment and start processes with enhanced error reporting.
 - **Enhanced Test Collection Handling**: Sophisticated test-level runtime bootstrap through conftest.py that ensures PYTHONPATH includes local source checkouts before test modules are collected with conditional policy validation.
 
-**Updated** Enhanced with hardened fail-fast strategy that prevents silent failures by raising explicit RuntimeError exceptions for broken dependencies. The sageVDB validation now requires manual intervention through bash ../sageVDB/scripts/link_shared_libs.sh when compiled C extensions are missing. Test collection is protected through conditional validation that only triggers full policy checks when SAGE source is available.
+**Updated** Enhanced with hardened fail-fast strategy that prevents silent failures by raising explicit RuntimeError exceptions for broken dependencies. The sageVDB validation now includes automatic shared library linking capabilities that can auto-fix missing compiled C extensions by symlinking them from PyPI installations. The two-stage validation approach first attempts direct import, then tries auto-linking shared libraries before raising explicit errors.
 
 **Section sources**
 - [service_runtime.py:13-69](file://src/sage_faculty_twin/service_runtime.py#L13-L69)
-- [runtime_env.py:102-136](file://src/sage_faculty_twin/runtime_env.py#L102-L136)
-- [runtime_env.py:59-91](file://src/sage_faculty_twin/runtime_env.py#L59-L91)
+- [runtime_env.py:152-186](file://src/sage_faculty_twin/runtime_env.py#L152-L186)
+- [runtime_env.py:95-141](file://src/sage_faculty_twin/runtime_env.py#L95-L141)
 - [service.py:250-346](file://src/sage_faculty_twin/service.py#L250-L346)
 - [config.py:9-132](file://src/sage_faculty_twin/config.py#L9-L132)
 - [models.py:1-200](file://src/sage_faculty_twin/models.py#L1-L200)
 - [conftest.py:1-68](file://tests/conftest.py#L1-L68)
 
 ## Architecture Overview
-The runtime environment integrates application logic, system services, shell scripts, and enhanced test collection handling to deliver a robust deployment and diagnostics framework with fail-fast error handling.
+The runtime environment integrates application logic, system services, shell scripts, and enhanced test collection handling to deliver a robust deployment and diagnostics framework with fail-fast error handling and automatic dependency management.
 
 ```mermaid
 sequenceDiagram
@@ -209,46 +213,55 @@ ServiceRuntimeManager --> ServiceControlResponse : "returns"
 Responsibilities:
 - Determine repository root and candidate Python path entries.
 - Prepend local repositories to sys.path to prefer local development.
-- **Enhanced sageVDB validation**: Validate source installations for compiled C extensions and raise explicit RuntimeError exceptions requiring manual intervention.
+- **Enhanced sageVDB validation**: Implements two-stage validation with automatic shared library linking that can auto-fix broken source checkouts.
 - Enforce local policy module origin to prevent unintended overrides with clear error messaging.
 - Require modules such as pydantic_settings and optionally FastAPI and policy with fail-fast error handling.
 
-**Updated** Enhanced with hardened fail-fast strategy that prevents silent failures. The sageVDB validation now explicitly raises RuntimeError exceptions when compiled C extensions are missing, requiring users to run bash ../sageVDB/scripts/link_shared_libs.sh to fix compilation problems. Policy module validation provides clear guidance for avoiding interpreter/path drift.
+**Updated** Enhanced with hardened fail-fast strategy that prevents silent failures. The sageVDB validation now includes automatic shared library linking capabilities that can auto-fix missing compiled C extensions by symlinking them from PyPI installations. The two-stage validation approach first attempts direct import, then tries auto-linking shared libraries before raising explicit errors.
 
 Operational notes:
 - Sets TORCH_DEVICE_BACKEND_AUTOLOAD to 0 to avoid automatic loading of optional device backends.
 - Provides explicit RuntimeError exceptions with actionable steps for dependency failures.
 - Conditional policy enforcement reduces overhead when SAGE source is not present.
-- **Enhanced sageVDB handling**: Requires manual intervention for broken source checkouts with specific remediation steps.
+- **Enhanced sageVDB handling**: Two-stage validation with automatic shared library linking for broken source checkouts.
 
 **Section sources**
-- [runtime_env.py:102-136](file://src/sage_faculty_twin/runtime_env.py#L102-L136)
-- [runtime_env.py:59-91](file://src/sage_faculty_twin/runtime_env.py#L59-L91)
+- [runtime_env.py:152-186](file://src/sage_faculty_twin/runtime_env.py#L152-L186)
+- [runtime_env.py:95-141](file://src/sage_faculty_twin/runtime_env.py#L95-L141)
 
 ### Enhanced sageVDB Dependency Management
-**New Section** The runtime environment now includes sophisticated validation for sageVDB source installations with explicit RuntimeError exceptions for broken source checkouts.
+**New Section** The runtime environment now includes sophisticated validation for sageVDB source installations with automatic shared library management and two-stage validation approach.
 
 Key responsibilities:
 - Detect when sageVDB source checkout is present but lacks compiled extensions.
+- Implement two-stage validation: direct import attempt followed by auto-linking shared libraries.
 - Validate that DatabaseConfig is accessible from the sagevdb module.
-- Raise explicit RuntimeError exceptions with detailed guidance for missing compiled extensions.
+- Automatically symlink compiled .so files from PyPI installation into the source tree.
+- Raise explicit RuntimeError exceptions with detailed guidance for missing compiled extensions when auto-fix fails.
 - Allow fallback to PyPI package when source checkout is absent.
 - Prevent "notoriously confusing failure" where __all__ becomes empty and DatabaseConfig is unavailable.
 
-Validation mechanics:
-- Checks for the presence of the sageVDB source package directory.
-- Attempts to import the sagevdb module and validate DatabaseConfig accessibility.
-- Raises explicit RuntimeError with guidance for running `bash ../sageVDB/scripts/link_shared_libs.sh`.
-- Provides fallback behavior when source checkout is not present.
+Two-stage validation mechanics:
+- **Stage 1**: Direct import attempt to check if source checkout is fully functional.
+- **Stage 2**: Auto-linking shared libraries from PyPI installation if direct import fails.
+- Invalidate broken imports before attempting auto-linking to ensure fresh module loading.
+- Re-import after successful auto-linking to verify fix.
+
+Auto-fixing capabilities:
+- Detect installed sagevdb package from different path than source checkout.
+- Symlink .so files from PyPI installation into source tree equivalent to bash ../sageVDB/scripts/link_shared_libs.sh.
+- Handle existing symlinks and target files appropriately.
+- Return success when at least one .so file is successfully linked.
 
 Error handling improvements:
 - Clear distinction between import failures and missing compiled extensions.
 - Specific guidance for linking shared libraries when source is available.
 - Graceful fallback to PyPI package when source is not present.
-- **Fail-fast strategy**: Prevents silent failures by requiring manual intervention for broken source checkouts.
+- **Fail-fast strategy**: Prevents silent failures by requiring manual intervention when auto-fix fails.
 
 **Section sources**
-- [runtime_env.py:59-91](file://src/sage_faculty_twin/runtime_env.py#L59-L91)
+- [runtime_env.py:95-141](file://src/sage_faculty_twin/runtime_env.py#L95-L141)
+- [runtime_env.py:60-93](file://src/sage_faculty_twin/runtime_env.py#L60-L93)
 
 ### Enhanced Test Collection Handling
 **New Section** The tests/conftest.py file provides sophisticated test-level runtime bootstrap that ensures PYTHONPATH includes local source checkouts before test modules are collected.
@@ -359,7 +372,7 @@ Integration points:
 High-level dependencies:
 - ServiceRuntimeManager depends on AppSettings for the service manager script path and returns ServiceControlResponse models.
 - Runtime bootstrap depends on repository layout and sibling repositories for policy and data with fail-fast error handling.
-- **Enhanced sageVDB validation**: Runtime environment validation now includes explicit RuntimeError exceptions for broken source checkouts.
+- **Enhanced sageVDB validation**: Runtime environment validation now includes automatic shared library linking with two-stage validation approach.
 - Hardware and version resolution functions depend on system tools and filesystem metadata.
 - Systemd units depend on shell scripts and environment variables exported by runtime_env.sh.
 - **Enhanced Test Collection**: conftest.py depends on runtime_env.py for test-level bootstrap and ensures PYTHONPATH is properly configured before test collection.
@@ -371,8 +384,8 @@ RuntimeMgr --> Models["models.py: ServiceControlResponse"]
 RuntimeMgr --> SettingsScript["config.py: service_manager_script"]
 Boot["runtime_env.py: bootstrap_runtime_env"] --> Config
 Boot --> Policy["Local policy module"]
-Boot --> SageVDB["Enhanced sageVDB validation<br/>Explicit RuntimeError"]
-Boot --> SageVDBCheck["_validate_sagevdb_source()"]
+Boot --> SageVDB["Enhanced sageVDB validation<br/>Two-stage validation + Auto-fix"]
+SageVDB --> AutoLink["_auto_link_sagevdb_shared_libs()"]
 Tests["tests/conftest.py: Test bootstrap"] --> Boot
 HW["service.py: build_hardware_payload"] --> Proc["/proc/*"]
 HW --> Tools["npu-smi, lscpu"]
@@ -386,8 +399,9 @@ Scripts --> Env["runtime_env.sh: export_repo_runtime_env"]
 - [service_runtime.py:13-69](file://src/sage_faculty_twin/service_runtime.py#L13-L69)
 - [config.py:9-132](file://src/sage_faculty_twin/config.py#L9-L132)
 - [models.py:1-200](file://src/sage_faculty_twin/models.py#L1-L200)
-- [runtime_env.py:102-136](file://src/sage_faculty_twin/runtime_env.py#L102-L136)
-- [runtime_env.py:59-91](file://src/sage_faculty_twin/runtime_env.py#L59-L91)
+- [runtime_env.py:152-186](file://src/sage_faculty_twin/runtime_env.py#L152-L186)
+- [runtime_env.py:95-141](file://src/sage_faculty_twin/runtime_env.py#L95-L141)
+- [runtime_env.py:60-93](file://src/sage_faculty_twin/runtime_env.py#L60-L93)
 - [conftest.py:1-68](file://tests/conftest.py#L1-L68)
 - [service.py:250-346](file://src/sage_faculty_twin/service.py#L250-L346)
 - [sage-faculty-twin-app.service:1-18](file://deploy/systemd/user/sage-faculty-twin-app.service#L1-L18)
@@ -398,8 +412,9 @@ Scripts --> Env["runtime_env.sh: export_repo_runtime_env"]
 - [service_runtime.py:13-69](file://src/sage_faculty_twin/service_runtime.py#L13-L69)
 - [config.py:9-132](file://src/sage_faculty_twin/config.py#L9-L132)
 - [models.py:1-200](file://src/sage_faculty_twin/models.py#L1-L200)
-- [runtime_env.py:102-136](file://src/sage_faculty_twin/runtime_env.py#L102-L136)
-- [runtime_env.py:59-91](file://src/sage_faculty_twin/runtime_env.py#L59-L91)
+- [runtime_env.py:152-186](file://src/sage_faculty_twin/runtime_env.py#L152-L186)
+- [runtime_env.py:95-141](file://src/sage_faculty_twin/runtime_env.py#L95-L141)
+- [runtime_env.py:60-93](file://src/sage_faculty_twin/runtime_env.py#L60-L93)
 - [conftest.py:1-68](file://tests/conftest.py#L1-L68)
 - [service.py:250-346](file://src/sage_faculty_twin/service.py#L250-L346)
 - [sage-faculty-twin-app.service:1-18](file://deploy/systemd/user/sage-faculty-twin-app.service#L1-L18)
@@ -412,39 +427,40 @@ Scripts --> Env["runtime_env.sh: export_repo_runtime_env"]
 - Runtime environment exports minimize unnecessary environment variable churn and avoids auto-loading of optional device backends.
 - Service queueing via systemd-run enables non-blocking control operations, improving responsiveness during maintenance windows.
 - **Enhanced Test Collection**: The conftest.py approach prevents test collection failures and reduces import overhead by ensuring local source checkouts are available before test modules are processed.
-- **Enhanced sageVDB validation**: Runtime validation is performed efficiently and only when source installations are detected, minimizing overhead in production environments.
+- **Enhanced sageVDB validation**: Runtime validation is performed efficiently with two-stage approach and only when source installations are detected, minimizing overhead in production environments.
+- **Auto-fixing capabilities**: Automatic shared library linking is optimized to only run when needed and fails fast when auto-fix is not possible.
 - **Fail-fast strategy**: Prevents wasted resources on broken configurations by immediately raising explicit errors instead of attempting graceful degradation.
 
-**Updated** Enhanced test collection handling reduces overhead by ensuring local source checkouts are available before test collection, preventing import failures and reducing test startup time. SageVDB validation is optimized to only run when source installations are present. The fail-fast strategy prevents wasted resources on broken configurations.
+**Updated** Enhanced test collection handling reduces overhead by ensuring local source checkouts are available before test collection, preventing import failures and reducing test startup time. SageVDB validation is optimized with two-stage approach and automatic shared library linking that minimizes overhead. The fail-fast strategy prevents wasted resources on broken configurations while providing clear guidance for manual intervention when auto-fix fails.
 
 ## Troubleshooting Guide
 Common scenarios and diagnostics:
 - Missing runtime dependencies: The bootstrap routine raises explicit RuntimeError when required modules are absent, guiding installation via editable installs.
 - Non-local policy import: The bootstrap routine verifies that the policy module originates from the expected local checkout to prevent accidental overrides, raising clear RuntimeError with actionable steps.
-- **Enhanced sageVDB dependency issues**: The bootstrap routine now detects missing compiled C extensions and raises explicit RuntimeError with clear guidance for linking shared libraries using bash ../sageVDB/scripts/link_shared_libs.sh.
+- **Enhanced sageVDB dependency issues**: The bootstrap routine now detects missing compiled C extensions and attempts automatic shared library linking. If auto-fix fails, it raises explicit RuntimeError with clear guidance for linking shared libraries using bash ../sageVDB/scripts/link_shared_libs.sh.
 - Port conflicts for proxies: The vLLM proxy script validates bind availability and exits with a clear message when the port is already in use.
 - systemd service installation flags: Tests demonstrate that optional services are only enabled when explicitly requested.
 - **Enhanced Test Collection Issues**: The conftest.py ensures PYTHONPATH includes local source checkouts before test modules are collected, preventing import failures when SAGE source dependencies are unavailable.
 
-**Updated** Enhanced error messages now provide clearer guidance for policy module validation failures and conditional validation behavior. Test collection issues are prevented by the sophisticated conftest.py bootstrap. SageVDB dependency issues are handled with explicit RuntimeError exceptions requiring manual intervention through specific remediation steps.
+**Updated** Enhanced error messages now provide clearer guidance for policy module validation failures and conditional validation behavior. Test collection issues are prevented by the sophisticated conftest.py bootstrap. SageVDB dependency issues are handled with two-stage validation approach that attempts automatic shared library linking before raising explicit errors requiring manual intervention.
 
 Operational tips:
 - Use ServiceRuntimeManager to queue actions and immediately fetch a status snapshot for confirmation.
 - Review systemd journal logs for units to diagnose startup failures.
 - Verify environment variables exported by runtime_env.sh and ensure PYTHON_BIN points to a working interpreter.
 - **Test Collection**: Ensure conftest.py is properly configured to handle test-level runtime bootstrap and PYTHONPATH management.
-- **SageVDB Troubleshooting**: When encountering "missing compiled C extension" errors, run `bash ../sageVDB/scripts/link_shared_libs.sh` to link the required shared libraries. The system now requires this manual intervention instead of graceful degradation.
+- **SageVDB Troubleshooting**: When encountering "missing compiled C extension" errors, the system first attempts automatic shared library linking. If this fails, run `bash ../sageVDB/scripts/link_shared_libs.sh` to link the required shared libraries manually. The system now requires this manual intervention instead of graceful degradation.
 
 **Section sources**
-- [runtime_env.py:102-136](file://src/sage_faculty_twin/runtime_env.py#L102-L136)
-- [runtime_env.py:59-91](file://src/sage_faculty_twin/runtime_env.py#L59-L91)
+- [runtime_env.py:152-186](file://src/sage_faculty_twin/runtime_env.py#L152-L186)
+- [runtime_env.py:95-141](file://src/sage_faculty_twin/runtime_env.py#L95-L141)
 - [conftest.py:1-68](file://tests/conftest.py#L1-L68)
 - [test_systemd_service_scripts.py:162-192](file://tests/test_systemd_service_scripts.py#L162-L192)
 
 ## Conclusion
 The runtime environment management system provides a cohesive foundation for deploying, diagnosing, and operating the Sage Faculty Twin application. It centralizes environment bootstrapping, hardware and version introspection, and service control, while integrating seamlessly with systemd and shell-based deployment scripts. The recent enhancements strengthen the system with a hardened fail-fast strategy that prevents silent failures and provides explicit error reporting for critical dependency issues.
 
-**Updated** Recent enhancements strengthen policy module validation and dependency resolution with explicit RuntimeError exceptions for broken configurations. The sophisticated test-level runtime bootstrap through conftest.py ensures reliable test collection even when SAGE source dependencies are unavailable. Enhanced sageVDB dependency management provides automatic detection of missing compiled extensions with clear remediation steps requiring manual intervention.
+**Updated** Recent enhancements strengthen policy module validation and dependency resolution with automatic shared library management and two-stage validation approach. The sophisticated test-level runtime bootstrap through conftest.py ensures reliable test collection even when SAGE source dependencies are unavailable. Enhanced sageVDB dependency management provides automatic detection and fixing of missing compiled extensions with clear remediation steps requiring manual intervention when auto-fix fails.
 
 ## Appendices
 
@@ -460,16 +476,16 @@ The runtime environment management system provides a cohesive foundation for dep
 
 #### Environment Validation Checklist
 - Confirm local policy module is loaded from the expected path.
-- **Enhanced sageVDB validation**: Ensure sageVDB compiled extension is available or link shared libraries as instructed.
+- **Enhanced sageVDB validation**: Ensure sageVDB compiled extension is available or attempt automatic shared library linking.
 - Verify required modules are installed per bootstrap diagnostics.
 - Check that policy validation only occurs when SAGE source is present.
 - **Test Collection**: Verify that conftest.py properly configures PYTHONPATH for test modules before collection.
 
-**Updated** Added conditional policy validation check for SAGE source directory presence and test collection validation. Enhanced sageVDB validation now includes explicit RuntimeError exceptions requiring manual intervention.
+**Updated** Added conditional policy validation check for SAGE source directory presence and test collection validation. Enhanced sageVDB validation now includes two-stage validation approach with automatic shared library linking capabilities.
 
 **Section sources**
-- [runtime_env.py:102-136](file://src/sage_faculty_twin/runtime_env.py#L102-L136)
-- [runtime_env.py:59-91](file://src/sage_faculty_twin/runtime_env.py#L59-L91)
+- [runtime_env.py:152-186](file://src/sage_faculty_twin/runtime_env.py#L152-L186)
+- [runtime_env.py:95-141](file://src/sage_faculty_twin/runtime_env.py#L95-L141)
 - [conftest.py:1-68](file://tests/conftest.py#L1-L68)
 
 #### Containerization Considerations
@@ -506,26 +522,34 @@ Implementation details:
 
 ### Appendix C: Enhanced sageVDB Dependency Management
 
-**New Section** The runtime environment now includes sophisticated validation for sageVDB source installations with explicit RuntimeError exceptions for broken source checkouts.
+**New Section** The runtime environment now includes sophisticated validation for sageVDB source installations with automatic shared library management and two-stage validation approach.
 
 Key improvements:
 - Automatic detection of missing compiled C extensions in source installations.
+- Two-stage validation approach: direct import attempt followed by auto-linking shared libraries.
 - Clear error messages with actionable steps to resolve the issue.
 - Graceful fallback to PyPI package when source checkout is absent.
 - Prevention of "notoriously confusing failure" where __all__ becomes empty and DatabaseConfig is unavailable.
-- **Fail-fast strategy**: Requires manual intervention instead of graceful degradation.
+- **Auto-fixing capabilities**: Automatic shared library linking that replicates bash ../sageVDB/scripts/link_shared_libs.sh functionality.
 
-Validation workflow:
-- Detect presence of sageVDB source package directory.
-- Attempt to import sagevdb module and validate DatabaseConfig accessibility.
-- Raise explicit RuntimeError with guidance for linking shared libraries.
-- Allow fallback to PyPI package when source is not present.
+Two-stage validation workflow:
+- **Stage 1**: Direct import attempt to check if source checkout is fully functional.
+- **Stage 2**: Auto-linking shared libraries from PyPI installation if direct import fails.
+- Invalidate broken imports before attempting auto-linking to ensure fresh module loading.
+- Re-import after successful auto-linking to verify fix.
+
+Auto-fixing capabilities:
+- Detect installed sagevdb package from different path than source checkout.
+- Symlink .so files from PyPI installation into source tree equivalent to bash ../sageVDB/scripts/link_shared_libs.sh.
+- Handle existing symlinks and target files appropriately.
+- Return success when at least one .so file is successfully linked.
 
 Remediation steps:
-- Run `bash ../sageVDB/scripts/link_shared_libs.sh` to link required shared libraries.
+- Run `bash ../sageVDB/scripts/link_shared_libs.sh` to link required shared libraries manually.
 - Ensure compiled C extensions are available in the source checkout.
 - Verify that the sagevdb module exports DatabaseConfig, DistanceMetric, IndexType, and create_database.
-- **Manual intervention required**: The system now prevents silent failures by requiring explicit user action.
+- **Manual intervention required**: The system now prevents silent failures by requiring explicit user action when auto-fix fails.
 
 **Section sources**
-- [runtime_env.py:59-91](file://src/sage_faculty_twin/runtime_env.py#L59-L91)
+- [runtime_env.py:95-141](file://src/sage_faculty_twin/runtime_env.py#L95-L141)
+- [runtime_env.py:60-93](file://src/sage_faculty_twin/runtime_env.py#L60-L93)

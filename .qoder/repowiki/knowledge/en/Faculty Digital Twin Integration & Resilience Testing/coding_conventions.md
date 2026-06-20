@@ -1,3 +1,0 @@
-- Tests use isolated temporary directories (`tmp_path`) for all file-based stores to prevent cross-test contamination.
-- External dependencies like LLM clients and email notifiers are replaced with deterministic mock or recording implementations during workflow tests.
-- Resilience tests deliberately delete store directories at runtime to verify that write operations defensively recreate missing paths.

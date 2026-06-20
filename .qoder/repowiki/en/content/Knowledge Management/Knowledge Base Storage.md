@@ -9,15 +9,16 @@
 - [test_knowledge_base.py](file://tests/test_knowledge_base.py)
 - [test_sagevdb_knowledge_store.py](file://tests/test_sagevdb_knowledge_store.py)
 - [test_bm25_backend_config.py](file://tests/test_bm25_backend_config.py)
+- [conftest.py](file://tests/conftest.py)
 </cite>
 
 ## Update Summary
 **Changes Made**
-- Enhanced search functionality with hybrid approach combining sagevdb candidate recall with custom token-overlap plus tag-boost scoring
-- Removed k-limit cap from search operations, enabling unlimited retrieval for improved accuracy
-- Implemented comprehensive query tokenization and profile-based scoring algorithms
-- Improved search accuracy for technical queries through advanced span overlap scoring
-- Updated documentation to cover new scoring algorithms and search ranking improvements
+- Enhanced backend selection system with improved model caching detection and automatic backend validation
+- Added comprehensive knowledge backend plugins documentation covering new features
+- Improved automatic backend validation with enhanced model availability checking
+- Updated backend selection logic to prioritize FAISS over BM25 based on model caching detection
+- Enhanced knowledge backend plugins documentation with new automatic validation features
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -32,8 +33,10 @@
 10. [Appendices](#appendices)
 
 ## Introduction
-This document explains the knowledge base storage system that powers multi-backend retrieval and persistence for the digital twin. The system has evolved to support an enhanced hybrid search approach that combines sagevdb candidate recall with sophisticated token-overlap plus tag-boost scoring. Key enhancements include:
+This document explains the knowledge base storage system that powers multi-backend retrieval and persistence for the digital twin. The system has evolved to support an enhanced hybrid search approach that combines sagevdb candidate recall with sophisticated token-overlap plus tag-boost scoring. Recent enhancements include:
+
 - Multi-backend architecture supporting Local (in-memory), SageVDB with SageANNs, and Neuromem backends
+- Enhanced backend selection system with improved model caching detection and automatic backend validation
 - Hybrid search approach: sagevdb provides candidate recall, followed by precise lexical scoring
 - Advanced tokenization and span overlap scoring for improved technical query accuracy
 - Profile-based scoring that considers visitor profiles, course contexts, and document intents
@@ -60,10 +63,11 @@ end
 subgraph "Ingestion"
 I["Knowledge Import<br/>Advanced Processing"]
 end
-subgraph "Tests"
+subgraph "Testing and Validation"
 T1["test_knowledge_base.py<br/>Hybrid Search Tests"]
 T2["test_sagevdb_knowledge_store.py"]
 T3["test_bm25_backend_config.py"]
+T4["conftest.py<br/>Model Caching Detection"]
 end
 KB --> E1
 KB --> E2
@@ -75,6 +79,7 @@ I --> M
 T1 --> KB
 T2 --> KB
 T3 --> KB
+T4 --> KB
 ```
 
 **Diagram sources**
@@ -85,6 +90,7 @@ T3 --> KB
 - [test_knowledge_base.py](file://tests/test_knowledge_base.py)
 - [test_sagevdb_knowledge_store.py](file://tests/test_sagevdb_knowledge_store.py)
 - [test_bm25_backend_config.py](file://tests/test_bm25_backend_config.py)
+- [conftest.py](file://tests/conftest.py)
 
 **Section sources**
 - [knowledge_base.py](file://src/sage_faculty_twin/knowledge_base.py)
@@ -94,9 +100,11 @@ T3 --> KB
 - [test_knowledge_base.py](file://tests/test_knowledge_base.py)
 - [test_sagevdb_knowledge_store.py](file://tests/test_sagevdb_knowledge_store.py)
 - [test_bm25_backend_config.py](file://tests/test_bm25_backend_config.py)
+- [conftest.py](file://tests/conftest.py)
 
 ## Core Components
 - LocalKnowledgeStore: Orchestrates document lifecycle, backend selection, indexing, and search across Local, SageVDB, and Neuromem backends with enhanced hybrid search capabilities
+- Enhanced Backend Selection System: Improved model caching detection with automatic backend validation and intelligent index type selection
 - Enhanced Scoring System: Custom token-overlap plus tag-boost scoring with profile-based relevance calculation
 - Advanced Tokenization: Comprehensive text tokenization supporting both English and Chinese characters with maximal span deduplication
 - Embedding Strategies: Hashing-based and sentence-transformer-based embedders for dense retrieval; Neuromem-specific embedder for FAISS index
@@ -111,18 +119,21 @@ Key responsibilities:
 - Indexing: Builds and rebuilds indexes for selected backends with intelligent index type selection
 - Enhanced Search: Implements hybrid approach with sagevdb candidate recall and precise lexical scoring
 - Backend Migration: Automatically migrates from BM25 to SageVDB/SageANNs system with FAISS preference
+- Model Caching Detection: Validates embedding model availability before enabling FAISS backend
 
 **Section sources**
 - [knowledge_base.py](file://src/sage_faculty_twin/knowledge_base.py)
 - [models.py](file://src/sage_faculty_twin/models.py)
 - [config.py](file://src/sage_faculty_twin/config.py)
 - [knowledge_import.py](file://src/sage_faculty_twin/knowledge_import.py)
+- [conftest.py](file://tests/conftest.py)
 
 ## Architecture Overview
-The system supports three backends with enhanced hybrid search capabilities:
+The system supports three backends with enhanced hybrid search capabilities and improved backend validation:
+
 - Local: Pure Python lexical scoring with advanced token overlap and tag-boost algorithms
 - SageVDB: Vector database with SageANNs integration and automatic FAISS preference
-- Neuromem: Unified collection with automatic index type detection preferring FAISS over BM25
+- Neuromem: Unified collection with automatic index type detection preferring FAISS over BM25 based on model caching validation
 
 ```mermaid
 graph TB
@@ -130,19 +141,100 @@ Client["Client"]
 Store["LocalKnowledgeStore<br/>Enhanced Hybrid Search"]
 Local["Local Backend<br/>Advanced Lexical Scoring"]
 SageVDB["SageVDB Backend<br/>Vector Index with SageANNs<br/>Candidate Recall"]
-Neuromem["Neuromem Backend<br/>Unified Collection<br/>Auto Index Detection"]
+Neuromem["Neuromem Backend<br/>Unified Collection<br/>Auto Index Detection<br/>Model Caching Validation"]
 Client --> Store
 Store --> Local
 Store --> SageVDB
 Store --> Neuromem
 SageVDB --> Local
 Neuromem --> Local
+Neuromem --> Validation["Model Caching Detection<br/>Automatic Backend Validation"]
+Validation --> FAISS["FAISS Index<br/>Dense Retrieval"]
+Validation --> BM25["BM25 Index<br/>Sparse Retrieval"]
 ```
 
 **Diagram sources**
 - [knowledge_base.py](file://src/sage_faculty_twin/knowledge_base.py)
+- [conftest.py](file://tests/conftest.py)
 
 ## Detailed Component Analysis
+
+### Enhanced Backend Selection System
+The LocalKnowledgeStore now implements an enhanced backend selection system with improved model caching detection and automatic backend validation:
+
+**Enhanced Backend Selection Features:**
+- Automatic model caching detection using `_embedding_model_is_cached()` function
+- Intelligent backend validation before enabling FAISS vs BM25 selection
+- Improved error handling with descriptive runtime errors for missing dependencies
+- Enhanced configuration validation for embedding models and dimensions
+
+**Enhanced Backend Selection Logic:**
+- Auto-detection of sentence-transformers availability for FAISS backend
+- Fallback to BM25 sparse retrieval when models are not cached
+- Runtime validation of embedding model dimensions and compatibility
+- Automatic backend switching based on model availability
+
+**Enhanced Backend-specific Behaviors:**
+- Local: Uses advanced token-overlap scoring with maximal span deduplication and tag-boost algorithms
+- SageVDB: Provides candidate recall using dense vectors, then applies precise lexical re-ranking
+- Neuromem: Automatic index type detection preferring FAISS (dense retrieval) when sentence-transformers is available, falls back to BM25 otherwise
+
+```mermaid
+classDiagram
+class LocalKnowledgeStore {
++add_document(payload, rebuild_indexes)
++upsert_document(payload, rebuild_indexes)
++update_document(document_id, payload, rebuild_indexes)
++list_documents()
++get_document(document_id)
++delete_documents(document_ids, rebuild_indexes)
++rebuild_indexes()
++search(query, top_k, visitor_profile, admin_role)
++count_documents()
++backend_name()
++embedding_backend_name()
++_initialize_sagevdb()
++_initialize_neuromem()
++_rebuild_backend_indexes()
++_score_document(document, query_tokens, query_profile)
++_finalize_hits(hits, query_profile, limit)
++_expand_retrieval_text(text)
++_tokenize(text)
++_compose_retrieval_text(document)
++_normalize_sagevdb_backend()
++_uses_sagevdb_anns_backend()
++_build_text_embedder(np_module)
+}
+class HashingTextEmbedder {
++encode(text)
++dimension
+}
+class SentenceTransformerTextEmbedder {
++encode(text)
++dimension
+}
+class NeuromemBgeEmbedder {
++encode(text)
++dimension
+}
+class BackendSelectionSystem {
++_embedding_model_is_cached(model_name)
++_validate_backend_availability()
++_select_optimal_backend()
+}
+LocalKnowledgeStore --> HashingTextEmbedder : "uses"
+LocalKnowledgeStore --> SentenceTransformerTextEmbedder : "uses"
+LocalKnowledgeStore --> NeuromemBgeEmbedder : "uses"
+LocalKnowledgeStore --> BackendSelectionSystem : "uses"
+```
+
+**Diagram sources**
+- [knowledge_base.py](file://src/sage_faculty_twin/knowledge_base.py)
+- [conftest.py](file://tests/conftest.py)
+
+**Section sources**
+- [knowledge_base.py](file://src/sage_faculty_twin/knowledge_base.py)
+- [conftest.py](file://tests/conftest.py)
 
 ### LocalKnowledgeStore
 The LocalKnowledgeStore now implements an enhanced hybrid search approach that combines the strengths of vector-based candidate recall with precise lexical scoring:
@@ -446,6 +538,7 @@ H --> I["Done"]
   - AppSettings for backend and embedding configuration with automatic migration support
   - Models for typed payloads and records with enhanced scoring data structures
   - Backend libraries (sagevdb, isage-neuromem) when enabled
+  - Enhanced model caching detection system for automatic backend validation
 - Embedding strategies depend on external packages (numpy, sentence-transformers)
 - Ingestion utilities depend on LocalKnowledgeStore and models
 
@@ -458,6 +551,7 @@ Store --> Neuromem["isage-neuromem"]
 Store --> Embed1["HashingTextEmbedder"]
 Store --> Embed2["SentenceTransformerTextEmbedder"]
 Store --> Embed3["NeuromemBgeEmbedder"]
+Store --> Validation["Model Caching Detection<br/>Automatic Backend Validation"]
 Import["knowledge_import.py"] --> Store
 ```
 
@@ -466,12 +560,14 @@ Import["knowledge_import.py"] --> Store
 - [models.py](file://src/sage_faculty_twin/models.py)
 - [config.py](file://src/sage_faculty_twin/config.py)
 - [knowledge_import.py](file://src/sage_faculty_twin/knowledge_import.py)
+- [conftest.py](file://tests/conftest.py)
 
 **Section sources**
 - [knowledge_base.py](file://src/sage_faculty_twin/knowledge_base.py)
 - [models.py](file://src/sage_faculty_twin/models.py)
 - [config.py](file://src/sage_faculty_twin/config.py)
 - [knowledge_import.py](file://src/sage_faculty_twin/knowledge_import.py)
+- [conftest.py](file://tests/conftest.py)
 
 ## Performance Considerations
 - **Enhanced SageVDB ANN Performance:**
@@ -489,6 +585,7 @@ Import["knowledge_import.py"] --> Store
   - Use FAISS index with cosine metric for BGE embeddings
   - Automatic index type detection prefers FAISS over BM25 for better performance
   - **Hybrid Approach**: Combines dense recall with lexical scoring for optimal accuracy
+  - **Enhanced Model Caching**: Automatic validation ensures FAISS backend only activates when models are cached
 
 - **Local Backend Optimizations:**
   - Efficient for small to medium corpora; leverage advanced tokenization and scoring heuristics
@@ -508,11 +605,17 @@ Import["knowledge_import.py"] --> Store
   - Automatic migration from BM25 to SageVDB/SageANNs system improves retrieval quality and performance
   - **Hybrid Search Advantages**: Combining vector recall with lexical precision
 
-**Updated** Enhanced performance considerations now include hybrid search benefits, removed k-limit caps, and advanced scoring optimizations
+- **Enhanced Model Caching Benefits:**
+  - Prevents runtime model downloads during backend initialization
+  - Ensures consistent performance by avoiding network-dependent model loading
+  - Automatic fallback to BM25 when models are not available
+
+**Updated** Enhanced performance considerations now include hybrid search benefits, removed k-limit caps, advanced scoring optimizations, and model caching validation
 
 **Section sources**
 - [knowledge_base.py](file://src/sage_faculty_twin/knowledge_base.py)
 - [config.py](file://src/sage_faculty_twin/config.py)
+- [conftest.py](file://tests/conftest.py)
 
 ## Troubleshooting Guide
 Common issues and resolutions:
@@ -551,18 +654,28 @@ Common issues and resolutions:
   - **Monitor hybrid search performance**: SageVDB candidate recall combined with lexical scoring
   - **Verify tokenization**: Ensure proper English/Chinese text processing
 
-**Updated** Added troubleshooting guidance for enhanced hybrid search, removed k-limit caps, and advanced scoring algorithms
+- **Model Caching Issues:**
+  - **Check embedding model availability**: Use `_embedding_model_is_cached()` to validate model presence
+  - **Network download prevention**: Tests automatically set offline mode to prevent model downloads
+  - **Automatic backend fallback**: FAISS backend automatically falls back to BM25 when models are not cached
+
+- **Backend Selection Problems:**
+  - **Verify backend configuration**: Check `neuromem_index_type` setting and model availability
+  - **Runtime validation errors**: Enhanced error messages for missing dependencies or invalid configurations
+
+**Updated** Added troubleshooting guidance for enhanced hybrid search, removed k-limit caps, advanced scoring algorithms, and model caching validation
 
 **Section sources**
 - [knowledge_base.py](file://src/sage_faculty_twin/knowledge_base.py)
 - [test_sagevdb_knowledge_store.py](file://tests/test_sagevdb_knowledge_store.py)
 - [test_knowledge_base.py](file://tests/test_knowledge_base.py)
 - [test_bm25_backend_config.py](file://tests/test_bm25_backend_config.py)
+- [conftest.py](file://tests/conftest.py)
 
 ## Conclusion
-The knowledge base storage system now offers a sophisticated, multi-backend architecture with enhanced hybrid search capabilities. The recent improvements include advanced token-overlap plus tag-boost scoring, profile-based relevance calculation, and unlimited search operations without k-limit caps. The hybrid approach combining sagevdb candidate recall with precise lexical scoring provides superior accuracy for technical queries while maintaining excellent performance. By leveraging local advanced scoring, dense retrieval with SageVDB, and hybrid FAISS/BM25 with Neuromem, it scales from small deployments to large knowledge bases while delivering exceptional search quality and user experience.
+The knowledge base storage system now offers a sophisticated, multi-backend architecture with enhanced hybrid search capabilities and improved backend validation. The recent enhancements include advanced token-overlap plus tag-boost scoring, profile-based relevance calculation, unlimited search operations without k-limit caps, and an enhanced backend selection system with model caching detection. The hybrid approach combining sagevdb candidate recall with precise lexical scoring provides superior accuracy for technical queries while maintaining excellent performance. By leveraging local advanced scoring, dense retrieval with SageVDB, and hybrid FAISS/BM25 with Neuromem, it scales from small deployments to large knowledge bases while delivering exceptional search quality and user experience. The enhanced model caching detection system ensures reliable backend selection and prevents runtime model downloads, making the system more robust and production-ready.
 
-**Updated** Enhanced conclusion reflecting the successful implementation of hybrid search, advanced scoring algorithms, and performance optimizations
+**Updated** Enhanced conclusion reflecting the successful implementation of hybrid search, advanced scoring algorithms, performance optimizations, and improved backend validation with model caching detection
 
 ## Appendices
 
@@ -589,9 +702,16 @@ The knowledge base storage system now offers a sophisticated, multi-backend arch
 **Unlimited Search Operations:**
 - Utilize the enhanced search functionality that removes k-limit caps while maintaining performance through intelligent candidate filtering and profile-based re-ranking.
 
+**Enhanced Model Caching Validation:**
+- Use `_embedding_model_is_cached()` to validate model availability before enabling FAISS backend, ensuring reliable operation without network dependencies.
+
+**Automatic Backend Selection:**
+- Configure `neuromem_index_type` to "auto" for automatic FAISS vs BM25 selection based on model caching detection and availability.
+
 **Section sources**
 - [knowledge_import.py](file://src/sage_faculty_twin/knowledge_import.py)
 - [knowledge_base.py](file://src/sage_faculty_twin/knowledge_base.py)
 - [test_knowledge_base.py](file://tests/test_knowledge_base.py)
 - [test_sagevdb_knowledge_store.py](file://tests/test_sagevdb_knowledge_store.py)
 - [test_bm25_backend_config.py](file://tests/test_bm25_backend_config.py)
+- [conftest.py](file://tests/conftest.py)

@@ -17,16 +17,21 @@
 - [test_chat_streaming.py](file://tests/test_chat_streaming.py)
 - [test_workflow_policy.py](file://tests/test_workflow_policy.py)
 - [conftest.py](file://tests/conftest.py)
+- [test_knowledge_base.py](file://tests/test_knowledge_base.py)
+- [test_knowledge_import.py](file://tests/test_knowledge_import.py)
+- [test_sagevdb_knowledge_store.py](file://tests/test_sagevdb_knowledge_store.py)
+- [test_memory_store.py](file://tests/test_memory_store.py)
 - [.github/workflows/ci.yml](file://.github/workflows/ci.yml)
 - [.github/agent.md](file://.github/agent.md)
 </cite>
 
 ## Update Summary
 **Changes Made**
-- Updated dependency version constraints to reflect latest SAGE ecosystem releases
-- Enhanced dependency management documentation with current version requirements
-- Updated troubleshooting guidance for knowledge backend dependencies
-- Improved testing infrastructure documentation with current dependency versions
+- Enhanced testing infrastructure with comprehensive network prevention system
+- Added model caching detection and automatic backend selection capabilities
+- Implemented pytest marker decorators for conditional test execution
+- Improved test bootstrap configuration with offline mode enforcement
+- Added automatic knowledge backend detection based on local cache availability
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -69,8 +74,8 @@ subgraph "Models"
 MODELS["models.py<br/>Pydantic models"]
 end
 subgraph "Testing Infrastructure"
-CONFTEST["tests/conftest.py<br/>Lightweight test bootstrap"]
-TESTS["tests/<br/>Functional test suites"]
+CONFTEST["tests/conftest.py<br/>Enhanced test bootstrap with offline mode"]
+TESTS["tests/<br/>Functional test suites with pytest markers"]
 end
 subgraph "Tooling"
 QS["quickstart.sh<br/>One-touch setup"]
@@ -270,14 +275,29 @@ SYS --> SAGEVDB
 
 ## Testing Infrastructure
 
-### Enhanced Test Bootstrap with conftest.py
-The project now features a sophisticated test bootstrap system through tests/conftest.py that provides lightweight test environment setup for sibling source checkouts with automatic PYTHONPATH configuration.
+### Enhanced Test Bootstrap with Network Prevention and Automatic Backend Selection
+The project now features a sophisticated test bootstrap system through tests/conftest.py that provides comprehensive environment isolation and automatic capability detection.
 
-**Key Features:**
-- Automatic PYTHONPATH configuration for local source checkouts (SAGE, sageVDB, neuromem)
-- Lightweight bootstrap that delegates to runtime bootstrap without requiring full SAGE stack
-- Seamless imports for sibling repositories during test collection
-- Support for both development and production runtime environments
+**Key Enhancements:**
+- **Network Prevention**: Automatic offline mode enforcement prevents any test from triggering network downloads of models or datasets
+- **Model Caching Detection**: Intelligent detection of sentence-transformers model availability in local caches
+- **Automatic Backend Selection**: Dynamic backend detection based on local cache availability and installed dependencies
+- **Comprehensive Pytest Markers**: Conditional test execution based on environment capabilities
+
+**Network Prevention System:**
+- Sets HF_HUB_OFFLINE=1 and TRANSFORMERS_OFFLINE=1 environment variables
+- Prevents silent model downloads during test execution
+- Ensures reproducible test results across different environments
+
+**Model Caching Detection:**
+- Scans HuggingFace cache directories for pre-downloaded models
+- Checks both sentence-transformers and HuggingFace Hub cache locations
+- Provides fallback detection methods for different cache configurations
+
+**Automatic Backend Selection:**
+- Detects available knowledge backends (local, neuromem, sagevdb)
+- Dynamically adjusts test execution based on backend availability
+- Skips incompatible tests gracefully with informative messages
 
 **Implementation Details:**
 - Prepend repository root's src directory to sys.path for local imports
@@ -287,7 +307,8 @@ The project now features a sophisticated test bootstrap system through tests/con
 
 ```mermaid
 flowchart TD
-Start([Test Collection]) --> CheckSrc["Check src/ in sys.path"]
+Start([Test Collection]) --> SetOffline["Set Offline Mode<br/>HF_HUB_OFFLINE=1<br/>TRANSFORMERS_OFFLINE=1"]
+SetOffline --> CheckSrc["Check src/ in sys.path"]
 CheckSrc --> AddSrc["Add src/ to sys.path"]
 AddSrc --> CheckSiblings["Check sibling repos"]
 CheckSiblings --> AddSAGE["Add ../SAGE/src/"]
@@ -296,9 +317,15 @@ CheckSiblings --> AddNeuro["Add ../neuromem/"]
 AddSAGE --> Bootstrap["Call bootstrap_runtime_env(require_policy=False)"]
 AddVDB --> Bootstrap
 AddNeuro --> Bootstrap
-Bootstrap --> ImportModules["Import test modules"]
+Bootstrap --> DetectBackends["Detect Available Backends"]
+DetectBackends --> CheckCache["Check Model Cache Availability"]
+CheckCache --> ScanHF["Scan HuggingFace Cache"]
+ScanHF --> ScanST["Scan SentenceTransformers Cache"]
+ScanST --> SelectBackends["Select Safe Backends:<br/>• local (always)<br/>• neuromem (if cached)<br/>• sagevdb (if available)"]
+SelectBackends --> ApplyMarkers["Apply Pytest Markers"]
+ApplyMarkers --> ImportModules["Import test modules"]
 ImportModules --> FullBootstrap["Second bootstrap with require_policy=True"]
-FullBootstrap --> ExecuteTests["Execute tests"]
+FullBootstrap --> ExecuteTests["Execute tests with automatic filtering"]
 ```
 
 **Diagram sources**
@@ -309,17 +336,43 @@ FullBootstrap --> ExecuteTests["Execute tests"]
 - [conftest.py](file://tests/conftest.py)
 - [runtime_env.py](file://src/sage_faculty_twin/runtime_env.py)
 
+### Pytest Marker Decorators and Conditional Execution
+The testing infrastructure now includes comprehensive pytest marker decorators for conditional test execution based on environment capabilities.
+
+**Available Markers:**
+- `@requires_neuromem_model`: Skips tests requiring sentence-transformers when model is not cached
+- Automatic backend selection markers for knowledge store tests
+- Optional dependency skip markers for specialized functionality
+
+**Marker Implementation:**
+- `_HAS_LOCAL_EMBEDDING_MODEL`: Boolean flag indicating cached model availability
+- `available_knowledge_backends()`: Function returning tuple of backends safe to use
+- `pytest_collection_modifyitems()`: Automatic marker application during test collection
+
+**Conditional Test Execution:**
+- Tests requiring sentence-transformers are skipped when not available
+- Informative skip reasons explain why tests are disabled
+- Automatic backend detection ensures tests run only on compatible environments
+
+**Section sources**
+- [conftest.py](file://tests/conftest.py)
+- [test_knowledge_base.py](file://tests/test_knowledge_base.py)
+- [test_knowledge_import.py](file://tests/test_knowledge_import.py)
+- [test_sagevdb_knowledge_store.py](file://tests/test_sagevdb_knowledge_store.py)
+
 ### Testing Framework and Strategies
-- Unit tests are organized per functional area and executed via pytest with automatic PYTHONPATH setup
+- Unit tests are organized per functional area and executed via pytest with automatic offline mode enforcement
 - Streaming and SSE behavior is covered by targeted tests validating event ordering and token callbacks
 - Workflow policy tests validate planner decisions and policy acceptance
-- Enhanced test bootstrap eliminates manual PYTHONPATH configuration requirements
+- Enhanced test bootstrap with automatic network prevention and backend detection
+- Comprehensive knowledge backend testing with automatic capability detection
 
 Recommended testing approach:
 - Run narrow, focused tests using pytest with automatic conftest.py bootstrap
 - Validate streaming behavior with short keepalive intervals to avoid proxy interference
 - Verify policy loading and planner acceptance with custom policy files
-- Leverage automatic sibling source checkout detection for comprehensive testing
+- Leverage automatic backend detection for comprehensive testing across different environments
+- Use offline mode to ensure reproducible test results regardless of network conditions
 
 **Section sources**
 - [CONTRIBUTING.md](file://CONTRIBUTING.md)
@@ -366,6 +419,7 @@ PYPKG --> ANNS
 - Prompt soft caps and truncation strategies bound LLM prompt sizes and improve stability.
 - Post-answer background tasks decouple critical path from memory writes and follow-up planning.
 - Environment bootstrapping avoids expensive module reloads and ensures local source preference.
+- Offline mode prevents network overhead during testing and ensures consistent performance.
 
 ## Troubleshooting Guide
 Common issues and resolutions:
@@ -376,8 +430,10 @@ Common issues and resolutions:
 - Test import failures: The conftest.py bootstrap automatically handles sibling source checkouts and PYTHONPATH configuration.
 - CI workflow duplication: Recent updates have streamlined CI jobs to eliminate redundant testing processes.
 - Knowledge backend dependencies: The runtime dependency checker now validates against updated version constraints (isage-vdb>=0.2.0.10, isage-anns>=0.2.0).
+- Network-dependent test failures: The offline mode prevents network downloads during testing, ensuring reproducible results.
+- Model cache issues: Use the provided model caching detection to verify local availability before running embedding-based tests.
 
-**Updated** Enhanced troubleshooting guidance based on recent operational runtime notes and CI improvements, including updated dependency version validation
+**Updated** Enhanced troubleshooting guidance based on recent operational runtime notes and CI improvements, including updated dependency version validation and offline testing considerations
 
 **Section sources**
 - [runtime_env.py](file://src/sage_faculty_twin/runtime_env.py)
@@ -392,6 +448,7 @@ Common issues and resolutions:
 - Repository boundaries: Do not commit secrets, generated runtime data, or personal deployment details.
 - Validation: Run pytest with automatic conftest.py bootstrap, lint checks for frontend JS, and compile Python modules locally.
 - Coding style: Keep changes small and focused; preserve the app architecture: HTTP surface in api.py, orchestration in service.py, storage and retrieval in dedicated modules.
+- Testing: Leverage the enhanced offline testing infrastructure and automatic backend detection for comprehensive test coverage.
 
 **Section sources**
 - [CONTRIBUTING.md](file://CONTRIBUTING.md)
@@ -406,11 +463,12 @@ The CI workflow has been updated to remove duplicated job definitions and optimi
 - Removed redundant test execution across multiple job types
 - Simplified dependency installation process using quickstart.sh
 - Enhanced error reporting with shorter traceback format
+- Integrated offline testing requirements into CI pipeline
 
 **Current CI Structure:**
 - Lint job: Installs via quickstart.sh, installs dev extras, runs Ruff lint
 - Frontend job: Validates JavaScript syntax and runs frontend contract tests
-- Test job: Executes comprehensive test suite with optimized ignore patterns
+- Test job: Executes comprehensive test suite with optimized ignore patterns and offline mode enforcement
 
 **Section sources**
 - [.github/workflows/ci.yml](file://.github/workflows/ci.yml)
@@ -432,6 +490,8 @@ Guidance for adding new features:
 - Add unit tests covering new behavior and edge cases
 - Validate streaming and SSE behavior when applicable
 - Leverage conftest.py automatic bootstrap for comprehensive testing
+- Use pytest markers for conditional execution based on environment capabilities
+- Implement automatic backend detection for new knowledge backends
 
 **Section sources**
 - [api.py](file://src/sage_faculty_twin/api.py)
@@ -447,10 +507,12 @@ Guidance for adding new features:
 - Use manage.sh and systemd user services for consistent deployments
 - Leverage conftest.py automatic bootstrap for seamless development experience
 - Follow streamlined CI processes for faster feedback cycles
+- Implement offline-first testing practices for reliable CI pipelines
+- Use automatic backend detection to ensure cross-environment compatibility
 
 **Section sources**
 - [CONTRIBUTING.md](file://CONTRIBUTING.md)
 - [README.md](file://README.md)
 
 ## Conclusion
-This guide consolidates development practices, architecture insights, and operational procedures for contributing to the Sage Faculty Twin project. The enhanced testing infrastructure with automatic conftest.py bootstrap provides seamless sibling source checkout support and eliminates manual PYTHONPATH configuration requirements. Recent CI workflow improvements have streamlined the development process by removing duplication and optimizing resource usage. The updated dependency version constraints reflect the latest SAGE ecosystem releases, ensuring compatibility and stability. By following the outlined conventions, testing strategies, and troubleshooting steps, contributors can efficiently extend functionality while preserving system reliability and performance.
+This guide consolidates development practices, architecture insights, and operational procedures for contributing to the Sage Faculty Twin project. The enhanced testing infrastructure with automatic conftest.py bootstrap provides seamless sibling source checkout support, comprehensive network prevention, intelligent model caching detection, and automatic backend selection capabilities. These improvements ensure reliable testing across diverse environments while maintaining strict offline operation requirements. Recent CI workflow improvements have streamlined the development process by removing duplication and optimizing resource usage. The updated dependency version constraints reflect the latest SAGE ecosystem releases, ensuring compatibility and stability. By following the outlined conventions, testing strategies, and troubleshooting steps, contributors can efficiently extend functionality while preserving system reliability and performance.

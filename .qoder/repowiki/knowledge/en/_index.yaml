@@ -2,7 +2,7 @@
 schema_version: 1
 locale: en-US
 branch: main
-exported_at: "2026-06-20T03:34:34Z"
+exported_at: "2026-06-20T04:02:51Z"
 modules:
     "":
         dir_name: Faculty Digital Twin Orchestrator
@@ -13,8 +13,8 @@ modules:
         depends_on: []
         related_to: []
     app_source:
-        dir_name: Faculty Twin Service & Memory Orchestration
-        title: Faculty Twin Service & Memory Orchestration
+        dir_name: LLM Interaction & Workflow Orchestration
+        title: LLM Interaction & Workflow Orchestration
         scope:
             - src/sage_faculty_twin/
         source_files: []
@@ -54,8 +54,8 @@ modules:
         depends_on: []
         related_to: []
     tests:
-        dir_name: Faculty Digital Twin Integration & Resilience Testing
-        title: Faculty Digital Twin Integration & Resilience Testing
+        dir_name: Faculty Digital Twin Integration & Quality Assurance
+        title: Faculty Digital Twin Integration & Quality Assurance
         scope:
             - tests/
         source_files: []

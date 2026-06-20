@@ -1,0 +1,1 @@
+Uses `httpx` for async/sync HTTP clients, `pydantic` for structured payload validation, and integrates with vLLM's SSE streaming and Prometheus metrics endpoints.

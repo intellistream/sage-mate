@@ -1,1 +1,1 @@
-Pydantic for strict data modeling and validation across context, policy, and plan specifications; SAGE FlowNet for optional DAG-based parallel execution of retrieval and post-answer stages
+FastAPI for HTTP interface and SSE streaming; Pydantic for strict data validation and settings management; SAGE FlowNet for DAG-based workflow orchestration; httpx for synchronous/asynchronous LLM client communication

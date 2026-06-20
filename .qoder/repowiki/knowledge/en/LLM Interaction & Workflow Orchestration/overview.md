@@ -1,0 +1,1 @@
+Manages LLM communication, intent classification, workflow planning, and runtime metrics for the faculty digital twin.

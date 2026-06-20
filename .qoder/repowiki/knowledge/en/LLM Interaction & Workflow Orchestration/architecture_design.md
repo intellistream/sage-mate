@@ -1,0 +1,5 @@
+- **Client Layer**: `VllmChatClient` encapsulates HTTP communication with vLLM using `httpx`, supporting both synchronous and asynchronous streaming/non-streaming completions.
+- **Intent & Planning**: Dedicated methods (`classify_interaction_intent`, `propose_shadow_plan_candidate`) use specialized prompts and smaller models for fast intent detection and shadow workflow validation.
+- **Resilience**: Implements automatic fallback for unsupported reasoning features (e.g., `thinking_token_budget`) and robust JSON parsing/repair mechanisms for structured outputs.
+- **Observability**: Maintains internal thread-safe metrics for latency, throughput, cache hit rates (exact/semantic), and vLLM prefix cache statistics, exposed via `runtime_snapshot`.
+- **Integration**: Depends on `workflow_steps` for registry definitions and `config` for runtime settings, acting as the primary bridge between high-level workflow logic and the underlying LLM infrastructure.

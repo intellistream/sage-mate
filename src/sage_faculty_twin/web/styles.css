@@ -1351,6 +1351,28 @@ body.drawer-pinned .history-rail {
     color: var(--accent);
 }
 
+/* --- Retry button on error messages --- */
+.message-retry-button {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 10px;
+    padding: 7px 14px;
+    border-radius: 999px;
+    border: 1px solid rgba(167, 53, 53, 0.25);
+    background: rgba(255, 255, 255, 0.85);
+    color: #8d2d2d;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 140ms ease, border-color 140ms ease;
+}
+
+.message-retry-button:hover {
+    background: #fff;
+    border-color: rgba(167, 53, 53, 0.45);
+}
+
 /* --- Markdown-lite formatting --- */
 .message-body pre {
     margin: 8px 0;
@@ -2213,6 +2235,32 @@ body.drawer-pinned .history-rail {
 .message-basis-detail {
     margin-top: 6px;
     line-height: 1.55;
+    font-size: 0.85rem;
+    max-height: 240px;
+    overflow-y: auto;
+    color: var(--ink-light, #444);
+}
+
+.message-basis-detail.message-body h1,
+.message-basis-detail.message-body h2,
+.message-basis-detail.message-body h3 {
+    font-size: 0.9rem;
+    margin: 8px 0 4px;
+}
+
+.message-basis-detail.message-body table {
+    font-size: 0.82rem;
+}
+
+.message-basis-detail.message-body ul,
+.message-basis-detail.message-body ol {
+    margin: 4px 0;
+    padding-left: 1.2em;
+}
+
+.message-basis-detail.message-body li {
+    margin: 1px 0;
+    line-height: 1.45;
 }
 
 .message-basis-checklist {

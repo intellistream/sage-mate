@@ -1,1 +1,1 @@
-Orchestrates a deterministic, policy-gated workflow pipeline that routes academic inquiries through intent classification, evidence retrieval, and LLM generation while enforcing strict side-effect controls.
+Orchestrates a policy-governed, multi-stage chat pipeline that integrates deterministic workflow planning with LLM-driven intent classification and retrieval-augmented generation.
