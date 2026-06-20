@@ -111,7 +111,12 @@ def bootstrap_runtime_env(
 
     _prepend_repo_paths(repo_root)
     _validate_sagevdb_source(repo_root)
-    _ensure_local_policy_preferred(repo_root)
+
+    sage_source_present = (
+        repo_root.parent / "SAGE" / "src" / "sage" / "serving" / "integrations" / "policy.py"
+    ).exists()
+    if sage_source_present:
+        _ensure_local_policy_preferred(repo_root)
 
     _require_module(
         "pydantic_settings",
@@ -123,7 +128,7 @@ def bootstrap_runtime_env(
             "Run: python -m pip install -e .",
         )
 
-    if require_policy:
+    if require_policy and sage_source_present:
         _require_module(
             "sage.serving.integrations.policy",
             "Ensure local SAGE source is visible (../SAGE/src) on PYTHONPATH.",
