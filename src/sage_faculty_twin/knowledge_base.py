@@ -141,7 +141,13 @@ class LocalKnowledgeStore:
         self._np = None
         self._text_embedder = None
         self._document_id_to_vector_id: dict[str, int] = {}
+        # Wiki-link retrieval: adjacency list mapping document_id → list of
+        # linked document_ids.  Built from ``metadata["linked_source_names"]``
+        # at load time.  See wiki-link-retrieval repo for research context.
+        self._link_graph: dict[str, list[str]] = {}
+        self._link_expansion_enabled = True
         self._load_documents_from_disk()
+        self._rebuild_link_graph()
         if self._backend == "sagevdb":
             self._initialize_sagevdb()
         elif self._backend == "neuromem":
@@ -171,6 +177,7 @@ class LocalKnowledgeStore:
             self._add_to_sagevdb(record, rebuild_index=rebuild_indexes)
         elif self._backend == "neuromem" and rebuild_indexes:
             self._add_to_neuromem(record)
+        self._rebuild_link_graph()
         return record
 
     def upsert_document(
@@ -213,6 +220,7 @@ class LocalKnowledgeStore:
         )
         if rebuild_indexes:
             self._rebuild_backend_indexes()
+        self._rebuild_link_graph()
         return updated_record, False
 
     def update_document(
@@ -247,6 +255,7 @@ class LocalKnowledgeStore:
         )
         if rebuild_indexes:
             self._rebuild_backend_indexes()
+        self._rebuild_link_graph()
         return updated_record
 
     def list_documents(self) -> list[KnowledgeDocumentRecord]:
@@ -336,6 +345,10 @@ class LocalKnowledgeStore:
 
         limit = top_k or self._settings.retrieval_top_k
         reranked = sorted(scored_hits, key=lambda item: item.score, reverse=True)
+        # Wiki-link retrieval: 1-hop expansion after reranking.
+        if self._link_expansion_enabled:
+            reranked = self._expand_hits_with_links(reranked, query_tokens, query_profile)
+            reranked.sort(key=lambda item: item.score, reverse=True)
         return self._finalize_hits(reranked, query_profile, limit)
 
     def count_documents(self) -> int:
@@ -831,6 +844,10 @@ class LocalKnowledgeStore:
                 )
             )
         hits.sort(key=lambda h: h.score, reverse=True)
+        # Wiki-link retrieval: 1-hop expansion after reranking.
+        if self._link_expansion_enabled:
+            hits = self._expand_hits_with_links(hits, query_tokens, query_profile)
+            hits.sort(key=lambda h: h.score, reverse=True)
         return self._finalize_hits(hits, query_profile, limit)
 
     def _score_document(
@@ -1128,6 +1145,93 @@ class LocalKnowledgeStore:
         if aligned_hits:
             return _dedupe_hits_by_source_group(aligned_hits, limit)
         return _dedupe_hits_by_source_group(visible_hits, limit)
+
+    # ── Wiki-link retrieval: link graph construction + expansion ────────
+
+    def _rebuild_link_graph(self) -> None:
+        """Build adjacency list from document metadata.
+
+        Each document may carry ``metadata["linked_source_names"]``: a
+        pipe-separated list of source_names it links to (e.g. from wiki
+        markdown ``[text](../other-page.md)`` links resolved at ingest
+        time).  We resolve those source_names to document_ids to build
+        an in-memory adjacency list.
+        """
+        source_to_id: dict[str, str] = {
+            doc.source_name: doc_id
+            for doc_id, doc in self._documents.items()
+            if doc.source_name
+        }
+        graph: dict[str, list[str]] = {}
+        for doc_id, doc in self._documents.items():
+            linked_sources = (doc.metadata or {}).get("linked_source_names", "")
+            if not linked_sources:
+                continue
+            neighbors: list[str] = []
+            for src_name in linked_sources.split("|"):
+                src_name = src_name.strip()
+                if src_name and src_name in source_to_id:
+                    target_id = source_to_id[src_name]
+                    if target_id != doc_id:
+                        neighbors.append(target_id)
+            if neighbors:
+                graph[doc_id] = neighbors
+        self._link_graph = graph
+
+    def _expand_hits_with_links(
+        self,
+        hits: list[KnowledgeSearchHit],
+        query_tokens: set[str],
+        query_profile: "QueryProfile",
+        *,
+        max_expansion: int = 3,
+    ) -> list[KnowledgeSearchHit]:
+        """Post-retrieval 1-hop link expansion.
+
+        For each hit in the result set, follow outgoing links in the
+        adjacency list and inject linked documents that are not already
+        present.  Expanded documents receive a fraction of the parent
+        hit's score so they rank below the primary result but above
+        unrelated documents.
+        """
+        if not self._link_graph or not hits:
+            return hits
+
+        seen_ids = {h.document_id for h in hits}
+        expanded: list[KnowledgeSearchHit] = list(hits)
+
+        for hit in hits:
+            if len(expanded) - len(hits) >= max_expansion:
+                break
+            neighbors = self._link_graph.get(hit.document_id, [])
+            for neighbor_id in neighbors:
+                if neighbor_id in seen_ids:
+                    continue
+                if len(expanded) - len(hits) >= max_expansion:
+                    break
+                doc = self._documents.get(neighbor_id)
+                if doc is None:
+                    continue
+                if not _document_is_visible_to_requester(
+                    doc, query_profile.visitor_profile, query_profile.admin_role
+                ):
+                    continue
+                # Linked docs get a fraction of the parent hit's score
+                link_score = max(hit.score * 0.5, 1.0)
+                expanded.append(
+                    KnowledgeSearchHit(
+                        document_id=doc.document_id,
+                        title=doc.title,
+                        excerpt=self._build_excerpt(doc.content, query_tokens),
+                        score=link_score,
+                        tags=doc.tags,
+                        source_name=doc.source_name,
+                        metadata=doc.metadata,
+                    )
+                )
+                seen_ids.add(neighbor_id)
+
+        return expanded
 
     def _expand_retrieval_text(self, text: str) -> str:
         tokens = sorted(self._tokenize(text))

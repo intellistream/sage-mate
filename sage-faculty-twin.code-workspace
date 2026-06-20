@@ -99,6 +99,14 @@
     {
       "name": "portfolio | homepage",
       "path": "../shuhaozhangtony.github.io"
+    },
+    {
+      "name": "research | wiki-link-retrieval",
+      "path": "../wiki-link-retrieval"
+    },
+    {
+      "name": "team | sage-wiki",
+      "path": "../sage-wiki"
     }
   ],
   "settings": {
