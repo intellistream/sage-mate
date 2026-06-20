@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+## v4.2.1 - 2026-06-20
+
+`v4.2.1` fixes the "依据" (answer basis) section showing repeated identical citations across consecutive turns.
+
+### Fixed
+
+- **Knowledge basis deduplication by source group**: multiple parts of the same document (e.g. `part-1`, `part-2`) now collapse into a single basis item, preventing the same page from dominating the citation list.
+- **Generic index page filter**: broad listing pages like "论文索引" that match too many queries are now skipped as answer basis items, freeing slots for more specific, relevant citations.
+- **Recent session context throttling**: the "近期交流记录" basis item now only appears when there are ≥2 prior exchanges in the session, avoiding redundant echoes of the visible chat history.
+
 ## v4.2.0 - 2026-06-20
 
 `v4.2.0` adds on-demand context compression, letting users manually trigger conversation context compression from the token usage panel.

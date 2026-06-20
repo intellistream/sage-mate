@@ -38,7 +38,7 @@ from .auth import (
 from .config import AppSettings
 from .escalation_store import EscalationQueueStore
 from .follow_up_store import FollowUpQueueStore
-from .knowledge_base import LocalKnowledgeStore
+from .knowledge_base import LocalKnowledgeStore, _canonical_source_group
 from .knowledge_gap_draft_store import KnowledgeGapDraftStore
 from .light_agent import LightweightActionPlanner
 from .llm_client import VllmChatClient
@@ -4040,8 +4040,20 @@ class FacultyTwinWorkflowSupport:
                 self._build_added_knowledge_basis_item(context.added_knowledge_record)
             )
 
-        for hit in context.knowledge_hits[:3]:
+        # Deduplicate knowledge hits by canonical source group so multiple
+        # parts of the same page don't all appear as separate basis items.
+        # Also skip generic index/listing pages that match too broadly.
+        seen_source_groups: set[str] = set()
+        for hit in context.knowledge_hits[:5]:
+            source_group = _canonical_source_group(hit.source_name, hit.document_id)
+            if source_group in seen_source_groups:
+                continue
+            if self._is_generic_index_page(hit):
+                continue
+            seen_source_groups.add(source_group)
             basis_items.append(self._build_knowledge_basis_item(hit))
+            if len(basis_items) >= 4:
+                break
 
         for hit in context.web_search_hits[:2]:
             basis_items.append(
@@ -4053,11 +4065,15 @@ class FacultyTwinWorkflowSupport:
                 )
             )
 
+        # Only show recent session context as basis when there are ≥2 prior
+        # exchanges — a single current Q&A is already visible in the chat.
         recent_session_basis_item = self._build_recent_session_basis_item(
             context.recent_session_context
         )
         if recent_session_basis_item is not None:
-            basis_items.append(recent_session_basis_item)
+            exchange_count = (context.recent_session_context or "").count("User:")
+            if exchange_count >= 2:
+                basis_items.append(recent_session_basis_item)
 
         prioritized_memory_hits = sorted(
             context.memory_hits,
@@ -4084,6 +4100,16 @@ class FacultyTwinWorkflowSupport:
             deduped_items.append(item)
 
         return deduped_items[:5]
+
+    @staticmethod
+    def _is_generic_index_page(hit: KnowledgeSearchHit) -> bool:
+        """Return True for broad index/listing pages that match too many
+        queries and add little value as answer basis citations."""
+        title = (hit.title or "").lower()
+        index_markers = ("论文索引", "论文列表", "索引页", "index")
+        if any(marker in title for marker in index_markers):
+            return True
+        return False
 
     def _build_recent_session_basis_item(
         self, recent_session_context: str
