@@ -120,6 +120,7 @@ class AppSettings(BaseSettings):
     sagevdb_anns_algorithm: str = Field(default="faiss_hnsw")
     service_manager_script: Path = Field(default=REPO_ROOT / "manage.sh")
     capability_plugin_dir: Path = Field(default=Path("data/capability_plugins"))
+    skill_dir: Path = Field(default=Path("data/skills"))
     changelog_path: Path = Field(default=Path("data/changelog.json"))
     admin_username: str = Field(default="admin")
     admin_password: str = Field(default="change-me-admin-password")

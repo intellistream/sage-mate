@@ -971,6 +971,99 @@ class VllmChatClient:
         except Exception:
             return partial_answer + "\n\n[回答因长度限制被截断]"
 
+    def chat_with_tools_sync(
+        self,
+        messages: list[dict[str, Any]],
+        tools: list[dict[str, Any]],
+        *,
+        temperature: float = 0.2,
+        max_tokens: int | None = 4096,
+        tool_choice: str = "auto",
+    ) -> dict[str, Any]:
+        """Run a single-turn chat completion with tool-calling support.
+
+        Returns a dict with:
+        - content: str | None - the text content if no tool calls
+        - tool_calls: list[dict] - tool call requests from the model
+        - finish_reason: str - why the model stopped
+
+        The caller is responsible for executing tool calls and feeding
+        results back into messages for the next turn.
+        """
+        if not tools:
+            raise ValueError("chat_with_tools_sync requires at least one tool")
+
+        payload: dict[str, Any] = {
+            "model": self.model_name,
+            "messages": messages,
+            "tools": tools,
+            "tool_choice": tool_choice,
+            "temperature": temperature,
+        }
+        if max_tokens is not None:
+            payload["max_tokens"] = max_tokens
+
+        # Disable thinking for tool-calling to reduce latency
+        payload["chat_template_kwargs"] = {"enable_thinking": False}
+
+        started_at = perf_counter()
+        try:
+            response = self._client.post("/chat/completions", json=payload)
+            response.raise_for_status()
+            data = response.json()
+        except httpx.TimeoutException:
+            raise
+        except Exception as exc:
+            self._record_request_error(exc)
+            raise
+
+        elapsed_ms = (perf_counter() - started_at) * 1000.0
+        usage = data.get("usage") or {}
+        prompt_tokens = int(usage.get("prompt_tokens") or 0)
+        completion_tokens = int(usage.get("completion_tokens") or 0)
+        total_tokens = int(usage.get("total_tokens") or 0)
+        self._record_request_success(
+            latency_ms=elapsed_ms,
+            prompt_tokens=prompt_tokens,
+            completion_tokens=completion_tokens,
+            total_tokens=total_tokens,
+        )
+        self._last_request_usage = {
+            "prompt_tokens": prompt_tokens,
+            "completion_tokens": completion_tokens,
+            "total_tokens": total_tokens,
+        }
+
+        choices = data.get("choices", [])
+        if not choices:
+            return {"content": None, "tool_calls": [], "finish_reason": "no_choices"}
+
+        message = choices[0].get("message", {})
+        finish_reason = str(choices[0].get("finish_reason") or "").strip().lower()
+        content = message.get("content")
+        tool_calls = message.get("tool_calls") or []
+
+        # Normalize tool_calls format
+        normalized_calls = []
+        for tc in tool_calls:
+            func = tc.get("function", {})
+            args_str = func.get("arguments", "{}")
+            try:
+                arguments = json.loads(args_str) if isinstance(args_str, str) else args_str
+            except json.JSONDecodeError:
+                arguments = {"raw": args_str}
+            normalized_calls.append({
+                "id": tc.get("id", f"call_{len(normalized_calls)}"),
+                "name": func.get("name", ""),
+                "arguments": arguments,
+            })
+
+        return {
+            "content": content,
+            "tool_calls": normalized_calls,
+            "finish_reason": finish_reason,
+        }
+
     async def answer_question(self, system_prompt: str, user_prompt: str) -> str:
         return await asyncio.to_thread(self.answer_question_sync, system_prompt, user_prompt)
 

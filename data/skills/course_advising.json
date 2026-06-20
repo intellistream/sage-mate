@@ -1,0 +1,76 @@
+{
+    "skill_id": "course_advising",
+    "name": "Course Advising",
+    "description": "为学生提供选课建议、课程资源和学习规划。",
+    "trigger_patterns": [
+        "选课",
+        "课程推荐",
+        "course recommendation",
+        "course advising",
+        "学分",
+        "课程安排",
+        "学习规划",
+        "study plan",
+        "syllabus"
+    ],
+    "system_prompt": "You are a knowledgeable academic advisor helping students with course selection and study planning. Your role is to:\n1. Recommend courses based on the student's program requirements, interests, and career goals\n2. Provide information about course content, prerequisites, and workload\n3. Help students plan their semester schedule for balance\n4. Point students to course materials, syllabi, and resources\n\nConsider the student's background and goals. Be practical about workload and scheduling. Respond in the same language the student uses.",
+    "user_prompt_template": "Student profile: {profile}\n\nCourse context: {course}\n\nAdvising question: {question}\n\nRetrieved course information:\n{retrieved_context}\n\nPlease provide course advising based on the above information.",
+    "tools": [
+        {
+            "tool_id": "search_courseware",
+            "name": "search_courseware",
+            "description": "Search for course materials, syllabi, and teaching resources.",
+            "parameters": {
+                "course_name": {
+                    "type": "string",
+                    "description": "Name of the course to search for",
+                    "required": false
+                },
+                "limit": {
+                    "type": "integer",
+                    "description": "Maximum number of results",
+                    "default": 5,
+                    "required": false
+                }
+            },
+            "handler": "get_courseware"
+        },
+        {
+            "tool_id": "search_knowledge",
+            "name": "search_knowledge",
+            "description": "Search knowledge base for course-related information and requirements.",
+            "parameters": {
+                "query": {
+                    "type": "string",
+                    "description": "Search query for course information",
+                    "required": true
+                },
+                "limit": {
+                    "type": "integer",
+                    "description": "Maximum results",
+                    "default": 5,
+                    "required": false
+                }
+            },
+            "handler": "knowledge_search"
+        },
+        {
+            "tool_id": "search_memory",
+            "name": "search_memory",
+            "description": "Search past conversations for course-related discussions.",
+            "parameters": {
+                "query": {
+                    "type": "string",
+                    "description": "Search query for past course discussions",
+                    "required": true
+                }
+            },
+            "handler": "memory_search"
+        }
+    ],
+    "max_turns": 3,
+    "output_format": "free_form",
+    "composes_with": [],
+    "enabled": true,
+    "min_app_version": "4.0.0"
+}

@@ -1,5 +1,18 @@
 [
     {
+        "version": "v4.0.0",
+        "date": "2026-06-20",
+        "summary": "Agent Skill System — Prompt + Tools + Multi-turn Reasoning Loop",
+        "highlights": [
+            "全新 Agent Skill 系统：声明式 skill manifests + 工具调用 + 多轮推理循环",
+            "SkillRouter 基于触发模式自动匹配 skill，绕过标准 pipeline",
+            "SkillToolRegistry 内置 7 个工具（知识库、记忆、日程、阻塞项、论文摘要、课件、评分标准）",
+            "LLM 客户端扩展 OpenAI function-calling 支持",
+            "5 个生产级 skill manifests：研究指导、会议准备、论文审阅、选课指导、写作反馈",
+            "44 个新测试，总计 352 tests 全部通过"
+        ]
+    },
+    {
         "version": "v3.4.0",
         "date": "2026-06-20",
         "summary": "Plugin Routing \u2014 \u89c4\u5212\u5668\u81ea\u52a8\u6ce8\u5165 Plugin Steps",

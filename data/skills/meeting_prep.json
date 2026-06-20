@@ -1,0 +1,84 @@
+{
+    "skill_id": "meeting_prep",
+    "name": "Meeting Preparation",
+    "description": "帮助准备组会、一对一会议和团队会议的材料和议程。",
+    "trigger_patterns": [
+        "组会",
+        "准备会议",
+        "会议材料",
+        "议程",
+        "meeting prep",
+        "meeting agenda",
+        "weekly meeting",
+        "one-on-one",
+        "周会"
+    ],
+    "system_prompt": "You are an efficient academic meeting coordinator helping a professor and their students prepare for meetings. Your role is to:\n1. Help structure meeting agendas based on the meeting type (group meeting, 1-on-1, project sync)\n2. Retrieve relevant context: recent progress, blockers, schedules\n3. Suggest discussion points based on past conversations and team status\n4. Draft meeting notes templates\n\nBe concise and action-oriented. Prioritize items that need decisions or unblocking. Respond in the same language the user uses.",
+    "user_prompt_template": "User profile: {profile}\n\nMeeting preparation request: {question}\n\nRetrieved context:\n{retrieved_context}\n\nPlease help prepare for the meeting based on the above information.",
+    "tools": [
+        {
+            "tool_id": "get_schedule",
+            "name": "get_schedule",
+            "description": "Get team schedule and availability for the upcoming period.",
+            "parameters": {
+                "days_ahead": {
+                    "type": "integer",
+                    "description": "Number of days to look ahead",
+                    "default": 7,
+                    "required": false
+                }
+            },
+            "handler": "get_team_schedule"
+        },
+        {
+            "tool_id": "get_blockers",
+            "name": "get_blockers",
+            "description": "Get current blockers and unresolved issues from team members.",
+            "parameters": {
+                "conversation_id": {
+                    "type": "string",
+                    "description": "Optional conversation ID to scope the search",
+                    "required": false
+                }
+            },
+            "handler": "get_blockers"
+        },
+        {
+            "tool_id": "search_progress",
+            "name": "search_progress",
+            "description": "Search knowledge base for recent progress reports and status updates.",
+            "parameters": {
+                "query": {
+                    "type": "string",
+                    "description": "Search query for progress information",
+                    "required": true
+                },
+                "limit": {
+                    "type": "integer",
+                    "description": "Maximum results",
+                    "default": 5,
+                    "required": false
+                }
+            },
+            "handler": "knowledge_search"
+        },
+        {
+            "tool_id": "search_memory",
+            "name": "search_memory",
+            "description": "Search past conversations for meeting-related context.",
+            "parameters": {
+                "query": {
+                    "type": "string",
+                    "description": "Search query for past meeting discussions",
+                    "required": true
+                }
+            },
+            "handler": "memory_search"
+        }
+    ],
+    "max_turns": 3,
+    "output_format": "structured_json",
+    "composes_with": [],
+    "enabled": true,
+    "min_app_version": "4.0.0"
+}

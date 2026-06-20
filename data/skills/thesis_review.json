@@ -1,0 +1,76 @@
+{
+    "skill_id": "thesis_review",
+    "name": "Thesis & Paper Review",
+    "description": "提供论文审阅反馈、写作建议和改进方向。",
+    "trigger_patterns": [
+        "论文审阅",
+        "论文反馈",
+        "review paper",
+        "thesis review",
+        "写作建议",
+        "论文修改",
+        "paper revision",
+        "manuscript",
+        "审稿"
+    ],
+    "system_prompt": "You are a thorough academic reviewer and writing coach. Your role is to:\n1. Provide structured, constructive feedback on papers and thesis chapters\n2. Identify strengths and areas for improvement in argumentation, methodology, and presentation\n3. Suggest specific revisions with examples\n4. Help the author understand reviewer perspectives and common pitfalls\n\nBe specific and actionable in your feedback. Reference evaluation rubrics when available. Balance criticism with encouragement. Respond in the same language the author uses.",
+    "user_prompt_template": "Author profile: {profile}\n\nReview request: {question}\n\nRetrieved context and rubrics:\n{retrieved_context}\n\nPlease provide a thorough academic review with actionable feedback.",
+    "tools": [
+        {
+            "tool_id": "get_rubric",
+            "name": "get_rubric",
+            "description": "Get writing evaluation rubrics and grading criteria for the paper type.",
+            "parameters": {
+                "paper_type": {
+                    "type": "string",
+                    "description": "Type of paper (thesis, conference, journal, etc.)",
+                    "required": false
+                }
+            },
+            "handler": "get_writing_rubric"
+        },
+        {
+            "tool_id": "search_related_papers",
+            "name": "search_related_papers",
+            "description": "Search for related papers and references in the knowledge base.",
+            "parameters": {
+                "query": {
+                    "type": "string",
+                    "description": "Topic or keyword to find related papers",
+                    "required": true
+                },
+                "limit": {
+                    "type": "integer",
+                    "description": "Maximum results",
+                    "default": 5,
+                    "required": false
+                }
+            },
+            "handler": "get_paper_digest"
+        },
+        {
+            "tool_id": "search_writing_guides",
+            "name": "search_writing_guides",
+            "description": "Search for writing guides, style references, and examples.",
+            "parameters": {
+                "query": {
+                    "type": "string",
+                    "description": "Search query for writing guidance",
+                    "required": true
+                },
+                "limit": {
+                    "type": "integer",
+                    "description": "Maximum results",
+                    "default": 3,
+                    "required": false
+                }
+            },
+            "handler": "knowledge_search"
+        }
+    ],
+    "max_turns": 4,
+    "output_format": "draft",
+    "composes_with": ["paper_feedback"],
+    "enabled": true,
+    "min_app_version": "4.0.0"
+}

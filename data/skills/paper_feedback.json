@@ -1,0 +1,57 @@
+{
+    "skill_id": "paper_feedback",
+    "name": "Paper Writing Feedback",
+    "description": "为正在撰写的论文提供段落级别的写作反馈和改进建议。",
+    "trigger_patterns": [
+        "写作反馈",
+        "帮我看看这段",
+        "writing feedback",
+        "improve my writing",
+        "段落修改",
+        "润色",
+        "polish writing",
+        "写作改进",
+        "rewrite paragraph"
+    ],
+    "system_prompt": "You are an expert academic writing coach specializing in helping researchers improve their papers paragraph by paragraph. Your role is to:\n1. Analyze specific text passages for clarity, coherence, and academic tone\n2. Suggest concrete rewrites with explanations of why the change improves the text\n3. Check for logical flow between paragraphs and sections\n4. Help with academic English or Chinese writing conventions\n\nFocus on actionable improvements rather than vague praise. Show before/after examples. Respond in the same language the author uses.",
+    "user_prompt_template": "Author profile: {profile}\n\nWriting feedback request: {question}\n\nRetrieved writing resources:\n{retrieved_context}\n\nPlease provide specific, actionable writing feedback.",
+    "tools": [
+        {
+            "tool_id": "get_rubric",
+            "name": "get_rubric",
+            "description": "Get writing evaluation criteria and style guides.",
+            "parameters": {
+                "paper_type": {
+                    "type": "string",
+                    "description": "Type of paper being written",
+                    "required": false
+                }
+            },
+            "handler": "get_writing_rubric"
+        },
+        {
+            "tool_id": "search_writing_examples",
+            "name": "search_writing_examples",
+            "description": "Search for good writing examples and templates in the knowledge base.",
+            "parameters": {
+                "query": {
+                    "type": "string",
+                    "description": "Search query for writing examples or templates",
+                    "required": true
+                },
+                "limit": {
+                    "type": "integer",
+                    "description": "Maximum results",
+                    "default": 3,
+                    "required": false
+                }
+            },
+            "handler": "knowledge_search"
+        }
+    ],
+    "max_turns": 3,
+    "output_format": "draft",
+    "composes_with": ["thesis_review"],
+    "enabled": true,
+    "min_app_version": "4.0.0"
+}

@@ -135,6 +135,10 @@ from .workflow_eval import (
     evaluate_workflow_replay_scenarios,
     load_workflow_replay_scenarios,
 )
+from .skill_router import SkillRouter
+from .skill_runner import SkillRunner
+from .skill_tools import SkillToolRegistry
+from .skills import SkillContext
 from .workflow_planner import DeterministicWorkflowPlanner, PlannerDecision
 
 
@@ -5306,6 +5310,21 @@ class DigitalTwinService:
         self._workflow_planner = DeterministicWorkflowPlanner(
             policy_path=settings.workflow_policy_path
         )
+        # Agent skill system (V4.0)
+        from . import __version__ as _app_version
+
+        self._skill_tool_registry = SkillToolRegistry(
+            knowledge_store=self._knowledge_store,
+            memory_store=self._conversation_store,
+        )
+        self._skill_router = SkillRouter(
+            skill_dir=settings.skill_dir,
+            current_version=_app_version,
+        )
+        self._skill_runner = SkillRunner(
+            llm_client=self._llm_client,
+            tool_registry=self._skill_tool_registry,
+        )
         self._sage_runtime_class = FlowNetEnvironment
         self._booking_workflows: dict[str, BookingWorkflowState] = {}
         self._normalize_published_gap_documents()
@@ -5383,6 +5402,51 @@ class DigitalTwinService:
     ) -> ChatResponse:
         admin_session_payload = decode_admin_session_token(admin_session_token, self._settings)
         recent_session_context = self._build_recent_session_context(request)
+
+        # Skill routing: check if a skill matches before running the standard pipeline
+        matched_skill = self._skill_router.match(request.question)
+        if matched_skill is not None:
+            _logger.info(
+                "Skill router matched '%s' for question (len=%d)",
+                matched_skill.skill_id,
+                len(request.question),
+            )
+            skill_context = SkillContext(
+                question=request.question,
+                visitor_profile=request.visitor_profile or "general_visitor",
+                pre_fetched_context=recent_session_context,
+                session_identity=request.session_id or "anonymous",
+                course_context=getattr(request, "course_context", None),
+            )
+            try:
+                skill_result = await asyncio.to_thread(
+                    self._skill_runner.run,
+                    matched_skill,
+                    skill_context,
+                )
+                if skill_result.success:
+                    from . import __version__ as _app_version
+
+                    return ChatResponse(
+                        answer=skill_result.answer,
+                        owner_name=self._settings.owner_name,
+                        used_model=self._llm_client.model_name,
+                        conversation_id=request.conversation_id or str(uuid4()),
+                        workflow_action="skill_answer",
+                        decision_mode=f"skill:{matched_skill.skill_id}",
+                    )
+                _logger.warning(
+                    "Skill '%s' failed: %s; falling through to standard pipeline",
+                    matched_skill.skill_id,
+                    skill_result.error,
+                )
+            except Exception as exc:
+                _logger.warning(
+                    "Skill '%s' raised exception: %s; falling through to standard pipeline",
+                    matched_skill.skill_id,
+                    exc,
+                )
+
         workflow_context = WorkflowRequestContext.from_chat_request(
             request,
             is_admin_request=admin_session_payload is not None,
