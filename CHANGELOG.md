@@ -2,9 +2,27 @@
 
 ## Unreleased
 
+## v3.2.0 - 2026-06-20
+
+`v3.2.0` adds a user-facing version changelog modal and correctly marks the LLM-Assisted Planner as implemented.
+
+### Added
+
+- Clickable version badge (bottom-right) now opens a "版本更新日志" modal showing concise highlights for each release.
+- Changelog modal with clean, scrollable layout and accent-styled version tags.
+
+### Changed
+
+- Updated ROADMAP to mark V3.1 (LLM-Assisted JSON Planner) as **implemented and integrated**: shadow planner enabled by default, comparison persistence, policy validation, and replay tests are all live.
+- Version badge text updated from stale `v3.0.1` to current `v3.2.0`.
+
 ## v3.1.1 - 2026-06-20
 
-`v3.1.1` is a targeted fix for the evidence/support panel rendering.
+`v3.1.1` is a targeted fix for the evidence/support panel rendering and adds a manual retry button for failed inference.
+
+### Added
+
+- Retry button ("重试") appears on error chat bubbles when inference fails. Clicking it restores the original question to the input and re-submits automatically. Uses event delegation on `chatStream` and a module-level `lastFailedQuestion` tracker.
 
 ### Fixed
 

@@ -340,9 +340,18 @@ cases to judge whether a generated plan is better than a fixed template.
 - Operations console includes a Workflow Replay quality board for operator-visible pass/fail review.
 - Live behavior keeps fallback-safe execution boundaries, preserving V2 operational stability.
 
-### V3.1 Status (2026-06-20)
+### V3.1 Status (2026-06-20) — LLM-Assisted Planner
 
-`v3.1.0` is the retrieval and workflow modernization release, delivered before V3.1 (LLM-Assisted Planner):
+`V3.1: LLM-Assisted JSON Planner` is **implemented and integrated** as part of the `v3.x` baseline:
+
+- **LLM shadow planner** is enabled by default (`shadow_planner_enabled: true` in config). The LLM client proposes `ShadowPlanCandidate` plans via `propose_shadow_plan_candidate_sync/async` with strict JSON schema validation.
+- **Shadow comparison** runs in every chat request: the deterministic plan and the LLM shadow plan are both generated and compared. The deterministic plan remains authoritative for live execution while the shadow plan is recorded for analysis.
+- **Planner comparison persistence** stores comparison results under `data/conversation_memory/planner-comparisons/` with SQLite tracking of acceptance rate, step diffs, and fallback reasons.
+- **Policy validation** gates both deterministic and shadow plans through the same step registry, evidence contracts, and side-effect rules.
+- **Operations console** surfaces `workflow_plan_preview` and `shadow_planner_preview` in workflow traces for operator-visible comparison.
+- **Replay tests** cover shadow planner behavior (`test_chat_surfaces_llm_shadow_planner_comparison_without_affecting_execution`).
+
+In addition, `v3.1.0` delivered the retrieval and workflow modernization that supports the planner:
 
 - Knowledge backend migrated from BM25 to SageVDB/SageANNS vector search with reranking.
 - Tavily integrated as primary web search engine with Bing fallback and query normalization.
@@ -353,7 +362,13 @@ cases to judge whether a generated plan is better than a fixed template.
 - Homepage migrated to GitHub Pages; tunnel/site-proxy is optional.
 - All 28 ruff lint errors resolved; CI pipeline stabilized.
 
-This release establishes the retrieval quality and workflow parallelism foundation that V3.1 (LLM-Assisted Planner) can build on: hybrid retrieval policy choices, vector-search evidence contracts, and parallel stage traces are all directly usable as planner inputs.
+### V3.2 Status (2026-06-20) — User-Facing Release Notes
+
+`v3.2.0` adds a clean version changelog UI and confirms the planner status:
+
+- Clickable version badge (bottom-right corner) opens a "版本更新日志" modal with concise release highlights.
+- ROADMAP updated to correctly mark V3.1 (LLM-Assisted JSON Planner) as implemented, not future.
+- Version badge text updated from stale `v3.0.1` to current version.
 
 The important design choice is that V3 is not an unconstrained agent that invents code or freely
 calls tools. It is a planner that assembles an approved workflow graph from registered steps,
@@ -706,22 +721,14 @@ Exit criteria:
 - Canonical scenarios produce valid deterministic plans with operator-readable explanations.
 - Live chat can expose planned steps while still executing the V2-safe template path.
 
-#### V3.1: LLM-Assisted JSON Planner
+#### V3.1: LLM-Assisted JSON Planner (Implemented)
 
-- Add an optional LLM planner that can propose a `PlanSpec` under strict JSON schema validation.
-- Compare deterministic and LLM-proposed plans in shadow mode before using the LLM plan for live
-  execution.
-- Record rejected plans with reasons such as unknown step, missing dependency, forbidden side
-  effect, excessive stage count, or malformed JSON.
-- Add operator-visible metrics: planner acceptance rate, fallback rate, plan latency, rejected-step
-  distribution, and plan-vs-template quality outcome.
-- Add side-by-side replay and shadow metrics for lexical retrieval, NeuroMem-backed memory recall,
-  upload-artifact retrieval, and optional semantic/vector retrieval so the planner can learn which
-  retrieval path works best for each request family.
-
-The LLM planner should initially be read-only and shadow-only. It should not win over the
-deterministic planner until the replay suite shows that it preserves or improves step selection,
-retrieval scope, answer quality, and latency for the weak-local-model cases already seen in V2.
+- [x] Optional LLM planner proposes `PlanSpec` under strict JSON schema validation via `propose_shadow_plan_candidate`.
+- [x] Deterministic and LLM-proposed plans compared in shadow mode; deterministic remains authoritative for live execution.
+- [x] Rejected/malformed plans recorded with reasons (unknown step, missing dependency, forbidden side effect, schema error).
+- [x] Planner comparison results persisted to SQLite for operator-visible metrics.
+- [x] Shadow planner exposed in workflow traces and operations console.
+- Remaining: side-by-side replay metrics across retrieval backends (lexical vs NeuroMem vs vector) for per-request-family optimization.
 
 #### V3.2: Guarded Side-Effect Planning
 

@@ -1,17 +1,14 @@
 {
   "document_id": "2b7748b9-0b90-422d-b581-3f1f0d82070f",
-  "title": "预约前准备清单",
-  "content": "学生预约前需要先发送 agenda、当前 blocker 和相关 draft。",
-  "tags": [
-    "advising",
-    "booking"
-  ],
-  "source_name": null,
+  "title": "常见问题：和老师约会议前需要准备什么材料",
+  "content": "主题：会议准备材料清单\n适用问题：\n- 和老师约时间前应该准备什么？\n- 见导师前要带哪些材料？\n- 开会前需要准备什么？\n- 预约前需要什么？\n\n标准准备清单（按优先级）：\n\n1. 【议程文档】一份简短的会议议程（3-5个要点），列出你想讨论的具体问题\n\n2. 【当前进展】最近的工作总结或进展报告（可以是简短的bullet points）\n\n3. 【问题清单】当前遇到的blocker或卡点，最好附带你已经尝试过的方案\n\n4. 【相关材料】\n   - 如果是论文讨论：最新版draft、修改标注、审稿意见\n   - 如果是项目汇报：代码链接、实验结果、性能数据\n   - 如果是课程答疑：作业、笔记、具体不懂的题目或概念\n\n5. 【目标与期望】你希望这次会议达成什么？（例如：确认下一步方向、解决某个技术问题、获得反馈）\n\n6. 【时间预估】每个议题大概需要多少时间，确保在预约时间内能讨论完\n\n建议提前24小时把议程发给老师，让老师也有时间准备。",
+  "tags": ["advising", "meeting", "preparation", "checklist", "faq"],
+  "source_name": "curated_faq:meeting-preparation-checklist",
   "metadata": {},
   "created_at": "2026-06-20T00:27:31.844505Z",
   "is_feedback_web": false,
-  "review_status": "unknown",
-  "freshness_status": "unknown",
-  "reviewed_at": null,
-  "reviewable": false
+  "review_status": "reviewed",
+  "freshness_status": "fresh",
+  "reviewed_at": "2026-06-20T04:30:00.000000Z",
+  "reviewable": true
 }

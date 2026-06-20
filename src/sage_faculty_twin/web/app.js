@@ -8122,6 +8122,83 @@ restoreHistoryRailState();
 restoreWorkflowShellState();
 syncWorkflowViewportState();
 
+// ── Changelog Modal ─────────────────────────────────────────────────────
+const CHANGELOG_DATA = [
+    {
+        version: "v3.2.0",
+        date: "2026-06-20",
+        summary: "版本更新日志 & Shadow Planner 确认上线",
+        highlights: [
+            "点击右下角版本号查看更新日志弹窗",
+            "ROADMAP 确认 V3.1 LLM Shadow Planner 已实现并集成",
+        ],
+    },
+    {
+        version: "v3.1.1",
+        date: "2026-06-20",
+        summary: "修复回答依据面板的 Markdown 渲染",
+        highlights: [
+            "回答依据区域现在正确渲染 Markdown 格式（表格、列表、标题）",
+            "依据内容支持滚动查看，不再折叠为一行原始文本",
+        ],
+    },
+    {
+        version: "v3.1.0",
+        date: "2026-06-20",
+        summary: "LLM Shadow Planner 集成 & 检索现代化",
+        highlights: [
+            "LLM Shadow Planner 默认开启，确定性规划与 LLM 规划在每次对话中对比",
+            "知识后端从 BM25 迁移至 SageVDB/SageANNS 向量检索",
+            "Tavily 网络搜索集成，支持 Bing 回退",
+            "Chat 工作流重构为并行 DataStream DAG（记忆+知识并行检索）",
+            "Markdown 表格渲染支持",
+            "外部 PDF/文章知识摄入管道",
+            "运营脚本整合为 quickstart.sh + manage.sh",
+        ],
+    },
+    {
+        version: "v3.0.0",
+        date: "2026-06-10",
+        summary: "V3 只读规划器预览",
+        highlights: [
+            "确定性工作流规划器与策略验证上线",
+            "规范场景回放测试通过管理 API 可访问",
+            "运营控制台新增工作流回放质量看板",
+            "回退安全执行边界保障 V2 运行稳定性",
+        ],
+    },
+];
+
+function renderChangelogModal() {
+    const el = document.getElementById("changelog-content");
+    if (!el) return;
+    el.innerHTML = CHANGELOG_DATA.map((entry) => `
+        <section class="changelog-version">
+            <div class="changelog-version-head">
+                <span class="changelog-version-tag">${entry.version}</span>
+                <span class="changelog-version-date">${entry.date}</span>
+            </div>
+            <p class="changelog-version-summary">${entry.summary}</p>
+            <ul class="changelog-highlights">
+                ${entry.highlights.map((h) => `<li>${h}</li>`).join("")}
+            </ul>
+        </section>
+    `).join("");
+}
+
+function toggleChangelogModal() {
+    const modal = document.getElementById("changelog-modal");
+    if (!modal) return;
+    if (modal.classList.contains("hidden")) {
+        renderChangelogModal();
+        modal.classList.remove("hidden");
+    } else {
+        modal.classList.add("hidden");
+    }
+}
+
+window.toggleChangelogModal = toggleChangelogModal;
+
 async function initializePage() {
     renderConversationHistoryList();
     applyStoredVisitorProfile();

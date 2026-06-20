@@ -283,7 +283,17 @@
         </footer>
     </div>
 
-    <div class="app-version-badge" aria-label="应用版本">v3.0.1</div>
+    <button class="app-version-badge" aria-label="查看更新日志" onclick="toggleChangelogModal()">v3.2.0</button>
+
+    <div id="changelog-modal" class="modal-overlay hidden" onclick="if(event.target===this)toggleChangelogModal()">
+        <div class="changelog-modal">
+            <div class="modal-head">
+                <h2>版本更新日志</h2>
+                <button type="button" class="icon-button" onclick="toggleChangelogModal()">关闭</button>
+            </div>
+            <div id="changelog-content" class="changelog-body"></div>
+        </div>
+    </div>
 
     <div id="modal-overlay" class="modal-overlay hidden"></div>
 
