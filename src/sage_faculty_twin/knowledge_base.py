@@ -778,7 +778,7 @@ class LocalKnowledgeStore:
         if self._uses_sagevdb_anns_backend():
             results = self._sagevdb.search(
                 query_vector,
-                k=min(limit, max(self.count_documents(), 1)),
+                k=max(self.count_documents(), 1),
                 include_metadata=True,
             )
         else:
@@ -787,9 +787,15 @@ class LocalKnowledgeStore:
             results = search_numpy(
                 self._sagevdb,
                 query_vector,
-                SearchParams(k=min(limit, max(self._sagevdb.size(), 1))),
+                SearchParams(k=max(self._sagevdb.size(), 1)),
             )
 
+        query_tokens = self._tokenize(query)
+        query_profile = _build_query_profile(
+            query,
+            visitor_profile=visitor_profile,
+            admin_role=admin_role,
+        )
         hits: list[KnowledgeSearchHit] = []
         for result in results:
             if self._uses_sagevdb_anns_backend():
@@ -802,28 +808,30 @@ class LocalKnowledgeStore:
             document = self._documents.get(str(document_id))
             if document is None:
                 continue
-            if not _document_is_visible_to_requester(document, visitor_profile, admin_role):
+            if not _document_is_visible_to_requester(
+                document, query_profile.visitor_profile, query_profile.admin_role
+            ):
+                continue
+            # Re-rank using the same token-overlap + tag-boost scoring as
+            # the local backend.  sagevdb provides candidate recall; precise
+            # ordering is delegated to _score_document which handles Chinese
+            # text and tag relevance far better than hash cosine similarity.
+            rerank_score = self._score_document(document, query_tokens, query_profile)
+            if rerank_score <= 0:
                 continue
             hits.append(
                 KnowledgeSearchHit(
                     document_id=document.document_id,
                     title=document.title,
-                    excerpt=self._build_excerpt(document.content, self._tokenize(query)),
-                    score=1.0 / (1.0 + max(float(result.score), 0.0)),
+                    excerpt=self._build_excerpt(document.content, query_tokens),
+                    score=rerank_score,
                     tags=document.tags,
                     source_name=document.source_name,
                     metadata=document.metadata,
                 )
             )
-        return self._finalize_hits(
-            hits,
-            _build_query_profile(
-                query,
-                visitor_profile=visitor_profile,
-                admin_role=admin_role,
-            ),
-            limit,
-        )
+        hits.sort(key=lambda h: h.score, reverse=True)
+        return self._finalize_hits(hits, query_profile, limit)
 
     def _score_document(
         self,

@@ -21,7 +21,8 @@ _NEWS_QUERY_MARKERS = (
 )
 _SEARCH_FILLER_RE = re_compile(
     r"请问|帮我|帮忙|查一下|查下|查询一下|查询|告诉我|想知道|看下|看一下|了解一下|搜一下|搜索一下|"
-    r"实时|最新|当前|现在|此刻|最近|刚刚|今天|今日|目前",
+    r"实时|最新|当前|现在|此刻|最近|刚刚|今天|今日|目前|"
+    r"有什么|有没有|有哪些|什么样|怎样的|如何|咋样|怎么样|怎么",
     IGNORECASE,
 )
 _ANSWER_STYLE_RE = re_compile(
@@ -33,7 +34,8 @@ _DEFINITION_STYLE_RE = re_compile(
     IGNORECASE,
 )
 _NEWS_ENTITY_FILLER_RE = re_compile(
-    r"请|帮我|帮忙|一下|下|告诉我|想知道|看下|看一下|给我|麻烦|麻烦你",
+    r"请|帮我|帮忙|一下|下|告诉我|想知道|看下|看一下|给我|麻烦|麻烦你|"
+    r"有什么|有没有|有哪些|什么样|怎样|如何|咋样|怎么样|怎么|什么|哪些",
     IGNORECASE,
 )
 _NEWS_POSITIVE_HOST_TOKENS = (
