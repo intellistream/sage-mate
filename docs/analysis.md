@@ -215,7 +215,22 @@ watch -n1 'npu-smi info -t usages -i 2; npu-smi info -t usages -i 5'
 
 ### 移除 `--enforce-eager` 后的对比
 
-修改 `/etc/systemd/system/sage-faculty-twin-vllm-qwen3-32b.service`, 去掉 `--enforce-eager` 参数, 然后:
+> **2026-06-20 更新:** vLLM engine 配置已纳入仓库管理 (`deploy/systemd/user/sage-faculty-twin-vllm-engine.service` + `tools/run_vllm_engine.sh`)。
+> 部署时默认启用 graph mode (不使用 `--enforce-eager`)，TP=4。
+>
+> 使用 managed service 部署:
+> ```bash
+> ./manage.sh install --with-vllm-engine --start
+> journalctl --user -u sage-faculty-twin-vllm-engine.service -f
+> ```
+>
+> 如需清理旧的 system-level 服务:
+> ```bash
+> sudo systemctl stop sage-faculty-twin-vllm-qwen3-32b.service
+> sudo systemctl disable sage-faculty-twin-vllm-qwen3-32b.service
+> ```
+
+以下是旧的手动移除 `--enforce-eager` 步骤（已废弃）:
 
 ```bash
 sudo systemctl daemon-reload

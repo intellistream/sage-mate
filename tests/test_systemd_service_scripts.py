@@ -8,8 +8,9 @@ from pathlib import Path
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-INSTALL_SCRIPT = REPO_ROOT / "tools" / "install_user_services.sh"
+QUICKSTART_SCRIPT = REPO_ROOT / "quickstart.sh"
 PROXY_SCRIPT = REPO_ROOT / "tools" / "run_vllm_openai_proxy.sh"
+ENGINE_SCRIPT = REPO_ROOT / "tools" / "run_vllm_engine.sh"
 
 
 def _write_executable(path: Path, body: str) -> None:
@@ -37,26 +38,23 @@ def _make_fake_systemctl(path: Path) -> Path:
     return path
 
 
-def test_install_user_services_prefers_valid_existing_unit_over_stale_state(
+def _run_quickstart_install(
     tmp_path: Path,
-) -> None:
-    fake_bin_dir = tmp_path / "bin"
-    fake_bin_dir.mkdir()
-    fake_systemctl = _make_fake_systemctl(fake_bin_dir / "systemctl")
-    good_python = _make_fake_python(tmp_path / "good-python", has_uvicorn=True)
-    bad_python = _make_fake_python(tmp_path / "bad-python", has_uvicorn=False)
+    *,
+    extra_args: list[str] | None = None,
+    python_bin: str | None = None,
+) -> tuple[subprocess.CompletedProcess, Path]:
+    """Run ``quickstart.sh`` with the systemd install path active.
 
+    Sets up fake systemctl, PYTHON_BIN, and lets the script find the
+    existing repo .env so it skips .env bootstrap.
+    """
+    fake_bin_dir = tmp_path / "bin"
+    fake_bin_dir.mkdir(exist_ok=True)
+    _make_fake_systemctl(fake_bin_dir / "systemctl")
+
+    systemctl_log = tmp_path / "systemctl.log"
     xdg_config_home = tmp_path / "xdg"
-    target_dir = xdg_config_home / "systemd" / "user"
-    target_dir.mkdir(parents=True)
-    (target_dir / "sage-faculty-twin-app.service").write_text(
-        "[Service]\nEnvironment=PYTHON_BIN=" + str(good_python) + "\n",
-        encoding="utf-8",
-    )
-    (target_dir / ".sage-faculty-twin-python-bin").write_text(
-        str(bad_python) + "\n",
-        encoding="utf-8",
-    )
 
     env = os.environ.copy()
     env.update(
@@ -64,65 +62,101 @@ def test_install_user_services_prefers_valid_existing_unit_over_stale_state(
             "HOME": str(tmp_path / "home"),
             "XDG_CONFIG_HOME": str(xdg_config_home),
             "PATH": f"{fake_bin_dir}:{env['PATH']}",
-            "SYSTEMCTL_LOG": str(tmp_path / "systemctl.log"),
-        }
-    )
-
-    subprocess.run(["bash", str(INSTALL_SCRIPT)], check=True, cwd=REPO_ROOT, env=env)
-
-    rendered_unit = (target_dir / "sage-faculty-twin-app.service").read_text(encoding="utf-8")
-    remembered_python = (target_dir / ".sage-faculty-twin-python-bin").read_text(
-        encoding="utf-8"
-    ).strip()
-
-    assert f"Environment=PYTHON_BIN={good_python}" in rendered_unit
-    assert remembered_python == str(good_python)
-    assert fake_systemctl.exists()
-
-
-def test_install_user_services_only_enables_proxy_with_explicit_flag(tmp_path: Path) -> None:
-    fake_bin_dir = tmp_path / "bin"
-    fake_bin_dir.mkdir()
-    _make_fake_systemctl(fake_bin_dir / "systemctl")
-    good_python = _make_fake_python(tmp_path / "good-python", has_uvicorn=True)
-    systemctl_log = tmp_path / "systemctl.log"
-
-    env = os.environ.copy()
-    env.update(
-        {
-            "HOME": str(tmp_path / "home"),
-            "XDG_CONFIG_HOME": str(tmp_path / "xdg"),
-            "PATH": f"{fake_bin_dir}:{env['PATH']}",
-            "PYTHON_BIN": str(good_python),
             "SYSTEMCTL_LOG": str(systemctl_log),
         }
     )
+    if python_bin is not None:
+        env["PYTHON_BIN"] = python_bin
 
-    subprocess.run(["bash", str(INSTALL_SCRIPT)], check=True, cwd=REPO_ROOT, env=env)
-    default_log = systemctl_log.read_text(encoding="utf-8")
-    assert "enable sage-faculty-twin-app.service sage-faculty-twin-site.service" in default_log
-    assert "sage-faculty-twin-tunnel.service" not in default_log
-    assert "sage-faculty-twin-vllm-openai-proxy.service" not in default_log
+    args = ["bash", str(QUICKSTART_SCRIPT)]
+    if extra_args:
+        args.extend(extra_args)
 
-    systemctl_log.write_text("", encoding="utf-8")
-    subprocess.run(
-        ["bash", str(INSTALL_SCRIPT), "--with-tunnel"],
-        check=True,
+    result = subprocess.run(
+        args,
         cwd=REPO_ROOT,
         env=env,
+        capture_output=True,
+        text=True,
+        check=False,
     )
+    return result, systemctl_log
+
+
+def test_quickstart_install_renders_service_units(tmp_path: Path) -> None:
+    """quickstart.sh renders __REPO_ROOT__ and __PYTHON_BIN__ placeholders."""
+    good_python = _make_fake_python(tmp_path / "good-python", has_uvicorn=True)
+
+    result, systemctl_log = _run_quickstart_install(
+        tmp_path, python_bin=str(good_python)
+    )
+
+    assert result.returncode == 0, (
+        f"quickstart.sh failed:\nstdout: {result.stdout}\nstderr: {result.stderr}"
+    )
+
+    target_dir = tmp_path / "xdg" / "systemd" / "user"
+    rendered_app = (target_dir / "sage-faculty-twin-app.service").read_text(
+        encoding="utf-8"
+    )
+    assert f"Environment=PYTHON_BIN={good_python}" in rendered_app
+    assert "__REPO_ROOT__" not in rendered_app
+
+    # Systemctl was called for daemon-reload and enable
+    log_text = systemctl_log.read_text(encoding="utf-8")
+    assert "daemon-reload" in log_text
+    assert "sage-faculty-twin-app.service" in log_text
+
+
+def test_quickstart_install_only_enables_optional_services_with_flags(
+    tmp_path: Path,
+) -> None:
+    """Optional services are NOT enabled unless their flag is passed."""
+    good_python = _make_fake_python(tmp_path / "good-python", has_uvicorn=True)
+
+    # Default install — only app should be enabled
+    result, systemctl_log = _run_quickstart_install(
+        tmp_path, python_bin=str(good_python)
+    )
+    assert result.returncode == 0, f"stderr: {result.stderr}"
+    default_log = systemctl_log.read_text(encoding="utf-8")
+    assert "sage-faculty-twin-app.service" in default_log
+    assert "sage-faculty-twin-tunnel.service" not in default_log
+    assert "sage-faculty-twin-vllm-openai-proxy.service" not in default_log
+    assert "sage-faculty-twin-vllm-engine.service" not in default_log
+
+    # --with-tunnel
+    systemctl_log.write_text("", encoding="utf-8")
+    result, _ = _run_quickstart_install(
+        tmp_path,
+        extra_args=["--with-tunnel"],
+        python_bin=str(good_python),
+    )
+    assert result.returncode == 0
     tunnel_log = systemctl_log.read_text(encoding="utf-8")
     assert "sage-faculty-twin-tunnel.service" in tunnel_log
 
+    # --with-vllm-proxy
     systemctl_log.write_text("", encoding="utf-8")
-    subprocess.run(
-        ["bash", str(INSTALL_SCRIPT), "--with-vllm-proxy"],
-        check=True,
-        cwd=REPO_ROOT,
-        env=env,
+    result, _ = _run_quickstart_install(
+        tmp_path,
+        extra_args=["--with-vllm-proxy"],
+        python_bin=str(good_python),
     )
+    assert result.returncode == 0
     proxy_log = systemctl_log.read_text(encoding="utf-8")
     assert "sage-faculty-twin-vllm-openai-proxy.service" in proxy_log
+
+    # --with-vllm-engine
+    systemctl_log.write_text("", encoding="utf-8")
+    result, _ = _run_quickstart_install(
+        tmp_path,
+        extra_args=["--with-vllm-engine"],
+        python_bin=str(good_python),
+    )
+    assert result.returncode == 0
+    engine_log = systemctl_log.read_text(encoding="utf-8")
+    assert "sage-faculty-twin-vllm-engine.service" in engine_log
 
 
 def test_run_vllm_openai_proxy_fails_fast_when_port_is_occupied(tmp_path: Path) -> None:
@@ -155,3 +189,28 @@ def test_run_vllm_openai_proxy_fails_fast_when_port_is_occupied(tmp_path: Path) 
     assert result.returncode == 1
     assert "already in use" in result.stderr
     assert "VLLM_PROXY_PORT" in result.stderr
+
+
+def test_run_vllm_engine_script_prints_config_summary(tmp_path: Path) -> None:
+    """Engine launcher prints a config summary before exec-ing vllm-hust."""
+    env = os.environ.copy()
+    env.update(
+        {
+            "VLLM_ENGINE_MODEL_PATH": "/tmp/nonexistent-model",
+            "VLLM_ENGINE_BIN": "false",  # exits immediately after config print
+            "VLLM_ENGINE_TP_SIZE": "2",
+        }
+    )
+
+    result = subprocess.run(
+        ["bash", str(ENGINE_SCRIPT)],
+        cwd=REPO_ROOT,
+        env=env,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert "vllm-engine" in result.stdout
+    assert "tp_size" in result.stdout
+    assert "graph_mode" in result.stdout

@@ -1,4 +1,30 @@
 #!/usr/bin/env bash
+# manage.sh — single entry point for sage-faculty-twin runtime management.
+#
+# Actions:
+#   status    Show service states
+#   start     Start services
+#   stop      Stop services
+#   restart   Restart services
+#   logs      Follow journal for a service (usage: manage.sh logs <name>)
+#
+# Flags (combine with any action):
+#   --all                Include all optional services
+#   --with-vllm-engine   vLLM inference engine
+#   --with-vllm-proxy    OpenAI-compatible auth proxy
+#   --with-site-proxy    Local nginx/python site proxy
+#   --with-tunnel        Cloudflare tunnel
+#   --with-model         (start/stop only) launch model engine in foreground
+#   --json               Output machine-readable JSON (status only)
+#   --foreground         Run the action in the foreground (model engine)
+#
+# Examples:
+#   ./manage.sh status --all
+#   ./manage.sh start  --all
+#   ./manage.sh restart --with-vllm-engine
+#   ./manage.sh logs   app
+#   ./manage.sh logs   engine
+#   ./manage.sh stop   --all
 
 set -euo pipefail
 
@@ -10,7 +36,6 @@ user_bus_path="$user_runtime_dir/bus"
 if [[ -z "${XDG_RUNTIME_DIR:-}" && -d "$user_runtime_dir" ]]; then
     export XDG_RUNTIME_DIR="$user_runtime_dir"
 fi
-
 if [[ -z "${DBUS_SESSION_BUS_ADDRESS:-}" && -S "$user_bus_path" ]]; then
     export DBUS_SESSION_BUS_ADDRESS="unix:path=$user_bus_path"
 fi
@@ -18,74 +43,96 @@ fi
 export_repo_runtime_env "$repo_root"
 python_bin="$PYTHON_BIN"
 
+# ── Parse arguments ──────────────────────────────────────────────────────────
 if [[ $# -lt 1 ]]; then
-    echo "Usage: $0 <install|status|start|stop|restart> [--json] [--with-vllm-proxy] [--with-tunnel] [--start]" >&2
+    echo "Usage: $0 <status|start|stop|restart|logs> [flags]" >&2
+    echo "  Flags: --all --with-vllm-engine --with-vllm-proxy --with-site-proxy --with-tunnel --json" >&2
+    echo "  Logs:  $0 logs <app|engine|proxy|site|tunnel|model>" >&2
     exit 1
 fi
 
 action="$1"
+shift
 
+# Delegate install to quickstart.sh
 if [[ "$action" == "install" ]]; then
-    shift || true
-    exec "$repo_root/tools/install_user_services.sh" "$@"
+    exec "$repo_root/quickstart.sh" "$@"
 fi
 
 json_output="false"
-include_vllm_proxy="false"
-include_tunnel="false"
-include_site_proxy="false"
+foreground="false"
+include_engine=false
+include_proxy=false
+include_site=false
+include_tunnel=false
+include_model=false
 
 for arg in "$@"; do
     case "$arg" in
-        --json)
-            json_output="true"
-            ;;
-        --with-tunnel)
-            include_tunnel="true"
-            ;;
-        --with-site-proxy)
-            include_site_proxy="true"
-            ;;
-        --with-vllm-proxy)
-            include_vllm_proxy="true"
-            ;;
+        --json)              json_output="true" ;;
+        --foreground)        foreground="true" ;;
+        --all)               include_engine=true; include_proxy=true; include_site=true; include_tunnel=true ;;
+        --with-vllm-engine)  include_engine=true ;;
+        --with-vllm-proxy)   include_proxy=true ;;
+        --with-site-proxy)   include_site=true ;;
+        --with-tunnel)       include_tunnel=true ;;
+        --with-model)        include_model=true ;;
     esac
 done
 
-services=(
-    "应用服务:sage-faculty-twin-app.service"
-)
+# ── Service registry ─────────────────────────────────────────────────────────
+# Format: "display_name:systemd_unit"
+# Order: model/engine → proxy → app → site → tunnel
+services=()
+$include_engine && services+=("推理引擎:sage-faculty-twin-vllm-engine.service")
+$include_proxy  && services+=("模型代理:sage-faculty-twin-vllm-openai-proxy.service")
 
-if [[ "$include_site_proxy" == "true" ]]; then
-    services+=("本地代理:sage-faculty-twin-site.service")
+services+=("应用服务:sage-faculty-twin-app.service")
+
+$include_site   && services+=("本地代理:sage-faculty-twin-site.service")
+$include_tunnel && services+=("公网隧道:sage-faculty-twin-tunnel.service")
+
+# ── Action: logs ─────────────────────────────────────────────────────────────
+if [[ "$action" == "logs" ]]; then
+    target="${1:-app}"
+    case "$target" in
+        app)     unit="sage-faculty-twin-app.service" ;;
+        engine)  unit="sage-faculty-twin-vllm-engine.service" ;;
+        proxy)   unit="sage-faculty-twin-vllm-openai-proxy.service" ;;
+        site)    unit="sage-faculty-twin-site.service" ;;
+        tunnel)  unit="sage-faculty-twin-tunnel.service" ;;
+        model)   echo "Model runs outside systemd — use: journalctl or docker logs"; exit 0 ;;
+        *)       echo "Unknown service: $target (app|engine|proxy|site|tunnel|model)" >&2; exit 1 ;;
+    esac
+    exec journalctl --user -u "$unit" -f
 fi
 
-if [[ "$include_tunnel" == "true" ]]; then
-    services+=("公网隧道:sage-faculty-twin-tunnel.service")
+# ── Action: start model in foreground ────────────────────────────────────────
+if [[ "$action" == "start" ]] && $include_model; then
+    if $foreground || true; then
+        echo "[manage] Launching vLLM engine in foreground..."
+        exec "$repo_root/tools/run_vllm_engine.sh"
+    fi
 fi
 
-if [[ "$include_vllm_proxy" == "true" ]]; then
-    services=("模型代理:sage-faculty-twin-vllm-openai-proxy.service" "${services[@]}")
-fi
-
+# ── Validate action ──────────────────────────────────────────────────────────
 case "$action" in
-    status|start|stop|restart)
-        ;;
-    *)
-        echo "Unsupported action: $action" >&2
-        exit 1
-        ;;
+    status|start|stop|restart) ;;
+    *) echo "Unsupported action: $action" >&2; exit 1 ;;
 esac
 
+# ── Extract systemd unit names ───────────────────────────────────────────────
 service_units=()
 for entry in "${services[@]}"; do
     service_units+=("${entry#*:}")
 done
 
+# ── Execute action ───────────────────────────────────────────────────────────
 if [[ "$action" != "status" ]]; then
     systemctl --user "$action" "${service_units[@]}"
 fi
 
+# ── Collect status for each service ──────────────────────────────────────────
 service_payload="[]"
 for entry in "${services[@]}"; do
     name="${entry%%:*}"
@@ -110,53 +157,41 @@ for entry in "${services[@]}"; do
     done <<< "$properties"
 
     service_payload=$(SERVICE_PAYLOAD="$service_payload" "$python_bin" - "$name" "$id_value" "$active_state" "$sub_state" "$description" <<'PY'
-import json
-import os
-import sys
-
+import json, os, sys
 payload = json.loads(os.environ["SERVICE_PAYLOAD"])
-payload.append(
-    {
-        "name": sys.argv[1],
-        "unit": sys.argv[2],
-        "active_state": sys.argv[3],
-        "sub_state": sys.argv[4],
-        "description": sys.argv[5] or None,
-    }
-)
+payload.append({
+    "name": sys.argv[1],
+    "unit": sys.argv[2],
+    "active_state": sys.argv[3],
+    "sub_state": sys.argv[4],
+    "description": sys.argv[5] or None,
+})
 print(json.dumps(payload, ensure_ascii=False))
 PY
-)
+    )
 done
 
+# ── Output ───────────────────────────────────────────────────────────────────
 message="Service action '${action}' completed."
 
 if [[ "$json_output" == "true" ]]; then
     SERVICES_JSON="$service_payload" "$python_bin" - "$action" "$message" <<'PY'
-import json
-import os
-import sys
-
-print(
-    json.dumps(
-        {
-            "action": sys.argv[1],
-            "success": True,
-            "message": sys.argv[2],
-            "services": json.loads(os.environ["SERVICES_JSON"]),
-        },
-        ensure_ascii=False,
-    )
-)
+import json, os, sys
+print(json.dumps({
+    "action": sys.argv[1],
+    "success": True,
+    "message": sys.argv[2],
+    "services": json.loads(os.environ["SERVICES_JSON"]),
+}, ensure_ascii=False))
 PY
     exit 0
 fi
 
 echo "$message"
 SERVICES_JSON="$service_payload" "$python_bin" - <<'PY'
-import json
-import os
-
+import json, os
 for item in json.loads(os.environ["SERVICES_JSON"]):
-    print(f"- {item['name']}: {item['active_state']} ({item['sub_state']}) [{item['unit']}]")
+    state = item['active_state']
+    icon = "✓" if state == "active" else "✗" if state == "failed" else "·"
+    print(f"  {icon} {item['name']}: {state} ({item['sub_state']}) [{item['unit']}]")
 PY

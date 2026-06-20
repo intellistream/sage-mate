@@ -1,0 +1,14 @@
+{
+  "escalation_id": "22bdb38e-13e1-4168-8ab1-81d043ed9f26",
+  "conversation_id": "conv-escalation-admin",
+  "student_name": "Alice",
+  "student_email": "alice@example.com",
+  "course_context": "科研指导",
+  "question": "我想正式投诉这次成绩处理有误，请你马上联系老师。",
+  "route": "human_handoff",
+  "status": "待处理",
+  "reason": "涉及敏感、紧急或必须由老师本人直接处理的事项。",
+  "resolution_note": null,
+  "created_at": "2026-06-20T00:25:33.745666+00:00",
+  "resolved_at": null
+}

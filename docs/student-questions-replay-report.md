@@ -17,7 +17,7 @@
 
 **Verdict 规则**: improved/unchanged/regressed 由多维启发式打分得出 — workflow 从 ask_follow_up 转为 answer (+1), 答案不再过短 (+1), kb_hits 提升 (+1), 不再含 `[占位符]` (+1), 不再进入 review_queue/human_handoff (+1); 反向各 −1。
 
-**Mock-LLM 模式的局限**: 由于 mock 分类器始终返回 ask_followup, 本报告测的是 **底层确定性管线** 的健壮性。要进一步看到 LLM 在新提示下能不能直接回答, 需要重启 Qwen3-32B 服务 (`bash run_qwen3_32b_service.sh`), 然后跑 `python tools/replay_poor_cases.py` (不带 `--mock-llm`)。
+**Mock-LLM 模式的局限**: 由于 mock 分类器始终返回 ask_followup, 本报告测的是 **底层确定性管线** 的健壮性。要进一步看到 LLM 在新提示下能不能直接回答, 需要重启 Qwen3-32B 服务 (`./manage.sh start --with-vllm-engine`), 然后跑 `python tools/replay_poor_cases.py` (不带 `--mock-llm`)。
 
 > Replayed at: 2026-06-04 23:56:12  
 > Total cases: **39**  

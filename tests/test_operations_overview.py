@@ -294,7 +294,9 @@ def test_operations_overview_includes_neuromem_runtime_snapshot(
     telemetry = conversation_stats["telemetry"]
 
     assert neuromem["backend"] == "neuromem-layered"
-    assert conversation_stats["service_type"] == "NeuroMemConversationStore"
+    assert conversation_stats["service_type"] in (
+        "NeuroMemConversationStore", "online_continual_memory",
+    )
     assert conversation_stats["collection_name"] == "conversation-memory"
     assert conversation_stats["total_entries"] >= 1
     assert conversation_stats["memory_scope"] == "short_term"

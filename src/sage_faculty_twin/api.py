@@ -112,6 +112,23 @@ class LazyDigitalTwinService:
     def __getattr__(self, name: str):
         return getattr(self.ensure_initialized(), name)
 
+    def __setattr__(self, name: str, value: object) -> None:
+        # Private attributes (_instance, _lock) belong to the proxy itself.
+        # Everything else is forwarded to the underlying DigitalTwinService
+        # so that test fixtures (``service._llm_client = stub``) correctly
+        # mutate the real service instance.
+        if name.startswith("_") and name in self.__dict__:
+            object.__setattr__(self, name, value)
+        elif name.startswith("_"):
+            # Use object.__getattribute__ to avoid __getattr__ recursion.
+            inst = object.__getattribute__(self, "__dict__").get("_instance")
+            if inst is None:
+                object.__setattr__(self, name, value)
+            else:
+                setattr(inst, name, value)
+        else:
+            setattr(self.ensure_initialized(), name, value)
+
 
 service = LazyDigitalTwinService()
 web_dir = Path(__file__).with_name("web")
@@ -140,10 +157,9 @@ CHAT_SSE_KEEPALIVE_SECONDS = float(os.environ.get("DIGITAL_TWIN_CHAT_SSE_KEEPALI
 # carrying the full ChatResponse dict. The /chat POST still returns the
 # same JSON ChatResponse so CLI/test callers see the same contract; the
 # browser uses the SSE deltas to paint the answer progressively. Defaults
-# to off for the first commit so we can canary; flip to ``true`` after
-# monitoring.
+# to on so streaming works out of the box; set to ``false`` to disable.
 STREAM_CHAT_ANSWER = os.environ.get(
-    "DIGITAL_TWIN_STREAM_CHAT_ANSWER", "false"
+    "DIGITAL_TWIN_STREAM_CHAT_ANSWER", "true"
 ).strip().lower() not in {"0", "false", "no", "off"}
 SUPPORTED_CHAT_ATTACHMENT_SUFFIXES = {
     ".pdf",

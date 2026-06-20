@@ -158,6 +158,8 @@ def _build_streaming_test_client(
     client = object.__new__(VllmChatClient)
     client._settings = settings
     client._client = transport
+    client.model_name = "test-model"
+    client._supports_thinking_budget = False
     client._cache_lock = threading.Lock()
     client._response_cache = OrderedDict()
     client._metrics_lock = threading.Lock()

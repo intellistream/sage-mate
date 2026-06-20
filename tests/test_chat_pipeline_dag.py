@@ -34,6 +34,7 @@ from sage_faculty_twin.service import (
 
 class _AdviseOnlyLLMClient:
     """Forces the `answer` action so we exercise the non-booking chat path."""
+    model_name = "test-model"
 
     def __init__(self, answer_text: str) -> None:
         self._answer = answer_text
@@ -42,6 +43,7 @@ class _AdviseOnlyLLMClient:
         self,
         question: str,
         course_context: str | None = None,
+        recent_session_context: str | None = None,
     ) -> InteractionIntent:
         return InteractionIntent(
             action="answer",
@@ -56,6 +58,7 @@ class _AdviseOnlyLLMClient:
         self,
         question: str,
         course_context: str | None = None,
+        recent_session_context: str | None = None,
     ) -> InteractionIntent:
         return self.classify_interaction_intent_sync(question, course_context)
 
@@ -78,11 +81,13 @@ class _AdviseOnlyLLMClient:
 
 class _BookingLLMClient:
     """Triggers the booking flow so the trace exercises the booking branch."""
+    model_name = "test-model"
 
     def classify_interaction_intent_sync(
         self,
         question: str,
         course_context: str | None = None,
+        recent_session_context: str | None = None,
     ) -> InteractionIntent:
         return InteractionIntent(
             action="book_meeting",
@@ -97,6 +102,7 @@ class _BookingLLMClient:
         self,
         question: str,
         course_context: str | None = None,
+        recent_session_context: str | None = None,
     ) -> InteractionIntent:
         return self.classify_interaction_intent_sync(question, course_context)
 

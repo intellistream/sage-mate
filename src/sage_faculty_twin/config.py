@@ -28,7 +28,7 @@ class AppSettings(BaseSettings):
     llm_policy_variant_kind: str = Field(default="ablation")
     llm_policy_variant_name: str = Field(default="adaptive-controller")
     llm_policy_execution_priority_mode: str = Field(default="off")
-    llm_policy_output_max_tokens_cap: int = Field(default=512, ge=64, le=4096)
+    llm_policy_output_max_tokens_cap: int = Field(default=4096, ge=64, le=8192)
     llm_policy_output_min_tokens_floor: int = Field(default=192, ge=32, le=4096)
     llm_policy_congestion_waiting_threshold: float = Field(default=1.0, ge=0.0, le=10000.0)
     llm_policy_congestion_kv_usage_threshold: float = Field(default=0.75, ge=0.0, le=1.0)
@@ -62,9 +62,9 @@ class AppSettings(BaseSettings):
     smtp_timeout_seconds: int = Field(default=15, ge=1, le=120)
     knowledge_base_dir: Path = Field(default=Path("data/knowledge_base"))
     knowledge_backend: str = Field(default="neuromem")
-    # Neuromem search index choice. "bm25" keeps the lexical baseline; "faiss"
-    # switches to dense retrieval using the embedding model below (faiss-cpu).
-    neuromem_index_type: str = Field(default="bm25")
+    # Neuromem search index choice. "auto" picks the first available backend;
+    # "faiss" switches to dense retrieval using the embedding model below.
+    neuromem_index_type: str = Field(default="auto")
     neuromem_embedding_model: str = Field(default="BAAI/bge-small-zh-v1.5")
     neuromem_embedding_dim: int = Field(default=512, ge=32, le=4096)
     retrieval_top_k: int = Field(default=3, ge=1, le=10)
@@ -89,7 +89,7 @@ class AppSettings(BaseSettings):
     planner_comparison_dir: Path | None = Field(default=None)
     planner_metrics_dir: Path | None = Field(default=None)
     thinking_token_budget: int | None = Field(
-        default=512, ge=64, le=4096,
+        default=2048, ge=64, le=4096,
     )
     auto_disable_thinking_intents: str = Field(
         default="general,booking",

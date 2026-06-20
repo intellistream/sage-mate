@@ -1,0 +1,27 @@
+{
+  "draft_id": "99b4dc67-d602-4e6a-9095-969f67200b0a",
+  "cluster_id": "c14a1f7d-cd3f-4105-a418-5688c6585e85",
+  "interaction_domain": "advising",
+  "label": "指导建议｜和老 / 备什 / 我应",
+  "reason": "这类问题经常没有命中现成资料。",
+  "suggested_action": "优先补充离线知识材料或FAQ，并给该主题增加更明确的标签。",
+  "sample_questions": [
+    "和老师约时间前，我应该先准备什么？",
+    "和老师约时间前，我应该先准备什么？",
+    "和老师约时间前，我应该先准备什么？"
+  ],
+  "title": "FAQ草稿｜指导建议｜和老 / 备什 / 我应",
+  "content": "主题：指导建议｜和老 / 备什 / 我应\n问题域：advising\n\n适用问题样例：\n- 和老师约时间前，我应该先准备什么？\n- 和老师约时间前，我应该先准备什么？\n- 和老师约时间前，我应该先准备什么？\n\n为何需要补充：这类问题经常没有命中现成资料。\n建议动作：优先补充离线知识材料或FAQ，并给该主题增加更明确的标签。\n\n建议 FAQ/知识正文草稿：\n1. 先给 checklist，再说明建议顺序，并明确哪些事项需要学生进一步补充上下文。\n2. 回答里尽量引用已有资料名、讲次名、论文名或流程步骤。\n3. 如果涉及老师本人审批、例外政策或个性化承诺，明确说明需要人工确认。\n\n建议补充标签：\n- advising\n- analytics-gap\n- faq-draft\n",
+  "tags": [
+    "analytics-gap",
+    "draft",
+    "faq-draft",
+    "advising"
+  ],
+  "source_name": "analytics-gap:c14a1f7d-cd3f-4105-a418-5688c6585e85",
+  "status": "draft",
+  "published_document_id": null,
+  "created_at": "2026-06-20T00:29:31.109831+00:00",
+  "updated_at": "2026-06-20T00:29:31.109831+00:00",
+  "published_at": null
+}

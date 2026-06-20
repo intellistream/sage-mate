@@ -5,24 +5,28 @@ changes that came out of it.
 
 ## What changed in the repository
 
-- `tools/install_user_services.sh` now prefers a Python interpreter that can
-  import `uvicorn` instead of blindly falling back to `/usr/bin/python3`.
-- The chosen interpreter is persisted in
-  `~/.config/systemd/user/.sage-faculty-twin-python-bin` so a later reinstall
-  does not accidentally rewrite the rendered units to a broken interpreter.
-- `manage.sh` and `tools/install_user_services.sh` now treat
-  `sage-faculty-twin-vllm-openai-proxy.service` as optional. The default managed
-  stack is:
-  - `sage-faculty-twin-app.service`
-  - `sage-faculty-twin-site.service`
-- `sage-faculty-twin-tunnel.service` is also optional (`--with-tunnel`). Hosts
-  using a separately-managed cloudflared service should NOT install this unit.
-- To include the OpenAI proxy explicitly, use `--with-vllm-proxy`.
-- `tools/run_app_server.sh` now seeds writable HuggingFace cache variables and
+- `quickstart.sh` is the single entry point for installation. It renders
+  systemd service templates from `deploy/systemd/user/`, installs them to
+  `~/.config/systemd/user/`, and enables the selected services.
+- The install logic was previously in `tools/install_user_services.sh` (now
+  deleted) and has been inlined into `quickstart.sh` section 6.
+- `manage.sh` is the single entry point for runtime management
+  (start/stop/restart/status/logs). It supports `--all` to include all
+  optional services at once.
+- The following services are optional and controlled by flags:
+  - `sage-faculty-twin-vllm-engine.service` (`--with-vllm-engine`)
+  - `sage-faculty-twin-vllm-openai-proxy.service` (`--with-vllm-proxy`)
+  - `sage-faculty-twin-site.service` (`--with-site-proxy`)
+  - `sage-faculty-twin-tunnel.service` (`--with-tunnel`)
+- The default managed stack is:
+  - `sage-faculty-twin-app.service` (always enabled)
+- `tools/run_app_server.sh` seeds writable HuggingFace cache variables and
   defaults `HF_ENDPOINT` to `https://hf-mirror.com` for non-interactive
   `systemd --user` launches.
-- `tools/run_vllm_openai_proxy.sh` now fails fast when
+- `tools/run_vllm_openai_proxy.sh` fails fast when
   `VLLM_PROXY_HOST:VLLM_PROXY_PORT` is already occupied.
+- `tools/run_vllm_engine.sh` launches vllm-hust with config from `.env`
+  (VLLM_ENGINE_* variables). Graph mode is enabled by default.
 
 ## What changed on the host
 

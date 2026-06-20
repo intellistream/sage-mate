@@ -17,6 +17,8 @@ from sage_faculty_twin.web_search import WebSearchResult
 
 
 class FailingLLMClient:
+    model_name = "test-model"
+
     def classify_booking_intent_sync(
         self, question: str, course_context: str | None = None
     ) -> bool:
@@ -38,11 +40,13 @@ class IntentAwareLLMClient:
     def __init__(self, booking_intent: bool, answer: str) -> None:
         self._booking_intent = booking_intent
         self._answer = answer
+        self.model_name = "test-model"
 
     def classify_interaction_intent_sync(
         self,
         question: str,
         course_context: str | None = None,
+        recent_session_context: str | None = None,
     ) -> InteractionIntent:
         if self._booking_intent:
             return InteractionIntent(
@@ -66,6 +70,7 @@ class IntentAwareLLMClient:
         self,
         question: str,
         course_context: str | None = None,
+        recent_session_context: str | None = None,
     ) -> InteractionIntent:
         return self.classify_interaction_intent_sync(question, course_context)
 
@@ -117,6 +122,7 @@ class KeywordIntentLLMClient(RecordingLLMClient):
         self,
         question: str,
         course_context: str | None = None,
+        recent_session_context: str | None = None,
     ) -> InteractionIntent:
         if self.classify_booking_intent_sync(question, course_context):
             return InteractionIntent(
@@ -140,6 +146,7 @@ class KeywordIntentLLMClient(RecordingLLMClient):
         self,
         question: str,
         course_context: str | None = None,
+        recent_session_context: str | None = None,
     ) -> InteractionIntent:
         return self.classify_interaction_intent_sync(question, course_context)
 
@@ -169,6 +176,7 @@ class TeachingIntentLLMClient(RecordingLLMClient):
         self,
         question: str,
         course_context: str | None = None,
+        recent_session_context: str | None = None,
     ) -> InteractionIntent:
         return InteractionIntent(
             action="answer",
@@ -183,6 +191,7 @@ class TeachingIntentLLMClient(RecordingLLMClient):
         self,
         question: str,
         course_context: str | None = None,
+        recent_session_context: str | None = None,
     ) -> InteractionIntent:
         return self.classify_interaction_intent_sync(question, course_context)
 
@@ -1187,6 +1196,7 @@ def test_chat_answers_previous_question_recall_even_when_classifier_wants_clarif
             self,
             question: str,
             course_context: str | None = None,
+            recent_session_context: str | None = None,
         ) -> InteractionIntent:
             if question != "我刚刚问的是什么问题":
                 return super().classify_interaction_intent_sync(question, course_context)
@@ -1297,12 +1307,13 @@ def test_chat_passes_recent_session_context_into_intent_classification(
             self,
             question: str,
             course_context: str | None = None,
+            recent_session_context: str | None = None,
         ) -> InteractionIntent:
-            self.classification_contexts.append(course_context)
+            self.classification_contexts.append(recent_session_context)
             if question == "那如果按刚才那个继续，下一步我先做哪块？":
                 if (
-                    course_context
-                    and "Immediate session context (same conversation):" in course_context
+                    recent_session_context
+                    and "Immediate session context (same conversation):" in recent_session_context
                 ):
                     return InteractionIntent(
                         action="answer",
@@ -1436,6 +1447,7 @@ def test_natural_follow_up_phrasings_reuse_recent_session_context(
             self,
             question: str,
             course_context: str | None = None,
+            recent_session_context: str | None = None,
         ) -> InteractionIntent:
             follow_up_questions = {
                 "那这个方向值得继续吗？": "值得继续，但要先明确你更关心引擎本身还是服务落地。",
@@ -1443,8 +1455,8 @@ def test_natural_follow_up_phrasings_reuse_recent_session_context(
             }
             if question in follow_up_questions:
                 if (
-                    course_context
-                    and "Immediate session context (same conversation):" in course_context
+                    recent_session_context
+                    and "Immediate session context (same conversation):" in recent_session_context
                 ):
                     self._answer = follow_up_questions[question]
                     return InteractionIntent(
@@ -2056,7 +2068,7 @@ def test_chat_auto_web_searches_when_local_knowledge_is_empty(
         knowledge_base_dir=tmp_path / "knowledge-base",
         conversation_memory_dir=tmp_path / "conversation-memory",
         knowledge_backend="local",
-        conversation_memory_index_type="bm25",
+        conversation_memory_index_type="auto",
         web_search_enabled=True,
         web_search_auto_trigger=True,
     )
@@ -2102,7 +2114,7 @@ def test_positive_feedback_writes_web_sources_back_to_knowledge_base(
         knowledge_base_dir=tmp_path / "knowledge-base",
         conversation_memory_dir=tmp_path / "conversation-memory",
         knowledge_backend="local",
-        conversation_memory_index_type="bm25",
+        conversation_memory_index_type="auto",
         web_search_enabled=True,
         web_search_auto_trigger=True,
     )

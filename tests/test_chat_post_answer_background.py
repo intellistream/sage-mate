@@ -26,6 +26,7 @@ from sage_faculty_twin.service import (
 
 class _FastLLMClient:
     """LLM stand-in that replies immediately without booking flow."""
+    model_name = "test-model"
 
     def __init__(self, answer_text: str = "已收到，下面给你建议。") -> None:
         self._answer = answer_text

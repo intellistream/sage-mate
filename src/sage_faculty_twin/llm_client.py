@@ -603,7 +603,7 @@ class VllmChatClient:
         user_prompt: str,
         *,
         temperature: float = 0.2,
-        max_tokens: int | None = 2048,
+        max_tokens: int | None = 4096,
         token_callback: Callable[[str], None] | None = None,
         enable_thinking: bool = True,
         thinking_token_budget: int | None = None,
@@ -622,8 +622,8 @@ class VllmChatClient:
         if not enable_thinking:
             payload["chat_template_kwargs"] = {"enable_thinking": False}
             # Without thinking, we don't need as many tokens
-            if max_tokens is not None and max_tokens > 1024:
-                max_tokens = 1024
+            if max_tokens is not None and max_tokens > 2048:
+                max_tokens = 2048
         else:
             # B2: Cap thinking tokens to reduce wasted CoT generation.
             # Uses vllm-hust's thinking_token_budget parameter.

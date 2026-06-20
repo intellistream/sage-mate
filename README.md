@@ -6,7 +6,7 @@
 
 - 推荐后端链路：vllm-hust + vllm-ascend-hust（Ascend）。
 - 首次部署：`./quickstart.sh`（一键安装环境、依赖、systemd 服务）。
-- 全栈启动（含模型服务）：`bash tools/start_all_services.sh`。
+- 运行管理：`./manage.sh`（统一入口：启停、状态、日志）。
 - 应用默认监听：`127.0.0.1:55601`。
 
 ## 前置条件（最小）
@@ -19,29 +19,11 @@
 ## 首次部署
 
 ```bash
-./quickstart.sh              # 安装环境、依赖、.env、systemd 服务
-./quickstart.sh --with-vllm  # 同时安装 vllm-hust（editable）
-./quickstart.sh --start      # 安装并启动 systemd 服务
-```
-
-## 全栈启动（含模型服务）
-
-```bash
-bash tools/start_all_services.sh                        # 默认 preset=coder
-bash tools/start_all_services.sh --preset w8a8           # 使用 w8a8 preset
-bash tools/start_all_services.sh --skip-model            # 跳过模型服务（已启动时）
-```
-
-该脚本会依次：
-
-1. 启动 vLLM 模型服务（通过 vllm-hust-dev-hub launch script）。
-2. 安装并启动 sage-faculty-twin app + site proxy。
-3. 启动 Cloudflare tunnel。
-
-日常开发/测试直接启动 app：
-
-```bash
-bash tools/run_app_server.sh
+./quickstart.sh                        # 安装环境、依赖、.env、systemd 服务
+./quickstart.sh --with-venv            # 创建隔离 .venv 后再安装
+./quickstart.sh --with-vllm            # 同时安装 vllm-hust（editable）
+./quickstart.sh --with-vllm-engine     # 启用 vLLM 推理引擎服务
+./quickstart.sh --start                # 安装并启动 systemd 服务
 ```
 
 ## 启动后验证
@@ -60,8 +42,14 @@ curl -s -N http://127.0.0.1:55601/chat \
 
 - `DIGITAL_TWIN_LLM_BASE_URL`（例如 `http://127.0.0.1:18000/v1`）
 - `DIGITAL_TWIN_API_KEY`（本地直连可用 `EMPTY`；如果启用 systemd OpenAI 代理，请换成真实密钥）
-- `DIGITAL_TWIN_MODEL_NAME`（例如 `meta-llama/Llama-3.1-8B-Instruct`）
+- `DIGITAL_TWIN_MODEL_NAME`（例如 `qwen3-32b`）
 - `DIGITAL_TWIN_STREAM_CHAT_ANSWER=true`
+
+vLLM 推理引擎配置（用于 `--with-vllm-engine`）：
+
+- `VLLM_ENGINE_MODEL_PATH`（模型路径，默认 `/data/shared-models/Qwen3-32B`）
+- `VLLM_ENGINE_TP_SIZE`（张量并行度，默认 `4`）
+- `VLLM_ENGINE_MAX_MODEL_LEN`（最大上下文长度，默认 `32768`）
 
 联网检索（可选）建议再配 2 个：
 
@@ -71,41 +59,42 @@ curl -s -N http://127.0.0.1:55601/chat \
 ## 服务管理
 
 ```bash
-./manage.sh status                          # 查看所有服务状态
-./manage.sh start | stop | restart          # 管理 app 服务
-./manage.sh restart --with-vllm-proxy       # 含 OpenAI 代理
-./manage.sh restart --with-tunnel           # 含 Cloudflare 隧道
-./manage.sh install --start                 # 重装 systemd 服务并启动
+./manage.sh status --all               # 查看所有服务状态
+./manage.sh start  --all               # 启动全部
+./manage.sh stop   --all               # 停止全部
+./manage.sh restart --with-vllm-engine # 重启推理引擎
+./manage.sh logs   app                 # 跟踪 app 日志
+./manage.sh logs   engine              # 跟踪推理引擎日志
+./manage.sh install --start            # 重装 systemd 服务并启动（转发到 quickstart.sh）
 ```
 
 ## OpenAI 代理（可选）
 
 如果你想让 `vllm-hust` 通过 systemd 代理对外提供带鉴权的 OpenAI-compatible API，可以启用 `sage-faculty-twin-vllm-openai-proxy.service`。
 
-默认的 `./manage.sh restart` 只管理 app 服务，不会自动启用这个代理。需要代理时显式使用：
-
 ```bash
-./manage.sh install --with-vllm-proxy --start
+./quickstart.sh --with-vllm-proxy --start
 ./manage.sh restart --with-vllm-proxy
 ```
 
 代理默认监听 `127.0.0.1:18001`，上游转发到 `127.0.0.1:18000/v1`。启用后，把 `.env` 里的 `DIGITAL_TWIN_API_KEY` 改成真实密钥，并将 `DIGITAL_TWIN_LLM_BASE_URL` 指向 `http://127.0.0.1:18001/v1`。
 
-验证方式：
+## Qwen3-32B 模型服务
+
+推荐使用 managed service（graph mode，无 `--enforce-eager`）：
 
 ```bash
-curl -H 'Authorization: Bearer <your-key>' http://127.0.0.1:18001/v1/models
-curl -X POST http://127.0.0.1:18001/v1/chat/completions \
-  -H 'Authorization: Bearer <your-key>' \
-  -H 'Content-Type: application/json' \
-  -d '{"model":"Qwen3-32B","messages":[{"role":"user","content":"hi"}],"max_tokens":5}'
+./quickstart.sh --with-vllm-engine --start
+./manage.sh logs engine
 ```
 
-## Qwen3-32B 模型服务（Docker 环境）
+或手动启动：
 
 ```bash
-./run_qwen3_32b_service.sh            # 启动 Qwen3-32B vllm-hust 服务
-./run_qwen3_32b_service.sh --stop     # 优雅停止
+vllm-hust serve /data/shared-models/Qwen3-32B \
+    --served-model-name Qwen3-32B --host 0.0.0.0 --port 18000 \
+    --tensor-parallel-size 4 --max-model-len 32768 \
+    --gpu-memory-utilization 0.85
 ```
 
 ## 最小排障
@@ -119,7 +108,6 @@ curl -X POST http://127.0.0.1:18001/v1/chat/completions \
 
 - API：`src/sage_faculty_twin/api.py`
 - 编排：`src/sage_faculty_twin/service.py`
-- 启动脚本：`tools/run_app_server.sh`
-- 全栈启动：`tools/start_all_services.sh`
 - 首次部署：`quickstart.sh`
 - 服务管理：`manage.sh`
+- Systemd 启动器：`tools/run_*.sh`（由 systemd `ExecStart` 调用）

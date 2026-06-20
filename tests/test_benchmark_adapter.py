@@ -225,6 +225,8 @@ async def _fake_responder(request):
 
 
 class _RecordingMemoryLLM:
+    model_name = "test-model"
+
     def __init__(self, answer: str) -> None:
         self._answer = answer
         self.prompts: list[str] = []

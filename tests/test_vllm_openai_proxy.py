@@ -40,6 +40,9 @@ class _FakeAsyncClient:
     async def __aexit__(self, exc_type, exc, tb) -> None:
         return None
 
+    async def aclose(self) -> None:
+        pass
+
     def stream(self, method: str, url: str, **kwargs):
         _FakeAsyncClient.last_request = {"method": method, "url": url, **kwargs}
         return self.stream_response

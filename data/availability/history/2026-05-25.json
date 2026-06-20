@@ -1,56 +1,5 @@
 {
   "week_of": "2026-05-25",
   "timezone": "Asia/Shanghai",
-  "days": [
-    {
-      "date": "2026-05-25",
-      "windows": [
-        {
-          "start": "14:00",
-          "end": "18:00"
-        }
-      ],
-      "note": null
-    },
-    {
-      "date": "2026-05-26",
-      "windows": [
-        {
-          "start": "14:00",
-          "end": "18:00"
-        }
-      ],
-      "note": null
-    },
-    {
-      "date": "2026-05-27",
-      "windows": [
-        {
-          "start": "16:00",
-          "end": "18:00"
-        }
-      ],
-      "note": null
-    },
-    {
-      "date": "2026-05-28",
-      "windows": [
-        {
-          "start": "14:00",
-          "end": "18:00"
-        }
-      ],
-      "note": null
-    },
-    {
-      "date": "2026-05-29",
-      "windows": [
-        {
-          "start": "14:00",
-          "end": "18:00"
-        }
-      ],
-      "note": null
-    }
-  ]
+  "days": []
 }

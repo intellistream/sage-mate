@@ -1,0 +1,16 @@
+[Unit]
+Description=Sage Faculty Twin vLLM-HUST inference engine (Qwen3-32B)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=__REPO_ROOT__
+ExecStart=__REPO_ROOT__/tools/run_vllm_engine.sh
+Restart=on-failure
+RestartSec=10
+# Graph mode needs time to compile on first request
+TimeoutStartSec=300
+
+[Install]
+WantedBy=default.target

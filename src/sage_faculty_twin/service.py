@@ -1669,7 +1669,6 @@ class FacultyTwinWorkflowSupport:
                 context=context,
                 enable_thinking=enable_thinking,
             )
-        context.answer = _strip_internal_thinking_content(context.answer)
         context.workflow_action = (
             "advise_only" if context.decision_mode == "advise_only" else "answer"
         )
@@ -1893,8 +1892,6 @@ class FacultyTwinWorkflowSupport:
     def render_chat_response(self, context: ChatWorkflowContext) -> ChatResponse:
         if context.answer is None:
             raise RuntimeError("chat workflow completed without producing an answer")
-
-        context.answer = _strip_internal_thinking_content(context.answer)
 
         started_at = perf_counter()
 
