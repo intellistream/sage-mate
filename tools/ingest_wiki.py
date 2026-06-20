@@ -149,6 +149,7 @@ def main():
             content=content,
             tags=tags,
             source_name=source_name,
+            metadata=metadata,
         )
 
         # Upsert: create or update
