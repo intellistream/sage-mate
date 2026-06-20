@@ -1,1 +1,0 @@
-Uses `pytest` for test orchestration, `fastapi.testclient` for HTTP simulation, and `monkeypatch` for injecting stub implementations of external dependencies like `httpx` and `sage_anns`.

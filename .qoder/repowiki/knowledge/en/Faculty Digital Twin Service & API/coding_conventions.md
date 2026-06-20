@@ -1,4 +1,0 @@
-- Lazy initialization of heavy service components using thread-safe proxies (e.g., `LazyDigitalTwinService` in `api.py`) to defer startup costs.
-- Workflow trace steps are appended with performance timing (`perf_counter`) and structured metadata for UI visualization and debugging.
-- Pydantic models are used extensively for request/response validation, internal state transfer, and configuration management.
-- Session authentication is handled via signed cookies (`admin_session_token`, `user_session_token`) validated by dependency injection in FastAPI routes.

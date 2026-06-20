@@ -1,5 +1,17 @@
 [
     {
+        "version": "v3.3.1",
+        "date": "2026-06-20",
+        "summary": "5 \u4e2a\u771f\u5b9e Capability Plugin Pack \u4e0a\u7ebf",
+        "highlights": [
+            "\u7814\u7a76\u6307\u5bfc Pack\uff1a\u7814\u7a76\u65b9\u5411\u5339\u914d\u3001\u6587\u732e\u9605\u8bfb\u6307\u5bfc\u3001\u7814\u7a76\u8ba1\u5212\u8d77\u8349",
+            "\u4f1a\u8bae\u51c6\u5907 Pack\uff1a\u56e2\u961f\u65e5\u7a0b\u3001Blocker \u68c0\u7d22\u3001\u8bae\u7a0b\u8d77\u8349",
+            "\u8bba\u6587\u5ba1\u9605 Pack\uff1a\u8bba\u6587\u6458\u8981\u3001\u8bc4\u5ba1 Checklist\u3001\u5ba1\u9605\u610f\u89c1\u8d77\u8349",
+            "\u9009\u8bfe\u6307\u5bfc Pack\uff1a\u8bfe\u7a0b\u8d44\u6599\u68c0\u7d22\u3001\u4e2a\u6027\u5316\u9009\u8bfe\u65b9\u6848",
+            "\u8bba\u6587\u53cd\u9988 Pack\uff1a\u8bc4\u5206\u6807\u51c6\u3001\u7ed3\u6784\u5316\u53cd\u9988\u3001\u4fee\u6539\u8bf4\u660e"
+        ]
+    },
+    {
         "version": "v3.3.0",
         "date": "2026-06-20",
         "summary": "Capability Plugins & Changelog API",

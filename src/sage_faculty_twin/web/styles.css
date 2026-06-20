@@ -2548,19 +2548,28 @@ body.conversation-active .intro-card .message-body {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: 8px;
+    gap: 6px;
     flex-shrink: 0;
     white-space: nowrap;
-    width: auto;
-    height: 42px;
-    padding: 0 14px;
-    border-color: transparent;
-    background: var(--surface-soft);
+    height: auto;
+    padding: 6px 12px;
+    border-radius: 999px;
+    border: 1px solid rgba(22, 35, 56, 0.08);
+    background: rgba(255, 255, 255, 0.72);
+    font-size: 0.78rem;
+    color: var(--muted);
+    transition: background 150ms ease, border-color 150ms ease, color 150ms ease;
+    cursor: pointer;
+}
+
+.composer-upload-button:hover {
+    background: rgba(255, 255, 255, 0.95);
+    border-color: rgba(99, 102, 241, 0.18);
 }
 
 .composer-upload-button svg {
-    width: 18px;
-    height: 18px;
+    width: 14px;
+    height: 14px;
     display: block;
     flex: 0 0 auto;
 }
@@ -2569,25 +2578,29 @@ body.conversation-active .intro-card .message-body {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: 8px;
+    gap: 6px;
     flex-shrink: 0;
     white-space: nowrap;
     min-width: 0;
-    height: 42px;
-    padding: 0 14px;
-    border: 1px solid rgba(47, 111, 237, 0.16);
-    background: linear-gradient(135deg, rgba(47, 111, 237, 0.1), rgba(255, 255, 255, 0.94));
-    color: var(--accent-deep);
+    height: auto;
+    padding: 6px 12px;
+    border-radius: 999px;
+    border: 1px solid rgba(22, 35, 56, 0.08);
+    background: rgba(255, 255, 255, 0.72);
+    font-size: 0.78rem;
+    color: var(--muted);
+    transition: background 150ms ease, border-color 150ms ease, color 150ms ease;
+    cursor: pointer;
 }
 
 .composer-lucky-question-button:hover {
-    border-color: rgba(47, 111, 237, 0.28);
-    background: linear-gradient(135deg, rgba(47, 111, 237, 0.14), rgba(255, 255, 255, 0.98));
+    background: rgba(255, 255, 255, 0.95);
+    border-color: rgba(99, 102, 241, 0.18);
 }
 
 .composer-tool-label {
-    font-size: 0.82rem;
-    font-weight: 600;
+    font-size: inherit;
+    font-weight: 500;
     line-height: 1;
 }
 
@@ -4687,14 +4700,12 @@ body.workflow-shell-collapsed #workflow-toggle {
 
     .composer-upload-button {
         min-width: 0;
-        height: 38px;
-        padding: 0 12px;
+        padding: 5px 10px;
     }
 
     .composer-lucky-question-button {
         min-width: 0;
-        height: 38px;
-        padding: 0 12px;
+        padding: 5px 10px;
     }
 
     .send-button {
@@ -5006,16 +5017,16 @@ body.workflow-shell-collapsed #workflow-toggle {
 .token-usage-toggle {
     display: inline-flex;
     align-items: center;
-    gap: 4px;
-    padding: 3px 8px;
+    gap: 6px;
+    padding: 6px 12px;
     border: 1px solid rgba(22, 35, 56, 0.08);
     border-radius: 999px;
     background: rgba(255, 255, 255, 0.72);
     color: var(--muted);
-    font-size: 0.75rem;
+    font-size: 0.78rem;
     font-weight: 500;
     cursor: pointer;
-    transition: background 120ms ease, color 120ms ease;
+    transition: background 150ms ease, border-color 150ms ease, color 150ms ease;
 }
 
 .token-usage-toggle:hover {

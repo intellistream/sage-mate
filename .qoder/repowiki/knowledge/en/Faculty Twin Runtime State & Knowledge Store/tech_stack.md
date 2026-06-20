@@ -1,1 +1,0 @@
-File-based JSON storage for document-oriented data; SQLite for relational/metrics data (`planner_metrics.sqlite3`, `memory_store.sqlite3`); BM25 search index configuration for conversation memory.

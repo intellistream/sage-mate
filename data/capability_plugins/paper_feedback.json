@@ -1,53 +1,44 @@
 {
     "plugin_id": "paper_feedback",
     "name": "Paper Feedback Pack",
-    "description": "Adds paper review and feedback steps: rubric lookup, structured critique generation, and revision tracking.",
-    "min_app_version": "3.0.0",
-    "enabled": false,
+    "description": "学生论文反馈工作流：检索写作评分标准、生成结构化修改意见、起草修改说明。",
+    "min_app_version": "3.3.0",
+    "enabled": true,
     "steps": [
         {
-            "step_id": "retrieve_rubric",
-            "description": "Retrieve the grading rubric for the submission type.",
-            "required_inputs": ["course_context", "interaction_intent"],
-            "produces_outputs": ["rubric_hits"],
-            "timeout_budget_ms": 1000,
-            "trace_key": "plugin_rubric"
+            "step_id": "retrieve_writing_rubric",
+            "description": "检索论文写作课程评分标准和常见写作问题，作为反馈依据。",
+            "required_inputs": ["question", "profile_context"],
+            "produces_outputs": ["writing_rubric_hits"],
+            "side_effect": "none",
+            "admin_only": false,
+            "timeout_budget_ms": 1400,
+            "retry_policy": "idempotent",
+            "trace_key": "plugin_writing_rubric"
         },
         {
             "step_id": "generate_structured_critique",
-            "description": "Generate structured paper feedback using rubric and retrieved examples.",
-            "required_inputs": ["prompt_context", "rubric_hits"],
+            "description": "基于评分标准和论文内容，生成结构化反馈（逻辑、实验、表述等维度）。",
+            "required_inputs": ["question", "interaction_intent", "writing_rubric_hits"],
             "produces_outputs": ["structured_critique"],
-            "timeout_budget_ms": 4000,
-            "trace_key": "plugin_critique"
+            "side_effect": "none",
+            "admin_only": false,
+            "timeout_budget_ms": 2000,
+            "retry_policy": "none",
+            "trace_key": "plugin_structured_critique"
         },
         {
             "step_id": "draft_revision_notes",
-            "description": "Draft revision tracking notes for the paper feedback.",
-            "required_inputs": ["structured_critique", "answer"],
-            "produces_outputs": ["revision_draft"],
+            "description": "起草逐条修改说明草案，经导师审核后发送给学生。",
+            "required_inputs": ["question", "structured_critique", "writing_rubric_hits"],
+            "produces_outputs": ["revision_notes_draft"],
             "side_effect": "draft_write",
-            "timeout_budget_ms": 600,
-            "trace_key": "plugin_revision_draft"
+            "admin_only": false,
+            "timeout_budget_ms": 2000,
+            "retry_policy": "none",
+            "trace_key": "plugin_revision_notes_draft"
         }
     ],
-    "policy_requirements": [
-        {
-            "step_id": "retrieve_rubric",
-            "requires_admin": false,
-            "allowed_side_effects": []
-        },
-        {
-            "step_id": "generate_structured_critique",
-            "requires_admin": false,
-            "allowed_side_effects": []
-        },
-        {
-            "step_id": "draft_revision_notes",
-            "requires_admin": false,
-            "requires_owner_review": true,
-            "allowed_side_effects": ["draft_write"]
-        }
-    ],
-    "test_scenario_ids": ["paper-feedback-basic", "rubric-retrieval"]
+    "policy_requirements": [],
+    "test_scenario_ids": []
 }

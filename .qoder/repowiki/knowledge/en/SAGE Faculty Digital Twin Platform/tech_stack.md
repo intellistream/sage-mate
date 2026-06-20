@@ -1,0 +1,1 @@
+Python 3.11+ with FastAPI for the application layer, vLLM (via vllm-hust) for high-throughput LLM inference, and systemd user units for process supervision and inter-service networking.

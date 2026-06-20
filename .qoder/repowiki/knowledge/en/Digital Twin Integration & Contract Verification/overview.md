@@ -1,0 +1,1 @@
+Validates end-to-end chat workflows, agentic planning, memory persistence, and frontend-API contracts for the Faculty Digital Twin service.

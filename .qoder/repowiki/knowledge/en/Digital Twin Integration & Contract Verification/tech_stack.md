@@ -1,0 +1,1 @@
+Uses `pytest` with `asyncio` for asynchronous service testing; leverages `pydantic` for scenario data validation; employs `monkeypatch` for dependency injection of mock LLM clients and notification services.

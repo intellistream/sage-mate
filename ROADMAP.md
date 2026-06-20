@@ -362,16 +362,23 @@ In addition, `v3.1.0` delivered the retrieval and workflow modernization that su
 - Homepage migrated to GitHub Pages; tunnel/site-proxy is optional.
 - All 28 ruff lint errors resolved; CI pipeline stabilized.
 
-### V3.3 Status (2026-06-20) — Capability Plugins & Changelog API
+### V3.3 Status (2026-06-20) — Real Capability Plugins & Changelog API
 
-`V3.3: Faculty-Specific Capability Plugins` is **implemented and integrated**:
+`V3.3: Faculty-Specific Capability Plugins` is **implemented and production-ready**:
 
 - **Manifest-driven plugin system** (`capability_plugins.py`): `CapabilityPluginManifest` Pydantic model declares plugin_id, steps, policy requirements, min app version, and test scenario IDs.
 - **Plugin registry** loads JSON manifests from `data/capability_plugins/`, validates step metadata, checks version compatibility, and merges enabled plugin steps into the core step registry.
-- **Two example manifests shipped**: `course_advising.json` (syllabus + prerequisite steps) and `paper_feedback.json` (rubric + critique + revision draft).
+- **5 real plugin packs shipped** (all `enabled: true`):
+  - `research_mentoring` (4 steps): research overview retrieval, direction matching, reading methodology, research plan drafting
+  - `meeting_prep` (4 steps): team schedule, blocker memory, follow-up artifacts, agenda drafting
+  - `thesis_review` (4 steps): paper digest, writing guidance, review checklist, review comments drafting
+  - `course_advising` (3 steps): courseware index, teaching resources, course plan drafting
+  - `paper_feedback` (3 steps): writing rubric, structured critique, revision notes drafting
+- **36 total steps** in registry (18 core + 18 plugin), zero step-ID collisions with core.
+- All 5 `draft_write` steps have unique `trace_key` for observability.
 - **Operations API**: `GET /capabilities` returns plugin statuses for the admin console.
-- **Changelog refactored**: release notes moved from hardcoded JS to `data/changelog.json`, served via `GET /changelog` API.
-- **24 tests** cover loading, validation, compatibility, registry merging, and real manifest integrity.
+- **Changelog refactored**: release notes moved from hardcoded JS to `data/changelog.json`, served via `GET /changelog` API, now covers v1.0–v3.3.
+- **29 tests** cover loading, validation, compatibility, registry merging, real manifest integrity, and collision detection.
 
 ### V3.2 Status (2026-06-20) — Guarded Side-Effects & Release Notes
 

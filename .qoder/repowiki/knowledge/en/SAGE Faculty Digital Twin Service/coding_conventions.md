@@ -1,0 +1,4 @@
+- Lazy initialization of heavy services using thread-safe proxies (e.g., `LazyDigitalTwinService` in `api.py`) to defer startup costs until first request.
+- Use of Pydantic models for all API request/response schemas and internal data transfer objects, ensuring strict validation and serialization.
+- Workflow traceability via `WorkflowTraceStep` objects emitted at each pipeline stage, enabling real-time SSE updates and post-hoc evaluation.
+- Environment-specific feature flags (e.g., `DIGITAL_TWIN_STREAM_CHAT_ANSWER`, `DIGITAL_TWIN_POST_ANSWER_BACKGROUND`) to toggle latency optimizations and streaming behaviors.

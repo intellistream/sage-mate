@@ -1,0 +1,55 @@
+{
+    "plugin_id": "thesis_review",
+    "name": "Thesis Review Pack",
+    "description": "论文审阅工作流扩展包：检索论文摘要、生成评审 checklist、起草评审意见。",
+    "min_app_version": "3.3.0",
+    "enabled": true,
+    "steps": [
+        {
+            "step_id": "retrieve_paper_digest",
+            "description": "检索知识库中的论文提炼（paper-digest）以快速获取论文核心贡献和方法。",
+            "required_inputs": ["question", "profile_context"],
+            "produces_outputs": ["paper_digest_hits"],
+            "side_effect": "none",
+            "admin_only": false,
+            "timeout_budget_ms": 1500,
+            "retry_policy": "idempotent",
+            "trace_key": "plugin_paper_digest"
+        },
+        {
+            "step_id": "retrieve_paper_writing_guidance",
+            "description": "检索论文写作课程材料，提供结构、逻辑和表述方面的指导依据。",
+            "required_inputs": ["question", "profile_context"],
+            "produces_outputs": ["writing_guidance_hits"],
+            "side_effect": "none",
+            "admin_only": false,
+            "timeout_budget_ms": 1400,
+            "retry_policy": "idempotent",
+            "trace_key": "plugin_writing_guidance"
+        },
+        {
+            "step_id": "generate_review_checklist",
+            "description": "根据论文类型（学位论文/会议论文/期刊）生成结构化评审 checklist。",
+            "required_inputs": ["question", "interaction_intent", "paper_digest_hits"],
+            "produces_outputs": ["review_checklist"],
+            "side_effect": "none",
+            "admin_only": false,
+            "timeout_budget_ms": 800,
+            "retry_policy": "none",
+            "trace_key": "plugin_review_checklist"
+        },
+        {
+            "step_id": "draft_review_comments",
+            "description": "基于评审 checklist 和论文内容，起草结构化评审意见草案。",
+            "required_inputs": ["question", "review_checklist", "paper_digest_hits"],
+            "produces_outputs": ["review_comments_draft"],
+            "side_effect": "draft_write",
+            "admin_only": false,
+            "timeout_budget_ms": 3000,
+            "retry_policy": "none",
+            "trace_key": "plugin_review_comments_draft"
+        }
+    ],
+    "policy_requirements": [],
+    "test_scenario_ids": []
+}

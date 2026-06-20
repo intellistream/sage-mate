@@ -269,7 +269,11 @@ def test_real_course_advising_manifest_loads() -> None:
         pytest.skip("course_advising.json not found")
     manifest = load_manifest(manifest_path)
     assert manifest.plugin_id == "course_advising"
-    assert len(manifest.steps) >= 1
+    assert manifest.enabled is True
+    assert len(manifest.steps) == 3
+    step_ids = [s.step_id for s in manifest.steps]
+    assert "retrieve_courseware_index" in step_ids
+    assert "draft_course_plan" in step_ids
     warnings = validate_plugin_steps(manifest)
     assert warnings == []
 
@@ -281,9 +285,102 @@ def test_real_paper_feedback_manifest_loads() -> None:
         pytest.skip("paper_feedback.json not found")
     manifest = load_manifest(manifest_path)
     assert manifest.plugin_id == "paper_feedback"
-    assert len(manifest.steps) >= 1
+    assert manifest.enabled is True
+    assert len(manifest.steps) == 3
+    step_ids = [s.step_id for s in manifest.steps]
+    assert "retrieve_writing_rubric" in step_ids
+    assert "draft_revision_notes" in step_ids
     warnings = validate_plugin_steps(manifest)
     assert warnings == []
+
+
+def test_real_research_mentoring_manifest_loads() -> None:
+    """The shipped research_mentoring.json manifest must be valid."""
+    manifest_path = Path("data/capability_plugins/research_mentoring.json")
+    if not manifest_path.is_file():
+        pytest.skip("research_mentoring.json not found")
+    manifest = load_manifest(manifest_path)
+    assert manifest.plugin_id == "research_mentoring"
+    assert manifest.enabled is True
+    assert len(manifest.steps) == 4
+    step_ids = [s.step_id for s in manifest.steps]
+    assert "retrieve_research_overview" in step_ids
+    assert "draft_research_plan" in step_ids
+    warnings = validate_plugin_steps(manifest)
+    assert warnings == []
+
+
+def test_real_meeting_prep_manifest_loads() -> None:
+    """The shipped meeting_prep.json manifest must be valid."""
+    manifest_path = Path("data/capability_plugins/meeting_prep.json")
+    if not manifest_path.is_file():
+        pytest.skip("meeting_prep.json not found")
+    manifest = load_manifest(manifest_path)
+    assert manifest.plugin_id == "meeting_prep"
+    assert manifest.enabled is True
+    assert len(manifest.steps) == 4
+    step_ids = [s.step_id for s in manifest.steps]
+    assert "retrieve_team_schedule" in step_ids
+    assert "draft_meeting_agenda" in step_ids
+    warnings = validate_plugin_steps(manifest)
+    assert warnings == []
+
+
+def test_real_thesis_review_manifest_loads() -> None:
+    """The shipped thesis_review.json manifest must be valid."""
+    manifest_path = Path("data/capability_plugins/thesis_review.json")
+    if not manifest_path.is_file():
+        pytest.skip("thesis_review.json not found")
+    manifest = load_manifest(manifest_path)
+    assert manifest.plugin_id == "thesis_review"
+    assert manifest.enabled is True
+    assert len(manifest.steps) == 4
+    step_ids = [s.step_id for s in manifest.steps]
+    assert "retrieve_paper_digest" in step_ids
+    assert "draft_review_comments" in step_ids
+    warnings = validate_plugin_steps(manifest)
+    assert warnings == []
+
+
+def test_all_real_plugins_no_step_collisions() -> None:
+    """All 5 real plugins must have unique step IDs across the registry."""
+    from sage_faculty_twin.capability_plugins import CapabilityPluginRegistry
+    from sage_faculty_twin import __version__
+
+    registry = CapabilityPluginRegistry(
+        plugin_dir=Path("data/capability_plugins"),
+        current_version=__version__,
+    )
+    registry.load()
+    merged = registry.merged_step_registry()
+    enabled = registry.enabled_manifests()
+    assert len(enabled) == 5
+    assert len(merged) > 18  # core steps + plugin steps
+    # Collect all plugin step IDs
+    plugin_step_ids = [s.step_id for m in enabled for s in m.steps]
+    # None should collide with core step IDs
+    from sage_faculty_twin.workflow_steps import get_default_step_registry
+    core_ids = set(get_default_step_registry().keys())
+    collisions = [sid for sid in plugin_step_ids if sid in core_ids]
+    assert collisions == [], f"Plugin steps collide with core: {collisions}"
+
+
+def test_all_real_plugins_draft_steps_have_trace_keys() -> None:
+    """Every draft_write step in the real plugins must have a trace_key."""
+    from sage_faculty_twin.capability_plugins import CapabilityPluginRegistry
+    from sage_faculty_twin import __version__
+
+    registry = CapabilityPluginRegistry(
+        plugin_dir=Path("data/capability_plugins"),
+        current_version=__version__,
+    )
+    registry.load()
+    for m in registry.enabled_manifests():
+        for s in m.steps:
+            if s.side_effect == "draft_write":
+                assert s.trace_key is not None, (
+                    f"{m.plugin_id}/{s.step_id}: draft_write without trace_key"
+                )
 
 
 # ── Changelog API Data Tests ────────────────────────────────────────────────

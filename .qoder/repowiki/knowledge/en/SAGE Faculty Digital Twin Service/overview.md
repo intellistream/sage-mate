@@ -1,0 +1,1 @@
+Provides an AI-driven academic assistant for faculty-student interactions, featuring workflow-planned LLM responses, memory retrieval, and administrative operations.

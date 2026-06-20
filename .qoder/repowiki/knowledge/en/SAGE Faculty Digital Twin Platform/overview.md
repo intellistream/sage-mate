@@ -1,0 +1,1 @@
+Orchestrates a faculty digital twin service by unifying LLM inference, application logic, and persistent knowledge stores into a managed systemd runtime.

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "sage-faculty-twin"
-version = "3.3.0"
+version = "3.3.1"
 description = "24/7 faculty twin app built on SAGE and vllm-hust"
 readme = "README.md"
 license = {file = "LICENSE"}

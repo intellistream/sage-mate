@@ -2,19 +2,19 @@
 schema_version: 1
 locale: en-US
 branch: main
-exported_at: "2026-06-20T04:35:41Z"
+exported_at: "2026-06-20T05:05:16Z"
 modules:
     "":
-        dir_name: Sage Faculty Digital Twin Platform
-        title: Sage Faculty Digital Twin Platform
+        dir_name: SAGE Faculty Digital Twin Platform
+        title: SAGE Faculty Digital Twin Platform
         scope: []
         source_files: []
         children: []
         depends_on: []
         related_to: []
     app_source:
-        dir_name: Faculty Digital Twin Service & API
-        title: Faculty Digital Twin Service & API
+        dir_name: SAGE Faculty Digital Twin Service
+        title: SAGE Faculty Digital Twin Service
         scope:
             - src/sage_faculty_twin/
         source_files: []
@@ -45,8 +45,8 @@ modules:
         related_to:
             - path: deployment
     runtime_data:
-        dir_name: Faculty Twin Runtime State & Knowledge Store
-        title: Faculty Twin Runtime State & Knowledge Store
+        dir_name: Runtime State & Knowledge Persistence
+        title: Runtime State & Knowledge Persistence
         scope:
             - data/
         source_files: []
@@ -54,8 +54,8 @@ modules:
         depends_on: []
         related_to: []
     tests:
-        dir_name: Faculty Digital Twin Integration & Quality Assurance
-        title: Faculty Digital Twin Integration & Quality Assurance
+        dir_name: Digital Twin Integration & Contract Verification
+        title: Digital Twin Integration & Contract Verification
         scope:
             - tests/
         source_files: []

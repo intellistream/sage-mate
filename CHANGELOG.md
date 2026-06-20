@@ -2,6 +2,21 @@
 
 ## Unreleased
 
+## v3.3.1 - 2026-06-20
+
+`v3.3.1` ships 5 real, enabled capability plugin packs covering core academic workflows.
+
+### Changed
+
+- **5 real capability plugin packs** (all `enabled: true`) replace the previous example manifests:
+  - `research_mentoring`: research direction matching, reading methodology retrieval, research plan drafting
+  - `meeting_prep`: team schedule lookup, blocker memory retrieval, meeting agenda drafting
+  - `thesis_review`: paper digest retrieval, review checklist generation, review comments drafting
+  - `course_advising`: courseware index retrieval, teaching resources, course plan drafting
+  - `paper_feedback`: writing rubric retrieval, structured critique generation, revision notes drafting
+- Registry now merges **36 total steps** (18 core + 18 plugin)
+- 29 tests cover all plugin manifests including collision and trace-key validation
+
 ## v3.3.0 - 2026-06-20
 
 `v3.3.0` delivers V3.3 Faculty-Specific Capability Plugins and replaces the hardcoded changelog with a data-driven API.

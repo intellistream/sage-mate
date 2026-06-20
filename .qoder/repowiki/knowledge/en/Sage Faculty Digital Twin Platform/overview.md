@@ -1,1 +1,0 @@
-Orchestrates a faculty digital twin by unifying LLM-driven advising, persistent knowledge stores, systemd-managed services, and operational documentation into a cohesive runtime environment.

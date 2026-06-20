@@ -1,0 +1,4 @@
+- **Web Framework**: FastAPI with Uvicorn (implied by ASGI).
+- **LLM Inference**: vLLM-HUST (custom fork) via OpenAI-compatible API.
+- **Memory/Knowledge**: SAGE Neuromem (neural continual learning), SAGE VDB (vector database), and SQLite for structured storage.
+- **Runtime**: Python 3.10+ with Pydantic V2.

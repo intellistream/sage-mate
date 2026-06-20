@@ -1,4 +1,0 @@
-- **Web Framework**: FastAPI with Uvicorn (implied by `bootstrap_runtime_env`).
-- **LLM Inference**: vLLM-HUST (custom fork) via OpenAI-compatible API.
-- **Memory Engine**: `isage-neuromem` for neural continual memory and vector retrieval.
-- **Vector Search**: FAISS or SageVDB (configurable via `DIGITAL_TWIN_CONVERSATION_MEMORY_INDEX_TYPE`).

@@ -1,0 +1,6 @@
+- **Entry Point**: `api.py` defines a FastAPI application (`llm_app`) exposing REST endpoints for chat, authentication, knowledge management, and administrative dashboards.
+- **Core Logic**: `service.py` implements `DigitalTwinService`, orchestrating the main business logic including chat workflows, booking, and user management.
+- **Workflow Engine**: Uses a deterministic planner (`workflow_planner.py`) and a DAG-based execution pipeline (`workflow_steps.py`, `service.py`) to decompose requests into steps like intent classification, knowledge retrieval, and response generation.
+- **Memory & Knowledge**: Integrates `NeuroMemConversationStore` (`memory_store.py`) for short/long-term memory and `LocalKnowledgeStore` (`knowledge_base.py`) for RAG, backed by SQLite and vector indexes.
+- **LLM Interface**: `llm_client.py` wraps vLLM-compatible APIs with streaming, caching, and intent-classification specialization.
+- **Configuration**: `config.py` uses `pydantic-settings` for environment-driven configuration of models, paths, and runtime parameters.

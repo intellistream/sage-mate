@@ -1,3 +1,0 @@
-- **Test Harness**: Uses `pytest` with `fastapi.testclient.TestClient` for API-level integration tests and monkeypatching for dependency isolation (e.g., mocking `httpx.AsyncClient`).
-- **Coverage Areas**: Tests are organized by functional domain: `vllm_openai_proxy` (auth/streaming), `memory_store` (SQLite/NeuroMem persistence), `llm_client` (retry logic/intent classification), and `service` (prompt truncation/privacy).
-- **Fixture Strategy**: Employs `tmp_path` for isolated filesystem state (knowledge bases, SQLite DBs) and custom fixtures to swap service-level stores (e.g., `OnlinePresenceStore`, `SuggestionBoardStore`) without affecting global state.

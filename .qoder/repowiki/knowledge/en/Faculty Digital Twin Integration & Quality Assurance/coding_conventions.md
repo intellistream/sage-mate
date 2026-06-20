@@ -1,3 +1,0 @@
-- Tests verify both functional outcomes (status codes, response content) and side effects (file creation, database records, trace logs).
-- External dependencies (LLM clients, vector stores) are replaced with lightweight stubs or fakes to ensure deterministic and fast execution.
-- Privacy-sensitive data (student emails, anonymous suggestions) is rigorously tested for redaction in non-admin contexts and exact-match filtering in history retrieval.

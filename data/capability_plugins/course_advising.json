@@ -1,38 +1,44 @@
 {
     "plugin_id": "course_advising",
     "name": "Course Advising Pack",
-    "description": "Adds course-specific advising steps: syllabus lookup, prerequisite check, and grade-tracking awareness.",
-    "min_app_version": "3.0.0",
-    "enabled": false,
+    "description": "选课指导扩展包：检索课程资料（讲义、实验任务）和先修关系，帮助学生制定选课方案。",
+    "min_app_version": "3.3.0",
+    "enabled": true,
     "steps": [
         {
-            "step_id": "retrieve_syllabus",
-            "description": "Retrieve the course syllabus for the active course context.",
-            "required_inputs": ["course_context", "profile_context"],
-            "produces_outputs": ["syllabus_hits"],
-            "timeout_budget_ms": 1500,
-            "trace_key": "plugin_syllabus"
+            "step_id": "retrieve_courseware_index",
+            "description": "检索知识库中的课程资料索引（大模型推理基础设施、数据库实验、论文写作等）。",
+            "required_inputs": ["question", "profile_context"],
+            "produces_outputs": ["courseware_index_hits"],
+            "side_effect": "none",
+            "admin_only": false,
+            "timeout_budget_ms": 1400,
+            "retry_policy": "idempotent",
+            "trace_key": "plugin_courseware_index"
         },
         {
-            "step_id": "check_prerequisites",
-            "description": "Check prerequisite completion for the target course.",
-            "required_inputs": ["course_context", "visitor_profile"],
-            "produces_outputs": ["prerequisite_status"],
-            "timeout_budget_ms": 800,
-            "trace_key": "plugin_prerequisites"
-        }
-    ],
-    "policy_requirements": [
-        {
-            "step_id": "retrieve_syllabus",
-            "requires_admin": false,
-            "allowed_side_effects": []
+            "step_id": "retrieve_teaching_resources",
+            "description": "检索公开教学资源和课程实验指导书，提供选课建议的补充依据。",
+            "required_inputs": ["question", "profile_context", "courseware_index_hits"],
+            "produces_outputs": ["teaching_resource_hits"],
+            "side_effect": "none",
+            "admin_only": false,
+            "timeout_budget_ms": 1300,
+            "retry_policy": "idempotent",
+            "trace_key": "plugin_teaching_resources"
         },
         {
-            "step_id": "check_prerequisites",
-            "requires_admin": false,
-            "allowed_side_effects": []
+            "step_id": "draft_course_plan",
+            "description": "根据学生年级、已修课程和研究方向，起草个性化选课方案草案。",
+            "required_inputs": ["question", "profile_context", "courseware_index_hits", "teaching_resource_hits"],
+            "produces_outputs": ["course_plan_draft"],
+            "side_effect": "draft_write",
+            "admin_only": false,
+            "timeout_budget_ms": 1800,
+            "retry_policy": "none",
+            "trace_key": "plugin_course_plan_draft"
         }
     ],
-    "test_scenario_ids": ["course-question-basic", "prerequisite-check"]
+    "policy_requirements": [],
+    "test_scenario_ids": []
 }

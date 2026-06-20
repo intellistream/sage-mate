@@ -1,1 +1,0 @@
-All child modules operate within a shared Python 3.11 virtual environment (`.venv311`) and rely on a common `pyproject.toml` for dependency management and package configuration.
