@@ -1201,8 +1201,20 @@ def _span_overlap_score(text: str, query_tokens: set[str]) -> float:
             selected.append((start, end))
             consumed_end = end
 
-    # Score: length squared per span, rewarding longer specific matches.
-    return float(sum((end - start) ** 2 for start, end in selected))
+    # Score: length squared per span, but deduplicated by matched text.
+    # A document that mentions "SAGE" 130 times is not 130× more relevant
+    # than one that mentions it once — each unique matched token contributes
+    # at most once.  This prevents repetition-heavy documents from dominating
+    # relevance ranking and ensures index/reference documents that cover many
+    # different query terms score competitively.
+    seen_matched_text: set[str] = set()
+    score = 0.0
+    for start, end in selected:
+        matched = text[start:end].lower()
+        if matched not in seen_matched_text:
+            score += (end - start) ** 2
+            seen_matched_text.add(matched)
+    return score
 
 
 @dataclass(frozen=True)
