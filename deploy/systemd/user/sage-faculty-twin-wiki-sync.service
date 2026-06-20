@@ -1,0 +1,9 @@
+[Unit]
+Description=Sync sage-wiki content into faculty-twin KB
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=__REPO_ROOT__
+ExecStart=/bin/bash __REPO_ROOT__/tools/sync_wiki_kb.sh

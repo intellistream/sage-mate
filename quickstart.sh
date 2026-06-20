@@ -182,8 +182,9 @@ else
 
 	mkdir -p "$target_dir"
 
-	# Render and install all .service templates
-	for unit in "$source_dir"/*.service; do
+	# Render and install all .service and .timer templates
+	for unit in "$source_dir"/*.service "$source_dir"/*.timer; do
+		[[ -f "$unit" ]] || continue
 		rendered="$target_dir/$(basename "$unit")"
 		sed \
 			-e "s|__REPO_ROOT__|$repo_root|g" \
@@ -219,8 +220,13 @@ else
 	systemctl --user enable "${service_units[@]}"
 	log "  enabled: ${service_units[*]}"
 
+	# Enable and start timers
+	timer_units=(sage-faculty-twin-wiki-sync.timer)
+	systemctl --user enable "${timer_units[@]}"
+	log "  enabled: ${timer_units[*]}"
+
 	if $mode_start; then
-		systemctl --user restart "${service_units[@]}"
+		systemctl --user restart "${service_units[@]}" "${timer_units[@]}"
 		systemctl --user --no-pager --full status "${service_units[@]}"
 	fi
 fi
