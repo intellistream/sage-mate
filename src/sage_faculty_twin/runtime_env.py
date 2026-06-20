@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib
+import importlib.util
 import os
 import sys
 from pathlib import Path
@@ -56,6 +57,41 @@ def _ensure_local_policy_preferred(repo_root: Path) -> None:
         )
 
 
+def _auto_link_sagevdb_shared_libs(source_pkg: Path) -> bool:
+    """Symlink compiled .so files from the PyPI install into the source tree.
+
+    Replicates ``../sageVDB/scripts/link_shared_libs.sh`` in pure Python so
+    the bootstrap can self-heal without any manual step.
+
+    Returns True if at least one .so was linked successfully.
+    """
+    # Locate the installed sagevdb package (must be a *different* path).
+    try:
+        spec = importlib.util.find_spec("sagevdb")
+    except Exception:
+        return False
+    if spec is None or spec.origin is None:
+        return False
+    installed_pkg = Path(spec.origin).parent
+    if installed_pkg.resolve() == source_pkg.resolve():
+        return False  # installed path IS the source — nothing to link
+
+    linked = 0
+    for so_file in installed_pkg.glob("*.so"):
+        target = source_pkg / so_file.name
+        if target.is_symlink() and target.resolve() == so_file.resolve():
+            linked += 1  # already correct
+        else:
+            try:
+                if target.exists() or target.is_symlink():
+                    target.unlink()
+                target.symlink_to(so_file)
+                linked += 1
+            except OSError:
+                pass
+    return linked > 0
+
+
 def _validate_sagevdb_source(repo_root: Path) -> None:
     """Verify the source sageVDB checkout can export its compiled API.
 
@@ -64,30 +100,44 @@ def _validate_sagevdb_source(repo_root: Path) -> None:
     ship the compiled C extension (.so files).  If those files are missing,
     ``sagevdb/__init__.py`` silently catches the ImportError and sets
     ``__all__ = []``, making DatabaseConfig / DistanceMetric / IndexType /
-    create_database unavailable — a notoriously confusing failure.
+    create_database unavailable.
 
-    Fix: ``bash ../sageVDB/scripts/link_shared_libs.sh``
+    **Auto-fix**: when the .so files are missing, this function automatically
+    symlinks them from the PyPI install into the source tree (equivalent to
+    ``bash ../sageVDB/scripts/link_shared_libs.sh``).
     """
     source_pkg = repo_root.parent / "sageVDB" / "sagevdb"
     if not source_pkg.is_dir():
         return  # source checkout absent — rely on the PyPI package
 
+    # First attempt: try to import directly.
+    mod = None
     try:
         mod = importlib.import_module("sagevdb")
-    except Exception as exc:
-        raise RuntimeError(
-            "sageVDB source checkout at ../sageVDB could not be imported. "
-            "Run: bash ../sageVDB/scripts/link_shared_libs.sh to fix."
-        ) from exc
+    except Exception:
+        pass
 
-    # The critical check: DatabaseConfig must be accessible.
-    if not hasattr(mod, "DatabaseConfig"):
-        raise RuntimeError(
-            "sageVDB source checkout is missing compiled C extension (.so); "
-            "__all__ is empty and DatabaseConfig / DistanceMetric / IndexType / "
-            "create_database are unavailable. "
-            "Run: bash ../sageVDB/scripts/link_shared_libs.sh to fix."
-        )
+    if mod is not None and hasattr(mod, "DatabaseConfig"):
+        return  # all good — source checkout is fully functional
+
+    # Import failed or DatabaseConfig missing — try auto-linking .so files.
+    # Invalidate the broken import first so we get a fresh load after linking.
+    sys.modules.pop("sagevdb", None)
+    if _auto_link_sagevdb_shared_libs(source_pkg):
+        # Re-import after linking.
+        try:
+            mod = importlib.import_module("sagevdb")
+            if hasattr(mod, "DatabaseConfig"):
+                return  # auto-fix succeeded
+        except Exception:
+            pass
+
+    raise RuntimeError(
+        "sageVDB source checkout at ../sageVDB is missing compiled C "
+        "extension (.so) and auto-linking failed. "
+        "Ensure isage-vdb is installed (pip install isage-vdb) and run: "
+        "bash ../sageVDB/scripts/link_shared_libs.sh"
+    )
 
 
 def _require_module(module_name: str, install_hint: str) -> None:
