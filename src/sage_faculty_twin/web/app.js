@@ -1586,7 +1586,7 @@ async function refreshStatus() {
         applyBranding(data.owner_name, data.owner_role, data.homepage_public_url);
         renderPoweredByVersions(data);
         statusPill.textContent = data.status === "ok" ? "服务正常" : `状态 ${data.status}`;
-        modelPill.textContent = "连接已就绪";
+        modelPill.textContent = data.model_name ? `模型 ${data.model_name}` : "连接已就绪";
         knowledgePill.textContent = `知识库 ${data.knowledge_documents}`;
         renderTopbarLiveStatus(data);
         renderOnlineOverview(data);
@@ -1600,7 +1600,7 @@ async function refreshStatus() {
             applyBranding(cached.owner_name, cached.owner_role, cached.homepage_public_url);
             renderPoweredByVersions(cached);
             statusPill.textContent = "服务延迟";
-            modelPill.textContent = "连接较慢";
+            modelPill.textContent = cached.model_name ? `模型 ${cached.model_name}` : "连接较慢";
             knowledgePill.textContent = `知识库 ${cached.knowledge_documents}`;
             renderTopbarLiveStatus(cached);
             renderOnlineOverview(cached, "状态刷新较慢，当前显示最近一次成功快照。");
@@ -1697,17 +1697,14 @@ function renderLlmMetrics(data) {
     const rps = Number(data.llm_request_throughput_rps || 0);
     const llmStatus = String(data.llm_status || "").toLowerCase();
 
-    /* Status chip */
+    /* Status chip — trust llm_status from backend (based on most recent activity) */
     if (statusEl) {
         statusEl.classList.remove("metric-warn", "metric-error");
-        if ((llmStatus === "ok" || llmStatus === "healthy") && errorCount === 0) {
+        if (llmStatus === "ok" || llmStatus === "healthy") {
             statusEl.textContent = requestCount > 0 ? "LLM OK" : "LLM idle";
-        } else if (errorCount > 0 && requestCount > 0 && (errorCount / requestCount) > 0.1) {
-            statusEl.textContent = `LLM ${errorCount}err`;
+        } else if (llmStatus === "error") {
+            statusEl.textContent = "LLM error";
             statusEl.classList.add("metric-error");
-        } else if (errorCount > 0) {
-            statusEl.textContent = `LLM ${errorCount}err`;
-            statusEl.classList.add("metric-warn");
         } else {
             statusEl.textContent = "LLM idle";
         }

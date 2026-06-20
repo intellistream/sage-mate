@@ -422,7 +422,7 @@ class VllmChatClient:
                     self._last_error_at is None or self._last_success_at >= self._last_error_at
                 ):
                     last_status = "ok"
-                elif self._last_error_at is not None and self._error_count > self._success_count:
+                elif self._last_error_at is not None and eff_error_count > eff_success_count:
                     last_status = "error"
                 else:
                     last_status = "ok"

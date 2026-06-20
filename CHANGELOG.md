@@ -2,6 +2,19 @@
 
 ## Unreleased
 
+## v4.2.3 - 2026-06-20
+
+`v4.2.3` fixes intermittent false "error" status and shows the active model name in the top bar.
+
+### Fixed
+
+- **LLM status false-error**: backend used raw counters (`self._error_count`) instead of effective counters (`eff_error_count`) for status comparison, causing stale Prometheus data to trigger false "error" status. Now uses effective counters consistently.
+- **Status pill logic**: frontend now trusts `llm_status` from the backend (based on most recent activity) instead of independently checking cumulative `errorCount`. Eliminates phantom "LLM 1err" display after recovered transient errors.
+
+### Added
+
+- **Model name in top bar**: `model-pill` now displays "模型 {name}" using `data.model_name` from the health endpoint, instead of the generic "连接已就绪".
+
 ## v4.2.2 - 2026-06-20
 
 `v4.2.2` removes "近期交流记录" from the visible basis section entirely — session context is an implicit reference that never needs citation.
