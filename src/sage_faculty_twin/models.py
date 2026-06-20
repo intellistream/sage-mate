@@ -196,6 +196,13 @@ class KnowledgeWriteBackResult(BaseModel):
     created: bool = True
 
 
+class TokenUsage(BaseModel):
+    prompt_tokens: int = 0
+    completion_tokens: int = 0
+    total_tokens: int = 0
+    max_context_length: int = 0
+
+
 class ChatResponse(BaseModel):
     answer: str
     owner_name: str
@@ -218,6 +225,7 @@ class ChatResponse(BaseModel):
     memory_used: bool = False
     memory_write_back: bool = False
     retrieved_items: list[MemoryAuditItem] = Field(default_factory=list)
+    token_usage: TokenUsage | None = None
 
 
 class ConversationHistoryItemResponse(BaseModel):

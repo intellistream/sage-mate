@@ -107,6 +107,7 @@ from .models import (
     QuestionClusterSummary,
     ServiceControlResponse,
     StudentOperationsProfile,
+    TokenUsage,
     UnresolvedQuestionItem,
     UserLoginRequest,
     UserRegisterRequest,
@@ -1929,6 +1930,7 @@ class FacultyTwinWorkflowSupport:
                 recent_session_context=context.recent_session_context,
                 conversation_id=context.conversation_id,
             ),
+            token_usage=self._build_token_usage(),
         )
 
     def _evaluate_memory_usefulness(self, context: ChatWorkflowContext) -> tuple[str, str]:
@@ -2004,6 +2006,21 @@ class FacultyTwinWorkflowSupport:
             "review_worthy": "建议复核",
         }
         return mapping.get(signal, signal)
+
+    def _build_token_usage(self) -> TokenUsage | None:
+        """Return per-request token usage from the LLM client, or None."""
+        try:
+            usage = self._llm_client.last_request_usage
+            if not usage:
+                return None
+            return TokenUsage(
+                prompt_tokens=int(usage.get("prompt_tokens", 0)),
+                completion_tokens=int(usage.get("completion_tokens", 0)),
+                total_tokens=int(usage.get("total_tokens", 0)),
+                max_context_length=int(self._llm_client.model_max_len or 0),
+            )
+        except Exception:
+            return None
 
     def _build_planner_preview(
         self, decision: PlannerDecision | None

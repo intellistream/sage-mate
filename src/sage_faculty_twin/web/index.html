@@ -132,6 +132,20 @@
                     </article>
                 </div>
 
+                <div id="token-usage-badge" class="token-usage-badge" hidden aria-label="Token 使用量">
+                    <button type="button" class="token-usage-toggle" title="查看 Token 使用详情">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20V10"/><path d="M18 20V4"/><path d="M6 20v-4"/></svg>
+                        <span id="token-usage-summary" class="token-usage-summary">0</span>
+                    </button>
+                    <div id="token-usage-detail" class="token-usage-detail" hidden>
+                        <div class="token-usage-row"><span>Prompt</span><span id="token-prompt-count">0</span></div>
+                        <div class="token-usage-row"><span>Completion</span><span id="token-completion-count">0</span></div>
+                        <div class="token-usage-row token-usage-total"><span>Total (本轮)</span><span id="token-total-count">0</span></div>
+                        <div class="token-usage-row"><span>对话累计</span><span id="token-session-count">0</span></div>
+                        <div class="token-usage-row token-usage-limit"><span>上下文窗口</span><span id="token-max-context">--</span></div>
+                    </div>
+                </div>
+
                 <form id="chat-form" class="composer-shell">
                     <input id="chat-file-input" type="file" name="files" multiple hidden
                         accept=".pdf,.txt,.md,.csv,.json,.py,.yaml,.yml,.log,text/plain,text/markdown,text/csv,application/json,application/pdf" />

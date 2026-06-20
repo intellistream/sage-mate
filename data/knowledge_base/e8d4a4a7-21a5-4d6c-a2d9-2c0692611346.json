@@ -1,0 +1,25 @@
+{
+  "document_id": "e8d4a4a7-21a5-4d6c-a2d9-2c0692611346",
+  "title": "FAQ | 你能帮我看论文吗",
+  "content": "可以，以下是提交论文给老师审阅前的建议准备清单：\n\n1. **自查 checklist**：确保语法通顺、图表有标注、参考文献格式统一。\n2. **一页 highlight**：写一段 200 字以内的摘要说明你这版主要改了什么、哪部分最希望老师重点看。\n3. **标注问题段落**：用 [TODO] 或高亮标出你自己不确定的段落。\n4. **提交方式**：将 PDF + highlight 一起通过会话附件上传，或预约时注明文件链接。\n\n老师通常 2-3 个工作日内给反馈，如果急请说明 deadline。",
+  "tags": [
+    "faq",
+    "advising",
+    "profile",
+    "preparation",
+    "paper-review"
+  ],
+  "source_name": "curated_faq",
+  "metadata": {
+    "domain": "research",
+    "identity": "pi",
+    "material_type": "profile",
+    "source_kind": "manual"
+  },
+  "created_at": "2026-06-20T04:31:01.792795Z",
+  "is_feedback_web": false,
+  "review_status": "unknown",
+  "freshness_status": "unknown",
+  "reviewed_at": null,
+  "reviewable": false
+}

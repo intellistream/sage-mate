@@ -29,6 +29,16 @@ _REPO_SOURCES = [
     {"path": "/home/shuhao/vamos/roadmap.md", "title": "Current Research | VAMOS Roadmap", "tags": ["research", "agenda", "current-focus", "vamos", "roadmap"], "source_name": "workspace/vamos/roadmap"},
     {"path": "/home/shuhao/vamos/docs/proposal/2026-ccf-ant-proposal.md", "title": "Current Research | 2026 CCF-Ant Proposal (VAMOS)", "tags": ["research", "agenda", "current-focus", "vamos", "proposal"], "source_name": "workspace/vamos/proposal"},
     {"path": "/home/shuhao/sage-tutorials/QUICK_START.md", "title": "Teaching | Sage-Tutorials Quick Start", "tags": ["teaching", "tutorial", "sage-tutorials"], "source_name": "workspace/sage-tutorials"},
+    # ── private-materials (academic portfolio) ────────────────────────────────
+    # IMPORTANT: audience tags enforce access control — see _document_visibility_audiences()
+    {"path": "/home/shuhao/private-materials/README.md", "title": "Portfolio | private-materials README", "tags": ["profile", "portfolio", "private-materials", "audience:admin"], "source_name": "private-materials:overview"},
+    {"path": "/home/shuhao/private-materials/张老师个人信息-发表文章venue统计.md", "title": "个人资料｜发表文章 Venue 统计", "tags": ["profile", "publication", "venue-stats", "private-materials", "audience:public"], "source_name": "private-materials:publication-venue-stats"},
+    {"path": "/home/shuhao/private-materials/人才项目/常用材料/个人简介_奖励与任职主稿.md", "title": "个人资料｜个人简介、奖励与任职主稿", "tags": ["profile", "bio", "awards", "private-materials", "audience:lab_member"], "source_name": "private-materials:bio-awards"},
+    {"path": "/home/shuhao/private-materials/课题组管理/27届推免直博面试题纲与评分标准.md", "title": "课题组管理｜推免直博面试题纲与评分标准", "tags": ["advising", "interview", "rubric", "private-materials", "audience:admin"], "source_name": "private-materials:interview-rubric"},
+    {"path": "/home/shuhao/private-materials/演讲材料/学术汇报/学术汇报-张书豪.md", "title": "演讲材料｜学术汇报", "tags": ["presentation", "academic-talk", "private-materials", "audience:admin"], "source_name": "private-materials:academic-presentation"},
+    {"path": "/home/shuhao/private-materials/演讲材料/企业演讲/大模型推理服务系统.md", "title": "演讲材料｜大模型推理服务系统", "tags": ["presentation", "industry-talk", "inference-serving", "private-materials", "audience:admin"], "source_name": "private-materials:industry-talk-inference"},
+    {"path": "/home/shuhao/private-materials/申报材料/华为孵化中心项目/proposal_talk_track_qa.md", "title": "申报材料｜华为孵化中心项目 Q&A", "tags": ["proposal", "huawei", "private-materials", "audience:admin"], "source_name": "private-materials:huawei-proposal-qa"},
+    {"path": "/home/shuhao/private-materials/项目文档/重大专项/指南.md", "title": "项目文档｜重大专项指南", "tags": ["project", "national-project", "guidelines", "private-materials", "audience:admin"], "source_name": "private-materials:national-project-guidelines"},
 ]
 
 

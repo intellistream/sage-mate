@@ -1,0 +1,25 @@
+{
+  "document_id": "ff5333f4-ee45-4c30-9869-51e7194d96b3",
+  "title": "个人资料｜个人简介、奖励与任职主稿",
+  "content": "# 个人简介、奖励与任职主稿\n\n用途：作为个人简介、荣誉奖励与学术服务口径的长期维护主稿。后续写公开主页、申报材料、英文简介或汇报稿时，优先从本文件取用，不再分别从历史申报书、汇报稿和模板表格中手工拼接。\n\n## 维护原则\n\n- 事实优先级：当前主页与当前维护材料 > 最新可复用长版申报材料 > 项目特定申报/汇报材料 > 历史归档材料。\n- 本文件只保留稳定事实与可复用表述，不维护项目经费、论文总量统计、阶段性计划等高漂移内容。\n- 更新时一并核对单位、职称、时间线、奖项名称、任职年份与英文写法，避免只改其中一个字段。\n\n## 中文简介（公开短版）\n\n张书豪，华中科技大学计算机科学与技术学院教授。研究聚焦复杂硬件与动态负载下的高效状态管理，重点关注并行分布式系统，并进一步延伸至大模型推理基础设施，尤其是推理服务中的访问调度、执行优化与状态复用问题。加入华中科技大学前，曾于新加坡南洋理工大学任助理教授，并在德国柏林工业大学从事博士后研究。\n\n当前工作主要围绕大模型推理引擎、推理服务系统与记忆智能体中间件展开，重点关注共享状态在访问、执行与演化三个层面的组织问题，以及这些机制对吞吐、P99 时延和服务稳定性的影响。\n\n## 中文简介（申报/材料版）\n\n张书豪，华中科技大学计算机科学与技术学院教授、博士生导师。长期围绕复杂硬件与动态负载下的高效状态管理开展研究，早期重点关注并行分布式数据系统、事务流处理与异构硬件协同执行，近期进一步延伸至大模型推理基础设施，聚焦推理服务中的访问调度、执行优化、状态复用以及记忆增强推理中间件。加入华中科技大学前，曾于新加坡南洋理工大学任助理教授，并在德国柏林工业大学从事博士后研究。\n\n## English Bio\n\nShuhao Zhang is a Professor and Ph.D. supervisor at the School of Computer Science and Technology, Huazhong University of Science and Technology. His research focuses on efficient state management under complex hardware constraints and dynamic workloads, spanning parallel and distributed systems, data and runtime systems, and more recently large-model inference infrastructure. His current work centers on LLM inference engines, inference serving systems, and middleware for memory-augmented agents, with emphasis on request scheduling, execution optimization, state reuse, and the performance impact of state organization on throughput, P99 latency, and service stability. Before joining HUST, he served as an Assistant Professor at Nanyang Technological University and was a postdoctoral researcher at Technische Universitat Berlin.\n\n## 荣誉奖励\n\n| 年份 | 奖项/荣誉 | 授予机构 | 备注 |\n| --- | --- | --- | --- |\n| 2025 | 华中卓越青年学者 | 华中科技大学 | 特聘教授 |\n| 2025 | 华为东湖青年学者 | 华为 |  |\n| 2023 | 国家自然科学基金优秀青年科学基金项目（海外） | 国家自然科学基金委员会 |  |\n| 2018 | SAP 德国国际专利奖金奖励 | SAP Germany | 2018 年两次获得 |\n| 2018 | Research Achievement Award | 新加坡国立大学 | 2018-2019 年度 |\n| 2017 | Research Achievement Award | 新加坡国立大学 | 2017-2018 年度 |\n\n## 学术服务\n\n| 类别 | 任职 | 时间 |\n| --- | --- | --- |\n| 期刊/会议服务 | VLDB Review Board Member | 2027 |\n| 程序委员会 | SC Program Committee Member | 2021-2024，2026 |\n| 会议组织 | ICDE 2024 / TKDE Poster Track Chair | 2024 |\n| 程序委员会 | KDD Program Committee Member | 多年持续 |\n| 程序委员会 | CIKM Program Committee Member | 多年持续 |\n| 程序委员会 | DASFAA Program Committee Member | 多年持续 |\n| 程序委员会 | SDM Program Committee Member | 多年持续 |\n\n## 使用边界\n\n- 公开主页：优先使用“中文简介（公开短版）”、荣誉奖励与学术服务条目。\n- 申报材料：优先使用“中文简介（申报/材料版）”或 “English Bio”，再按模板增补与具体项目直接相关的内容。\n- 原始表格与完整条目：继续保留在 [张老师个人信息-发表文章目录.md](../../张老师个人信息-发表文章目录.md) 中，不在本文件重复维护项目表、论文全表和专利全表。\n\n## 当前已知重复来源\n\n- RFIS 申报正文中的 Awards and Leadership 段落。\n- 学术汇报与学术委员会汇报中的“代表性人才计划和学术奖励”“学术服务、组织任职”页注释文字。\n- 各类项目申报书中的个人基础介绍段落。\n\n说明：这些文件保留其提交/汇报语境，不在本轮统一重写；但后续若继续修订，相关口径应以本文件为准。",
+  "tags": [
+    "profile",
+    "bio",
+    "awards",
+    "private-materials",
+    "audience:lab_member"
+  ],
+  "source_name": "private-materials:bio-awards",
+  "metadata": {
+    "domain": "research",
+    "identity": "pi",
+    "material_type": "profile",
+    "source_kind": "private-materials"
+  },
+  "created_at": "2026-06-20T04:21:38.368282Z",
+  "is_feedback_web": false,
+  "review_status": "unknown",
+  "freshness_status": "unknown",
+  "reviewed_at": null,
+  "reviewable": false
+}

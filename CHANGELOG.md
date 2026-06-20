@@ -4,7 +4,7 @@
 
 ## v3.2.0 - 2026-06-20
 
-`v3.2.0` adds a user-facing version changelog modal and correctly marks the LLM-Assisted Planner as implemented.
+`v3.2.0` adds a user-facing version changelog modal and completes a full ROADMAP audit.
 
 ### Added
 
@@ -13,7 +13,7 @@
 
 ### Changed
 
-- Updated ROADMAP to mark V3.1 (LLM-Assisted JSON Planner) as **implemented and integrated**: shadow planner enabled by default, comparison persistence, policy validation, and replay tests are all live.
+- ROADMAP full audit: V3.0 (Read-Only Planner) all 9 items marked complete, V3.1 (LLM-Assisted Planner) marked as implemented, V3.2 (Guarded Side-Effect Planning) marked as implemented (all 6 write steps live with `side_effect="draft_write"`), V3 Immediate Backlog all 8 items marked complete.
 - Version badge text updated from stale `v3.0.1` to current `v3.2.0`.
 
 ## v3.1.1 - 2026-06-20

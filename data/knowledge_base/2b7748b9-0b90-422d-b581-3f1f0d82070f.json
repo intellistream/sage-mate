@@ -7,8 +7,8 @@
   "metadata": {},
   "created_at": "2026-06-20T00:27:31.844505Z",
   "is_feedback_web": false,
-  "review_status": "reviewed",
-  "freshness_status": "fresh",
+  "review_status": "approved",
+  "freshness_status": "unknown",
   "reviewed_at": "2026-06-20T04:30:00.000000Z",
   "reviewable": true
 }

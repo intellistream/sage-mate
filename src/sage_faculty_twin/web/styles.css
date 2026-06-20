@@ -859,6 +859,17 @@ body.drawer-pinned .history-rail {
     overflow: hidden;
 }
 
+#changelog-modal {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+}
+
+#changelog-modal.hidden {
+    display: none;
+}
+
 .changelog-body {
     overflow-y: auto;
     padding: 16px 20px;

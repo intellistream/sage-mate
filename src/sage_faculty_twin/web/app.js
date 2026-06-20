@@ -269,6 +269,7 @@ const WORKFLOW_STEP_SHORT_LABELS = {
 };
 let assistantLabel = "我的学术分身";
 let activeConversationId = createConversationId();
+let sessionTokenTotal = 0;
 let activeWorkflowStream = null;
 let activeWorkflowRequestId = null;
 let lastAutoChatQuestion = chatQuestion?.value?.trim() || "";
@@ -1029,6 +1030,7 @@ chatForm.addEventListener("submit", async (event) => {
                 data.workflow_trace || []
             );
             noteConversationAnswerPreview(data.answer);
+            updateTokenUsageBadge(data.token_usage || null);
             persistActiveConversationSnapshot();
             void syncConversationHistoryFromServer();
             break;
@@ -4799,6 +4801,8 @@ function startFreshConversation() {
     stopWorkflowTraceStream();
     activeWorkflowSteps = [];
     activeConversationId = createConversationId();
+    sessionTokenTotal = 0;
+    resetTokenUsageBadge();
     currentConversationTitle = DEFAULT_CONVERSATION_TITLE;
     currentConversationPreview = "";
     latestWorkflowMeta = {

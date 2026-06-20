@@ -164,7 +164,11 @@ class VllmChatClient:
                 detected = models[0].get("id", "")
                 if detected:
                     logger.info("Auto-detected model name: %s", detected)
-                    return detected
+                max_len = models[0].get("max_model_len")
+                if isinstance(max_len, int) and max_len > 0:
+                    self._model_max_len = max_len
+                    logger.info("Auto-detected model max context: %d", max_len)
+                return detected
         except Exception as exc:
             logger.warning("Failed to auto-detect model name from %s: %s",
                            self._settings.llm_base_url, exc)
@@ -251,6 +255,10 @@ class VllmChatClient:
             self._vllm_avg_time_to_first_token_s = 0.0
         if not hasattr(self, "_vllm_avg_time_per_output_token_s"):
             self._vllm_avg_time_per_output_token_s = 0.0
+        if not hasattr(self, "_last_request_usage"):
+            self._last_request_usage = {}
+        if not hasattr(self, "_model_max_len"):
+            self._model_max_len = 0
 
     def close(self) -> None:
         self._client.close()
@@ -258,6 +266,16 @@ class VllmChatClient:
 
     async def aclose(self) -> None:
         await asyncio.to_thread(self.close)
+
+    @property
+    def last_request_usage(self) -> dict[str, int]:
+        """Token usage from the most recent chat completion call."""
+        return dict(self._last_request_usage) if self._last_request_usage else {}
+
+    @property
+    def model_max_len(self) -> int:
+        """Maximum context length reported by the connected LLM, or 0 if unknown."""
+        return getattr(self, "_model_max_len", 0)
 
     def runtime_snapshot(self) -> dict[str, str]:
         self._ensure_runtime_state()
@@ -833,6 +851,11 @@ class VllmChatClient:
             total_tokens=total_tokens,
         )
         self._store_cached_response(cache_key, answer, semantic_key)
+        self._last_request_usage = {
+            "prompt_tokens": prompt_tokens,
+            "completion_tokens": completion_tokens,
+            "total_tokens": total_tokens,
+        }
         return answer
 
     def _request_chat_completion_sync(self, payload: dict[str, Any]) -> str:
@@ -889,6 +912,11 @@ class VllmChatClient:
             total_tokens=total_tokens,
         )
         self._store_cached_response(cache_key, answer, semantic_key)
+        self._last_request_usage = {
+            "prompt_tokens": prompt_tokens,
+            "completion_tokens": completion_tokens,
+            "total_tokens": total_tokens,
+        }
         return answer
 
     def _continue_truncated_answer(self, payload: dict[str, Any], partial_answer: str) -> str:

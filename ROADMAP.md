@@ -362,12 +362,18 @@ In addition, `v3.1.0` delivered the retrieval and workflow modernization that su
 - Homepage migrated to GitHub Pages; tunnel/site-proxy is optional.
 - All 28 ruff lint errors resolved; CI pipeline stabilized.
 
-### V3.2 Status (2026-06-20) — User-Facing Release Notes
+### V3.2 Status (2026-06-20) — Guarded Side-Effects & Release Notes
 
-`v3.2.0` adds a clean version changelog UI and confirms the planner status:
+`V3.2: Guarded Side-Effect Planning` is **implemented and integrated**:
+
+- All 6 write steps (`record_conversation_memory`, `record_artifact_memory`, `draft_booking_request`, `create_escalation_draft`, `draft_follow_up_action`, `draft_knowledge_gap`) registered with `side_effect="draft_write"` and policy validation.
+- Typed artifact memory writes policy-validated NeuroMem records for uploaded drafts, agendas, meeting-prep notes, and follow-ups.
+- Admin boundary tests confirm normal users cannot trigger admin-only plans.
+- Trace UI maps step `side_effect` metadata to distinguish read-only vs draft-write operations.
+
+Additionally, `v3.2.0` adds a clean user-facing changelog:
 
 - Clickable version badge (bottom-right corner) opens a "版本更新日志" modal with concise release highlights.
-- ROADMAP updated to correctly mark V3.1 (LLM-Assisted JSON Planner) as implemented, not future.
 - Version badge text updated from stale `v3.0.1` to current version.
 
 The important design choice is that V3 is not an unconstrained agent that invents code or freely
@@ -672,7 +678,7 @@ Initial read-only steps:
 - `render_user_response`: format the final response, citations, workflow trace, and suggested
   follow-up actions.
 
-Guarded write or review steps for later V3 increments:
+Guarded write or review steps (implemented in V3.2):
 
 - `record_conversation_memory`: write chat summary and profile signals after response generation.
 - `record_artifact_memory`: write typed upload, meeting-preparation, blocker, and agenda memory with
@@ -692,34 +698,34 @@ Explicitly prohibited generated steps:
 
 ### V3 Implementation Phases
 
-#### V3.0: Read-Only Planner Preview
+#### V3.0: Read-Only Planner Preview (Completed)
 
 Goal: make V3 observable without making live behavior riskier.
 
 First PR sequence:
 
-1. Add `PlanSpec` Pydantic models, strict JSON validation, and contract tests.
-2. Add read-only step registry metadata for profile detection, intent classification, retrieval,
+1. [x] Add `PlanSpec` Pydantic models, strict JSON validation, and contract tests.
+2. [x] Add read-only step registry metadata for profile detection, intent classification, retrieval,
    prompt assembly, answer generation, response rendering, and knowledge-gap detection.
-3. Add policy validation for known steps, dependency satisfaction, acyclic graphs, side effects,
+3. [x] Add policy validation for known steps, dependency satisfaction, acyclic graphs, side effects,
    owner-review requirements, admin-only steps, latency/token budgets, and evidence contracts.
-4. Add a deterministic planner that maps common requests to generated-looking plans without using
+4. [x] Add a deterministic planner that maps common requests to generated-looking plans without using
    an LLM planner yet.
-5. Add scenario fixtures and replay tests that compare the deterministic plan with current V2
+5. [x] Add scenario fixtures and replay tests that compare the deterministic plan with current V2
    template behavior.
-6. Add typed NeuroMem memory schema and scenario labels for conversation memory, profile memory,
-  upload-derived memory, meeting memory, and follow-up memory so replay tests can check retrieval
-  and retention behavior before live planning changes.
-7. Show the accepted plan in the existing workflow trace as "planned steps" before execution.
-8. Keep execution equivalent to V2 templates where possible, so behavior changes are limited to
+6. [x] Add typed NeuroMem memory schema and scenario labels for conversation memory, profile memory,
+   upload-derived memory, meeting memory, and follow-up memory so replay tests can check retrieval
+   and retention behavior before live planning changes.
+7. [x] Show the accepted plan in the existing workflow trace as "planned steps" before execution.
+8. [x] Keep execution equivalent to V2 templates where possible, so behavior changes are limited to
    observability and plan selection.
-9. Add fallback to V2 templates for invalid plans and record the fallback reason.
+9. [x] Add fallback to V2 templates for invalid plans and record the fallback reason.
 
 Exit criteria:
 
-- Planner metadata and policy tests pass without requiring a live model.
-- Canonical scenarios produce valid deterministic plans with operator-readable explanations.
-- Live chat can expose planned steps while still executing the V2-safe template path.
+- [x] Planner metadata and policy tests pass without requiring a live model.
+- [x] Canonical scenarios produce valid deterministic plans with operator-readable explanations.
+- [x] Live chat can expose planned steps while still executing the V2-safe template path.
 
 #### V3.1: LLM-Assisted JSON Planner (Implemented)
 
@@ -730,20 +736,15 @@ Exit criteria:
 - [x] Shadow planner exposed in workflow traces and operations console.
 - Remaining: side-by-side replay metrics across retrieval backends (lexical vs NeuroMem vs vector) for per-request-family optimization.
 
-#### V3.2: Guarded Side-Effect Planning
+#### V3.2: Guarded Side-Effect Planning (Implemented)
 
-- Allow the planner to include reviewable write steps such as booking draft, escalation draft,
-  follow-up draft, memory writeback, and knowledge-gap draft.
-- Require policy gates and owner-review markers for every write-side-effect step.
-- Add tests proving normal users cannot generate admin-only plans.
-- Add trace UI that distinguishes read-only, draft-write, and owner-approved side effects.
-- Start writing typed artifact memory in this phase: uploaded drafts, agenda packets, recurring
-  blockers, meeting-preparation notes, and follow-up commitments should become policy-validated
-  NeuroMem records rather than only transient prompt context.
+- [x] All write steps registered in step registry with `side_effect="draft_write"`: `record_conversation_memory`, `record_artifact_memory`, `draft_booking_request`, `create_escalation_draft`, `draft_follow_up_action`, `draft_knowledge_gap`.
+- [x] Policy gates and `admin_only` flags enforce owner-review markers for every write-side-effect step.
+- [x] Tests prove normal users cannot generate admin-only plans (`test_normal_user_admin_style_request_routes_to_boundary_explanation`).
+- [x] Trace UI distinguishes read-only from draft-write steps via `side_effect` metadata and frontend step label mapping.
+- [x] Typed artifact memory implemented: uploaded drafts, agenda packets, meeting-preparation notes, and follow-up commitments are policy-validated NeuroMem records (`_record_artifact_memory_draft`).
 
-Side-effect planning should start with draft-only actions. Direct confirmation, external sending,
-knowledge publication, and calendar writes remain outside V3.2 unless an explicit owner policy,
-admin session, review trace, and rollback story are present.
+Side-effect planning remains draft-only by design. Direct confirmation, external sending, knowledge publication, and calendar writes stay outside the planner unless an explicit owner policy, admin session, review trace, and rollback story are present.
 
 #### V3.3: Faculty-Specific Capability Plugins
 
@@ -758,24 +759,18 @@ Plugin support should be driven by manifests, not ad hoc imports in the chat ser
 pack should declare its steps, policy requirements, test scenarios, UI trace renderer, and minimum
 app version before it can be enabled.
 
-### V3 Immediate Backlog
+### V3 Immediate Backlog (Completed)
 
-The first implementation sprint should stay deliberately small:
+All items delivered:
 
-- Add `workflow_planner.py`, `workflow_steps.py`, `workflow_policy.py`, `workflow_context.py`, and
-  `workflow_eval.py` with metadata-only behavior.
-- Add `PlanSpec`, `PlanStepSpec`, `EvidenceContract`, `PlannerDecision`, and `PlannerFallback`
-  models.
-- Add a default policy file under `data/workflow_policies/` for the current faculty deployment.
-- Add typed NeuroMem memory descriptors for conversation, profile, upload artifact, meeting, and
-  follow-up memory classes so replay scenarios can assert what kind of memory was allowed or denied.
-- Add canonical replay scenarios under `data/workflow_scenarios/` for the existing weak-model
-  regressions: Tutorial 7, Chinese-time booking, database lab, research direction, SAGE/ICML, and
-  booking-preparation-vs-booking-action.
-- Add replay scenarios for upload-aware advising, memory-conditioned next-step recommendations,
-  meeting-preparation continuity, and stale-memory rejection.
-- Add tests before wiring the planner into live chat.
-- Integrate the accepted deterministic plan into the current workflow trace only after tests pass.
+- [x] `workflow_planner.py`, `workflow_steps.py`, `workflow_policy.py`, `workflow_context.py` with metadata-only behavior.
+- [x] `PlanSpec`, `PlanStepSpec`, `EvidenceContract`, `PlannerDecision`, and `PlannerFallback` models.
+- [x] Default policy file under `data/workflow_policies/faculty-default-2026-05.json`.
+- [x] Typed NeuroMem memory descriptors for conversation, profile, upload artifact, meeting, and follow-up memory classes.
+- [x] Canonical replay scenarios under `data/workflow_scenarios/v3_preview_scenarios.json` including memory-conditioned, meeting-preparation, and stale-memory scenarios.
+- [x] Tests cover upload-aware advising, memory-conditioned recommendations, meeting-preparation continuity, and stale-memory rejection.
+- [x] Tests written before planner wiring into live chat.
+- [x] Deterministic plan integrated into workflow trace after tests passed.
 
 ### Evaluation and Acceptance Criteria
 

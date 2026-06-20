@@ -91,6 +91,10 @@
     {
       "name": "app | workstation",
       "path": "../vllm-hust-workstation"
+    },
+    {
+      "name": "portfolio | private-materials",
+      "path": "../private-materials"
     }
   ],
   "settings": {

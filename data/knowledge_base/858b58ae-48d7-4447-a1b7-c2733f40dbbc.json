@@ -1,0 +1,25 @@
+{
+  "document_id": "858b58ae-48d7-4447-a1b7-c2733f40dbbc",
+  "title": "FAQ | 如何整理文献做汇报",
+  "content": "文献汇报的核心是「让听众在 15 分钟内搞懂为什么这篇值得读、核心 idea 是什么、和我们组的关系」。\n\n建议结构：\n1. **动机与背景** (2-3 句)：这篇解决什么问题，为什么该问题重要。\n2. **关键方法** (图 + 3-5 bullet)：核心算法/架构/设计决策，最好有一张方法流程图。\n3. **实验亮点** (1-2 个关键数字)：和哪个 baseline 比、赢了多少、在什么设置下。\n4. **局限与启发** (2-3 bullet)：假设、未覆盖场景、和我们项目的联系。\n\n避免：大段复制 abstract；全文翻译而不提炼。\n准备时可参考 style_profile 中的「组会汇报习惯」条目。",
+  "tags": [
+    "faq",
+    "advising",
+    "profile",
+    "preparation",
+    "literature-review"
+  ],
+  "source_name": "curated_faq",
+  "metadata": {
+    "domain": "research",
+    "identity": "pi",
+    "material_type": "profile",
+    "source_kind": "manual"
+  },
+  "created_at": "2026-06-20T04:31:06.595448Z",
+  "is_feedback_web": false,
+  "review_status": "unknown",
+  "freshness_status": "unknown",
+  "reviewed_at": null,
+  "reviewable": false
+}
