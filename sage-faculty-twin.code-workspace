@@ -95,6 +95,10 @@
     {
       "name": "portfolio | private-materials",
       "path": "../private-materials"
+    },
+    {
+      "name": "portfolio | homepage",
+      "path": "../shuhaozhangtony.github.io"
     }
   ],
   "settings": {

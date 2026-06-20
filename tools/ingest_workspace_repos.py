@@ -29,6 +29,8 @@ _REPO_SOURCES = [
     {"path": "/home/shuhao/vamos/roadmap.md", "title": "Current Research | VAMOS Roadmap", "tags": ["research", "agenda", "current-focus", "vamos", "roadmap"], "source_name": "workspace/vamos/roadmap"},
     {"path": "/home/shuhao/vamos/docs/proposal/2026-ccf-ant-proposal.md", "title": "Current Research | 2026 CCF-Ant Proposal (VAMOS)", "tags": ["research", "agenda", "current-focus", "vamos", "proposal"], "source_name": "workspace/vamos/proposal"},
     {"path": "/home/shuhao/sage-tutorials/QUICK_START.md", "title": "Teaching | Sage-Tutorials Quick Start", "tags": ["teaching", "tutorial", "sage-tutorials"], "source_name": "workspace/sage-tutorials"},
+    # ── homepage (public paper index) ────────────────────────────────────
+    {"path": "/home/shuhao/shuhaozhangtony.github.io/contents/publications.md", "title": "论文列表｜完整论文索引与PDF下载", "tags": ["publication", "paper-list", "pdf-download", "homepage", "audience:public"], "source_name": "homepage:publications-list"},
     # ── private-materials (academic portfolio) ────────────────────────────────
     # IMPORTANT: audience tags enforce access control — see _document_visibility_audiences()
     {"path": "/home/shuhao/private-materials/README.md", "title": "Portfolio | private-materials README", "tags": ["profile", "portfolio", "private-materials", "audience:admin"], "source_name": "private-materials:overview"},
