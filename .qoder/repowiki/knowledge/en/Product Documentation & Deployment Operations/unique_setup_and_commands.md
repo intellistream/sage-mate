@@ -1,0 +1,3 @@
+- **Idempotent Bootstrap**: `./quickstart.sh` handles environment setup, dependency installation, and systemd unit creation without overwriting existing `.env` values.
+- **Service Management**: `./manage.sh install --start` deploys persistent user services, with `status/start/stop/restart` controls for `sage-faculty-twin-app.service` and related components.
+- **Streaming Verification**: Specific `curl` command provided in `deployment.md` to verify `Transfer-Encoding: chunked` support from upstream LLM endpoints.

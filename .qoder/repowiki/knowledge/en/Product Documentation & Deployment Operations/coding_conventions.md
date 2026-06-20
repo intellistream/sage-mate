@@ -1,0 +1,3 @@
+- Environment variables for runtime behavior (e.g., timeouts, streaming flags) are documented as requiring process-level export rather than just file presence, validated by `tools/run_app_server.sh`.
+- Runtime data paths are explicitly categorized into 'tracked deployment state' and 'ignored backup artifacts' to maintain coherent version control boundaries.
+- Operational validation steps include specific pytest targets and node syntax checks, integrated directly into documentation for immediate verification.

@@ -1,0 +1,1 @@
+Documentation references a Python/FastAPI backend, Nginx reverse proxy, Cloudflare Tunnel for public access, and systemd for service management, with specific environment variable configurations for streaming and timeout handling.

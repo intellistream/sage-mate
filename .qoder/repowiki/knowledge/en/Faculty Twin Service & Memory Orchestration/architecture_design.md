@@ -1,0 +1,5 @@
+- **Entry Point**: `api.py` exposes a `FastAPI` application with a `LazyDigitalTwinService` proxy to defer heavy initialization.
+- **Core Logic**: `service.py` implements the `DigitalTwinService` and `FacultyTwinWorkflowSupport`, executing a multi-stage DAG/linear workflow (intent classification, hybrid retrieval, LLM generation, post-answer side effects).
+- **Memory Layer**: `memory_store.py` provides `NeuroMemConversationStore`, a dual-layer memory system using SQLite for persistence and `sage.neuromem` collections (neural continual or unified) for semantic retrieval of short-term conversations and long-term student profiles.
+- **Data Model**: `models.py` defines strict Pydantic schemas for chat requests, workflow traces, booking records, and administrative entities.
+- **Configuration**: `config.py` uses `pydantic-settings` to manage environment-driven configuration for LLM endpoints, memory paths, and SMTP settings.

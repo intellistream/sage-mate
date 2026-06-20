@@ -1,0 +1,65 @@
+# 知识卡导出索引文件
+schema_version: 1
+locale: en-US
+branch: main
+exported_at: "2026-06-20T03:34:34Z"
+modules:
+    "":
+        dir_name: Faculty Digital Twin Orchestrator
+        title: Faculty Digital Twin Orchestrator
+        scope: []
+        source_files: []
+        children: []
+        depends_on: []
+        related_to: []
+    app_source:
+        dir_name: Faculty Twin Service & Memory Orchestration
+        title: Faculty Twin Service & Memory Orchestration
+        scope:
+            - src/sage_faculty_twin/
+        source_files: []
+        children: []
+        depends_on: []
+        related_to:
+            - path: tests
+            - path: deployment
+    deployment:
+        dir_name: Systemd Service Deployment Configuration
+        title: Systemd Service Deployment Configuration
+        scope:
+            - deploy/
+        source_files: []
+        children: []
+        depends_on: []
+        related_to:
+            - path: app_source
+            - path: docs
+    docs:
+        dir_name: Product Documentation & Deployment Operations
+        title: Product Documentation & Deployment Operations
+        scope:
+            - docs/
+        source_files: []
+        children: []
+        depends_on: []
+        related_to:
+            - path: deployment
+    runtime_data:
+        dir_name: Runtime State & Knowledge Persistence
+        title: Runtime State & Knowledge Persistence
+        scope:
+            - data/
+        source_files: []
+        children: []
+        depends_on: []
+        related_to: []
+    tests:
+        dir_name: Faculty Digital Twin Integration & Resilience Testing
+        title: Faculty Digital Twin Integration & Resilience Testing
+        scope:
+            - tests/
+        source_files: []
+        children: []
+        depends_on: []
+        related_to:
+            - path: app_source

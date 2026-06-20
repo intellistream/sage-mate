@@ -1,0 +1,4 @@
+- **Storage Strategy**: Hybrid persistence using flat JSON files for most entities (users, escalations, actions, knowledge base) and a single SQLite database (`conversation_memory/memory_store.sqlite3`) for conversation history.
+- **Domain Partitioning**: Data is organized into semantic subdirectories: `user_accounts` for identity, `escalations` and `follow_up_actions` for workflow state, `knowledge_base` for retrieved context, and `persona` for behavioral configuration.
+- **Identity & Keying**: Most runtime entities use UUIDv4 filenames as primary keys, while user accounts include internal UUIDs alongside email identifiers.
+- **Configuration**: Static persona constraints are maintained in Markdown (`style_profile.md`), while seed data and availability are stored as structured JSON.

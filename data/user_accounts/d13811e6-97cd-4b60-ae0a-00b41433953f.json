@@ -1,9 +1,0 @@
-{
-  "user_id": "d13811e6-97cd-4b60-ae0a-00b41433953f",
-  "name": "Copilot Test",
-  "email": "copilot-auth-1779852432@example.com",
-  "password_salt": "2c6e25ce582c057bc3bd5a7d270b771f",
-  "password_hash": "052639ced728135c949579864cb846c8aa5ba239a4c3a0e391c2d283b2ac40c64d81e84f95bd63ad09d8c20b979ccd3dc32a1fee3255b900b5f9dee4d23f1b5a",
-  "created_at": "2026-05-27T03:27:12.313219+00:00",
-  "updated_at": "2026-05-27T03:27:12.313219+00:00"
-}

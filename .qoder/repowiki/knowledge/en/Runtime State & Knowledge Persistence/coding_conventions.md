@@ -1,0 +1,3 @@
+- UUIDv4 filenames are used as unique identifiers for stateful entities like escalations, follow-up actions, and knowledge base documents.
+- JSON records consistently include `created_at` and `updated_at` timestamps in ISO 8601 format for auditability.
+- User credentials are stored with separate `password_salt` and `password_hash` fields rather than plaintext passwords.

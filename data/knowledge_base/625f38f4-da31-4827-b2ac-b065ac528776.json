@@ -1,0 +1,20 @@
+{
+  "document_id": "625f38f4-da31-4827-b2ac-b065ac528776",
+  "title": "如何阅读学术论文：三遍阅读法 (How to Read a Paper)",
+  "content": "S. Keshav, \"How to Read a Paper\"\nUniversity of Waterloo, David R. Cheriton School of Computer Science\n\n核心方法：三遍阅读法 (Three-Pass Approach)\n关键思想：不要把论文从头读到尾，而是分最多三遍阅读，每遍有特定目标。\n\n第一遍 (The First Pass) — 5-10分钟：\n快速浏览，获取论文全貌。\n1. 仔细阅读标题、摘要和引言\n2. 阅读章节标题和总结（如有）\n3. 阅读结论\n4. 浏览参考文献，标注已读过的文献\n第一遍结束后，应能回答五个关键问题（5C）：\n- Category（类别）：论文类型（测量、分析、系统等）\n- Context（背景）：与哪些已有工作相关，用了什么理论框架\n- Correctness（正确性）：假设是否有效\n- Contributions（贡献）：主要贡献是什么\n- Clarity（清晰度）：写作是否清晰\n根据这些信息决定是否继续阅读。不在自己研究领域的论文，第一遍足矣。\n写作启示：大多数审稿人只会读一遍，务必写好标题、摘要和章节标题。\n\n第二遍 (The Second Pass) — 约1小时：\n更仔细地阅读，但忽略证明等细节。\n1. 仔细看图表和其他插图，特别关注坐标轴标注、误差线等\n2. 标记相关未读参考文献（了解背景的好方式）\n第二遍后应能把握论文内容，向他人总结主要论点及证据。\n如仍不理解，可能因为：领域陌生、术语不熟、证明/实验技术不懂、论文写得差、或太累了。\n选择：(a) 暂时搁置 (b) 读完背景材料后再回来 (c) 坚持进入第三遍\n\n第三遍 (The Third Pass) — 初学者4-5小时，有经验者约1小时：\n核心：尝试虚拟重现论文——做出与作者相同的假设，重新创建该工作。\n通过对比重创建与实际论文，可以识别创新点和隐藏的缺陷与假设。\n- 质疑每个陈述中的每个假设\n- 思考自己会如何呈现某个想法\n- 记录未来工作的想法\n第三遍后应能从记忆中重构论文结构，并指出其优缺点、隐含假设、遗漏引用和实验/分析技术的潜在问题。\n\n文献综述方法 (Doing a Literature Survey)：\n第一步：用Google Scholar/CiteSeer搜索3-5篇近期论文，每篇做一遍阅读，再读其Related Work。如找到综述论文则直接读综述。\n第二步：在参考文献中找共享引用和重复作者名——这是该领域的关键论文和核心研究者。下载关键论文，访问核心研究者网站查看近期发表。\n第三步：访问顶级会议网站浏览近期论文集，快速扫描找出高质量相关工作。对这些论文做两遍阅读。如都引用某篇未发现的关键论文，获取并阅读，迭代进行。\n\n实践经验：此方法15年来用于读会议论文、写审稿意见、做背景研究和讨论前快速复习。可防止在获取全貌前陷入细节，能估计审稿所需时间，并根据需要调整评估深度。",
+  "tags": [
+    "research-skills",
+    "paper-reading",
+    "methodology",
+    "literature-survey",
+    "advising"
+  ],
+  "source_name": "https://web.stanford.edu/class/ee384m/Handouts/HowtoReadPaper.pdf",
+  "metadata": {
+    "domain": "research-skills",
+    "source_kind": "external-article",
+    "author": "S. Keshav",
+    "institution": "University of Waterloo"
+  },
+  "created_at": "2026-06-20T03:38:20.778700Z"
+}

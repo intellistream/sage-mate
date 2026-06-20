@@ -1,0 +1,1 @@
+Deployment requires replacing template placeholders (`__REPO_ROOT__`, `__PYTHON_BIN__`) in the service files before enabling them via `systemctl --user enable` and `start`.

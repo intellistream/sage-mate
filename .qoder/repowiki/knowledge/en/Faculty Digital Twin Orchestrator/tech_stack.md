@@ -1,0 +1,1 @@
+Pydantic for strict data modeling and validation across context, policy, and plan specifications; SAGE FlowNet for optional DAG-based parallel execution of retrieval and post-answer stages

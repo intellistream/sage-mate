@@ -1,0 +1,4 @@
+- **Web Framework**: FastAPI with Pydantic v2 for data validation.
+- **Memory Engine**: `sage.neuromem` (Neural Continual Memory or Unified Collections) backed by SQLite (`memory_store.sqlite3`) and optional vector indexes (FAISS/SageVDB).
+- **LLM Integration**: OpenAI-compatible client (`VllmChatClient`) targeting local or remote vLLM instances.
+- **Frontend**: Vanilla JavaScript SPA (`web/app.js`) consuming SSE streams for workflow tracing and chat responses.

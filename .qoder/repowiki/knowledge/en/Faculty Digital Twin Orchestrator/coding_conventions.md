@@ -1,0 +1,3 @@
+- All workflow steps and policy rules are defined as immutable Pydantic models with extra='forbid' to prevent silent configuration errors
+- Side effects are explicitly categorized into a four-level risk hierarchy (none, draft_write, owner_review, admin_only) enforced by the policy validator
+- Workflow traces are canonicalized into a fixed order regardless of parallel execution paths to ensure consistent UI rendering and testing

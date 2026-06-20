@@ -1,0 +1,5 @@
+- **Test Infrastructure**: Uses `pytest` with a `conftest.py` that bootstraps the runtime environment and manages optional dependencies like `sentence-transformers`.
+- **Workflow Validation**: Extensive integration tests (`test_agentic_workflow.py`) verify the deterministic and shadow planning paths, intent classification, and booking lifecycle using mock LLM clients and recording notifiers.
+- **Data Store Resilience**: Dedicated tests (`test_store_resilience.py`) simulate runtime directory deletion to ensure all JSON-based stores (analytics, knowledge, memory) defensively recreate their paths before writing.
+- **Knowledge Backend Abstraction**: Tests cover both local and vector-based backends (`sagevdb`, `neuromem`), verifying search relevance, metadata derivation, and audience-based visibility filtering.
+- **API & Frontend Contract**: End-to-end HTTP tests validate the FastAPI endpoints, presence heartbeats, and the consistency of the web shell's HTML/JS contract.

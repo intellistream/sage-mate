@@ -1,9 +1,0 @@
-{
-  "user_id": "63637384-04e1-47ac-8f3b-c1381551598f",
-  "name": "UI Flow User",
-  "email": "ui-flow-check@example.invalid",
-  "password_salt": "c140c37d56c7a376c261dbdcece9bca7",
-  "password_hash": "181a81e35364ab60d4f5367af97f4c789b33003dae227022c0737b55d37c92c7c3f71d877fad9141ba866e310e7c83b660a555201cc5007239779381a63406ab",
-  "created_at": "2026-05-27T02:29:43.910206+00:00",
-  "updated_at": "2026-05-27T02:29:43.910206+00:00"
-}

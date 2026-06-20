@@ -1,9 +1,0 @@
-{
-  "user_id": "84a3d7ab-82ee-4c37-afcc-d8dc498555db",
-  "name": "跨端口测试",
-  "email": "cross-origin-16f6dca7d1@example.invalid",
-  "password_salt": "73ec0eb9b5a909d1e274b553cabfe67a",
-  "password_hash": "39923ce31270fec4780b2d54057dcba8517da3dfac4bac7d1f6ec92ee6aafb4c6b096743ad283bc4312dfd8fc70b7c2bf23840f2d8da652c9cf78eb61d4e4028",
-  "created_at": "2026-05-27T02:36:57.146747+00:00",
-  "updated_at": "2026-05-27T02:36:57.146747+00:00"
-}

@@ -2786,7 +2786,10 @@ class FacultyTwinWorkflowSupport:
             f"Question: {request.question}\n"
             "Respond as the digital twin of the faculty owner. Keep the answer grounded and concise. "
             "If the current question is a follow-up that refers to 刚才, 前面, 上一个, this, that, it, or an omitted subject, resolve it against the immediate session context first. "
-            "Use retrieved knowledge only when it directly answers this question; ignore adjacent topics and do not add unasked facts just because they appear in context."
+            "Use retrieved knowledge only when it directly answers this question; ignore adjacent topics and do not add unasked facts just because they appear in context. "
+            "Never invent paper titles, author names, conference names, URLs, or any bibliographic reference. "
+            "If the answer would benefit from external references but none are available in the context above, "
+            "remind the user they can enable the 联网检索 toggle for real-time sources."
         )
 
     def _format_recent_session_context(self, request: ChatRequest, limit: int = 2) -> str:

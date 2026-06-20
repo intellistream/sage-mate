@@ -535,40 +535,51 @@ function pickLuckyQuestion(profile = visitorProfileInput?.value) {
 }
 
 async function handleLuckyQuestionClick() {
-    const profile = visitorProfileInput?.value || "general_visitor";
-    // Try LLM-powered generation first (with short timeout).
-    let selected = null;
-    try {
-        const recentParam = luckyQuestionHistory.length > 0
-            ? encodeURIComponent(luckyQuestionHistory.join(","))
-            : "";
-        const apiUrl = `/lucky-question?visitor_profile=${encodeURIComponent(profile)}&recent=${recentParam}`;
-        const result = await apiRequest(apiUrl, { timeoutMs: 6000 });
-        if (result && typeof result === "object" && result.question) {
-            selected = { question: result.question, context: result.context || "" };
-        }
-    } catch {
-        // API failed or timed out — fall through to static pool.
-    }
-
-    // Fall back to static question pool.
-    if (!selected) {
-        selected = pickLuckyQuestion(profile);
-    }
-    if (!selected) {
+    if (!luckyQuestionButton) {
         return;
     }
-    lastLuckyQuestion = selected.question;
-    luckyQuestionHistory.push(selected.question);
-    // Keep history bounded to the current pool size so it resets naturally.
-    const poolSize = getLuckyQuestionCandidates(profile).length;
-    if (poolSize > 1 && luckyQuestionHistory.length >= poolSize) {
-        luckyQuestionHistory = luckyQuestionHistory.slice(-1);
+    const originalHtml = luckyQuestionButton.innerHTML;
+    luckyQuestionButton.disabled = true;
+    luckyQuestionButton.innerHTML = '<span class="lucky-loading-spinner" aria-hidden="true"></span><span class="composer-tool-label" aria-hidden="true">生成中…</span>';
+    try {
+        const profile = visitorProfileInput?.value || "general_visitor";
+        // Try LLM-powered generation first (with short timeout).
+        let selected = null;
+        try {
+            const recentParam = luckyQuestionHistory.length > 0
+                ? encodeURIComponent(luckyQuestionHistory.join(","))
+                : "";
+            const apiUrl = `/lucky-question?visitor_profile=${encodeURIComponent(profile)}&recent=${recentParam}`;
+            const result = await apiRequest(apiUrl, { timeoutMs: 6000 });
+            if (result && typeof result === "object" && result.question) {
+                selected = { question: result.question, context: result.context || "" };
+            }
+        } catch {
+            // API failed or timed out — fall through to static pool.
+        }
+
+        // Fall back to static question pool.
+        if (!selected) {
+            selected = pickLuckyQuestion(profile);
+        }
+        if (!selected) {
+            return;
+        }
+        lastLuckyQuestion = selected.question;
+        luckyQuestionHistory.push(selected.question);
+        // Keep history bounded to the current pool size so it resets naturally.
+        const poolSize = getLuckyQuestionCandidates(profile).length;
+        if (poolSize > 1 && luckyQuestionHistory.length >= poolSize) {
+            luckyQuestionHistory = luckyQuestionHistory.slice(-1);
+        }
+        saveLuckyQuestionHistory();
+        applyLuckyQuestionPreferences(selected);
+        seedChatQuestion(selected.question, selected.context || "");
+        updateComposerContextChips();
+    } finally {
+        luckyQuestionButton.disabled = false;
+        luckyQuestionButton.innerHTML = originalHtml;
     }
-    saveLuckyQuestionHistory();
-    applyLuckyQuestionPreferences(selected);
-    seedChatQuestion(selected.question, selected.context || "");
-    updateComposerContextChips();
 }
 
 const adminOnlyDrawerButtons = [
@@ -7783,6 +7794,29 @@ function formatMessageContent(rawText) {
     // Blockquotes (single-level)
     formatted = formatted.replace(/^&gt; (.+)$/gm, '<blockquote>$1</blockquote>');
 
+    // ── Tables ─────────────────────────────────────────────────────────
+    // Match consecutive lines starting and ending with '|'
+    formatted = formatted.replace(/((?:^\|.+\|$\n?)+)/gm, (block) => {
+        const rows = block.trim().split('\n').filter(r => r.trim().length > 0);
+        if (rows.length === 0) return block;
+
+        const parseRow = (row) =>
+            row.replace(/^\|/, '').replace(/\|$/, '').split('|').map(c => c.trim());
+
+        const headerCells = parseRow(rows[0]);
+        const headerHtml = '<tr>' +
+            headerCells.map(c => `<th>${c}</th>`).join('') + '</tr>';
+
+        const bodyRows = rows.slice(1)
+            .filter(r => !/^\|[\s\-:|]+\|$/.test(r.trim()))
+            .map(r => {
+                const cells = parseRow(r);
+                return '<tr>' + cells.map(c => `<td>${c}</td>`).join('') + '</tr>';
+            }).join('');
+
+        return `<table><thead>${headerHtml}</thead><tbody>${bodyRows}</tbody></table>`;
+    });
+
     // ── List grouping ──────────────────────────────────────────────────
     // Collect consecutive lines starting with "- " or "* " into <ul>,
     // and consecutive lines starting with "N. " into <ol>.
@@ -7817,7 +7851,7 @@ function formatMessageContent(rawText) {
     // wrapped in block-level HTML tags.
     formatted = formatted.replace(/\n/g, '<br>');
     // Clean up <br> immediately after block tags
-    formatted = formatted.replace(/<\/(h[1-6]|pre|ul|ol|blockquote|hr)><br>/g, '</$1>');
+    formatted = formatted.replace(/<\/(h[1-6]|pre|ul|ol|blockquote|table|hr)><br>/g, '</$1>');
     formatted = formatted.replace(/<hr><br>/g, '<hr>');
 
     return formatted;

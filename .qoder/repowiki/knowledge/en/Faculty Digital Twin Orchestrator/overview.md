@@ -1,0 +1,1 @@
+Orchestrates a deterministic, policy-gated workflow pipeline that routes academic inquiries through intent classification, evidence retrieval, and LLM generation while enforcing strict side-effect controls.

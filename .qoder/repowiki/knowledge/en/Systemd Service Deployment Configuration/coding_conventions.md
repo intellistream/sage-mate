@@ -1,0 +1,3 @@
+- All services use `Type=simple` and define `WorkingDirectory=__REPO_ROOT__` to standardize execution context.
+- Network-dependent services explicitly declare `After=network-online.target` and `Wants=network-online.target` to ensure connectivity before startup.
+- Service dependencies are enforced using `Requires` and `After` directives to create a strict startup hierarchy from the backend app to the public tunnel.

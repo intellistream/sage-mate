@@ -1,0 +1,1 @@
+SQLite for conversation memory storage; JSON for all other entity persistence.

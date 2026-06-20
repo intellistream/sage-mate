@@ -1,0 +1,4 @@
+- **Content Layering**: Organized into strategic outlines (`product-outline.md`), tactical rollout plans (`agent-rollout-plan.md`), and operational runbooks (`deployment.md`, `ops-console.md`).
+- **Operational Boundaries**: Defines clear separation between code and tracked runtime state in `runtime-data.md`, specifying which data directories are version-controlled versus ignored.
+- **Deployment Architecture**: Documents a multi-component stack including FastAPI app, Nginx reverse proxy, Cloudflare Tunnel, and systemd user services, with specific configuration guidance for each layer.
+- **Workflow Integration**: Links documentation to executable scripts (`quickstart.sh`, `manage.sh`) and validation commands, ensuring docs serve as direct operational references.

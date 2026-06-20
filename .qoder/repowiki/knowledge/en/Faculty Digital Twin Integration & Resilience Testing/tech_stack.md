@@ -1,0 +1,1 @@
+Uses `pytest` with `fastapi.testclient.TestClient` for API integration testing; employs custom mock objects (e.g., `FailingLLMClient`, `RecordingNotifier`) to isolate workflow logic from external LLM and SMTP services.

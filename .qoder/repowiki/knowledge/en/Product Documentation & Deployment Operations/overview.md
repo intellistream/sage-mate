@@ -1,0 +1,1 @@
+Provides comprehensive product vision, deployment guides, operational console workflows, and runtime data management strategies for the faculty twin system.
