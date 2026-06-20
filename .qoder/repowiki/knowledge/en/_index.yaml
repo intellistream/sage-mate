@@ -2,27 +2,63 @@
 schema_version: 1
 locale: en-US
 branch: main
-exported_at: "2026-06-20T05:05:16Z"
+exported_at: "2026-06-20T15:31:56Z"
 modules:
     "":
-        dir_name: SAGE Faculty Digital Twin Platform
-        title: SAGE Faculty Digital Twin Platform
+        dir_name: SAGE Faculty Digital Twin Orchestrator
+        title: SAGE Faculty Digital Twin Orchestrator
         scope: []
         source_files: []
         children: []
         depends_on: []
         related_to: []
     app_source:
-        dir_name: SAGE Faculty Digital Twin Service
-        title: SAGE Faculty Digital Twin Service
+        dir_name: Faculty Digital Twin Core Service
+        title: Faculty Digital Twin Core Service
         scope:
             - src/sage_faculty_twin/
         source_files: []
         children: []
         depends_on: []
         related_to:
-            - path: tests
+            - path: runtime_data
             - path: deployment
+            - path: tests
+    decisions:
+        dir_name: Decisions
+        title: Decisions
+        scope: []
+        source_files: []
+        children:
+            - decisions/06bcc83493f0_239b8dda5c26
+            - decisions/ed17f66e46eb_5013a4035153
+            - decisions/06bcc83493f0_acbb4660e197
+        depends_on: []
+        related_to: []
+    decisions/06bcc83493f0_239b8dda5c26:
+        dir_name: Optimize AgentKV miss-path via cache-capturing baseline
+        title: Optimize AgentKV miss-path via cache-capturing baseline
+        scope: []
+        source_files: []
+        children: []
+        depends_on: []
+        related_to: []
+    decisions/06bcc83493f0_acbb4660e197:
+        dir_name: Adopt rolling-maintenance workload for DeltaKV evaluation
+        title: Adopt rolling-maintenance workload for DeltaKV evaluation
+        scope: []
+        source_files: []
+        children: []
+        depends_on: []
+        related_to: []
+    decisions/ed17f66e46eb_5013a4035153:
+        dir_name: Introduce pre-planner Skill Router for specialized agent flows
+        title: Introduce pre-planner Skill Router for specialized agent flows
+        scope: []
+        source_files: []
+        children: []
+        depends_on: []
+        related_to: []
     deployment:
         dir_name: Systemd Service Deployment Configuration
         title: Systemd Service Deployment Configuration
@@ -45,17 +81,18 @@ modules:
         related_to:
             - path: deployment
     runtime_data:
-        dir_name: Runtime State & Knowledge Persistence
-        title: Runtime State & Knowledge Persistence
+        dir_name: Runtime State & Memory Persistence
+        title: Runtime State & Memory Persistence
         scope:
             - data/
         source_files: []
         children: []
         depends_on: []
-        related_to: []
+        related_to:
+            - path: app_source
     tests:
-        dir_name: Digital Twin Integration & Contract Verification
-        title: Digital Twin Integration & Contract Verification
+        dir_name: Digital Twin Quality Assurance & Resilience
+        title: Digital Twin Quality Assurance & Resilience
         scope:
             - tests/
         source_files: []

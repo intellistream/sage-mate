@@ -10,18 +10,18 @@
 - [manage.sh](file://manage.sh)
 - [quickstart.sh](file://quickstart.sh)
 - [run_vllm_engine.sh](file://tools/run_vllm_engine.sh)
+- [run_vllm_openai_proxy.sh](file://tools/run_vllm_openai_proxy.sh)
 - [runtime_env.sh](file://tools/lib/runtime_env.sh)
 - [test_systemd_service_scripts.py](file://tests/test_systemd_service_scripts.py)
 </cite>
 
 ## Update Summary
 **Changes Made**
-- Consolidated service management into unified quickstart.sh and manage.sh scripts
-- Removed individual service scripts in favor of centralized management
-- Added new run_vllm_engine.sh script for standalone vLLM engine execution
-- Updated service dependency analysis to reflect consolidated management approach
-- Revised service management commands with enhanced flag combinations
-- Updated troubleshooting guide with consolidated script behaviors
+- Updated vLLM engine service to reflect Docker container orchestration deployment
+- Modified service management commands to handle Docker container lifecycle
+- Updated troubleshooting guide with Docker-specific startup issues
+- Revised service unit file templates to accommodate Docker-based execution
+- Enhanced logging setup for Docker container monitoring
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -35,14 +35,14 @@
 9. [Conclusion](#conclusion)
 
 ## Introduction
-This document provides comprehensive systemd user service documentation for Sage Faculty Twin. The project now uses consolidated service management through unified scripts with five core services:
+This document provides comprehensive systemd user service documentation for Sage Faculty Twin. The project uses consolidated service management through unified scripts with five core services:
 - Application server
 - Local site proxy
 - Public tunnel
 - OpenAI-compatible vLLM proxy
-- vLLM inference engine
+- vLLM inference engine (now deployed via Docker containers)
 
-The consolidation eliminates individual service scripts in favor of centralized management through quickstart.sh (installation) and manage.sh (runtime operations). The new run_vllm_engine.sh script provides standalone execution capability for the vLLM engine.
+The consolidation eliminates individual service scripts in favor of centralized management through quickstart.sh (installation) and manage.sh (runtime operations). The vLLM engine service now requires Docker containers and systemd units manage container lifecycle instead of direct binary execution.
 
 ## Project Structure
 The systemd user services are located under deploy/systemd/user with consolidated management scripts replacing individual service runners. The unified approach uses quickstart.sh for installation and manage.sh for runtime operations.
@@ -68,6 +68,10 @@ RUN_TUNNEL["tools/run_named_tunnel.sh"]
 RUN_VLLM_PROXY["tools/run_vllm_openai_proxy.sh"]
 RUN_VLLM_ENGINE["tools/run_vllm_engine.sh"]
 end
+subgraph "Docker Orchestration"
+DOCKER["Docker Container Runtime"]
+CONTAINER["vllm-hust Container"]
+end
 subgraph "Configuration"
 ENV["runtime_env.sh"]
 TESTS["test_systemd_service_scripts.py"]
@@ -83,6 +87,8 @@ MANAGE --> TUNNEL
 MANAGE --> VLLM_PROXY
 MANAGE --> VLLM_ENGINE
 RUN_VLLM_ENGINE --> ENV
+RUN_VLLM_ENGINE --> DOCKER
+DOCKER --> CONTAINER
 TESTS --> QUICKSTART
 TESTS --> RUN_VLLM_ENGINE
 ```
@@ -113,15 +119,16 @@ TESTS --> RUN_VLLM_ENGINE
 - **Site proxy service**: Starts an Nginx-based reverse proxy or falls back to a Python-based proxy to serve the frontend and proxy to the app.
 - **Tunnel service**: Starts Cloudflare Tunnel to expose the local site proxy externally.
 - **vLLM OpenAI-compatible proxy service**: Exposes an OpenAI-compatible API pointing to a local vLLM endpoint, protected by an API key.
-- **vLLM inference engine service**: Provides high-performance LLM inference using vLLM-HUST framework with configurable tensor parallelism and memory utilization.
+- **vLLM inference engine service**: Now deployed as a Docker container running vllm-hust with configurable tensor parallelism and memory utilization.
 
-**Updated** Consolidated management through unified scripts with enhanced flag combinations and centralized service registry.
+**Updated** The vLLM engine service now operates within Docker containers, eliminating direct binary execution and providing better isolation and dependency management.
 
 Key operational characteristics:
 - All services run under the user systemd instance (default.target).
 - Environment variables are injected during installation and used at runtime.
 - Restart policies ensure resilience after failures.
 - Unified management through consolidated quickstart.sh and manage.sh scripts with comprehensive flag combinations.
+- Docker container orchestration provides better resource isolation and dependency management.
 
 **Section sources**
 - [sage-faculty-twin-app.service](file://deploy/systemd/user/sage-faculty-twin-app.service)
@@ -133,21 +140,21 @@ Key operational characteristics:
 - [manage.sh](file://manage.sh)
 
 ## Architecture Overview
-The services form a layered stack with consolidated management and enhanced vLLM integration:
+The services form a layered stack with consolidated management and Docker-based vLLM integration:
 - Application server listens locally on 127.0.0.1.
 - Site proxy fronts the app and serves static assets.
 - Optional tunnel exposes the site proxy externally.
-- Optional vLLM engine provides high-performance inference.
+- Optional vLLM engine provides high-performance inference via Docker containers.
 - Optional vLLM proxy provides an OpenAI-compatible interface to the inference engine.
 
-**Updated** Centralized management through unified scripts with service registry and enhanced runtime control.
+**Updated** Centralized management through unified scripts with Docker container orchestration and enhanced runtime control.
 
 ```mermaid
 sequenceDiagram
 participant Client as "Client"
 participant Site as "Site Proxy (Nginx/Python)"
 participant App as "Application Server"
-participant Engine as "vLLM Engine"
+participant Engine as "Docker vLLM Engine"
 participant Proxy as "vLLM OpenAI Proxy"
 participant Tunnel as "Cloudflare Tunnel"
 Client->>Site : "HTTP GET /"
@@ -155,7 +162,7 @@ Site->>App : "Reverse proxy to 127.0.0.1 : APP_PORT"
 App-->>Site : "HTML/Assets"
 Site-->>Client : "Response"
 Client->>Proxy : "OpenAI-compatible request"
-Proxy->>Engine : "Forward to vLLM engine"
+Proxy->>Engine : "Forward to Docker container vLLM"
 Engine-->>Proxy : "LLM response"
 Proxy-->>Client : "OpenAI-compatible response"
 Tunnel-->>Client : "External access to Site Proxy"
@@ -294,24 +301,29 @@ Fallback --> Running
 - **Unit file**: Starts after network-online target; independent of other services.
 - **ExecStart**: Launches the vLLM engine runner script.
 
-**Updated** New standalone execution capability through run_vllm_engine.sh script with centralized management.
+**Updated** Now operates within Docker containers with centralized management through run_vllm_engine.sh script.
 
 Runtime behavior:
-- Resolves vllm-hust binary from PATH or .env configuration.
-- Configures tensor parallelism, memory utilization, and model serving parameters.
-- Supports Ascend NPU devices with configurable device visibility.
+- Resolves Docker container name from VLLM_ENGINE_CONTAINER environment variable.
+- Verifies Docker container existence and accessibility.
+- Configures vllm-hust parameters including tensor parallelism, memory utilization, and model serving parameters.
+- Supports Ascend NPU devices with configurable device visibility through Docker environment variables.
 - Provides comprehensive logging of configuration and runtime parameters.
+- Executes vllm-hust serve command inside the Docker container with proper environment propagation.
 
 ```mermaid
 flowchart TD
 Start(["Unit start"]) --> LoadEnv[".env loading (non-conflicting keys)"]
-LoadEnv --> ResolveBin["Resolve vllm-hust binary path"]
-ResolveBin --> CheckBin{"Binary found?"}
-CheckBin --> |Yes| Configure["Configure TP size, memory, model path"]
-CheckBin --> |No| Error["Report missing binary"]
-Configure --> SetDevices["Set NPU device visibility"]
-SetDevices --> PrintConfig["Print configuration summary"]
-PrintConfig --> Launch["Launch vLLM engine serve"]
+LoadEnv --> ResolveContainer["Resolve VLLM_ENGINE_CONTAINER"]
+ResolveContainer --> CheckDocker{"Docker available & accessible?"}
+CheckDocker --> |Yes| VerifyContainer["Verify container exists & running"]
+CheckDocker --> |No| Error["Report Docker access issues"]
+VerifyContainer --> CheckContainer{"Container found?"}
+CheckContainer --> |Yes| Configure["Configure vllm-hust parameters"]
+CheckContainer --> |No| Error
+Configure --> SetEnv["Set NPU device visibility via Docker env"]
+SetEnv --> PrintConfig["Print configuration summary"]
+PrintConfig --> Launch["Launch vllm-hust inside Docker container"]
 Launch --> Running(["Engine running"])
 Error --> Fail(["Startup failed"])
 ```
@@ -325,7 +337,7 @@ Error --> Fail(["Startup failed"])
 - [run_vllm_engine.sh](file://tools/run_vllm_engine.sh)
 
 ### Consolidated Service Management with unified Scripts
-**Updated** Complete consolidation of service management into unified scripts.
+**Updated** Complete consolidation of service management into unified scripts with Docker container orchestration.
 
 - **Supported actions**: install, status, start, stop, restart, logs.
 - **Extended options**:
@@ -342,9 +354,10 @@ Error --> Fail(["Startup failed"])
 **Enhanced behavior**:
 - Parses arguments with comprehensive flag combinations.
 - Builds service registry in proper startup order: engine → proxy → app → site → tunnel.
-- Supports unified logs viewing for all services including model engine.
+- Supports unified logs viewing for all services including Docker containerized model engine.
 - Delegates installation to quickstart.sh for improved error handling.
 - Provides machine-readable JSON output for automation.
+- Handles Docker container lifecycle management for vLLM engine service.
 
 ```mermaid
 flowchart TD
@@ -356,10 +369,13 @@ Delegate --> Done(["Done"])
 BuildList --> Validate{"Valid action?"}
 Validate --> |Yes| Execute["Execute systemctl --user action"]
 Validate --> |No| Error["Exit with error"]
-HandleLogs --> Journal["journalctl --user -u <unit> -f"]
+HandleLogs --> CheckTarget{"Target type?"}
+CheckTarget --> |model| DockerLogs["docker logs <container> -f"]
+CheckTarget --> |other| Journal["journalctl --user -u <unit> -f"]
 Execute --> Status["Collect status for all services"]
 Status --> Format["Format JSON or human-readable"]
 Format --> Done
+DockerLogs --> Done
 Journal --> Done
 Error --> Done
 ```
@@ -373,12 +389,13 @@ Error --> Done
 - [quickstart.sh](file://quickstart.sh)
 
 ### Quickstart Script Enhancements
-**Updated** Complete consolidation of installation logic into unified script.
+**Updated** Complete consolidation of installation logic into unified script with Docker container support.
 
 - **Comprehensive installation** with virtual environment support.
 - **Preflight checks** for dependencies and system requirements.
 - **Automatic sibling repository cloning** (SAGE, neuromem, sageVDB, vllm-hust).
 - **Integrated systemd unit installation** with service enablement.
+- **Docker container verification** during installation process.
 - **Smoke testing** and next steps guidance.
 - **Enhanced error handling** and progress reporting.
 
@@ -386,12 +403,14 @@ Error --> Done
 - Inlined systemd unit installation previously handled by separate install script.
 - Unified service enablement with comprehensive flag support.
 - Enhanced virtual environment management with optional isolation.
+- Docker container validation and troubleshooting guidance.
+- Updated next steps to emphasize Docker container configuration.
 
 **Section sources**
 - [quickstart.sh](file://quickstart.sh)
 
 ### Consolidated Service Unit File Templates and Environment Variables
-**Updated** Templates now use consolidated management approach.
+**Updated** Templates now use consolidated management approach with Docker container configuration.
 
 - **Placeholders**:
   - __REPO_ROOT__: Replaced with the repository root during installation.
@@ -413,14 +432,16 @@ Error --> Done
 - **vLLM engine**:
   - VLLM_ENGINE_MODEL_PATH: Default /data/shared-models/Qwen3-32B.
   - VLLM_ENGINE_HOST: Default 0.0.0.0.
-  - VLLM_ENGINE_PORT: Default 18000.
+  - VLLM_ENGINE_PORT: Default 8000.
   - VLLM_ENGINE_TP_SIZE: Default 4.
   - VLLM_ENGINE_MAX_MODEL_LEN: Default 32768.
   - VLLM_ENGINE_GPU_MEM_UTIL: Default 0.85.
   - VLLM_ENGINE_BIN: Default vllm-hust.
+  - VLLM_ENGINE_CONTAINER: **New** Docker container name/ID.
 
 **Installation-time resolution**:
 - Consolidated installation process resolves the Python interpreter and writes the rendered unit files with __REPO_ROOT__ and __PYTHON_BIN__ substituted.
+- **Updated** Installation process now includes Docker container verification and configuration guidance.
 
 **Section sources**
 - [sage-faculty-twin-app.service](file://deploy/systemd/user/sage-faculty-twin-app.service)
@@ -431,7 +452,7 @@ Error --> Done
 - [quickstart.sh](file://quickstart.sh)
 
 ### Logging Setup
-**Updated** Consolidated logging approach through unified scripts.
+**Updated** Consolidated logging approach through unified scripts with Docker container monitoring.
 
 - **Application server**: Uses uvicorn's default logging; no dedicated log file configured in the unit.
 - **Site proxy**:
@@ -439,20 +460,21 @@ Error --> Done
   - Access log configured at logs/access.log under the runtime prefix.
 - **Tunnel**: Relies on cloudflared's own logging; ensure cloudflared is configured appropriately.
 - **vLLM proxy**: Uses uvicorn's default logging; no dedicated log file configured in the unit.
-- **vLLM engine**: Direct stdout/stderr logging from the vllm-hust process.
+- **vLLM engine**: Direct stdout/stderr logging from the Docker container running vllm-hust process.
 
 **Consolidated recommendations**:
 - Monitor Nginx logs under the runtime prefix for site proxy issues.
 - Verify cloudflared logs for tunnel connectivity problems.
 - Use journalctl --user to inspect service logs for application and proxy services.
-- For model engine logs, use journalctl for the vllm-engine service or Docker logs if containerized.
+- For Docker containerized model engine logs, use `docker logs <container_name>` or `journalctl` for the vllm-engine service.
+- Enable Docker container monitoring to track resource utilization and health status.
 
 **Section sources**
 - [runtime_env.sh](file://tools/lib/runtime_env.sh)
 - [manage.sh](file://manage.sh)
 
 ## Dependency Analysis
-**Updated** Enhanced dependency analysis reflecting consolidated management approach.
+**Updated** Enhanced dependency analysis reflecting consolidated management approach with Docker container orchestration.
 
 Service dependencies and startup order with consolidated management:
 - **Application server**: No Requires; After=network-online.target.
@@ -466,11 +488,13 @@ Service dependencies and startup order with consolidated management:
 - Tunnel proxies external traffic to 127.0.0.1:SITE_PORT.
 - vLLM proxy communicates with the upstream vLLM engine at VLLM_PROXY_UPSTREAM_BASE_URL.
 - Application server can communicate with vLLM engine through the proxy or directly if configured.
+- **Updated** vLLM engine now communicates with Docker containers instead of direct binaries.
 
 **Consolidated service registry**:
 - Model/engine → proxy → app → site → tunnel
 - Unified service management through centralized registry
 - Enhanced flag-based service inclusion
+- **Updated** Docker container lifecycle management integrated into service dependencies
 
 ```mermaid
 graph LR
@@ -481,6 +505,8 @@ NET --> VLLM_PROXY["vLLM Proxy Service"]
 NET --> VLLM_ENGINE["vLLM Engine Service"]
 VLLM_PROXY --> VLLM_ENGINE
 APP -.-> VLLM_PROXY
+VLLM_ENGINE --> DOCKER["Docker Container Runtime"]
+DOCKER --> CONTAINER["vllm-hust Container"]
 ```
 
 **Diagram sources**
@@ -500,7 +526,7 @@ APP -.-> VLLM_PROXY
 - [manage.sh](file://manage.sh)
 
 ## Performance Considerations
-**Updated** Performance considerations for consolidated management approach.
+**Updated** Performance considerations for consolidated management approach with Docker container orchestration.
 
 - **Streaming and timeouts**:
   - Application server increases proxy timeouts for long-running LLM responses.
@@ -513,10 +539,16 @@ APP -.-> VLLM_PROXY
   - Tensor parallelism (TP_SIZE) and GPU memory utilization can be tuned for optimal performance.
   - Graph mode provides compilation benefits for first requests.
   - Model serving parameters can be adjusted based on hardware capabilities.
+  - **Updated** Docker container resource allocation affects performance; ensure adequate CPU/memory limits are set.
+- **Docker container management**:
+  - Container startup time includes Docker image initialization and vllm-hust bootstrapping.
+  - Container resource limits should match hardware capabilities for optimal performance.
+  - Network latency between host and container should be considered in performance tuning.
 - **Consolidated management benefits**:
   - Reduced overhead through centralized service registry.
   - Improved startup sequencing with unified dependency management.
   - Enhanced monitoring through consolidated logging interface.
+  - **Updated** Better resource isolation and cleanup through Docker container management.
 
 **Section sources**
 - [runtime_env.sh](file://tools/lib/runtime_env.sh)
@@ -524,7 +556,7 @@ APP -.-> VLLM_PROXY
 - [manage.sh](file://manage.sh)
 
 ## Troubleshooting Guide
-**Updated** Comprehensive troubleshooting for consolidated management approach.
+**Updated** Comprehensive troubleshooting for consolidated management approach with Docker container orchestration.
 
 Common startup issues and resolutions with consolidated script support:
 
@@ -556,17 +588,21 @@ Common startup issues and resolutions with consolidated script support:
   - Symptom: Unexpected behavior due to environment overrides.
   - Resolution: Review .env and ensure non-conflicting keys; remember existing environment variables take precedence.
 
-- **vLLM engine binary not found**
-  - Symptom: vLLM engine service fails to start with binary not found error.
-  - Resolution: Install vllm-hust package or set VLLM_ENGINE_BIN in .env to point to the correct binary path.
+- **Docker not available or inaccessible**
+  - **New** Symptom: vLLM engine service fails to start with Docker-related errors.
+  - Resolution: Ensure Docker daemon is running and user has permission to access Docker socket. Add user to docker group if needed.
 
-- **vLLM engine resource allocation issues**
-  - Symptom: vLLM engine fails to start due to insufficient GPU memory or incorrect tensor parallelism.
-  - Resolution: Adjust VLLM_ENGINE_GPU_MEM_UTIL and VLLM_ENGINE_TP_SIZE based on available hardware resources.
+- **Docker container not found**
+  - **New** Symptom: vLLM engine service reports container not found error.
+  - Resolution: Set VLLM_ENGINE_CONTAINER in .env to the correct Docker container name/ID. Start the container first before enabling the service.
 
-- **vLLM proxy upstream connection failures**
-  - Symptom: vLLM proxy cannot connect to the inference engine.
-  - Resolution: Verify VLLM_PROXY_UPSTREAM_BASE_URL points to the correct engine address and port.
+- **Docker container resource issues**
+  - **New** Symptom: vLLM engine container fails to start due to insufficient resources.
+  - Resolution: Verify Docker container has adequate CPU, memory, and GPU/NPU resources allocated. Check container logs for resource constraints.
+
+- **vLLM engine container not responding**
+  - **New** Symptom: vLLM proxy cannot connect to the inference engine container.
+  - Resolution: Verify VLLM_PROXY_UPSTREAM_BASE_URL points to the correct container address and port. Check container health status and logs.
 
 - **Model engine not launching in foreground**
   - Symptom: manage.sh --with-model fails to launch the engine in foreground.
@@ -580,6 +616,10 @@ Common startup issues and resolutions with consolidated script support:
   - Symptom: Services start in wrong order or fail to start.
   - Resolution: Verify service dependencies in unit files and use systemctl --user status for diagnostics.
 
+- **Docker container monitoring issues**
+  - **New** Symptom: Cannot view logs for vLLM engine container.
+  - Resolution: Use `docker logs <container_name>` to view container logs. Ensure container is running and accessible.
+
 **Section sources**
 - [quickstart.sh](file://quickstart.sh)
 - [manage.sh](file://manage.sh)
@@ -588,9 +628,9 @@ Common startup issues and resolutions with consolidated script support:
 - [test_systemd_service_scripts.py](file://tests/test_systemd_service_scripts.py)
 
 ## Conclusion
-**Updated** Sage Faculty Twin now provides consolidated systemd user services with unified management:
+**Updated** Sage Faculty Twin now provides consolidated systemd user services with unified management and Docker container orchestration:
 
-The consolidated approach replaces individual service scripts with unified management through quickstart.sh (installation) and manage.sh (runtime operations). The new run_vllm_engine.sh script provides standalone execution capability for the vLLM engine.
+The consolidated approach replaces individual service scripts with unified management through quickstart.sh (installation) and manage.sh (runtime operations). The vLLM engine service now operates within Docker containers, providing better isolation, dependency management, and resource control.
 
 Key benefits of the consolidated approach:
 - **Simplified management**: Single entry points for installation and runtime operations
@@ -598,12 +638,13 @@ Key benefits of the consolidated approach:
 - **Improved maintainability**: Reduced code duplication and consistent behavior across services
 - **Better observability**: Unified logging interface and status reporting
 - **Flexible deployment**: Support for partial service stacks through flag-based inclusion
+- ****Updated** Docker container orchestration**: Better resource isolation and dependency management for vLLM engines
 
 The five core services provide a comprehensive, layered runtime with enhanced vLLM integration:
 - The application server hosts the FastAPI application.
 - The site proxy serves static assets and proxies requests to the app.
 - The tunnel exposes the site proxy externally via Cloudflare Tunnel.
 - The vLLM proxy offers an OpenAI-compatible interface to a local vLLM instance.
-- The vLLM engine provides high-performance inference capabilities.
+- The vLLM engine provides high-performance inference capabilities within Docker containers.
 
-Using the consolidated scripts, operators can install, start, stop, restart, and check the status of these services with comprehensive flag combinations including optional vLLM services. The unified approach improves reliability, maintainability, and operational simplicity while preserving all existing functionality.
+Using the consolidated scripts, operators can install, start, stop, restart, and check the status of these services with comprehensive flag combinations including optional vLLM services. The unified approach improves reliability, maintainability, and operational simplicity while preserving all existing functionality and adding Docker container orchestration capabilities.

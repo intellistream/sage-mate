@@ -1,0 +1,7 @@
+schema_version: 1
+module_path: decisions/06bcc83493f0_acbb4660e197
+title: Adopt rolling-maintenance workload for DeltaKV evaluation
+scope: []
+source_files: []
+depends_on: []
+related_to: []

@@ -728,6 +728,10 @@ class LocalKnowledgeStore:
             ),
             reverse=True,
         )
+        # Wiki-link retrieval: 1-hop expansion after reranking.
+        if self._link_expansion_enabled:
+            reranked = self._expand_hits_with_links(reranked, query_tokens, query_profile)
+            reranked.sort(key=lambda item: item.score, reverse=True)
         return self._finalize_hits(reranked, query_profile, limit)
 
     def _build_text_embedder(self, np_module):
@@ -1149,13 +1153,17 @@ class LocalKnowledgeStore:
     # ── Wiki-link retrieval: link graph construction + expansion ────────
 
     def _rebuild_link_graph(self) -> None:
-        """Build adjacency list from document metadata.
+        """Build bidirectional adjacency list from document metadata.
 
         Each document may carry ``metadata["linked_source_names"]``: a
         pipe-separated list of source_names it links to (e.g. from wiki
         markdown ``[text](../other-page.md)`` links resolved at ingest
         time).  We resolve those source_names to document_ids to build
         an in-memory adjacency list.
+
+        Edges are bidirectional: if A links to B, both A→B and B→A are
+        added so that expansion can reach documents that are only link
+        targets (no outbound links of their own).
         """
         source_to_id: dict[str, str] = {
             doc.source_name: doc_id
@@ -1163,19 +1171,29 @@ class LocalKnowledgeStore:
             if doc.source_name
         }
         graph: dict[str, list[str]] = {}
+
+        def _add_edge(src: str, dst: str) -> None:
+            if src == dst:
+                return
+            adj = graph.get(src)
+            if adj is None:
+                graph[src] = [dst]
+            elif dst not in adj:
+                adj.append(dst)
+
+        # Forward edges: A declares links → A→B
         for doc_id, doc in self._documents.items():
             linked_sources = (doc.metadata or {}).get("linked_source_names", "")
             if not linked_sources:
                 continue
-            neighbors: list[str] = []
             for src_name in linked_sources.split("|"):
                 src_name = src_name.strip()
                 if src_name and src_name in source_to_id:
                     target_id = source_to_id[src_name]
-                    if target_id != doc_id:
-                        neighbors.append(target_id)
-            if neighbors:
-                graph[doc_id] = neighbors
+                    _add_edge(doc_id, target_id)
+                    # Reverse edge: B→A (bidirectional expansion)
+                    _add_edge(target_id, doc_id)
+
         self._link_graph = graph
 
     def _expand_hits_with_links(

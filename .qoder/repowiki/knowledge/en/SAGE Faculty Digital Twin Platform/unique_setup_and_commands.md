@@ -1,3 +1,0 @@
-- `./quickstart.sh --with-vllm-engine --start`: Performs a full installation, including optional sibling repos, systemd unit rendering, and service startup.
-- `./manage.sh status --all`: Provides a unified health check across all orchestrated services (engine, proxy, app, tunnel).
-- `./manage.sh logs <service>`: Centralized access to journalctl logs for any component in the distributed runtime.

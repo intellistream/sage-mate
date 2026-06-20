@@ -1,8 +1,0 @@
-schema_version: 1
-module_path: runtime_data
-title: Runtime State & Knowledge Persistence
-scope:
-    - data/
-source_files: []
-depends_on: []
-related_to: []

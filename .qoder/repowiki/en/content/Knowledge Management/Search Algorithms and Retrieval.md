@@ -14,6 +14,7 @@
 - Updated scoring algorithm to address token counting inflation issues in Chinese text
 - Added sophisticated span overlap detection and length-squared scoring mechanism
 - Improved lexical scoring with deduplicated matching spans for better relevance calculation
+- Documented the new maximal span selection algorithm that prevents repetition-heavy documents from dominating search results
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -333,7 +334,7 @@ J --> K["Return final score"]
 ```
 
 **Diagram sources**
-- [knowledge_base.py:1163-1205](file://src/sage_faculty_twin/knowledge_base.py#L1163-L1205)
+- [knowledge_base.py:1267-1321](file://src/sage_faculty_twin/knowledge_base.py#L1267-L1321)
 
 #### Key Features
 
@@ -350,9 +351,14 @@ The scoring function processes text in two stages:
 - **Stage 3**: Applies maximal span selection to eliminate duplicates
 - **Stage 4**: Computes final score using length-squared weighting
 
+The algorithm prevents repetition-heavy documents from dominating search results by:
+- Using a greedy selection process that prioritizes longer, non-overlapping spans
+- Applying length-squared scoring to reward specificity over quantity
+- Deduplicating matched text content to ensure each unique token contributes at most once
+
 **Section sources**
-- [knowledge_base.py:1163-1205](file://src/sage_faculty_twin/knowledge_base.py#L1163-L1205)
-- [knowledge_base.py:844-845](file://src/sage_faculty_twin/knowledge_base.py#L844-L845)
+- [knowledge_base.py:1267-1321](file://src/sage_faculty_twin/knowledge_base.py#L1267-L1321)
+- [knowledge_base.py:853-876](file://src/sage_faculty_twin/knowledge_base.py#L853-L876)
 
 ## Dependency Analysis
 - LocalKnowledgeStore depends on:

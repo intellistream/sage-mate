@@ -180,6 +180,12 @@
                                         <div class="token-usage-row token-usage-total"><span>Total (本轮)</span><span id="token-total-count">0</span></div>
                                         <div class="token-usage-row"><span>对话累计</span><span id="token-session-count">0</span></div>
                                         <div class="token-usage-row token-usage-limit"><span>上下文窗口</span><span id="token-max-context">--</span></div>
+                                        <div class="token-usage-compress">
+                                            <button type="button" id="context-compress-btn" class="context-compress-btn" title="压缩当前对话上下文，释放上下文空间">
+                                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 14 10 14 10 20"/><polyline points="20 10 14 10 14 4"/><line x1="14" y1="10" x2="21" y2="3"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
+                                                <span id="context-compress-label">压缩上下文</span>
+                                            </button>
+                                        </div>
                                     </div>
                                 </div>
                                 <button type="button" id="mobile-workflow-trigger"
@@ -278,24 +284,35 @@
 
         <div id="workflow-mobile-backdrop" class="workflow-mobile-backdrop hidden" aria-hidden="true"></div>
 
-        <footer class="app-powered-by" aria-label="技术栈">
-            <div class="app-hardware-bar" id="app-hardware-bar" style="display:none">
-                <span class="app-hardware-chip" id="hw-npu"></span>
-                <span class="app-hardware-chip" id="hw-cpu"></span>
-                <span class="app-hardware-chip" id="hw-memory"></span>
+        <footer class="app-stack-banner" aria-label="技术栈">
+            <div class="stack-row-runtime">
+                <div class="app-hardware-bar" id="app-hardware-bar" style="display:none">
+                    <span class="app-hardware-chip hw-accent-npu" id="hw-npu"></span>
+                    <span class="app-hardware-chip hw-accent-cpu" id="hw-cpu"></span>
+                    <span class="app-hardware-chip hw-accent-mem" id="hw-memory"></span>
+                </div>
+                <div class="app-stack-divider" aria-hidden="true"></div>
+                <div class="app-llm-metrics" id="app-llm-metrics" style="display:none">
+                    <span class="metric-chip metric-accent-status" id="metric-llm-status" title="LLM 服务状态"></span>
+                    <span class="metric-chip metric-accent-latency" id="metric-llm-latency" title="平均推理延迟"></span>
+                    <span class="metric-chip metric-accent-cache" id="metric-llm-cache" title="缓存命中率"></span>
+                    <span class="metric-chip metric-accent-throughput" id="metric-llm-rps" title="请求吞吐"></span>
+                </div>
             </div>
-            <span class="app-powered-by-label">Powered by</span>
-            <div class="app-powered-by-list">
-                <a class="app-powered-by-chip" href="https://github.com/intellistream/SAGE" target="_blank"
-                    rel="noreferrer">SAGE <span id="powered-by-sage-version">v0.3.2.3</span></a>
-                <a class="app-powered-by-chip" href="https://github.com/intellistream/neuromem" target="_blank"
-                    rel="noreferrer">NeuroMem <span id="powered-by-neuromem-version">v0.2.1.12</span></a>
-                <a class="app-powered-by-chip" href="https://github.com/intellistream/vllm-hust" target="_blank"
-                    rel="noreferrer">vLLM-HUST <span id="powered-by-vllm-version">v0.20.1</span></a>
-                <a class="app-powered-by-chip" href="https://github.com/intellistream/sageVDB" target="_blank"
-                    rel="noreferrer">SageVDB <span id="powered-by-sagevdb-version">v--</span></a>
-                <a class="app-powered-by-chip" href="https://github.com/intellistream/sage-anns" target="_blank"
-                    rel="noreferrer">SageANNS <span id="powered-by-sage-anns-version">v--</span></a>
+            <div class="stack-row-powered">
+                <span class="app-stack-label">Powered by</span>
+                <div class="app-powered-by-list">
+                    <a class="app-stack-chip stack-sage" href="https://github.com/intellistream/SAGE" target="_blank"
+                        rel="noreferrer"><span class="stack-dot"></span>SAGE<span class="stack-ver" id="powered-by-sage-version">v0.3.2.3</span></a>
+                    <a class="app-stack-chip stack-neuromem" href="https://github.com/intellistream/neuromem" target="_blank"
+                        rel="noreferrer"><span class="stack-dot"></span>NeuroMem<span class="stack-ver" id="powered-by-neuromem-version">v0.2.1.12</span></a>
+                    <a class="app-stack-chip stack-vllm" href="https://github.com/intellistream/vllm-hust" target="_blank"
+                        rel="noreferrer"><span class="stack-dot"></span>vLLM-HUST<span class="stack-ver" id="powered-by-vllm-version">v0.20.1</span></a>
+                    <a class="app-stack-chip stack-sagevdb" href="https://github.com/intellistream/sageVDB" target="_blank"
+                        rel="noreferrer"><span class="stack-dot"></span>SageVDB<span class="stack-ver" id="powered-by-sagevdb-version">v--</span></a>
+                    <a class="app-stack-chip stack-anns" href="https://github.com/intellistream/sage-anns" target="_blank"
+                        rel="noreferrer"><span class="stack-dot"></span>SageANNS<span class="stack-ver" id="powered-by-sage-anns-version">v--</span></a>
+                </div>
             </div>
         </footer>
     </div>

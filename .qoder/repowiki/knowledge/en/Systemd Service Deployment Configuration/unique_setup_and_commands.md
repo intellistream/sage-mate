@@ -1,1 +1,1 @@
-Deployment requires replacing template placeholders (`__REPO_ROOT__`, `__PYTHON_BIN__`) in the service files before enabling them via `systemctl --user enable` and `start`.
+Deployment requires replacing placeholders (`__REPO_ROOT__`, `__PYTHON_BIN__`) in the service files with actual paths before installing them into the systemd user directory (e.g., `~/.config/systemd/user/`) and enabling them via `systemctl --user enable <service>`.

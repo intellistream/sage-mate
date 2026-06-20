@@ -1590,6 +1590,7 @@ async function refreshStatus() {
         knowledgePill.textContent = `知识库 ${data.knowledge_documents}`;
         renderTopbarLiveStatus(data);
         renderOnlineOverview(data);
+        renderLlmMetrics(data);
     } catch (error) {
         const hasRecentSnapshot =
             lastHealthyStatusSnapshot
@@ -1603,6 +1604,7 @@ async function refreshStatus() {
             knowledgePill.textContent = `知识库 ${cached.knowledge_documents}`;
             renderTopbarLiveStatus(cached);
             renderOnlineOverview(cached, "状态刷新较慢，当前显示最近一次成功快照。");
+            renderLlmMetrics(cached);
             return;
         }
         applyBranding(null, null, "");
@@ -1612,6 +1614,7 @@ async function refreshStatus() {
         knowledgePill.textContent = "知识库未知";
         renderTopbarLiveStatus(null);
         renderOnlineOverview(null, error.message);
+        renderLlmMetrics(null);
     }
 }
 
@@ -1672,6 +1675,70 @@ async function refreshHardwareBar() {
     } catch {
         // silently ignore
     }
+}
+
+function renderLlmMetrics(data) {
+    const container = document.getElementById("app-llm-metrics");
+    if (!container) return;
+    if (!data) {
+        container.style.display = "none";
+        return;
+    }
+    const statusEl = document.getElementById("metric-llm-status");
+    const latencyEl = document.getElementById("metric-llm-latency");
+    const cacheEl = document.getElementById("metric-llm-cache");
+    const rpsEl = document.getElementById("metric-llm-rps");
+
+    const requestCount = toCountNumber(data.llm_request_count);
+    const successCount = toCountNumber(data.llm_success_count);
+    const errorCount = toCountNumber(data.llm_error_count);
+    const avgLatency = Number(data.llm_avg_latency_ms || 0);
+    const cacheHitRate = Number(data.llm_app_cache_hit_rate || 0);
+    const rps = Number(data.llm_request_throughput_rps || 0);
+    const llmStatus = String(data.llm_status || "").toLowerCase();
+
+    /* Status chip */
+    if (statusEl) {
+        statusEl.classList.remove("metric-warn", "metric-error");
+        if ((llmStatus === "ok" || llmStatus === "healthy") && errorCount === 0) {
+            statusEl.textContent = requestCount > 0 ? "LLM OK" : "LLM idle";
+        } else if (errorCount > 0 && requestCount > 0 && (errorCount / requestCount) > 0.1) {
+            statusEl.textContent = `LLM ${errorCount}err`;
+            statusEl.classList.add("metric-error");
+        } else if (errorCount > 0) {
+            statusEl.textContent = `LLM ${errorCount}err`;
+            statusEl.classList.add("metric-warn");
+        } else {
+            statusEl.textContent = "LLM idle";
+        }
+    }
+
+    /* Latency chip */
+    if (latencyEl) {
+        if (avgLatency > 0 && Number.isFinite(avgLatency)) {
+            latencyEl.textContent = avgLatency >= 1000
+                ? `${(avgLatency / 1000).toFixed(1)}s`
+                : `${Math.round(avgLatency)}ms`;
+        } else {
+            latencyEl.textContent = "-- ms";
+        }
+    }
+
+    /* Cache hit rate chip */
+    if (cacheEl) {
+        cacheEl.textContent = requestCount > 0
+            ? `cache ${(cacheHitRate * 100).toFixed(0)}%`
+            : "cache --";
+    }
+
+    /* Throughput chip */
+    if (rpsEl) {
+        rpsEl.textContent = rps > 0
+            ? `${rps.toFixed(2)} rps`
+            : "0 rps";
+    }
+
+    container.style.display = "";
 }
 
 function renderTopbarLiveStatus(data) {
@@ -7849,6 +7916,73 @@ document.getElementById("token-usage-badge")?.addEventListener("click", (event) 
     if (!detail) return;
     if (event.target.closest(".token-usage-toggle") || event.target === event.currentTarget) {
         detail.hidden = !detail.hidden;
+    }
+});
+
+// ── Manual context compression ──────────────────────────────────────────────
+let contextCompressInProgress = false;
+
+document.getElementById("context-compress-btn")?.addEventListener("click", async (event) => {
+    event.stopPropagation();
+    if (contextCompressInProgress) return;
+
+    const btn = document.getElementById("context-compress-btn");
+    const label = document.getElementById("context-compress-label");
+    if (!btn || !label) return;
+
+    const originalText = label.textContent;
+    contextCompressInProgress = true;
+    btn.disabled = true;
+    btn.classList.add("compress-loading");
+    label.textContent = "压缩中…";
+
+    try {
+        const result = await apiRequest("/context/compress", {
+            method: "POST",
+            body: JSON.stringify({ conversation_id: activeConversationId || "" }),
+            timeoutMs: 30000,
+        });
+
+        if (result.ok) {
+            const turns = result.turns_compressed || 0;
+            const chars = result.digest_chars || 0;
+            if (turns > 0) {
+                label.textContent = `已压缩 ${turns} 轮 (${chars} 字)`;
+                btn.classList.add("compress-success");
+            } else {
+                label.textContent = result.message || "无需压缩";
+            }
+            globalThis.setTimeout(() => {
+                label.textContent = originalText;
+                btn.classList.remove("compress-success");
+            }, 3000);
+        } else {
+            label.textContent = result.error || "压缩失败";
+            btn.classList.add("compress-error");
+            globalThis.setTimeout(() => {
+                label.textContent = originalText;
+                btn.classList.remove("compress-error");
+            }, 3000);
+        }
+    } catch (error) {
+        const errMsg = error?.message || "";
+        if (errMsg.includes("超时") || errMsg.includes("Timeout") || errMsg.includes("abort")) {
+            label.textContent = "压缩超时，请稍后重试";
+        } else if (error?.status) {
+            label.textContent = `压缩失败 (${error.status})`;
+        } else {
+            label.textContent = "压缩请求失败";
+        }
+        btn.classList.add("compress-error");
+        globalThis.setTimeout(() => {
+            label.textContent = originalText;
+            btn.classList.remove("compress-error");
+        }, 3000);
+        console.error("Context compression failed:", error);
+    } finally {
+        contextCompressInProgress = false;
+        btn.disabled = false;
+        btn.classList.remove("compress-loading");
     }
 });
 

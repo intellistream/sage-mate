@@ -1,0 +1,26 @@
+{
+  "document_id": "17e748fa-1cc1-4f60-b8f7-aef3f2010cfd",
+  "title": "Wiki | 推荐阅读与学习资源",
+  "content": "[Wiki: 推荐阅读与学习资源](https://lab.sage.org.ai/sage-wiki/docs/resources/recommended-reading)\n\n# 推荐阅读与学习资源\n\n团队精选的 LLM 推理与系统方向必读论文和学习资源。\n\n## 推理系统核心论文\n\n| 论文 | 年份 | 关键词 | 推荐理由 |\n|------|------|--------|----------|\n| Efficient Memory Management for Large Language Model Serving with PagedAttention | 2023 | vLLM, PagedAttention | 推理引擎奠基之作 |\n| Orca: A Distributed Serving System for Transformer-Based Generative Models | 2022 | Continuous Batching | 调度策略开创性工作 |\n| SGLang: Efficient Execution of Structured Language Model Programs | 2024 | RadixAttention | 结构化生成与链接缓存 |\n\n## KV Cache 优化\n\n- **KIVI**: A Tuning-Free Asymmetric 2bit Quantization for KV Cache (2024)\n- **GearKV**: High-Performance KV Cache Compression with Gear (2024)\n- 实践笔记参见 [KV Cache 优化详解](../tech-notes/kv-cache-optimization.md)\n\n## 分布式系统\n\n- **Megatron-LM**: Training Multi-Billion Parameter Language Models Using Model Parallelism (2019)\n- **Alpa**: Automating Inter- and Intra-Operator Parallelism (2022)\n- 架构总结参见 [分布式推理架构模式](../tech-notes/distributed-inference-patterns.md)\n\n## 推理引擎入门\n\n- [LLM 推理入门教程](../tutorials/llm-inference-basics.md)\n- [Ascend NPU 开发指南](../tutorials/ascend-npu-setup.md)\n\n## 代码质量\n\n- [代码 Review 规范](../standards/code-review-standards.md)\n- [常用工具清单](tools-and-frameworks.md)",
+  "tags": [
+    "wiki",
+    "resource",
+    "audience:public"
+  ],
+  "source_name": "wiki:resources/recommended-reading",
+  "metadata": {
+    "audience": "public",
+    "source_kind": "wiki",
+    "wiki_url": "https://lab.sage.org.ai/sage-wiki/docs/resources/recommended-reading",
+    "wiki_category": "resources",
+    "linked_source_names": "wiki:tech-notes/kv-cache-optimization|wiki:tech-notes/distributed-inference-patterns|wiki:tutorials/llm-inference-basics|wiki:tutorials/ascend-npu-setup|wiki:standards/code-review-standards|wiki:resources/tools-and-frameworks",
+    "wiki_authors": "[shuhao]",
+    "wiki_date": "2026-01-15"
+  },
+  "created_at": "2026-06-20T13:37:25.260936Z",
+  "is_feedback_web": false,
+  "review_status": "unknown",
+  "freshness_status": "unknown",
+  "reviewed_at": null,
+  "reviewable": false
+}

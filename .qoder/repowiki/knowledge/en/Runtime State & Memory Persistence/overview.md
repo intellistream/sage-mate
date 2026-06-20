@@ -1,0 +1,1 @@
+Persists agent runtime state, including conversation memory, user profiles, capability plugins, and operational artifacts using file-based JSON and SQLite storage.

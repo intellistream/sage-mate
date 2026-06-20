@@ -1,0 +1,27 @@
+{
+  "document_id": "71299a3d-6073-4d78-b2c1-394e2d573ca1",
+  "title": "Wiki | 推理系统 Benchmark 指南",
+  "content": "[Wiki: 推理系统 Benchmark 指南](https://lab.sage.org.ai/sage-wiki/docs/resources/inference-benchmark-guide)\n\n# 推理系统 Benchmark 指南\n\n如何科学地评估 LLM 推理系统的性能。\n\n## 核心指标\n\n| 指标 | 定义 | 单位 |\n|------|------|------|\n| **Throughput** | 单位时间处理的请求数 | req/s |\n| **TTFT** | Time To First Token | ms |\n| **TBT** | Time Between Tokens | ms |\n| **E2E Latency** | 端到端延迟 | ms |\n| **Token Throughput** | 单位时间生成的 token 数 | tokens/s |\n\n## Benchmark 工具\n\n### vLLM Benchmark\n\n```bash\npython benchmarks/benchmark_serving.py \\\n    --model Qwen/Qwen2.5-7B \\\n    --dataset-name sharegpt \\\n    --num-prompts 100\n```\n\n### 自定义 Workload\n\n使用团队开发的 workload 生成器：\n- 支持多种请求分布（Poisson, bursty）\n- 可配置 input/output 长度分布\n- 详见 [常用工具清单](tools-and-frameworks.md)\n\n## 实验设计\n\n### 变量控制\n\n- **独立变量**：batch size, 模型大小, TP 度, KV Cache 策略\n- **控制变量**：固定硬件配置、输入长度分布\n- **测量变量**：上述核心指标\n\n### 统计方法\n\n- 至少 3 次重复实验\n- 报告 p50, p95, p99 延迟\n- 包含置信区间\n\n## NPU 特有考量\n\n- Ascend NPU 需要 Docker 容器化运行\n- Graph mode vs Eager mode 性能差异显著\n- 详细环境配置参见 [Ascend NPU 环境搭建](../tutorials/ascend-npu-setup.md)\n\n## 延伸阅读\n\n- [LLM 推理入门](../tutorials/llm-inference-basics.md)\n- [KV Cache 优化](../tech-notes/kv-cache-optimization.md)\n- [分布式推理架构](../tech-notes/distributed-inference-patterns.md)",
+  "tags": [
+    "wiki",
+    "resource",
+    "audience:public"
+  ],
+  "source_name": "wiki:resources/inference-benchmark-guide",
+  "metadata": {
+    "audience": "public",
+    "course_id": "llm-inference",
+    "source_kind": "wiki",
+    "wiki_url": "https://lab.sage.org.ai/sage-wiki/docs/resources/inference-benchmark-guide",
+    "wiki_category": "resources",
+    "linked_source_names": "wiki:resources/tools-and-frameworks|wiki:tutorials/ascend-npu-setup|wiki:tutorials/llm-inference-basics|wiki:tech-notes/kv-cache-optimization|wiki:tech-notes/distributed-inference-patterns",
+    "wiki_authors": "[shuhao]",
+    "wiki_date": "2026-03-28"
+  },
+  "created_at": "2026-06-20T13:37:23.304495Z",
+  "is_feedback_web": false,
+  "review_status": "unknown",
+  "freshness_status": "unknown",
+  "reviewed_at": null,
+  "reviewable": false
+}

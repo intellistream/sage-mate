@@ -863,9 +863,120 @@ Before implementation starts, the next agent or maintainer should confirm:
 
 ## V4 Plan
 
-`v4` should focus on multimodal interaction quality and real-time usability. The core theme is
-to keep V3's governed planning and operations visibility while adding a production-usable voice
+`v4` should focus on multimodal interaction quality, real-time usability, and long-conversation
+intelligence. The core theme is to keep V3's governed planning and operations visibility while
+adding context compression for long-running conversations, and a production-usable voice
 entry/response loop for students and faculty workflows.
+
+### V4 Context Compression — Rolling Conversation Digest (v4.1.0, Implemented)
+
+Long multi-turn conversations previously suffered from context loss: only the last 2 raw turns
+were injected into the prompt, and older context was discarded unless the memory store happened
+to retrieve it. `v4.1.0` introduces a **rolling conversation digest** that compresses older
+turns into a compact summary, preserving long-range context within the token budget.
+
+#### Design
+
+- **`ConversationDigestStore`**: per-conversation JSON-backed digest store under
+  `data/conversation_memory/digests/`. Each digest holds compressed text, a count of turns
+  summarized, and a timestamp.
+- **Threshold-triggered summarization**: after every `context_digest_turn_threshold` (default 4)
+  new turns, the service asks the LLM to produce a rolling summary that merges the existing
+  digest with the new turns. Thinking is disabled to minimize latency; output is capped at 256
+  tokens.
+- **Graceful fallback**: if the LLM call fails, a simple concatenation fallback is used so the
+  digest is never lost due to transient model errors.
+- **Prompt integration**: `_format_recent_session_context` now prepends the digest (if present)
+  before the last 4 raw turns, giving the model both compressed long-range context and detailed
+  recent context.
+- **Truncation chain integration**: the digest is added as step (d) in the `build_prompt`
+  truncation chain — it is the last thing dropped when the prompt exceeds the soft cap, since
+  raw recent turns are more immediately useful than a compressed summary.
+
+#### Configuration
+
+| Setting | Default | Description |
+|---|---|---|
+| `context_digest_enabled` | `true` | Enable/disable rolling digest. |
+| `context_digest_turn_threshold` | `4` | New turns before triggering summarization. |
+| `context_digest_max_chars` | `1500` | Maximum digest text length. |
+| `context_digest_dir` | `data/conversation_memory/digests` | Persistence directory. |
+
+Override via `DIGITAL_TWIN_*` environment variables.
+
+#### What Changed
+
+- `memory_store.py`: Added `ConversationDigestRecord` and `ConversationDigestStore`.
+- `config.py`: Added 4 digest-related settings.
+- `service.py`:
+  - `FacultyTwinWorkflowSupport`: added `_digest_store` and digest-aware
+    `_format_recent_session_context` (limit 4, prepends digest).
+  - `persist_memory`: triggers `_update_conversation_digest` after each new exchange.
+  - `build_prompt`: added step (d) to strip the digest from session context when over cap.
+  - New methods: `_update_conversation_digest`, `_summarize_digest_turns`.
+- `tests/test_conversation_digest.py`: 16 tests covering record serialization, store
+  persistence, trigger logic, and prompt truncation.
+
+Exit criteria:
+
+- Digest is created and persisted after the configured threshold of turns.
+- Digest text appears in the prompt alongside raw recent turns.
+- Digest is gracefully dropped when the prompt exceeds the soft cap.
+- LLM failure during summarization does not break the chat workflow.
+- All 16 tests pass.
+
+### V4 Context Compression — On-Demand Manual Trigger (v4.2.0, Implemented)
+
+The automatic rolling digest (v4.1.0) compresses older turns after every threshold of new
+exchanges. `v4.2.0` adds a **user-initiated compression trigger** so that users can force
+context compression at any time, without waiting for the turn threshold.
+
+#### Design
+
+- **UI trigger**: a "压缩上下文" (Compress Context) button is embedded inside the token
+  usage detail panel in the composer. Users click the token icon to expand the panel, then
+  click the button to trigger compression.
+- **`POST /context/compress`**: API endpoint that accepts a `conversation_id` and calls
+  `DigitalTwinService.compress_conversation_context()`. Always returns HTTP 200 with a
+  JSON body containing `ok`, `turns_compressed`, `total_turns`, and `digest_chars`.
+- **`compress_conversation_context()`**: bypasses the automatic threshold check and
+  immediately compresses all unsummarized turns (up to 32 per call) into the rolling
+  digest via the existing `_summarize_digest_turns` method.
+- **UX feedback loop**: the button shows three states — loading (spinning icon + "压缩中…"),
+  success (green + "已压缩 N 轮 (M 字)"), error (red + error reason). All states auto-revert
+  to the idle label after 3 seconds.
+- **Error handling**: distinguishes between timeout (LLM call too slow), HTTP errors
+  (server-side failure with status code), and connection failures (server unreachable).
+
+#### How Compression Reduces Tokens
+
+The digest does not reduce the current turn's token count. Instead, it affects **future
+prompts** via two mechanisms:
+
+1. **Bounded context growth**: `_format_recent_session_context(limit=4)` always includes
+   the last 4 turns verbatim. After compression, a compact digest (~500 chars) is prepended,
+   preserving long-range context that would otherwise be lost. For a 20-turn conversation,
+   the prompt stays bounded at ~500 + ~4000 chars instead of growing unbounded.
+2. **Prompt soft-cap truncation**: when the overall prompt exceeds the soft cap, the digest
+   is the first component stripped (step d in the truncation chain), directly reducing
+   prompt tokens for that request.
+
+#### What Changed
+
+- `service.py`: Added `compress_conversation_context(conversation_id)` public method.
+- `api.py`: Added `/context/compress` endpoint, imported `JSONResponse`.
+- `index.html`: Added compress button with icon in token usage detail panel.
+- `app.js`: Added click handler with loading/success/error states and auto-revert.
+- `styles.css`: Added `.context-compress-btn` styles with loading spinner, success green,
+  error red, and `@keyframes compress-spin` animation.
+
+Exit criteria:
+
+- Clicking the compress button triggers the API and shows progress feedback.
+- Compression succeeds for conversations with unsummarized turns.
+- Compression gracefully reports "无需压缩" when no new turns exist.
+- Timeout, HTTP error, and connection failures show distinct error messages.
+- All 35 tests pass.
 
 ### V4 Product Theme
 
@@ -967,3 +1078,15 @@ and organization-scale rollout to `v2`.
 `v2.0.0` is the first operations-console release. It includes the admin workbench, unified task
 queue, knowledge-gap drafts, student operations profiles, satisfaction metrics, and documentation
 needed to operate the current school deployment with local availability plus admin approval.
+
+`v4.1.0` adds rolling conversation digest (context compression): long multi-turn conversations
+now maintain a compressed summary of older turns that is injected into the prompt alongside the
+last 4 raw turns. This preserves long-range context without exceeding the token budget. The
+digest is LLM-summarized every 4 new turns and gracefully falls back to concatenation on model
+failure.
+
+`v4.2.0` adds on-demand manual context compression: users can trigger context compression at
+any time from the token usage detail panel in the composer. The button calls a dedicated
+`POST /context/compress` endpoint that forces immediate digest compression of all unsummarized
+turns, with clear UX feedback (loading, success, error states). Compression keeps future prompts
+bounded via the rolling digest and the prompt soft-cap truncation chain.

@@ -2,6 +2,31 @@
 
 ## Unreleased
 
+## v4.2.0 - 2026-06-20
+
+`v4.2.0` adds on-demand context compression, letting users manually trigger conversation context compression from the token usage panel.
+
+### Added
+
+- **Manual context compression trigger**: a "压缩上下文" button inside the token usage detail panel (accessible by clicking the token icon in the composer). When clicked, the service compresses all unsummarized conversation turns into a rolling digest immediately, bypassing the automatic turn-threshold check.
+- **`POST /context/compress` API endpoint**: accepts `{ "conversation_id": "..." }` and forces immediate digest compression. Returns `{ ok, turns_compressed, total_turns, digest_chars }`.
+- **`DigitalTwinService.compress_conversation_context()`**: public method that forces digest update for all unsummarized turns (up to 32 turns per call).
+- **Button UX states**: loading (spinning icon), success (green, shows turns compressed), error (red), idle (auto-reverts after 3s). Distinguishes timeout, HTTP error, and connection failure.
+
+### Changed
+
+- **Footer banner two-row layout**: restructured the footer into row 1 (hardware + LLM metrics, gradient background) and row 2 (Powered by stack chips, neutral background) for better visual separation.
+- **LLM metrics status fix**: status chip now correctly recognizes `"ok"` status value from health endpoint (previously only checked for `"healthy"`).
+
+### Technical
+
+- `service.py`: Added `compress_conversation_context()` method.
+- `api.py`: Added `/context/compress` endpoint, imported `JSONResponse`.
+- `index.html`: Added compress button in token detail panel.
+- `app.js`: Added compress click handler with progress states.
+- `styles.css`: Added compress button CSS with loading/success/error animations.
+- Tests: 35 passed (frontend contract + conversation digest + chat pipeline DAG).
+
 ## v4.0.1 - 2026-06-20
 
 `v4.0.1` simplifies deployment by making Docker the only path for the vLLM inference engine and fixing a skill-routing attribute bug.

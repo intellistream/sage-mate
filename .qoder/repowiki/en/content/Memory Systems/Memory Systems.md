@@ -9,9 +9,18 @@
 - [models.py](file://src/sage_faculty_twin/models.py)
 - [workflow_context.py](file://src/sage_faculty_twin/workflow_context.py)
 - [light_agent.py](file://src/sage_faculty_twin/light_agent.py)
-- [test_bm25_backend_config.py](file://tests/test_bm25_backend_config.py)
+- [service.py](file://src/sage_faculty_twin/service.py)
+- [test_conversation_digest.py](file://tests/test_conversation_digest.py)
 - [app.js](file://src/sage_faculty_twin/web/app.js)
 </cite>
+
+## Update Summary
+**Changes Made**
+- Added comprehensive documentation for the new ConversationDigestStore system
+- Documented the rolling digest mechanism that maintains compressed summaries of older conversation turns
+- Added details about intelligent summarization triggers based on accumulated conversation turns
+- Integrated digest system into memory architecture overview and persistence strategies
+- Updated configuration and integration points with workflow execution
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -25,18 +34,20 @@
 9. [Conclusion](#conclusion)
 
 ## Introduction
-This document explains the memory management architecture that powers conversational recall, long-term student profiling, artifact memory, and neural continual memory. It covers persistence strategies, retrieval mechanisms, cross-session context preservation, indexing and compression choices, and privacy-aware operations. It also demonstrates how memory integrates with workflow execution and provides practical usage patterns.
+This document explains the memory management architecture that powers conversational recall, long-term student profiling, artifact memory, neural continual memory, and the new rolling conversation digest system. It covers persistence strategies, retrieval mechanisms, cross-session context preservation, indexing and compression choices, and privacy-aware operations. The digest system intelligently compresses older conversation turns to reduce prompt size while preserving important context, featuring configurable thresholds and character limits for optimal performance.
 
 ## Project Structure
 The memory system spans several modules:
 - Memory store: conversation memory, profile memory, artifact indexing, and persistence
 - Profile summarizer: transforms conversations into long-term student profiles
 - Artifact memory draft store: manages drafts for material-based memory
-- Configuration: memory-related settings and defaults
+- Conversation digest store: maintains compressed summaries of older conversation turns
+- Configuration: memory-related settings including digest system configuration
 - Models: shared data structures used across memory and workflows
 - Workflow context: orchestrates memory usage in workflows
 - Light agent: consumes profile memory to generate follow-up actions
-- Tests and frontend: validate index configuration and expose profile listings
+- Service layer: coordinates digest updates and integrates with workflow execution
+- Tests and frontend: validate digest functionality and expose profile listings
 
 ```mermaid
 graph TB
@@ -44,11 +55,13 @@ subgraph "Memory Layer"
 MS["NeuroMemConversationStore<br/>conversation + profile + artifact memory"]
 PS["ProfileSummarizer<br/>identity/course/recent/booking/collaboration"]
 AMS["ArtifactMemoryDraftStore<br/>drafts for artifacts"]
+CDS["ConversationDigestStore<br/>rolling digest compression"]
 end
 subgraph "Runtime"
-CFG["AppSettings<br/>memory config"]
+CFG["AppSettings<br/>memory + digest config"]
 WFC["WorkflowRequestContext<br/>evidence sources"]
 LA["LightweightActionPlanner<br/>use profile memory"]
+SV["Service Layer<br/>digest updates + integration"]
 end
 subgraph "UI"
 FE["web/app.js<br/>profile listing UI"]
@@ -57,6 +70,8 @@ CFG --> MS
 PS --> MS
 WFC --> MS
 LA --> MS
+SV --> MS
+SV --> CDS
 FE --> MS
 AMS -. drafts .-> MS
 ```
@@ -65,22 +80,24 @@ AMS -. drafts .-> MS
 - [memory_store.py:223-257](file://src/sage_faculty_twin/memory_store.py#L223-L257)
 - [profile_summarizer.py:202-213](file://src/sage_faculty_twin/profile_summarizer.py#L202-L213)
 - [artifact_memory_draft_store.py:97-103](file://src/sage_faculty_twin/artifact_memory_draft_store.py#L97-L103)
-- [config.py:75-120](file://src/sage_faculty_twin/config.py#L75-L120)
+- [config.py:125-131](file://src/sage_faculty_twin/config.py#L125-L131)
 - [workflow_context.py:12-37](file://src/sage_faculty_twin/workflow_context.py#L12-L37)
 - [light_agent.py:21-31](file://src/sage_faculty_twin/light_agent.py#L21-L31)
+- [service.py:5456](file://src/sage_faculty_twin/service.py#L5456)
 - [app.js:2627-2656](file://src/sage_faculty_twin/web/app.js#L2627-L2656)
 
 **Section sources**
 - [memory_store.py:223-257](file://src/sage_faculty_twin/memory_store.py#L223-L257)
-- [config.py:75-120](file://src/sage_faculty_twin/config.py#L75-L120)
+- [config.py:125-131](file://src/sage_faculty_twin/config.py#L125-L131)
 
 ## Core Components
 - Conversation memory store: captures exchanges, builds short-term memory, and persists via SQLite snapshots
 - Profile memory store: consolidates stable student characteristics from conversations
 - Artifact memory: extracts and indexes excerpts from uploaded attachments
 - Neural continual memory: trainable, online continual memory for short-term recall
+- **Conversation digest store**: maintains rolling compressed summaries of older conversation turns with intelligent trigger-based summarization
 - Index selection and configuration: automatic selection of bm25/faiss/sage_vdb_ann with fallbacks
-- Persistence: SQLite-backed snapshots for collections and disk-based drafts
+- Persistence: SQLite-backed snapshots for collections; JSON drafts for artifacts and digest files
 - Privacy-aware filtering: guest handling and per-student scoping
 
 **Section sources**
@@ -90,27 +107,35 @@ AMS -. drafts .-> MS
 - [memory_store.py:947-994](file://src/sage_faculty_twin/memory_store.py#L947-L994)
 - [memory_store.py:1146-1179](file://src/sage_faculty_twin/memory_store.py#L1146-L1179)
 - [artifact_memory_draft_store.py:97-103](file://src/sage_faculty_twin/artifact_memory_draft_store.py#L97-L103)
+- [memory_store.py:255-318](file://src/sage_faculty_twin/memory_store.py#L255-L318)
 
 ## Architecture Overview
-The memory system is layered:
+The memory system is layered with the new digest system integrated:
 - Short-term conversation memory: dense neural continual memory with configurable index
 - Long-term profile memory: unified collection with stable summaries
 - Artifact memory: attachment excerpts indexed alongside conversations
-- Persistence: SQLite snapshots for collections; JSON drafts for artifacts
-- Retrieval: hybrid policy selecting short-term, long-term, and artifact candidates
+- **Conversation digest memory**: rolling compressed summaries of older turns with intelligent trigger-based updates
+- Persistence: SQLite snapshots for collections; JSON drafts for artifacts and digest files
+- Retrieval: hybrid policy selecting short-term, long-term, and artifact candidates with digest-aware context formatting
 
 ```mermaid
 sequenceDiagram
 participant User as "User"
 participant Store as "NeuroMemConversationStore"
+participant Digest as "ConversationDigestStore"
 participant Coll as "Collections"
 participant Index as "Indexes"
 participant DB as "SQLite"
 User->>Store : add_exchange(request, answer, workflow_action, ...)
 Store->>Store : build ConversationMemoryRecord
 Store->>Coll : insert conversation entry + attachment excerpts
-Coll->>Index : index entries (neural/lexical)
 Store->>DB : persist collection snapshot
+Store->>Digest : _update_conversation_digest(context)
+Digest->>Digest : check turn threshold
+alt threshold met
+Digest->>Digest : summarize older turns
+Digest->>DB : persist digest file
+end
 User->>Store : search(request, top_k, include_short_term, include_long_term)
 Store->>Store : select search plan
 alt short_term
@@ -130,6 +155,8 @@ Store-->>User : ranked ConversationMemoryHit[]
 - [memory_store.py:778-841](file://src/sage_faculty_twin/memory_store.py#L778-L841)
 - [memory_store.py:843-917](file://src/sage_faculty_twin/memory_store.py#L843-L917)
 - [memory_store.py:1146-1179](file://src/sage_faculty_twin/memory_store.py#L1146-L1179)
+- [service.py:1623-1672](file://src/sage_faculty_twin/service.py#L1623-L1672)
+- [memory_store.py:255-318](file://src/sage_faculty_twin/memory_store.py#L255-L318)
 
 ## Detailed Component Analysis
 
@@ -218,6 +245,54 @@ NeuroMemConversationStore --> MemorySearchPlan : "selects"
 - [memory_store.py:947-994](file://src/sage_faculty_twin/memory_store.py#L947-L994)
 - [memory_store.py:1146-1179](file://src/sage_faculty_twin/memory_store.py#L1146-L1179)
 - [memory_store.py:1458-1549](file://src/sage_faculty_twin/memory_store.py#L1458-L1549)
+
+### Conversation Digest Store
+**New Component** - Maintains rolling compressed summaries of older conversation turns to reduce prompt size while preserving important context.
+
+Responsibilities:
+- Store and retrieve compressed summaries of conversation history
+- Maintain per-conversation digest records with metadata
+- Provide persistent storage for digest files
+- Support intelligent trigger-based summarization updates
+
+Key behaviors:
+- Automatic sanitization of conversation IDs for filesystem safety
+- Threshold-based trigger logic that determines when to summarize
+- Configurable character limits for digest text length
+- Graceful fallback when LLM summarization fails
+- Persistent JSON file storage with corruption tolerance
+
+```mermaid
+classDiagram
+class ConversationDigestRecord {
++conversation_id : str
++digest_text : str
++turns_summarized : int
++updated_at : datetime
++to_dict() dict
++from_dict(dict) ConversationDigestRecord
+}
+class ConversationDigestStore {
++get_digest(conversation_id) ConversationDigestRecord?
++update_digest(conversation_id, digest_text, turns_summarized) ConversationDigestRecord
++count() int
++_digest_path(conversation_id) Path
++_persist(record) None
++_load_all() None
+}
+ConversationDigestStore --> ConversationDigestRecord : "manages"
+```
+
+**Diagram sources**
+- [memory_store.py:223-253](file://src/sage_faculty_twin/memory_store.py#L223-L253)
+- [memory_store.py:255-318](file://src/sage_faculty_twin/memory_store.py#L255-L318)
+
+**Section sources**
+- [memory_store.py:223-253](file://src/sage_faculty_twin/memory_store.py#L223-L253)
+- [memory_store.py:255-318](file://src/sage_faculty_twin/memory_store.py#L255-L318)
+- [test_conversation_digest.py:30-53](file://tests/test_conversation_digest.py#L30-L53)
+- [test_conversation_digest.py:60-98](file://tests/test_conversation_digest.py#L60-L98)
+- [test_conversation_digest.py:106-136](file://tests/test_conversation_digest.py#L106-L136)
 
 ### Profile Summarization System
 Responsibilities:
@@ -313,8 +388,10 @@ Index selection:
 
 Compression and storage:
 - Neural continual memory: trainable online memory with replay buffer and blending scores
+- **Conversation digest compression**: rolling summaries that replace older turns with compressed context
 - Unified collection: lexical bm25 with normalized backend settings
 - SQLite snapshots: raw collection data, config, and index metadata persisted atomically
+- **Digest files**: individual JSON files per conversation with sanitized filenames
 
 ```mermaid
 flowchart TD
@@ -332,6 +409,9 @@ J --> |Yes| F
 J --> |No| K["Raise error"]
 L["BM25 Config"] --> M["Pin backend=csc_backend=numpy"]
 N["FAISS/SAGEVDB Config"] --> O["Set dim, metric, algorithm, backend"]
+P["Digest Compression"] --> Q["Threshold-based summarization"]
+Q --> R["LLM summarization with fallback"]
+R --> S["JSON file persistence"]
 ```
 
 **Diagram sources**
@@ -339,6 +419,7 @@ N["FAISS/SAGEVDB Config"] --> O["Set dim, metric, algorithm, backend"]
 - [memory_store.py:350-369](file://src/sage_faculty_twin/memory_store.py#L350-L369)
 - [memory_store.py:1011-1087](file://src/sage_faculty_twin/memory_store.py#L1011-L1087)
 - [memory_store.py:1146-1179](file://src/sage_faculty_twin/memory_store.py#L1146-L1179)
+- [memory_store.py:255-318](file://src/sage_faculty_twin/memory_store.py#L255-L318)
 - [test_bm25_backend_config.py:7-14](file://tests/test_bm25_backend_config.py#L7-L14)
 
 **Section sources**
@@ -346,16 +427,19 @@ N["FAISS/SAGEVDB Config"] --> O["Set dim, metric, algorithm, backend"]
 - [memory_store.py:350-369](file://src/sage_faculty_twin/memory_store.py#L350-L369)
 - [memory_store.py:1011-1087](file://src/sage_faculty_twin/memory_store.py#L1011-L1087)
 - [memory_store.py:1146-1179](file://src/sage_faculty_twin/memory_store.py#L1146-L1179)
+- [memory_store.py:255-318](file://src/sage_faculty_twin/memory_store.py#L255-L318)
 - [test_bm25_backend_config.py:7-14](file://tests/test_bm25_backend_config.py#L7-L14)
 
 ### Memory Consolidation and Persistence
 Consolidation process:
 - After each conversation exchange, derive profile suggestions and upsert into long-term memory
+- **Update conversation digest when threshold is met: summarize older turns and persist compressed summary**
 - Canonicalize profile entries by category and timestamp
-- Persist collections to SQLite snapshots
+- Persist collections to SQLite snapshots and digest files
 
 Persistence:
 - Conversation and profile collections are stored in separate directories
+- **Digest files are stored as individual JSON files under the digest directory**
 - Legacy JSON snapshots are migrated into SQLite-backed persistence
 - Artifact drafts are stored as JSON files under a dedicated directory
 
@@ -363,6 +447,7 @@ Persistence:
 sequenceDiagram
 participant S as "Service"
 participant MS as "NeuroMemConversationStore"
+participant DS as "ConversationDigestStore"
 participant PC as "Profile Collection"
 participant CS as "Conversation Collection"
 participant DB as "SQLite"
@@ -370,6 +455,12 @@ S->>MS : consolidate_profiles(record)
 MS->>MS : derive suggestions
 MS->>PC : upsert profile entries
 MS->>CS : store conversation + attachments
+MS->>DS : _update_conversation_digest(context)
+DS->>DS : check threshold
+alt threshold met
+DS->>DS : summarize older turns
+DS->>DB : persist digest file
+end
 MS->>DB : persist both collections
 MS-->>S : profile_count
 ```
@@ -380,12 +471,16 @@ MS-->>S : profile_count
 - [memory_store.py:1442-1449](file://src/sage_faculty_twin/memory_store.py#L1442-L1449)
 - [memory_store.py:1566-1596](file://src/sage_faculty_twin/memory_store.py#L1566-L1596)
 - [memory_store.py:1146-1179](file://src/sage_faculty_twin/memory_store.py#L1146-L1179)
+- [service.py:1623-1672](file://src/sage_faculty_twin/service.py#L1623-L1672)
+- [memory_store.py:255-318](file://src/sage_faculty_twin/memory_store.py#L255-L318)
 
 **Section sources**
 - [memory_store.py:426-444](file://src/sage_faculty_twin/memory_store.py#L426-L444)
 - [memory_store.py:1422-1440](file://src/sage_faculty_twin/memory_store.py#L1422-L1440)
 - [memory_store.py:1566-1596](file://src/sage_faculty_twin/memory_store.py#L1566-L1596)
 - [memory_store.py:1146-1179](file://src/sage_faculty_twin/memory_store.py#L1146-L1179)
+- [service.py:1623-1672](file://src/sage_faculty_twin/service.py#L1623-L1672)
+- [memory_store.py:255-318](file://src/sage_faculty_twin/memory_store.py#L255-L318)
 
 ### Privacy and Cross-Session Context Preservation
 Privacy controls:
@@ -396,6 +491,7 @@ Privacy controls:
 Cross-session context:
 - Timelines maintain ordering of conversation exchanges per conversation_id
 - Recent memory retrieval augments results with recent same-conversation records
+- **Digest system preserves compressed context across sessions while reducing token usage**
 - Long-term memory preserves stable summaries across sessions
 
 **Section sources**
@@ -407,18 +503,25 @@ Cross-session context:
 ### Integration with Workflow Execution
 Integration points:
 - WorkflowRequestContext infers evidence sources including recent memory, profile memory, and artifact memory
+- **Service layer coordinates digest updates during conversation processing**
+- **Digest-aware context formatting in `_format_recent_session_context`**
 - LightweightActionPlanner consumes profile memory to suggest follow-ups and availability slots
 - Service consolidates profile memory after conversation completion
 
 ```mermaid
 sequenceDiagram
 participant WF as "WorkflowRequestContext"
+participant SV as "Service Layer"
 participant MS as "NeuroMemConversationStore"
+participant DS as "ConversationDigestStore"
 participant LP as "LightweightActionPlanner"
 WF->>WF : infer evidence sources
-WF->>MS : search(include_short_term, include_long_term)
-MS-->>WF : ConversationMemoryHit[]
-WF->>LP : plan_chat_actions(knowledge_hits, student_profiles, schedule)
+WF->>SV : _format_recent_session_context(request)
+SV->>DS : get_digest(conversation_id)
+DS-->>SV : digest_record or None
+SV->>MS : search(include_short_term, include_long_term)
+MS-->>SV : ConversationMemoryHit[]
+SV->>LP : plan_chat_actions(knowledge_hits, student_profiles, schedule)
 LP-->>WF : FollowUpAction[]
 ```
 
@@ -427,11 +530,15 @@ LP-->>WF : FollowUpAction[]
 - [memory_store.py:446-489](file://src/sage_faculty_twin/memory_store.py#L446-L489)
 - [light_agent.py:21-31](file://src/sage_faculty_twin/light_agent.py#L21-L31)
 - [light_agent.py:109-118](file://src/sage_faculty_twin/light_agent.py#L109-L118)
+- [service.py:2954-2981](file://src/sage_faculty_twin/service.py#L2954-L2981)
+- [service.py:1623-1672](file://src/sage_faculty_twin/service.py#L1623-L1672)
 
 **Section sources**
 - [workflow_context.py:210-239](file://src/sage_faculty_twin/workflow_context.py#L210-L239)
 - [light_agent.py:21-31](file://src/sage_faculty_twin/light_agent.py#L21-L31)
 - [light_agent.py:109-118](file://src/sage_faculty_twin/light_agent.py#L109-L118)
+- [service.py:2954-2981](file://src/sage_faculty_twin/service.py#L2954-L2981)
+- [service.py:1623-1672](file://src/sage_faculty_twin/service.py#L1623-L1672)
 
 ## Dependency Analysis
 - External dependencies:
@@ -439,19 +546,24 @@ LP-->>WF : FollowUpAction[]
   - Optional vector backends: sage_vdb_anns, faiss
 - Internal dependencies:
   - memory_store depends on profile_summarizer for consolidation
+  - **service layer coordinates digest updates and integrates with memory store**
   - workflow_context influences memory search scope
   - light_agent consumes profile memory for planning
   - artifact_memory_draft_store complements conversation memory with drafts
+  - **conversation_digest_store provides persistent storage for compressed context**
 
 ```mermaid
 graph LR
 MS["memory_store.py"] --> PS["profile_summarizer.py"]
 MS --> CFG["config.py"]
 MS --> MD["models.py"]
+SV["service.py"] --> MS
+SV --> CDS["ConversationDigestStore"]
 WFC["workflow_context.py"] --> MS
 LA["light_agent.py"] --> MS
 AMS["artifact_memory_draft_store.py"] -. drafts .-> MS
 MS --> NEU["sage.neuromem (external)"]
+CDS --> FS["Filesystem (JSON)"]
 ```
 
 **Diagram sources**
@@ -462,6 +574,8 @@ MS --> NEU["sage.neuromem (external)"]
 - [workflow_context.py:1-10](file://src/sage_faculty_twin/workflow_context.py#L1-L10)
 - [light_agent.py:1-10](file://src/sage_faculty_twin/light_agent.py#L1-L10)
 - [artifact_memory_draft_store.py:1-10](file://src/sage_faculty_twin/artifact_memory_draft_store.py#L1-L10)
+- [service.py:5456](file://src/sage_faculty_twin/service.py#L5456)
+- [memory_store.py:255-318](file://src/sage_faculty_twin/memory_store.py#L255-L318)
 
 **Section sources**
 - [memory_store.py:15-25](file://src/sage_faculty_twin/memory_store.py#L15-L25)
@@ -471,6 +585,8 @@ MS --> NEU["sage.neuromem (external)"]
 - [workflow_context.py:1-10](file://src/sage_faculty_twin/workflow_context.py#L1-L10)
 - [light_agent.py:1-10](file://src/sage_faculty_twin/light_agent.py#L1-L10)
 - [artifact_memory_draft_store.py:1-10](file://src/sage_faculty_twin/artifact_memory_draft_store.py#L1-L10)
+- [service.py:5456](file://src/sage_faculty_twin/service.py#L5456)
+- [memory_store.py:255-318](file://src/sage_faculty_twin/memory_store.py#L255-L318)
 
 ## Performance Considerations
 - Index selection: prefer vector-capable indexes for recall quality; fallback gracefully
@@ -478,8 +594,9 @@ MS --> NEU["sage.neuromem (external)"]
 - Top-k scaling: short-term queries scale with conversation context; long-term prioritizes categories
 - Guest filtering reduces irrelevant retrieval noise
 - Canonicalization prevents redundant profile entries and optimizes storage
-
-[No sources needed since this section provides general guidance]
+- **Digest threshold configuration: tune context_digest_turn_threshold to balance summarization frequency and context retention**
+- **Character limits: configure context_digest_max_chars to control memory footprint and LLM input size**
+- **Fallback mechanism: digest updates never block chat workflow due to LLM summarization failures**
 
 ## Troubleshooting Guide
 Common issues and resolutions:
@@ -487,12 +604,17 @@ Common issues and resolutions:
 - No results returned: verify guest filtering and per-student scoping; confirm conversation_id and student_key alignment
 - Migration errors: legacy directories must be empty after migration; check SQLite snapshot integrity
 - Draft status errors: status transitions require draft→accepted/rejected; invalid states raise errors
+- **Digest file corruption: digest store automatically skips invalid JSON files during load-all operations**
+- **Digest threshold issues: verify context_digest_turn_threshold configuration and conversation record counts**
+- **Digest storage problems: ensure context_digest_dir is writable and has sufficient space for JSON files**
 
 **Section sources**
 - [memory_store.py:270-322](file://src/sage_faculty_twin/memory_store.py#L270-L322)
 - [memory_store.py:1217-1256](file://src/sage_faculty_twin/memory_store.py#L1217-L1256)
 - [memory_store.py:1286-1319](file://src/sage_faculty_twin/memory_store.py#L1286-L1319)
 - [artifact_memory_draft_store.py:158-169](file://src/sage_faculty_twin/artifact_memory_draft_store.py#L158-L169)
+- [test_conversation_digest.py:106-136](file://tests/test_conversation_digest.py#L106-L136)
+- [config.py:125-131](file://src/sage_faculty_twin/config.py#L125-L131)
 
 ## Conclusion
-The memory system combines neural continual memory for short-term recall, unified profile memory for long-term stability, and artifact indexing for contextual material. It persists efficiently via SQLite snapshots and JSON drafts, supports robust index selection with fallbacks, and integrates tightly with workflows to preserve context across sessions while respecting privacy constraints.
+The memory system combines neural continual memory for short-term recall, unified profile memory for long-term stability, artifact indexing for contextual material, and the new rolling conversation digest system for efficient long-range context preservation. The digest system intelligently compresses older conversation turns based on configurable thresholds, reducing prompt size while maintaining important context. It persists efficiently via SQLite snapshots and JSON files, supports robust index selection with fallbacks, and integrates tightly with workflows to preserve context across sessions while respecting privacy constraints.

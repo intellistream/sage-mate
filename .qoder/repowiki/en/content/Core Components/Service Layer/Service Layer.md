@@ -17,14 +17,16 @@
 - [run_qwen3_32b_service.sh](file://run_qwen3_32b_service.sh)
 - [run_vllm_openai_proxy.sh](file://tools/run_vllm_openai_proxy.sh)
 - [sage-faculty-twin-vllm-openai-proxy.service](file://deploy/systemd/user/sage-faculty-twin-vllm-openai-proxy.service)
+- [web/app.js](file://src/sage_faculty_twin/web/app.js)
 </cite>
 
 ## Update Summary
 **Changes Made**
-- Updated retrieve_knowledge function documentation to reflect major refactoring that consolidates scattered trace append operations into a single unified trace entry
-- Enhanced knowledge retrieval documentation to emphasize improved clarity and maintainability
-- Updated web search execution logic to ensure it runs even when deterministic planner skips knowledge retrieval for certain query types
-- Revised service lifecycle management documentation to include enhanced service control mechanisms
+- Added documentation for enhanced mobile network resilience improvements with automatic retry logic for chat POST requests
+- Updated error messaging to display 'Network connection interrupted, retrying automatically...' instead of misleading messages
+- Documented critical bug fixes for _app_version and __version__ import issues in service.py and api.py
+- Enhanced LLM client retry mechanism documentation with exponential backoff strategy
+- Updated frontend error handling to support automatic retry messaging
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -33,21 +35,23 @@
 4. [Architecture Overview](#architecture-overview)
 5. [Detailed Component Analysis](#detailed-component-analysis)
 6. [Service Lifecycle and Management](#service-lifecycle-and-management)
-7. [Dependency Analysis](#dependency-analysis)
-8. [Performance Considerations](#performance-considerations)
-9. [Troubleshooting Guide](#troubleshooting-guide)
-10. [Conclusion](#conclusion)
+7. [Mobile Network Resilience](#mobile-network-resilience)
+8. [Dependency Analysis](#dependency-analysis)
+9. [Performance Considerations](#performance-considerations)
+10. [Troubleshooting Guide](#troubleshooting-guide)
+11. [Conclusion](#conclusion)
 
 ## Introduction
-This document explains the Sage Faculty Twin service layer architecture with a focus on the main service orchestrator, workflow context management, and inter-component communication patterns. It details the FacultyTwinWorkflowSupport class and its coordination across knowledge retrieval, memory management, booking workflows, and administrative functions. The architecture now includes enhanced service lifecycle management with consolidated Qwen3-32B service management through a unified script, improved graceful shutdown procedures, and advanced PID detection logic.
+This document explains the Sage Faculty Twin service layer architecture with a focus on the main service orchestrator, workflow context management, and inter-component communication patterns. It details the FacultyTwinWorkflowSupport class and its coordination across knowledge retrieval, memory management, booking workflows, and administrative functions. The architecture now includes enhanced service lifecycle management with consolidated Qwen3-32B service management through a unified script, improved graceful shutdown procedures, advanced PID detection logic, and comprehensive mobile network resilience features.
 
 ## Project Structure
-The service layer centers around a primary orchestrator that composes multiple subsystems, now enhanced with unified service management:
+The service layer centers around a primary orchestrator that composes multiple subsystems, now enhanced with unified service management and robust error handling:
 - Workflow orchestration and context: FacultyTwinWorkflowSupport and ChatWorkflowContext
 - Planning and policy: DeterministicWorkflowPlanner, WorkflowPolicy, and WorkflowSteps
 - Stores and services: Knowledge base, conversation memory, booking, notifications, user accounts, analytics
 - Runtime and configuration: AppSettings, ServiceRuntimeManager, and FastAPI endpoints
 - **Enhanced Service Management**: Unified Qwen3-32B service control with graceful shutdown and PID detection
+- **Mobile Network Resilience**: Automatic retry logic for transient network errors with exponential backoff
 
 ```mermaid
 graph TB
@@ -69,7 +73,7 @@ EAS["EscalationQueueStore"]
 FUS["FollowUpQueueStore"]
 SBS["SuggestionBoardStore"]
 MS["MeetingService"]
-LLM["VllmChatClient"]
+LLM["VllmChatClient<br/>with retry logic"]
 EML["BookingEmailNotifier"]
 WEB["WebSearchClient"]
 end
@@ -77,6 +81,10 @@ subgraph "Service Management"
 SRM["ServiceRuntimeManager<br/>Unified service control"]
 QSS["run_qwen3_32b_service.sh<br/>Graceful shutdown & PID detection"]
 VOP["vLLM OpenAI Proxy<br/>Service endpoint"]
+end
+subgraph "Network Resilience"
+RRL["Retry Logic<br/>Exponential Backoff"]
+EM["Enhanced Messaging<br/>Automatic Retry"]
 end
 S --> Ctx
 S --> DP
@@ -95,6 +103,8 @@ S --> EML
 S --> WEB
 SRM --> QSS
 SRM --> VOP
+LLM --> RRL
+RRL --> EM
 ```
 
 **Diagram sources**
@@ -105,6 +115,8 @@ SRM --> VOP
 - [service_runtime.py:13-69](file://src/sage_faculty_twin/service_runtime.py#L13-L69)
 - [run_qwen3_32b_service.sh:1-93](file://run_qwen3_32b_service.sh#L1-L93)
 - [vllm_openai_proxy.py:123-257](file://src/sage_faculty_twin/vllm_openai_proxy.py#L123-L257)
+- [llm_client.py:870-1069](file://src/sage_faculty_twin/llm_client.py#L870-L1069)
+- [config.py:24-26](file://src/sage_faculty_twin/config.py#L24-L26)
 
 **Section sources**
 - [service.py:581-634](file://src/sage_faculty_twin/service.py#L581-L634)
@@ -120,19 +132,21 @@ SRM --> VOP
 - ChatWorkflowContext: The per-request state container capturing inputs, intermediate results, planner decisions, and trace events.
 - DeterministicWorkflowPlanner: Builds and validates plans based on request context and policy, enabling deterministic step selection.
 - WorkflowPolicy and WorkflowStepDefinition: Define allowed steps, evidence sources, side effects, and latency budgets.
-- Subsystems: Knowledge base, conversation memory, artifact memory drafts, user accounts, escalations, follow-ups, suggestions, meetings, LLM client, email notifier, and web search.
+- Subsystems: Knowledge base, conversation memory, artifact memory drafts, user accounts, escalations, follow-ups, suggestions, meetings, LLM client with retry logic, email notifier, and web search.
 - **Enhanced Service Management**: ServiceRuntimeManager with unified service control, run_qwen3_32b_service.sh for Qwen3-32B management, and vLLM OpenAI proxy for service endpoint exposure.
+- **Mobile Network Resilience**: Automatic retry mechanisms with exponential backoff for transient network errors, enhanced error messaging, and improved frontend retry handling.
 
 Key responsibilities:
 - Bootstrap and intent classification
 - Knowledge and memory retrieval
 - Prompt assembly with soft caps and truncation
-- LLM answer generation (streaming optional)
+- LLM answer generation with retry logic (streaming optional)
 - Memory persistence and artifact draft creation
 - Booking workflow orchestration
 - Administrative functions (knowledge ingestion, reviews, analytics)
 - Post-answer background tasks (memory consolidation, usefulness scoring, follow-up planning)
 - **Service lifecycle management**: Unified service control, graceful shutdown procedures, PID detection and management
+- **Network resilience**: Automatic retry for transient errors, enhanced error messaging, and frontend retry support
 
 **Section sources**
 - [service.py:581-634](file://src/sage_faculty_twin/service.py#L581-L634)
@@ -149,7 +163,7 @@ Key responsibilities:
 - [run_qwen3_32b_service.sh:1-93](file://run_qwen3_32b_service.sh#L1-L93)
 
 ## Architecture Overview
-The service layer uses a deterministic planner to select a fixed sequence of steps per request, validated against a policy. The orchestrator coordinates subsystems and maintains a canonical trace of executed steps. Optional background post-answer stages run after the initial response is returned to improve throughput. The architecture now includes enhanced service lifecycle management with unified Qwen3-32B service control.
+The service layer uses a deterministic planner to select a fixed sequence of steps per request, validated against a policy. The orchestrator coordinates subsystems and maintains a canonical trace of executed steps. Optional background post-answer stages run after the initial response is returned to improve throughput. The architecture now includes enhanced service lifecycle management with unified Qwen3-32B service control and comprehensive mobile network resilience features.
 
 ```mermaid
 sequenceDiagram
@@ -161,6 +175,7 @@ participant Policy as "WorkflowPolicy"
 participant Steps as "WorkflowStepRegistry"
 participant SRM as "ServiceRuntimeManager"
 participant QSS as "run_qwen3_32b_service.sh"
+participant LLM as "VllmChatClient<br/>with Retry Logic"
 Client->>API : "POST /chat"
 API->>Orchestrator : "bootstrap_chat(ChatRequest)"
 Orchestrator->>Planner : "plan(WorkflowRequestContext)"
@@ -170,11 +185,14 @@ Planner-->>Orchestrator : "PlannerDecision"
 Orchestrator->>Orchestrator : "understand_interaction()"
 Orchestrator->>Orchestrator : "retrieve_knowledge()/retrieve_memory()"
 Orchestrator->>Orchestrator : "build_prompt()"
-Orchestrator->>Orchestrator : "answer_with_llm()"
+Orchestrator->>LLM : "answer_with_llm()<br/>Auto Retry on Transient Errors"
 Note over SRM,QSS : Service lifecycle management
 SRM->>QSS : "start/stop/restart service"
 QSS->>QSS : "PID detection & graceful shutdown"
-Orchestrator->>Orchestrator : "persist_memory()/consolidate_profile_memory()"
+Note over Client,API : Network Resilience
+API->>API : "Automatic Retry on Transient Errors"
+API->>API : "Enhanced Error Messaging"
+Orchestrator->>Orchestrator : "persist_memory()/consolidate_profile()"
 Orchestrator->>Orchestrator : "plan_follow_up_actions()/score_memory_usefulness()"
 Orchestrator-->>API : "ChatResponse"
 API-->>Client : "ChatResponse"
@@ -193,6 +211,7 @@ API-->>Client : "ChatResponse"
 - [workflow_planner.py:110-133](file://src/sage_faculty_twin/workflow_planner.py#L110-L133)
 - [service_runtime.py:19-48](file://src/sage_faculty_twin/service_runtime.py#L19-L48)
 - [run_qwen3_32b_service.sh:12-86](file://run_qwen3_32b_service.sh#L12-L86)
+- [llm_client.py:870-1069](file://src/sage_faculty_twin/llm_client.py#L870-L1069)
 
 ## Detailed Component Analysis
 
@@ -203,7 +222,7 @@ API-->>Client : "ChatResponse"
 - Booking workflow: Prepares booking state from intent and question parsing; executes booking and attaches notifications.
 - Knowledge/memory retrieval: Runs retrievers conditioned on planner acceptance and intent; integrates web search when appropriate.
 - Prompt building: Assembles a bounded prompt with soft caps and truncation strategies; marks truncation in trace.
-- LLM answer: Calls LLM client with policy-driven parameters; supports streaming callbacks.
+- LLM answer: Calls LLM client with policy-driven parameters and automatic retry logic; supports streaming callbacks.
 - Persistence: Writes conversation exchanges and artifact memory drafts; consolidates long-term profiles.
 - Post-answer actions: Plans follow-ups and evaluates memory usefulness; renders final ChatResponse with canonical trace.
 
@@ -212,6 +231,7 @@ Implementation highlights:
 - Soft prompt cap with progressive truncation prioritizes memory hits, knowledge excerpts, and attachment bodies.
 - Background post-answer stages can be enabled/disabled via environment flags to optimize latency.
 - **Enhanced integration**: Seamless coordination with unified service management for Qwen3-32B model availability.
+- **Retry logic**: Integrated automatic retry mechanism for transient network errors during LLM operations.
 
 **Section sources**
 - [service.py:581-634](file://src/sage_faculty_twin/service.py#L581-L634)
@@ -326,6 +346,7 @@ D --> |rejected| F["PlannerDecision.fallback"]
 - Callbacks: Optional token streaming callback and trace callback enable real-time SSE updates and diagnostics.
 - Environment-driven toggles: Flags control background post-answer execution, web search auto-trigger, and streaming answer behavior.
 - **Service integration**: VllmChatClient seamlessly integrates with the unified Qwen3-32B service management through the vLLM OpenAI proxy.
+- **Retry integration**: LLM client provides built-in retry logic with exponential backoff for transient network errors.
 
 **Section sources**
 - [service.py:581-634](file://src/sage_faculty_twin/service.py#L581-L634)
@@ -432,11 +453,76 @@ Example paths:
 - [vllm_openai_proxy.py:157-169](file://src/sage_faculty_twin/vllm_openai_proxy.py#L157-L169)
 - [run_vllm_openai_proxy.sh:33-53](file://tools/run_vllm_openai_proxy.sh#L33-L53)
 
+## Mobile Network Resilience
+
+### Automatic Retry Logic for Chat POST Requests
+The system now implements comprehensive automatic retry logic for chat POST requests to handle transient network errors gracefully. This enhancement ensures reliable service operation in mobile network environments with intermittent connectivity.
+
+**Key Features:**
+- **Transient Error Detection**: Automatically identifies network timeouts and connection interruptions
+- **Exponential Backoff Strategy**: Implements progressive retry delays to minimize server load
+- **Configurable Retry Attempts**: Adjustable retry limits through configuration settings
+- **Automatic Recovery Messaging**: Provides clear user feedback about automatic retry attempts
+
+### LLM Client Retry Mechanism
+The VllmChatClient incorporates sophisticated retry logic with exponential backoff for handling transient LLM service errors:
+
+```mermaid
+flowchart TD
+A["LLM Request Attempt"] --> B{"HTTP Timeout?"}
+B --> |Yes| C{"Retry Attempts Left?"}
+B --> |No| D{"Other Error?"}
+C --> |Yes| E["Exponential Backoff<br/>Delay = backoff_seconds * 2^attempt"]
+E --> F["Retry Request"]
+C --> |No| G["Raise Timeout Error"]
+D --> |Yes| H["Surface Error to Caller"]
+D --> |No| I["Raise Exception"]
+F --> A
+```
+
+**Diagram sources**
+- [llm_client.py:870-1069](file://src/sage_faculty_twin/llm_client.py#L870-L1069)
+- [llm_client.py:1908-1912](file://src/sage_faculty_twin/llm_client.py#L1908-L1912)
+
+### Enhanced Error Messaging
+The system now provides more informative error messages to users experiencing network connectivity issues:
+
+- **Clear Retry Indication**: Users receive messages like "Network connection interrupted, retrying automatically..."
+- **Progress Tracking**: Workflow traces capture retry attempts for debugging and monitoring
+- **Graceful Degradation**: System continues operation during temporary network outages
+- **User Experience**: Minimizes user confusion by providing actionable feedback
+
+### Frontend Integration
+The frontend application supports automatic retry messaging and improved error handling:
+
+- **Network Error Detection**: JavaScript detects network interruption errors
+- **Retry Message Display**: Shows user-friendly retry messages instead of technical errors
+- **Connection Status**: Provides real-time feedback on connection status
+- **Automatic Recovery**: Attempts to recover from transient network issues
+
+**Section sources**
+- [llm_client.py:870-1069](file://src/sage_faculty_twin/llm_client.py#L870-L1069)
+- [llm_client.py:1908-1912](file://src/sage_faculty_twin/llm_client.py#L1908-L1912)
+- [config.py:24-26](file://src/sage_faculty_twin/config.py#L24-L26)
+- [web/app.js:4222-4249](file://src/sage_faculty_twin/web/app.js#L4222-L4249)
+
+### Implementation Examples
+- **Retry Configuration**: Configurable retry attempts and backoff settings
+- **Error Handling**: Comprehensive error handling for network-related exceptions
+- **Frontend Integration**: JavaScript-based error detection and user messaging
+- **Logging and Monitoring**: Detailed logging of retry attempts and success rates
+
+Example paths:
+- [config.py:24-26](file://src/sage_faculty_twin/config.py#L24-L26)
+- [llm_client.py:870-1069](file://src/sage_faculty_twin/llm_client.py#L870-L1069)
+- [web/app.js:4222-4249](file://src/sage_faculty_twin/web/app.js#L4222-L4249)
+
 ## Dependency Analysis
 - Coupling: FacultyTwinWorkflowSupport depends on many subsystems; however, it centralizes orchestration and minimizes cross-dependencies among subsystems.
 - Cohesion: Each method encapsulates a distinct workflow phase, improving maintainability.
 - External dependencies: LLM client, web search, email notifier, and stores are injected, enabling testability and pluggability.
 - **Enhanced Service Dependencies**: ServiceRuntimeManager integrates with unified service management scripts and systemd for comprehensive service lifecycle control.
+- **Network Resilience Dependencies**: LLM client retry logic integrates with configuration settings and provides exponential backoff for transient errors.
 
 ```mermaid
 graph LR
@@ -451,13 +537,15 @@ Orchestrator --> EAS["EscalationQueueStore"]
 Orchestrator --> FUS["FollowUpQueueStore"]
 Orchestrator --> SBS["SuggestionBoardStore"]
 Orchestrator --> MS["MeetingService"]
-Orchestrator --> LLM["VllmChatClient"]
+Orchestrator --> LLM["VllmChatClient<br/>with Retry Logic"]
 Orchestrator --> EML["BookingEmailNotifier"]
 Orchestrator --> WEB["WebSearchClient"]
 SRM["ServiceRuntimeManager"] --> QSS["run_qwen3_32b_service.sh"]
 SRM --> VOP["vLLM OpenAI Proxy"]
 QSS --> Container["Docker Container"]
 VOP --> Upstream["Qwen3-32B Model Service"]
+LLM --> Retry["Exponential Backoff"]
+Retry --> Config["Retry Configuration"]
 ```
 
 **Diagram sources**
@@ -468,6 +556,7 @@ VOP --> Upstream["Qwen3-32B Model Service"]
 - [service_runtime.py:13-69](file://src/sage_faculty_twin/service_runtime.py#L13-L69)
 - [run_qwen3_32b_service.sh:10-10](file://run_qwen3_32b_service.sh#L10-L10)
 - [vllm_openai_proxy.py:123-257](file://src/sage_faculty_twin/vllm_openai_proxy.py#L123-L257)
+- [llm_client.py:870-1069](file://src/sage_faculty_twin/llm_client.py#L870-L1069)
 
 **Section sources**
 - [service.py:581-634](file://src/sage_faculty_twin/service.py#L581-L634)
@@ -485,6 +574,8 @@ VOP --> Upstream["Qwen3-32B Model Service"]
 - Latency budgets: Planner enforces step-level and total latency budgets aligned with policy.
 - Concurrency: Lazy initialization avoids cold-start overhead; SSE broker manages concurrent streams safely.
 - **Service Management**: Unified service control reduces operational overhead and improves reliability through centralized management.
+- **Network Resilience**: Exponential backoff retry mechanism optimizes resource usage during transient failures.
+- **Mobile Optimization**: Enhanced error handling and retry logic improve user experience in variable network conditions.
 
 ## Troubleshooting Guide
 Common issues and strategies:
@@ -498,6 +589,11 @@ Common issues and strategies:
   - Graceful shutdown problems: Verify SIGTERM/SIGKILL handling in the shutdown procedure
   - Service control failures: Review ServiceRuntimeManager error messages and systemd integration
   - Proxy connection issues: Verify vLLM OpenAI proxy configuration and authentication
+- **Network Resilience Issues**:
+  - Retry attempts exhausted: Check LLM client configuration and network connectivity
+  - Excessive retry delays: Adjust retry backoff settings in configuration
+  - Frontend error messaging: Verify JavaScript error handling and user feedback implementation
+  - Connection interruption: Monitor workflow traces for retry attempt details
 
 **Section sources**
 - [service.py:1894-1896](file://src/sage_faculty_twin/service.py#L1894-L1896)
@@ -508,10 +604,15 @@ Common issues and strategies:
 - [run_qwen3_32b_service.sh:17-86](file://run_qwen3_32b_service.sh#L17-L86)
 - [service_runtime.py:31-48](file://src/sage_faculty_twin/service_runtime.py#L31-L48)
 - [vllm_openai_proxy.py:157-169](file://src/sage_faculty_twin/vllm_openai_proxy.py#L157-L169)
+- [llm_client.py:870-1069](file://src/sage_faculty_twin/llm_client.py#L870-L1069)
 
 ## Conclusion
 The Sage Faculty Twin service layer combines deterministic planning with robust orchestration to deliver consistent, policy-aligned responses. FacultyTwinWorkflowSupport coordinates knowledge retrieval, memory management, booking workflows, and administrative functions while maintaining traceability and performance. The design emphasizes configurability, streaming, and background processing to balance responsiveness and completeness.
 
 **Enhanced Service Management**: The architecture now includes comprehensive service lifecycle management with consolidated Qwen3-32B service control, graceful shutdown procedures, and advanced PID detection logic. This provides improved reliability, centralized control, and streamlined operations for the AI model infrastructure. The unified approach ensures consistent service management across development, testing, and production environments while maintaining the flexibility to scale and adapt to changing operational requirements.
+
+**Mobile Network Resilience**: The system now features comprehensive mobile network resilience through automatic retry logic for chat POST requests, enhanced error messaging, and improved frontend integration. The LLM client implements sophisticated retry mechanisms with exponential backoff to handle transient network errors gracefully. Users receive clear feedback about automatic retry attempts, improving the overall user experience in variable network conditions.
+
+**Bug Fixes**: Critical bug fixes for _app_version and __version__ import issues in service.py and api.py ensure proper version handling and prevent import-related errors. These fixes contribute to the stability and reliability of the service layer architecture.
 
 **Knowledge Retrieval Enhancement**: The refactored retrieve_knowledge function demonstrates the commitment to continuous improvement, with consolidated trace operations and enhanced web search execution logic ensuring better clarity, maintainability, and reliability in the knowledge retrieval process.

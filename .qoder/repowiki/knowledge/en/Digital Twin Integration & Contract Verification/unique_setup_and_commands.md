@@ -1,2 +1,0 @@
-- **Offline Model Requirement**: Tests skip embedding-dependent modules unless `BAAI/bge-small-zh-v1.5` is pre-cached locally, enforced by `HF_HUB_OFFLINE=1` in `conftest.py`.
-- **Sibling Path Injection**: The test suite automatically prepends paths to `../SAGE/src` and `../sageVDB` if they exist, allowing local development of dependent libraries without installation.

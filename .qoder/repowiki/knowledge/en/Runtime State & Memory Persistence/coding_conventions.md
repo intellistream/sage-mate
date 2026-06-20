@@ -1,0 +1,3 @@
+- UUIDs are used as primary identifiers for user accounts, knowledge base documents, feedback records, and follow-up actions, typically embedded in filenames.
+- JSON is the universal serialization format for all configuration, state, and content data, with consistent use of `created_at` and `updated_at` ISO 8601 timestamps.
+- Capability plugins define execution flows via declarative step arrays, specifying inputs, outputs, and timeout budgets for each stage.

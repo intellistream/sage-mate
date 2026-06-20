@@ -1,0 +1,26 @@
+{
+  "document_id": "57e267a1-b81d-4d86-8ce7-25d601d36e27",
+  "title": "Wiki | 常用工具与框架清单",
+  "content": "[Wiki: 常用工具与框架清单](https://lab.sage.org.ai/sage-wiki/docs/resources/tools-and-frameworks)\n\n# 常用工具与框架清单\n\n团队日常开发和推理系统研究中常用的工具和框架。\n\n## 推理引擎\n\n| 工具 | 用途 | 链接 |\n|------|------|------|\n| vLLM | 高吞吐 LLM 推理引擎 | github.com/vllm-project/vllm |\n| vLLM-Ascend | vLLM 的 Ascend NPU 适配 | github.com/intellistream/vllm-ascend |\n| SGLang | 结构化生成引擎 | github.com/sgl-project/sglang |\n\n## 开发工具\n\n- **Git**: 版本控制，团队规范参见 [代码 Review 规范](../standards/code-review-standards.md)\n- **Docker**: 容器化部署，NPU 开发必须在 Docker 中运行\n- **tmux/screen**: 终端复用，长时间训练必备\n\n## 监控与调试\n\n- **npu-smi**: NPU 状态监控\n- **ascend-dmi**: 硬件诊断工具\n- **torch.profiler**: PyTorch 性能分析\n\n## 环境搭建\n\n详细的安装步骤参见 [Ascend NPU 开发环境搭建](../tutorials/ascend-npu-setup.md)。\n\n## 延伸阅读\n\n- [推荐阅读与学习资源](recommended-reading.md)\n- [推理系统 Benchmark 指南](inference-benchmark-guide.md)\n- [LLM 推理入门](../tutorials/llm-inference-basics.md)",
+  "tags": [
+    "wiki",
+    "resource",
+    "audience:public"
+  ],
+  "source_name": "wiki:resources/tools-and-frameworks",
+  "metadata": {
+    "audience": "public",
+    "source_kind": "wiki",
+    "wiki_url": "https://lab.sage.org.ai/sage-wiki/docs/resources/tools-and-frameworks",
+    "wiki_category": "resources",
+    "linked_source_names": "wiki:standards/code-review-standards|wiki:tutorials/ascend-npu-setup|wiki:resources/recommended-reading|wiki:resources/inference-benchmark-guide|wiki:tutorials/llm-inference-basics",
+    "wiki_authors": "[shuhao]",
+    "wiki_date": "2026-02-10"
+  },
+  "created_at": "2026-06-20T13:37:27.209402Z",
+  "is_feedback_web": false,
+  "review_status": "unknown",
+  "freshness_status": "unknown",
+  "reviewed_at": null,
+  "reviewable": false
+}

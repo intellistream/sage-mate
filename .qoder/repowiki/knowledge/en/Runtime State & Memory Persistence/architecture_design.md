@@ -1,0 +1,4 @@
+- **Storage Strategy**: Hybrid persistence using flat JSON files for document-oriented data (knowledge base, user accounts, plugins) and SQLite databases for relational/metric data (planner metrics, comparisons, core memory store).
+- **Data Segregation**: Strict directory-based separation of concerns: `conversation_memory` for interaction history and feedback, `knowledge_base` for retrieved context documents, `capability_plugins` for tool definitions, and `user_accounts` for identity.
+- **Configuration & Policy**: Static JSON configurations define plugin steps (`capability_plugins/*.json`) and workflow constraints (`workflow_policies/*.json`), while persona behavior is driven by a markdown profile (`persona/style_profile.md`).
+- **Artifact Management**: Operational artifacts like follow-up actions and availability schedules are stored as timestamped or UUID-named JSON records, facilitating simple append-only or update-by-ID patterns.

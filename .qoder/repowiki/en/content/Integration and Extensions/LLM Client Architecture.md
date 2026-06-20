@@ -8,16 +8,19 @@
 - [service.py](file://src/sage_faculty_twin/service.py)
 - [config.py](file://src/sage_faculty_twin/config.py)
 - [models.py](file://src/sage_faculty_twin/models.py)
+- [skill_runner.py](file://src/sage_faculty_twin/skill_runner.py)
+- [skill_tools.py](file://src/sage_faculty_twin/skill_tools.py)
+- [skills.py](file://src/sage_faculty_twin/skills.py)
 - [sage-faculty-twin-vllm-openai-proxy.service](file://deploy/systemd/user/sage-faculty-twin-vllm-openai-proxy.service)
 </cite>
 
 ## Update Summary
 **Changes Made**
-- Added comprehensive documentation for the new StreamingServerError exception class
-- Enhanced error handling section with automatic retry mechanisms for vLLM SSE error payloads
-- Updated troubleshooting guide with specific guidance for thinking token budget configuration issues
-- Added graceful fallback mechanisms for missing reasoning configurations
-- Expanded error handling documentation with practical examples
+- Added comprehensive documentation for the new chat_with_tools_sync method supporting OpenAI function-calling capabilities
+- Enhanced tool-calling architecture documentation with multi-step reasoning workflows
+- Updated skill system documentation to include function-calling integration patterns
+- Added detailed coverage of tool execution loops, parameter validation, and result handling
+- Expanded error handling documentation with tool-calling specific considerations
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -26,19 +29,21 @@
 4. [Architecture Overview](#architecture-overview)
 5. [Detailed Component Analysis](#detailed-component-analysis)
 6. [Enhanced Error Handling and Recovery](#enhanced-error-handling-and-recovery)
-7. [Dependency Analysis](#dependency-analysis)
-8. [Performance Considerations](#performance-considerations)
-9. [Troubleshooting Guide](#troubleshooting-guide)
-10. [Conclusion](#conclusion)
-11. [Appendices](#appendices)
+7. [Tool-Calling Architecture](#tool-calling-architecture)
+8. [Skill System Integration](#skill-system-integration)
+9. [Dependency Analysis](#dependency-analysis)
+10. [Performance Considerations](#performance-considerations)
+11. [Troubleshooting Guide](#troubleshooting-guide)
+12. [Conclusion](#conclusion)
+13. [Appendices](#appendices)
 
 ## Introduction
 This document explains the LLM client architecture and the OpenAI-compatible proxy system used by the Sage Faculty Twin platform. It covers the client abstraction layer, connection pooling, request routing, streaming and caching, authentication, and performance optimization strategies. It also provides guidance for integrating new LLM providers, implementing fallback mechanisms, and monitoring latency, while maintaining compatibility with existing workflows.
 
-**Updated** Enhanced with comprehensive error handling documentation covering the new StreamingServerError exception class and automatic retry mechanisms for vLLM SSE error payloads.
+**Updated** Enhanced with comprehensive tool-calling support documentation covering the new chat_with_tools_sync method, multi-step reasoning workflows, and skill system integration for complex AI agent capabilities.
 
 ## Project Structure
-The system centers around a FastAPI application that orchestrates a deterministic workflow pipeline. The LLM client encapsulates HTTP communication with an OpenAI-compatible backend, including streaming, caching, and congestion-aware token shaping. An optional OpenAI-compatible proxy sits in front of the upstream LLM to enforce authentication and route requests.
+The system centers around a FastAPI application that orchestrates a deterministic workflow pipeline. The LLM client encapsulates HTTP communication with an OpenAI-compatible backend, including streaming, caching, and congestion-aware token shaping. An optional OpenAI-compatible proxy sits in front of the upstream LLM to enforce authentication and route requests. The enhanced architecture now supports sophisticated tool-calling capabilities for complex multi-step reasoning tasks.
 
 ```mermaid
 graph TB
@@ -46,13 +51,22 @@ subgraph "FastAPI Application"
 API["API Endpoints<br/>/chat, /health"]
 Service["DigitalTwinService<br/>orchestrates workflow"]
 LLMClient["VllmChatClient<br/>HTTP client + cache + metrics"]
+SkillRunner["SkillRunner<br/>manages tool-calling workflows"]
 end
 subgraph "Optional Proxy Layer"
 ProxyApp["OpenAI-Compatible Proxy<br/>FastAPI app"]
 Upstream["Upstream LLM<br/>vLLM OpenAI-compatible"]
 end
+subgraph "Tool System"
+SkillTools["SkillToolRegistry<br/>built-in tool handlers"]
+Skills["Skill Definitions<br/>function-calling schemas"]
+end
 API --> Service
 Service --> LLMClient
+Service --> SkillRunner
+SkillRunner --> LLMClient
+SkillRunner --> SkillTools
+SkillTools --> Skills
 LLMClient -. optional .-> ProxyApp
 ProxyApp --> Upstream
 ```
@@ -62,17 +76,25 @@ ProxyApp --> Upstream
 - [service.py:5319-5485](file://src/sage_faculty_twin/service.py#L5319-L5485)
 - [llm_client.py:84-155](file://src/sage_faculty_twin/llm_client.py#L84-L155)
 - [vllm_openai_proxy.py:123-257](file://src/sage_faculty_twin/vllm_openai_proxy.py#L123-L257)
+- [skill_runner.py:80-219](file://src/sage_faculty_twin/skill_runner.py#L80-L219)
+- [skill_tools.py:22-71](file://src/sage_faculty_twin/skill_tools.py#L22-L71)
+- [skills.py:70-94](file://src/sage_faculty_twin/skills.py#L70-L94)
 
 **Section sources**
 - [api.py:90-116](file://src/sage_faculty_twin/api.py#L90-L116)
 - [service.py:5319-5485](file://src/sage_faculty_twin/service.py#L5319-L5485)
 - [llm_client.py:84-155](file://src/sage_faculty_twin/llm_client.py#L84-L155)
 - [vllm_openai_proxy.py:123-257](file://src/sage_faculty_twin/vllm_openai_proxy.py#L123-L257)
+- [skill_runner.py:80-219](file://src/sage_faculty_twin/skill_runner.py#L80-L219)
+- [skill_tools.py:22-71](file://src/sage_faculty_twin/skill_tools.py#L22-L71)
+- [skills.py:70-94](file://src/sage_faculty_twin/skills.py#L70-L94)
 
 ## Core Components
-- VllmChatClient: HTTP client wrapper for OpenAI-compatible LLM APIs with streaming, caching, metrics, and congestion-aware shaping.
+- VllmChatClient: HTTP client wrapper for OpenAI-compatible LLM APIs with streaming, caching, metrics, and congestion-aware shaping. Now includes advanced tool-calling support through chat_with_tools_sync method.
 - DigitalTwinService: Orchestrates the chat workflow, integrates retrieval, builds prompts, invokes the LLM, persists memory, and renders responses.
 - OpenAI-Compatible Proxy: Optional FastAPI proxy enforcing authentication and forwarding requests to the upstream LLM.
+- SkillRunner: Manages multi-turn tool-calling workflows with automatic tool execution and result processing.
+- SkillToolRegistry: Provides built-in tool handlers for knowledge search, memory retrieval, scheduling, and other capabilities.
 - API Layer: Exposes endpoints for chat, health, and administrative operations.
 
 Key capabilities:
@@ -82,15 +104,18 @@ Key capabilities:
 - Authentication via bearer tokens or x-api-key.
 - Structured tracing and telemetry for latency, throughput, and cache hit rates.
 - **Enhanced Error Handling**: Automatic detection and recovery from vLLM SSE error payloads with graceful fallback mechanisms.
+- **Advanced Tool-Calling**: Sophisticated function-calling support with multi-step reasoning workflows and automatic tool execution.
 
 **Section sources**
 - [llm_client.py:84-155](file://src/sage_faculty_twin/llm_client.py#L84-L155)
 - [service.py:5319-5485](file://src/sage_faculty_twin/service.py#L5319-L5485)
 - [vllm_openai_proxy.py:123-257](file://src/sage_faculty_twin/vllm_openai_proxy.py#L123-L257)
 - [api.py:634-716](file://src/sage_faculty_twin/api.py#L634-L716)
+- [skill_runner.py:80-219](file://src/sage_faculty_twin/skill_runner.py#L80-L219)
+- [skill_tools.py:22-71](file://src/sage_faculty_twin/skill_tools.py#L22-L71)
 
 ## Architecture Overview
-The request lifecycle flows from FastAPI endpoints through the service layer to the LLM client, optionally via the OpenAI-compatible proxy. The service constructs prompts, triggers LLM completion (optionally streaming), and executes post-answer stages asynchronously.
+The request lifecycle flows from FastAPI endpoints through the service layer to the LLM client, optionally via the OpenAI-compatible proxy. The service constructs prompts, triggers LLM completion (optionally streaming), and executes post-answer stages asynchronously. The enhanced architecture now supports sophisticated tool-calling workflows where the LLM can request multiple tool executions across several turns.
 
 ```mermaid
 sequenceDiagram
@@ -98,26 +123,21 @@ participant Client as "Client"
 participant API as "FastAPI /chat"
 participant Service as "DigitalTwinService"
 participant LLM as "VllmChatClient"
+participant SkillRunner as "SkillRunner"
 participant Proxy as "OpenAI Proxy"
 participant Upstream as "Upstream LLM"
 Client->>API : POST /chat (ChatRequest)
 API->>Service : answer(ChatRequest)
 Service->>Service : plan workflow, build prompt
-Service->>LLM : answer_question_sync(system, user, stream?)
-alt streaming enabled
-LLM->>Proxy : POST /chat/completions (stream=true)
-Proxy->>Upstream : forward with auth
-Upstream-->>Proxy : SSE chunks
-Proxy-->>LLM : stream chunks
-LLM-->>Service : token_callback(delta)
-Service-->>API : SSE answer_delta events
-else non-streaming
-LLM->>Proxy : POST /chat/completions
-Proxy->>Upstream : forward with auth
-Upstream-->>Proxy : JSON response
-Proxy-->>LLM : JSON response
-LLM-->>Service : final answer
-end
+Service->>SkillRunner : execute tool-calling workflow
+SkillRunner->>LLM : chat_with_tools_sync(messages, tools)
+LLM->>Proxy : POST /chat/completions (tools enabled)
+Proxy->>Upstream : forward with auth and tools
+Upstream-->>Proxy : function call response
+Proxy-->>LLM : tool execution results
+LLM-->>SkillRunner : tool_calls + content
+SkillRunner->>SkillRunner : execute tools automatically
+SkillRunner-->>Service : final answer after tool execution
 Service-->>API : ChatResponse
 API-->>Client : ChatResponse
 ```
@@ -125,7 +145,8 @@ API-->>Client : ChatResponse
 **Diagram sources**
 - [api.py:634-716](file://src/sage_faculty_twin/api.py#L634-L716)
 - [service.py:5319-5485](file://src/sage_faculty_twin/service.py#L5319-L5485)
-- [llm_client.py:661-758](file://src/sage_faculty_twin/llm_client.py#L661-L758)
+- [llm_client.py:974-1065](file://src/sage_faculty_twin/llm_client.py#L974-L1065)
+- [skill_runner.py:84-178](file://src/sage_faculty_twin/skill_runner.py#L84-L178)
 - [vllm_openai_proxy.py:170-251](file://src/sage_faculty_twin/vllm_openai_proxy.py#L170-L251)
 
 ## Detailed Component Analysis
@@ -150,6 +171,10 @@ API-->>Client : ChatResponse
   - Enforces global caps and minimums for interactive deadlines.
 - Retry and Backoff:
   - Retries with exponential backoff on timeouts; records errors and last error message.
+- **Enhanced Tool-Calling Support**:
+  - New chat_with_tools_sync method enables sophisticated function-calling workflows.
+  - Automatic tool execution with parameter validation and result processing.
+  - Multi-turn reasoning loops with automatic tool invocation cycles.
 
 ```mermaid
 classDiagram
@@ -162,6 +187,7 @@ class VllmChatClient {
 -_metrics_lock
 -_cache_lock
 +answer_question_sync(system, user, token_callback?, ...)
++chat_with_tools_sync(messages, tools, temperature?, max_tokens?, tool_choice?)
 +classify_interaction_intent_sync(question, course_context?, recent_session?)
 +generate_lucky_question_sync(...)
 +runtime_snapshot() dict
@@ -180,12 +206,14 @@ class VllmChatClient {
 **Diagram sources**
 - [llm_client.py:84-155](file://src/sage_faculty_twin/llm_client.py#L84-L155)
 - [llm_client.py:661-836](file://src/sage_faculty_twin/llm_client.py#L661-L836)
+- [llm_client.py:974-1065](file://src/sage_faculty_twin/llm_client.py#L974-L1065)
 - [llm_client.py:1204-1297](file://src/sage_faculty_twin/llm_client.py#L1204-L1297)
 - [llm_client.py:1507-1599](file://src/sage_faculty_twin/llm_client.py#L1507-L1599)
 
 **Section sources**
 - [llm_client.py:84-155](file://src/sage_faculty_twin/llm_client.py#L84-L155)
 - [llm_client.py:661-836](file://src/sage_faculty_twin/llm_client.py#L661-L836)
+- [llm_client.py:974-1065](file://src/sage_faculty_twin/llm_client.py#L974-L1065)
 - [llm_client.py:1204-1297](file://src/sage_faculty_twin/llm_client.py#L1204-L1297)
 - [llm_client.py:1507-1599](file://src/sage_faculty_twin/llm_client.py#L1507-L1599)
 
@@ -382,12 +410,141 @@ PropagateError --> Fail["Fail with Error"]
 - [llm_client.py:770-788](file://src/sage_faculty_twin/llm_client.py#L770-L788)
 - [llm_client.py:667-684](file://src/sage_faculty_twin/llm_client.py#L667-L684)
 
+## Tool-Calling Architecture
+
+### chat_with_tools_sync Method
+The new chat_with_tools_sync method enables sophisticated function-calling capabilities for complex multi-step reasoning tasks. This method supports OpenAI-compatible function calling with automatic tool execution and result processing.
+
+#### Method Signature and Parameters
+- **messages**: List of conversation messages in OpenAI format
+- **tools**: List of tool definitions in OpenAI function-calling format
+- **temperature**: Generation temperature (default: 0.2)
+- **max_tokens**: Maximum tokens for generation (default: 4096)
+- **tool_choice**: Tool selection strategy ("auto", "required", or specific tool name)
+
+#### Function-Calling Workflow
+The method implements a sophisticated multi-turn reasoning loop:
+
+1. **Initial Call**: Sends messages and tools to the LLM
+2. **Tool Selection**: LLM decides whether to execute tools based on the query
+3. **Automatic Execution**: If tools are requested, SkillRunner executes them automatically
+4. **Result Integration**: Tool results are appended to messages for follow-up calls
+5. **Final Answer**: LLM provides final response after tool execution completes
+
+#### Tool Execution Loop
+```mermaid
+flowchart TD
+Start(["chat_with_tools_sync called"]) --> InitialCall["Send initial request with tools"]
+InitialCall --> AnalyzeResponse{"LLM requests tool calls?"}
+AnalyzeResponse --> |No| ReturnDirect["Return direct answer"]
+AnalyzeResponse --> |Yes| ExecuteTools["Execute tools automatically"]
+ExecuteTools --> ProcessResults["Process tool results"]
+ProcessResults --> AppendResults["Append tool results to messages"]
+AppendResults --> FollowUpCall["Send follow-up request"]
+FollowUpCall --> FinalAnswer["Return final answer"]
+```
+
+**Diagram sources**
+- [llm_client.py:974-1065](file://src/sage_faculty_twin/llm_client.py#L974-L1065)
+- [skill_runner.py:84-178](file://src/sage_faculty_twin/skill_runner.py#L84-L178)
+
+#### Parameter Validation and Normalization
+The method includes robust parameter validation and normalization:
+
+- **Tool Validation**: Ensures at least one tool is provided
+- **Function Schema**: Converts skill tool definitions to OpenAI-compatible function schemas
+- **Argument Processing**: Handles both JSON string and dictionary arguments
+- **Error Handling**: Graceful fallback for malformed tool arguments
+
+**Section sources**
+- [llm_client.py:974-1065](file://src/sage_faculty_twin/llm_client.py#L974-L1065)
+- [skill_runner.py:84-178](file://src/sage_faculty_twin/skill_runner.py#L84-L178)
+
+## Skill System Integration
+
+### SkillToolRegistry
+The SkillToolRegistry manages built-in tool handlers that wrap existing service functionality. These tools provide capabilities like knowledge search, memory retrieval, scheduling, and other specialized functions.
+
+#### Built-in Tools
+- **knowledge_search**: Searches the knowledge base for relevant documents
+- **memory_search**: Searches conversation memory for context
+- **get_team_schedule**: Retrieves team schedule and meeting availability
+- **get_blockers**: Gets unresolved items from previous sessions
+- **get_paper_digest**: Retrieves paper summaries and digests
+- **get_courseware**: Accesses course materials and resources
+- **get_writing_rubric**: Provides writing evaluation criteria
+
+#### Tool Handler Execution
+Each tool handler receives structured arguments and returns JSON-formatted results:
+
+```python
+def execute(self, handler_name: str, arguments: dict[str, Any]) -> str:
+    """Execute a tool handler with the given arguments.
+    
+    Returns a JSON string with the result or error.
+    """
+    handler = self._handlers.get(handler_name)
+    if handler is None:
+        return json.dumps({"error": f"Unknown tool: {handler_name}"})
+    try:
+        result = handler(**arguments)
+        return result if isinstance(result, str) else json.dumps(result)
+    except Exception as exc:
+        logger.warning("Tool %s failed: %s", handler_name, exc)
+        return json.dumps({"error": str(exc)})
+```
+
+**Section sources**
+- [skill_tools.py:22-71](file://src/sage_faculty_twin/skill_tools.py#L22-L71)
+- [skill_tools.py:74-284](file://src/sage_faculty_twin/skill_tools.py#L74-L284)
+
+### Skill Definition Schema
+Skills are self-contained, executable units with built-in prompts, tool definitions, and composability. Each skill declares:
+
+- **Trigger Patterns**: Patterns that activate the skill
+- **System Prompt**: Context and instructions for the skill
+- **User Prompt Template**: Template for user queries
+- **Tools**: Function-calling definitions for tool execution
+- **Max Turns**: Maximum number of reasoning cycles
+- **Output Format**: Response formatting specification
+
+#### OpenAI Function Schema Conversion
+Skills convert their tool definitions to OpenAI-compatible function schemas:
+
+```python
+def to_openai_tool(self) -> dict[str, Any]:
+    """Convert to OpenAI function-calling tool format."""
+    required_params = [
+        name for name, param in self.parameters.items() if param.required
+    ]
+    properties = {
+        name: param.to_openai_property() for name, param in self.parameters.items()
+    }
+    return {
+        "type": "function",
+        "function": {
+            "name": self.name,
+            "description": self.description,
+            "parameters": {
+                "type": "object",
+                "properties": properties,
+                "required": required_params,
+            },
+        },
+    }
+```
+
+**Section sources**
+- [skills.py:70-94](file://src/sage_faculty_twin/skills.py#L70-L94)
+- [skills.py:19-68](file://src/sage_faculty_twin/skills.py#L19-L68)
+
 ## Dependency Analysis
 The system exhibits layered dependencies:
 - API depends on DigitalTwinService.
 - DigitalTwinService depends on VllmChatClient and various stores/services.
 - VllmChatClient depends on AppSettings and httpx.
 - Optional proxy depends on environment configuration and upstream LLM.
+- **Enhanced Dependencies**: SkillRunner depends on SkillToolRegistry and manages tool execution loops.
 
 ```mermaid
 graph LR
@@ -398,6 +555,9 @@ Service --> Models["models.py"]
 LLM --> Config
 Proxy["vllm_openai_proxy.py"] --> Env["Environment Variables"]
 Proxy --> Upstream["Upstream LLM"]
+SkillRunner["skill_runner.py"] --> LLM
+SkillRunner --> SkillTools["skill_tools.py"]
+SkillTools --> Skills["skills.py"]
 ```
 
 **Diagram sources**
@@ -406,6 +566,9 @@ Proxy --> Upstream["Upstream LLM"]
 - [llm_client.py:84-155](file://src/sage_faculty_twin/llm_client.py#L84-L155)
 - [config.py:9-131](file://src/sage_faculty_twin/config.py#L9-L131)
 - [vllm_openai_proxy.py:36-65](file://src/sage_faculty_twin/vllm_openai_proxy.py#L36-L65)
+- [skill_runner.py:80-219](file://src/sage_faculty_twin/skill_runner.py#L80-L219)
+- [skill_tools.py:22-71](file://src/sage_faculty_twin/skill_tools.py#L22-L71)
+- [skills.py:70-94](file://src/sage_faculty_twin/skills.py#L70-L94)
 
 **Section sources**
 - [api.py:90-116](file://src/sage_faculty_twin/api.py#L90-L116)
@@ -413,6 +576,9 @@ Proxy --> Upstream["Upstream LLM"]
 - [llm_client.py:84-155](file://src/sage_faculty_twin/llm_client.py#L84-L155)
 - [config.py:9-131](file://src/sage_faculty_twin/config.py#L9-L131)
 - [vllm_openai_proxy.py:36-65](file://src/sage_faculty_twin/vllm_openai_proxy.py#L36-L65)
+- [skill_runner.py:80-219](file://src/sage_faculty_twin/skill_runner.py#L80-L219)
+- [skill_tools.py:22-71](file://src/sage_faculty_twin/skill_tools.py#L22-L71)
+- [skills.py:70-94](file://src/sage_faculty_twin/skills.py#L70-L94)
 
 ## Performance Considerations
 - Connection Pooling:
@@ -427,6 +593,10 @@ Proxy --> Upstream["Upstream LLM"]
   - Progressive truncation prioritizes recent memory, knowledge excerpts, and attachments to bound prompt size.
 - **Enhanced Error Recovery**:
   - Automatic detection and recovery from SSE error payloads reduces retry overhead and improves system reliability.
+- **Tool-Calling Optimization**:
+  - Automatic tool execution reduces latency by eliminating manual intervention.
+  - Parameter validation prevents unnecessary retries due to malformed tool calls.
+  - Multi-turn reasoning loops optimize for complex queries requiring multiple tool executions.
 
 ## Troubleshooting Guide
 Common issues and remedies:
@@ -448,8 +618,13 @@ Common issues and remedies:
 - **Automatic Recovery**:
   - The client automatically removes problematic parameters and retries
   - Monitor `_supports_thinking_budget` state to verify configuration detection
+- **Tool-Calling Issues**:
+  - **Unknown Tool Errors**: Verify tool names match registered handlers in SkillToolRegistry
+  - **Parameter Validation**: Ensure tool arguments match the expected schema defined in skill definitions
+  - **Execution Failures**: Check tool handler implementations for proper error handling and JSON serialization
+  - **Max Turn Limits**: Configure appropriate max_turns for complex multi-step workflows
 
-**Updated** Added comprehensive troubleshooting guidance for the new StreamingServerError exception class and thinking token budget configuration issues.
+**Updated** Added comprehensive troubleshooting guidance for the new tool-calling architecture, including unknown tool errors, parameter validation issues, and execution failures.
 
 **Section sources**
 - [vllm_openai_proxy.py:36-65](file://src/sage_faculty_twin/vllm_openai_proxy.py#L36-L65)
@@ -458,13 +633,15 @@ Common issues and remedies:
 - [api.py:127-147](file://src/sage_faculty_twin/api.py#L127-L147)
 - [llm_client.py:53-67](file://src/sage_faculty_twin/llm_client.py#L53-L67)
 - [llm_client.py:695-714](file://src/sage_faculty_twin/llm_client.py#L695-L714)
+- [skill_runner.py:84-178](file://src/sage_faculty_twin/skill_runner.py#L84-L178)
+- [skill_tools.py:53-67](file://src/sage_faculty_twin/skill_tools.py#L53-L67)
 
 ## Conclusion
 The Sage Faculty Twin platform combines a robust LLM client with a deterministic workflow and optional OpenAI-compatible proxy to deliver responsive, scalable, and observable chat experiences. The client's streaming, caching, and congestion-aware shaping ensure consistent performance, while the proxy centralizes authentication and routing. 
 
-**Updated** The recent enhancements include comprehensive error handling with the new StreamingServerError exception class, automatic detection and recovery from vLLM SSE error payloads, and graceful fallback mechanisms for configuration issues. These improvements significantly enhance system reliability and reduce operational overhead when dealing with upstream LLM configuration problems.
+**Updated** The recent enhancements include comprehensive tool-calling support through the new chat_with_tools_sync method, sophisticated multi-step reasoning workflows, and seamless integration with the skill system. The enhanced architecture enables complex AI agent capabilities with automatic tool execution, parameter validation, and result processing. These improvements significantly expand the platform's ability to handle complex multi-step reasoning tasks while maintaining the same robust error handling and recovery mechanisms.
 
-Extending support for new LLM providers involves adhering to the OpenAI-compatible interface, configuring the proxy, and wiring the client accordingly. The enhanced error handling framework ensures that new providers benefit from the same robust error recovery mechanisms.
+Extending support for new LLM providers involves adhering to the OpenAI-compatible interface, configuring the proxy, and wiring the client accordingly. The enhanced tool-calling framework ensures that new providers benefit from the same sophisticated function-calling capabilities and automatic tool execution mechanisms.
 
 ## Appendices
 
@@ -500,3 +677,18 @@ These parameters control the balance between error resilience and system perform
 **Section sources**
 - [config.py:25-26](file://src/sage_faculty_twin/config.py#L25-L26)
 - [config.py:91-96](file://src/sage_faculty_twin/config.py#L91-L96)
+
+### Tool-Calling Configuration Parameters
+The system includes several configuration parameters that influence tool-calling behavior:
+
+- **skill_max_turns**: Maximum number of reasoning cycles for tool-calling workflows
+- **tool_choice**: Default tool selection strategy ("auto", "required", or specific tool)
+- **temperature**: Generation temperature for tool-calling responses
+- **max_tokens**: Maximum tokens for tool-calling responses
+
+These parameters control the balance between tool-calling effectiveness and system performance, allowing administrators to optimize for their specific use cases.
+
+**Section sources**
+- [skill_runner.py:84-178](file://src/sage_faculty_twin/skill_runner.py#L84-L178)
+- [llm_client.py:974-1065](file://src/sage_faculty_twin/llm_client.py#L974-L1065)
+- [skills.py:86](file://src/sage_faculty_twin/skills.py#L86)

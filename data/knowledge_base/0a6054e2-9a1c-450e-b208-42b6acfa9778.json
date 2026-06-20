@@ -1,0 +1,26 @@
+{
+  "document_id": "0a6054e2-9a1c-450e-b208-42b6acfa9778",
+  "title": "Wiki | RAG 系统设计与实践",
+  "content": "[Wiki: RAG 系统设计与实践](https://lab.sage.org.ai/sage-wiki/docs/tech-notes/retrieval-augmented-generation)\n\n# RAG 系统设计与实践\n\nRetrieval-Augmented Generation (RAG) 将检索系统与 LLM 生成结合，是当前知识问答的主流架构。\n\n## RAG 架构\n\n```\n用户查询 → 向量检索(ANNS) → 上下文增强 → LLM 生成 → 回答\n```\n\n核心组件：\n1. **Embedding 模型**：将文本转为向量表示\n2. **向量索引**：ANNS (Approximate Nearest Neighbor Search) 索引\n3. **Reranker**：对候选文档进行精排\n4. **生成模型**：基于检索上下文生成回答\n\n## 检索质量优化\n\n### 混合检索\n\n结合向量检索和关键词检索（BM25）的优势：\n- 向量检索：语义匹配能力强\n- BM25：精确匹配能力强\n- 融合策略：Reciprocal Rank Fusion (RRF) 或线性加权\n\n### Query 改写\n\n- **HyDE**：让 LLM 先生成假设性答案，再用答案做检索\n- **Query Expansion**：扩展查询词，提高召回率\n\n### 链接结构增强\n\n我们的研究探索了利用 wiki 内部链接结构来增强检索质量：\n- ANNS 检索后进行 1-hop 链接扩展\n- 利用 wiki 中人工策划的链接关系\n- 在保持低延迟的同时提高召回率\n- 详细设计参见 [Prompt Engineering 实践](../tutorials/prompt-engineering-guide.md)\n\n## 与知识库系统的整合\n\nRAG 系统通常需要一个高质量的知识库作为检索源：\n- 结构化 wiki（如 Docusaurus）提供天然的组织结构\n- 知识图谱方案（如 GraphRAG）增加了实体关系但成本高\n- 轻量级方案利用现有链接结构，成本更低\n\n## 延伸阅读\n\n- [Prompt Engineering 指南](../tutorials/prompt-engineering-guide.md)\n- [推荐阅读](recommended-reading.md)\n- [知识库架构参考](../achievements/sage-system-overview.md)",
+  "tags": [
+    "wiki",
+    "tech-note",
+    "audience:lab_member"
+  ],
+  "source_name": "wiki:tech-notes/retrieval-augmented-generation",
+  "metadata": {
+    "audience": "lab_member",
+    "source_kind": "wiki",
+    "wiki_url": "https://lab.sage.org.ai/sage-wiki/docs/tech-notes/retrieval-augmented-generation",
+    "wiki_category": "tech-notes",
+    "linked_source_names": "wiki:tutorials/prompt-engineering-guide|wiki:tutorials/prompt-engineering-guide|wiki:tech-notes/recommended-reading|wiki:achievements/sage-system-overview",
+    "wiki_authors": "[shuhao]",
+    "wiki_date": "2026-06-01"
+  },
+  "created_at": "2026-06-20T13:37:38.927230Z",
+  "is_feedback_web": false,
+  "review_status": "unknown",
+  "freshness_status": "unknown",
+  "reviewed_at": null,
+  "reviewable": false
+}

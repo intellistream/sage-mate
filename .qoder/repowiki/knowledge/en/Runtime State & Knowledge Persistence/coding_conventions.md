@@ -1,3 +1,0 @@
-- Individual entity records (users, knowledge documents, feedback) are stored as separate JSON files named with UUIDs.
-- Temporal or weekly aggregated data (e.g., availability) is stored in date-stamped or context-specific JSON files.
-- Plugin and policy configurations use structured JSON schemas defining steps, inputs, and constraints.

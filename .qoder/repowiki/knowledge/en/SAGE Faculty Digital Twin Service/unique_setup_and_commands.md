@@ -1,3 +1,0 @@
-- **Runtime Bootstrap**: `runtime_env.py` automatically prepends sibling repositories (`SAGE`, `sageVDB`, `neuromem`) to `sys.path` and symlinks compiled `.so` extensions from PyPI installs into source trees if missing.
-- **Environment Variables**: Extensive use of `DIGITAL_TWIN_*` prefixes for configuration (e.g., `DIGITAL_TWIN_LLM_BASE_URL`, `DIGITAL_TWIN_CONVERSATION_MEMORY_INDEX_TYPE`).
-- **Dependency Linking**: Requires manual or automatic linking of `sageVDB` shared libraries via `link_shared_libs.sh` or the built-in auto-fixer in `bootstrap_runtime_env`.

@@ -219,6 +219,104 @@ class MemorySearchPlan:
     long_term_limit: int
 
 
+@dataclass(slots=True)
+class ConversationDigestRecord:
+    """Rolling digest of a conversation's older turns.
+
+    The digest accumulates compressed summaries of earlier exchanges so
+    that the prompt builder can inject long-range context without the
+    token cost of verbatim history.  Each update merges new turns into
+    the existing digest text via an LLM summarization call.
+    """
+
+    conversation_id: str
+    digest_text: str
+    turns_summarized: int
+    updated_at: datetime
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "conversation_id": self.conversation_id,
+            "digest_text": self.digest_text,
+            "turns_summarized": self.turns_summarized,
+            "updated_at": self.updated_at.isoformat(),
+        }
+
+    @classmethod
+    def from_dict(cls, payload: dict[str, object]) -> ConversationDigestRecord:
+        return cls(
+            conversation_id=str(payload["conversation_id"]),
+            digest_text=str(payload["digest_text"]),
+            turns_summarized=int(payload.get("turns_summarized", 0)),
+            updated_at=datetime.fromisoformat(str(payload["updated_at"])),
+        )
+
+
+class ConversationDigestStore:
+    """Persistent store for per-conversation rolling digests.
+
+    Each digest is a single JSON file under ``<digest_dir>/`` keyed by
+    conversation ID.  The store provides simple get/update semantics and
+    delegates the actual summarization text to an external caller (the
+    service layer calls the LLM client and passes the result here).
+    """
+
+    def __init__(self, digest_dir: Path) -> None:
+        self._digest_dir = digest_dir
+        self._digest_dir.mkdir(parents=True, exist_ok=True)
+        self._cache: dict[str, ConversationDigestRecord] = {}
+        self._load_all()
+
+    # ------------------------------------------------------------------
+    # Public API
+    # ------------------------------------------------------------------
+
+    def get_digest(self, conversation_id: str) -> ConversationDigestRecord | None:
+        return self._cache.get(conversation_id)
+
+    def update_digest(
+        self,
+        conversation_id: str,
+        digest_text: str,
+        turns_summarized: int,
+    ) -> ConversationDigestRecord:
+        record = ConversationDigestRecord(
+            conversation_id=conversation_id,
+            digest_text=digest_text,
+            turns_summarized=turns_summarized,
+            updated_at=datetime.now(UTC),
+        )
+        self._cache[conversation_id] = record
+        self._persist(record)
+        return record
+
+    def count(self) -> int:
+        return len(self._cache)
+
+    # ------------------------------------------------------------------
+    # Persistence helpers
+    # ------------------------------------------------------------------
+
+    def _digest_path(self, conversation_id: str) -> Path:
+        safe_id = re.sub(r"[^\w\-]", "_", conversation_id)
+        return self._digest_dir / f"{safe_id}.json"
+
+    def _persist(self, record: ConversationDigestRecord) -> None:
+        path = self._digest_path(record.conversation_id)
+        path.write_text(json.dumps(record.to_dict(), ensure_ascii=False, indent=2), encoding="utf-8")
+
+    def _load_all(self) -> None:
+        if not self._digest_dir.exists():
+            return
+        for path in self._digest_dir.glob("*.json"):
+            try:
+                payload = json.loads(path.read_text(encoding="utf-8"))
+                record = ConversationDigestRecord.from_dict(payload)
+                self._cache[record.conversation_id] = record
+            except (json.JSONDecodeError, KeyError, ValueError):
+                continue
+
+
 class NeuroMemConversationStore:
     def __init__(self, settings: AppSettings) -> None:
         self._settings = settings

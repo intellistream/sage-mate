@@ -155,6 +155,11 @@ class VllmChatClient:
         self._vllm_avg_generation_throughput_tps = 0.0
         self._vllm_avg_time_to_first_token_s = 0.0
         self._vllm_avg_time_per_output_token_s = 0.0
+        # --- DeltaKV session continuity tracking ---
+        # Maps session_id -> {"turn_count": int, "cumulative_tokens": int,
+        # "last_request_at": float, "last_vllm_uptime_s": float}
+        self._session_kv_anchors: dict[str, dict[str, Any]] = {}
+        self._last_vllm_start_time_s: float = 0.0
 
     def _detect_model_name(self) -> str:
         """Query the connected LLM's /models endpoint to discover the served model name."""
@@ -277,6 +282,97 @@ class VllmChatClient:
             self._last_request_usage = {}
         if not hasattr(self, "_model_max_len"):
             self._model_max_len = 0
+        if not hasattr(self, "_session_kv_anchors"):
+            self._session_kv_anchors = {}
+        if not hasattr(self, "_last_vllm_start_time_s"):
+            self._last_vllm_start_time_s = 0.0
+
+    # ------------------------------------------------------------------
+    # DeltaKV session continuity helpers
+    # ------------------------------------------------------------------
+
+    def _build_session_kv_key(
+        self, user_id: str, conversation_id: str
+    ) -> str:
+        """Build a stable session identifier for DeltaKV KV anchoring."""
+        prefix = getattr(self._settings, "kv_continuity_session_prefix", "twin-session")
+        return f"{prefix}-{user_id}-{conversation_id}"
+
+    def _record_session_turn(
+        self,
+        session_key: str,
+        prompt_tokens: int,
+        completion_tokens: int,
+    ) -> None:
+        """Update session state after a successful chat turn."""
+        anchor = self._session_kv_anchors.get(session_key)
+        if anchor is None:
+            anchor = {
+                "turn_count": 0,
+                "cumulative_tokens": 0,
+                "last_request_at": 0.0,
+            }
+            self._session_kv_anchors[session_key] = anchor
+        anchor["turn_count"] += 1
+        anchor["cumulative_tokens"] += prompt_tokens + completion_tokens
+        anchor["last_request_at"] = time.time()
+
+    def _detect_vllm_restart(self) -> bool:
+        """Check if the vLLM instance appears to have restarted since the
+        last recorded uptime.  Returns True when a restart is suspected."""
+        if not getattr(self._settings, "kv_continuity_enabled", False):
+            return False
+        # Use vLLM's Prometheus metrics to detect restart.  If the uptime
+        # counter decreases or resets to zero, the server was restarted.
+        self._refresh_vllm_prefix_cache_metrics()
+        # Heuristic: if external prefix cache queries reset to zero but we
+        # have recorded session anchors, a restart likely occurred.
+        if (
+            self._vllm_external_prefix_cache_queries == 0.0
+            and self._session_kv_anchors
+        ):
+            return True
+        return False
+
+    def annotate_request_with_session_hints(
+        self,
+        payload: dict[str, Any],
+        *,
+        user_id: str = "anonymous",
+        conversation_id: str = "default",
+    ) -> dict[str, Any]:
+        """Annotate a vLLM chat-completion payload with DeltaKV session
+        continuity hints when ``kv_continuity_enabled`` is True.
+
+        The annotation adds a ``kv_transfer_params`` field containing the
+        ``logical_request_id`` set to a stable session key, enabling the
+        vLLM external prefix cache (via DeltaKV connector) to match against
+        previously transferred KV state.
+        """
+        if not getattr(self._settings, "kv_continuity_enabled", False):
+            return payload
+        session_key = self._build_session_kv_key(user_id, conversation_id)
+        payload["kv_transfer_params"] = {
+            "logical_request_id": session_key,
+        }
+        return payload
+
+    def get_session_continuity_snapshot(
+        self, user_id: str = "anonymous", conversation_id: str = "default"
+    ) -> dict[str, Any]:
+        """Return the current session continuity state for diagnostics."""
+        session_key = self._build_session_kv_key(user_id, conversation_id)
+        anchor = self._session_kv_anchors.get(session_key)
+        return {
+            "session_key": session_key,
+            "kv_continuity_enabled": getattr(
+                self._settings, "kv_continuity_enabled", False
+            ),
+            "turn_count": anchor["turn_count"] if anchor else 0,
+            "cumulative_tokens": anchor["cumulative_tokens"] if anchor else 0,
+            "last_request_at": anchor["last_request_at"] if anchor else None,
+            "vllm_restart_detected": self._detect_vllm_restart(),
+        }
 
     def close(self) -> None:
         self._client.close()

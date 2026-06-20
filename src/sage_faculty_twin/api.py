@@ -15,7 +15,7 @@ bootstrap_runtime_env(require_policy=True, require_fastapi=False)
 from fastapi import Depends, FastAPI, HTTPException, Query, Request, Response
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, RedirectResponse, StreamingResponse
+from fastapi.responses import FileResponse, JSONResponse, RedirectResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import ValidationError
 from sage.edge.app import create_app as create_edge_app
@@ -722,6 +722,22 @@ async def chat(
 @llm_app.post("/chat/feedback", response_model=ChatFeedbackResponse)
 async def submit_chat_feedback(request: ChatFeedbackRequest) -> ChatFeedbackResponse:
     return service.submit_chat_feedback(request)
+
+
+@llm_app.post("/context/compress")
+async def compress_context(raw_request: Request) -> JSONResponse:
+    """Manually trigger context compression for a conversation."""
+    try:
+        payload = await raw_request.json()
+    except json.JSONDecodeError:
+        raise HTTPException(status_code=400, detail="无效的 JSON 请求体") from None
+
+    conversation_id = str(payload.get("conversation_id", "") or "").strip()
+    if not conversation_id:
+        raise HTTPException(status_code=422, detail="conversation_id 不能为空")
+
+    result = service.compress_conversation_context(conversation_id)
+    return JSONResponse(content=result)
 
 
 @llm_app.get("/chat/conversations", response_model=ConversationHistoryListResponse)

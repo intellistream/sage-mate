@@ -1,0 +1,30 @@
+{
+  "document_id": "678a21ad-0b8f-42bf-870b-028707da70cb",
+  "title": "Wiki | LLM 推理入门——从 Prefill 到 Decode",
+  "content": "[Wiki: LLM 推理入门——从 Prefill 到 Decode](https://lab.sage.org.ai/sage-wiki/docs/tutorials/llm-inference-basics)\n\n# LLM 推理入门——从 Prefill 到 Decode\n\n本文介绍大语言模型（LLM）推理的两个核心阶段：**Prefill**（预填充）和 **Decode**（解码），帮助团队成员快速理解推理系统的基本架构。\n\n## Prefill 阶段\n\nPrefill 阶段负责一次性处理输入 prompt 中的所有 token，生成第一层 KV Cache。该阶段是 **计算密集型**（compute-bound），可以充分利用 GPU/NPU 的并行计算能力。\n\n关键优化方向包括：\n- **Chunked Prefill**：将长 prompt 切分为多个 chunk，避免单次计算量过大\n- **Prefix Caching**：复用已有 KV Cache，避免重复计算（详见 [KV Cache 优化技术详解](../tech-notes/kv-cache-optimization.md)）\n\n## Decode 阶段\n\nDecode 阶段逐个生成输出 token，每次只处理一个 token，属于 **访存密集型**（memory-bound）。该阶段的性能瓶颈在于 KV Cache 的读写带宽。\n\n优化策略包括：\n- **Speculative Decoding**：用小模型预测多个 token，大模型一次验证\n- **Continuous Batching**：动态合并不同请求的 decode 步骤（参考 [Continuous Batching 技术笔记](../tech-notes/continuous-batching-notes.md)）\n\n## 硬件选择\n\n推理性能与硬件密切相关。我们团队主要在 Ascend NPU 上进行推理优化，环境搭建参见 [Ascend NPU 开发环境搭建](../tutorials/ascend-npu-setup.md)。\n\n## 性能评估\n\n推理系统的性能评估需要关注多个维度：吞吐量、延迟、首 token 延迟（TTFT）等。详细的 benchmark 方法参见 [推理系统 Benchmark 指南](../resources/inference-benchmark-guide.md)。\n\n## 延伸阅读\n\n- [KV Cache 优化技术详解](../tech-notes/kv-cache-optimization.md)\n- [分布式推理架构模式](../tech-notes/distributed-inference-patterns.md)\n- [推荐阅读与学习资源](../resources/recommended-reading.md)",
+  "tags": [
+    "wiki",
+    "tutorial",
+    "audience:public"
+  ],
+  "source_name": "wiki:tutorials/llm-inference-basics",
+  "metadata": {
+    "audience": "public",
+    "domain": "teaching",
+    "identity": "teacher",
+    "material_type": "tutorial",
+    "course_id": "llm-inference",
+    "source_kind": "wiki",
+    "wiki_url": "https://lab.sage.org.ai/sage-wiki/docs/tutorials/llm-inference-basics",
+    "wiki_category": "tutorials",
+    "linked_source_names": "wiki:tech-notes/kv-cache-optimization|wiki:tech-notes/continuous-batching-notes|wiki:tutorials/ascend-npu-setup|wiki:resources/inference-benchmark-guide|wiki:tech-notes/kv-cache-optimization|wiki:tech-notes/distributed-inference-patterns|wiki:resources/recommended-reading",
+    "wiki_authors": "[shuhao]",
+    "wiki_date": "2026-03-15"
+  },
+  "created_at": "2026-06-20T13:34:36.563760Z",
+  "is_feedback_web": false,
+  "review_status": "unknown",
+  "freshness_status": "unknown",
+  "reviewed_at": null,
+  "reviewable": false
+}

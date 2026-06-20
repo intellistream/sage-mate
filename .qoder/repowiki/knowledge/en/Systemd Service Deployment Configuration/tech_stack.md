@@ -1,1 +1,1 @@
-Uses systemd user sessions for process management and Cloudflare tunnels for secure external exposure.
+Uses systemd user-level services for process management and supervision, with Cloudflare tunnels for external exposure.

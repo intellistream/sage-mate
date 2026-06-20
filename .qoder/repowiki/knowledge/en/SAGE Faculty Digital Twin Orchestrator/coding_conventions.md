@@ -1,0 +1,3 @@
+- Workflow steps are defined as immutable `WorkflowStepDefinition` Pydantic models with explicit `required_inputs`, `produces_outputs`, and `side_effect` enums.
+- Configuration is centralized in a single `AppSettings` class using `pydantic-settings`, with all environment variables prefixed by `DIGITAL_TWIN_`.
+- Policy validation is decoupled from execution: `WorkflowPolicyValidator` checks `PlanSpec` against `WorkflowPolicy` and `WorkflowRequestContext` before any service logic runs.

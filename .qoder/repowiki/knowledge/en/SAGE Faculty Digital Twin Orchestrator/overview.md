@@ -1,0 +1,1 @@
+Orchestrates a policy-governed, plugin-extensible LLM workflow engine that routes academic interactions through deterministic planning, hybrid retrieval, and auditable side-effects.

@@ -1730,6 +1730,60 @@ class FacultyTwinWorkflowSupport:
             fallback += "；".join(topics)
             return fallback[:max_chars]
 
+    def compress_conversation_context(self, conversation_id: str) -> dict[str, object]:
+        """Manually trigger context compression for a conversation.
+
+        Unlike the automatic digest update (which requires a turn threshold),
+        this forces compression immediately for all unsummarized turns.
+        Returns a dict with the result: turns compressed and digest text length.
+        """
+        if self._digest_store is None or not self._settings.context_digest_enabled:
+            return {"ok": False, "error": "context compression is disabled"}
+        if not conversation_id:
+            return {"ok": False, "error": "missing conversation_id"}
+
+        max_chars = self._settings.context_digest_max_chars
+        all_records = self._conversation_store.list_recent_conversation_records(
+            conversation_id, limit=64,
+        )
+        existing_digest = self._digest_store.get_digest(conversation_id)
+        turns_already_digested = existing_digest.turns_summarized if existing_digest else 0
+        new_turns = len(all_records) - turns_already_digested
+
+        if new_turns <= 0:
+            return {
+                "ok": True,
+                "turns_compressed": 0,
+                "total_turns": turns_already_digested,
+                "digest_chars": len(existing_digest.digest_text) if existing_digest else 0,
+                "message": "no new turns to compress",
+            }
+
+        turns_to_summarize = list(reversed(all_records[:len(all_records) - turns_already_digested]))
+        if len(turns_to_summarize) > 32:
+            turns_to_summarize = turns_to_summarize[-32:]
+
+        new_digest_text = self._summarize_digest_turns(
+            existing_digest_text=existing_digest.digest_text if existing_digest else "",
+            new_turns=turns_to_summarize,
+            max_chars=max_chars,
+        )
+        if not new_digest_text:
+            return {"ok": False, "error": "summarization failed"}
+
+        total_turns = turns_already_digested + len(turns_to_summarize)
+        self._digest_store.update_digest(conversation_id, new_digest_text, total_turns)
+        _logger.info(
+            "Manual context compression for %s: %d turns compressed, %d chars",
+            conversation_id[:8], len(turns_to_summarize), len(new_digest_text),
+        )
+        return {
+            "ok": True,
+            "turns_compressed": len(turns_to_summarize),
+            "total_turns": total_turns,
+            "digest_chars": len(new_digest_text),
+        }
+
     def consolidate_profile_memory(self, context: ChatWorkflowContext) -> ChatWorkflowContext:
         started_at = perf_counter()
         if context.persisted_memory_record is None:

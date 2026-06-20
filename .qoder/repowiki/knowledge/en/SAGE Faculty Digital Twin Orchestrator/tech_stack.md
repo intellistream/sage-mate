@@ -1,0 +1,1 @@
+All children rely on a shared local monorepo structure for core dependencies: `SAGE` (workflow runtime), `sageVDB` (vector database with C extensions), and `neuromem` (neural memory), resolved via a custom bootstrap script that symlinks compiled artifacts from PyPI installs into source trees.

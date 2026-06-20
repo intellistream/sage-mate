@@ -122,6 +122,13 @@ class AppSettings(BaseSettings):
     capability_plugin_dir: Path = Field(default=Path("data/capability_plugins"))
     skill_dir: Path = Field(default=Path("data/skills"))
     changelog_path: Path = Field(default=Path("data/changelog.json"))
+    # --- Context Digest (rolling conversation compression) ---
+    context_digest_enabled: bool = Field(default=True)
+    context_digest_turn_threshold: int = Field(
+        default=4, ge=2, le=16,
+    )
+    context_digest_max_chars: int = Field(default=1500, ge=200, le=4000)
+    context_digest_dir: Path = Field(default=Path("data/conversation_memory/digests"))
     admin_username: str = Field(default="admin")
     admin_password: str = Field(default="change-me-admin-password")
     manager_username: str = Field(default="manager")
@@ -130,6 +137,20 @@ class AppSettings(BaseSettings):
     admin_session_ttl_seconds: int = Field(default=43200, ge=300, le=604800)
     user_session_secret: str = Field(default="change-me-user-session-secret")
     user_session_ttl_seconds: int = Field(default=2592000, ge=300, le=7776000)
+    # --- DeltaKV session continuity ---
+    kv_continuity_enabled: bool = Field(
+        default=False,
+        description="Enable DeltaKV-aware session continuity hints. When True, "
+        "the chat client annotates requests with a stable session identifier "
+        "so the vLLM external prefix cache (via DeltaKV connector) can match "
+        "against previously transferred KV state after a server restart.",
+    )
+    kv_continuity_session_prefix: str = Field(
+        default="twin-session",
+        description="Prefix for the stable session identifier used in KV "
+        "transfer annotations. The full session key is "
+        "'{prefix}-{user_id}-{conversation_id}'.",
+    )
 
 
 settings = AppSettings()

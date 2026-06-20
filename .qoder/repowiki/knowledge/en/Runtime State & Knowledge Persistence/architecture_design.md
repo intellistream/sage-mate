@@ -1,4 +1,0 @@
-- Data is organized into domain-specific subdirectories (e.g., `knowledge_base`, `conversation_memory`, `user_accounts`) using UUID-named JSON files for individual records.
-- Structured state like planner metrics and comparisons uses embedded SQLite databases (`planner_metrics.sqlite3`, `planner_comparisons.sqlite3`).
-- Configuration and policy constraints are managed via static JSON files (`workflow_policies`, `capability_plugins`) and Markdown (`persona/style_profile.md`).
-- The module acts as a passive data lake with no internal application logic, relying on external services to interpret and mutate these files.
