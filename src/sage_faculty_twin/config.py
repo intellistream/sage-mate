@@ -62,8 +62,8 @@ class AppSettings(BaseSettings):
     smtp_timeout_seconds: int = Field(default=15, ge=1, le=120)
     knowledge_base_dir: Path = Field(default=Path("data/knowledge_base"))
     knowledge_backend: str = Field(default="neuromem")
-    # Neuromem search index choice. "auto" picks the first available backend;
-    # "faiss" switches to dense retrieval using the embedding model below.
+    # Neuromem search index choice. "auto" prefers faiss (dense retrieval via
+    # sentence-transformers) and falls back to bm25 when unavailable.
     neuromem_index_type: str = Field(default="auto")
     neuromem_embedding_model: str = Field(default="BAAI/bge-small-zh-v1.5")
     neuromem_embedding_dim: int = Field(default=512, ge=32, le=4096)

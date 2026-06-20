@@ -127,7 +127,16 @@ class LocalKnowledgeStore:
         self._backend = settings.knowledge_backend.lower()
         self._sagevdb = None
         self._neuromem_collection = None
-        self._neuromem_index_type = (settings.neuromem_index_type or "bm25").strip().lower()
+        raw_index_type = (settings.neuromem_index_type or "auto").strip().lower()
+        if raw_index_type == "auto":
+            # Prefer faiss (dense retrieval) when sentence-transformers is available;
+            # fall back to bm25 (sparse) otherwise.
+            try:
+                import sentence_transformers  # noqa: F401
+                raw_index_type = "faiss"
+            except ImportError:
+                raw_index_type = "bm25"
+        self._neuromem_index_type = raw_index_type
         self._neuromem_embedder = None
         self._np = None
         self._text_embedder = None
@@ -476,7 +485,7 @@ class LocalKnowledgeStore:
             if self._backend == "neuromem":
                 if self._neuromem_index_type == "faiss":
                     return f"faiss:{self._settings.neuromem_embedding_model}"
-                return "bm25"
+                return self._neuromem_index_type
             return "none"
         return self._settings.sagevdb_embedding_backend.lower()
 

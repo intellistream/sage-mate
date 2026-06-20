@@ -1,5 +1,8 @@
+from importlib.util import find_spec
 from pathlib import Path
 from datetime import UTC, datetime
+
+import pytest
 
 from sage_faculty_twin.config import AppSettings
 from sage_faculty_twin.knowledge_base import LocalKnowledgeStore
@@ -115,11 +118,15 @@ def test_knowledge_store_backfills_metadata_for_legacy_records(tmp_path: Path) -
     assert loaded_record.metadata["material_type"] == "lecture"
 
 
-def test_knowledge_store_supports_neuromem_backend(tmp_path: Path) -> None:
+def test_knowledge_store_supports_sagevdb_backend(tmp_path: Path) -> None:
+    if find_spec("sagevdb") is None:
+        pytest.skip("sagevdb is not installed in this environment")
+
     settings = AppSettings(
         knowledge_base_dir=tmp_path,
-        knowledge_backend="neuromem",
-        neuromem_index_type="bm25",
+        knowledge_backend="sagevdb",
+        sagevdb_embedding_backend="hash",
+        sagevdb_dimension=128,
     )
     store = LocalKnowledgeStore(settings)
 
@@ -134,8 +141,8 @@ def test_knowledge_store_supports_neuromem_backend(tmp_path: Path) -> None:
 
     hits = store.search("What should I send before a meeting?")
 
-    assert store.backend_name() == "neuromem"
-    assert store.embedding_backend_name() == "bm25"
+    assert store.backend_name() == "sagevdb"
+    assert store.embedding_backend_name() == "hash"
     assert hits
     assert hits[0].title == "Neuromem meeting note"
 
@@ -1041,11 +1048,17 @@ def test_service_prompt_adds_draft_feedback_guidance(tmp_path: Path) -> None:
 
 
 def test_vamos_question_set_prioritizes_vamos_research_materials(tmp_path: Path) -> None:
-    for backend_name in ("local", "neuromem"):
+    has_sagevdb = find_spec("sagevdb") is not None
+    backends = ["local"]
+    if has_sagevdb:
+        backends.append("sagevdb")
+
+    for backend_name in backends:
         settings = AppSettings(
             knowledge_base_dir=tmp_path / f"vamos-{backend_name}",
-            knowledge_backend="neuromem" if backend_name == "neuromem" else "local",
-            neuromem_index_type="bm25",
+            knowledge_backend="sagevdb" if backend_name == "sagevdb" else "local",
+            sagevdb_embedding_backend="hash",
+            sagevdb_dimension=128,
         )
         store = LocalKnowledgeStore(settings)
 
