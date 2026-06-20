@@ -42,7 +42,7 @@ def _ensure_local_policy_preferred(repo_root: Path) -> None:
         policy_module = importlib.import_module("sage.serving.integrations.policy")
     except Exception as exc:  # pragma: no cover - diagnostic path
         raise RuntimeError(
-            "Failed to import 'sage.serving.integrations.policy'. Use tools/run_repo_python.sh or set "
+            "Failed to import 'sage.serving.integrations.policy'. Set "
             "PYTHONPATH to include ../SAGE/src."
         ) from exc
 
@@ -52,7 +52,7 @@ def _ensure_local_policy_preferred(repo_root: Path) -> None:
         raise RuntimeError(
             "Imported policy module from a non-local path: "
             f"{policy_path}. Expected local checkout under {expected_root}. "
-            "Run commands via tools/run_repo_python.sh to avoid interpreter/path drift."
+            "Run commands with the project interpreter to avoid interpreter/path drift."
         )
 
 
@@ -115,16 +115,16 @@ def bootstrap_runtime_env(
 
     _require_module(
         "pydantic_settings",
-        "Use the project interpreter and run: tools/run_repo_python.sh -m pip install -e .",
+        "Run: python -m pip install -e .",
     )
     if require_fastapi:
         _require_module(
             "fastapi",
-            "Use the project interpreter and run: tools/run_repo_python.sh -m pip install -e .",
+            "Run: python -m pip install -e .",
         )
 
     if require_policy:
         _require_module(
             "sage.serving.integrations.policy",
-            "Ensure local SAGE source is visible (../SAGE/src) and run via tools/run_repo_python.sh.",
+            "Ensure local SAGE source is visible (../SAGE/src) on PYTHONPATH.",
         )

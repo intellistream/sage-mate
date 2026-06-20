@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
 # run_app_server.sh — Start the sage-faculty-twin uvicorn server.
-# Prefers the repo-managed conda marker created by tools/bootstrap_conda_env.sh.
 
 set -euo pipefail
 

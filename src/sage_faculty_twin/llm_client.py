@@ -107,6 +107,10 @@ class VllmChatClient:
         self._last_success_at: float | None = None
         self._last_error_at: float | None = None
         self._last_error_message: str | None = None
+        # Auto-detected: set to False when the connected vllm instance
+        # does not support --reasoning-config (returns 400 on
+        # thinking_token_budget).
+        self._supports_thinking_budget = True
         self._recent_success_timestamps: deque[float] = deque()
         self._recent_completion_token_samples: deque[tuple[float, int]] = deque()
         self._latency_total_ms = 0.0
@@ -547,6 +551,7 @@ class VllmChatClient:
             user_prompt,
             temperature=self._settings.shadow_planner_temperature,
             max_tokens=self._settings.shadow_planner_max_tokens,
+            enable_thinking=False,
         )
         return self._parse_shadow_plan_candidate(content)
 
@@ -622,9 +627,11 @@ class VllmChatClient:
         else:
             # B2: Cap thinking tokens to reduce wasted CoT generation.
             # Uses vllm-hust's thinking_token_budget parameter.
-            budget = thinking_token_budget or self._settings.thinking_token_budget
-            if budget is not None:
-                payload["thinking_token_budget"] = budget
+            # Only send when the server supports --reasoning-config.
+            if self._supports_thinking_budget:
+                budget = thinking_token_budget or self._settings.thinking_token_budget
+                if budget is not None:
+                    payload["thinking_token_budget"] = budget
         if max_tokens is not None:
             payload["max_tokens"] = max_tokens
 
@@ -636,17 +643,45 @@ class VllmChatClient:
         )
 
         if token_callback is not None:
-            # Chat Latency Optimizations Task 5: stream tokens via
-            # OpenAI-compatible ``stream=true`` so the SSE channel can
-            # forward each chunk to the browser. Streaming responses
-            # bypass the response cache because we cannot replay an
-            # already-flushed stream to a callback.
             stream_payload = dict(payload)
             stream_payload["stream"] = True
             stream_payload["stream_options"] = {"include_usage": True}
-            return self._request_chat_completion_stream(stream_payload, token_callback)
+            try:
+                return self._request_chat_completion_stream(stream_payload, token_callback)
+            except httpx.HTTPStatusError as exc:
+                if self._is_thinking_budget_unsupported(exc):
+                    self._supports_thinking_budget = False
+                    payload.pop("thinking_token_budget", None)
+                    stream_payload = dict(payload)
+                    stream_payload["stream"] = True
+                    stream_payload["stream_options"] = {"include_usage": True}
+                    return self._request_chat_completion_stream(stream_payload, token_callback)
+                raise
 
-        return self._request_chat_completion_sync(payload)
+        try:
+            return self._request_chat_completion_sync(payload)
+        except httpx.HTTPStatusError as exc:
+            if self._is_thinking_budget_unsupported(exc):
+                self._supports_thinking_budget = False
+                payload.pop("thinking_token_budget", None)
+                return self._request_chat_completion_sync(payload)
+            raise
+
+    def _is_thinking_budget_unsupported(self, exc: httpx.HTTPStatusError) -> bool:
+        """Return True when the 400 error indicates the vllm instance
+        was not started with ``--reasoning-config``."""
+        if exc.response.status_code != 400:
+            return False
+        try:
+            body = exc.response.json()
+        except Exception:
+            return False
+        error = body.get("error")
+        if isinstance(error, dict):
+            message = str(error.get("message", ""))
+        else:
+            message = str(body.get("message", ""))
+        return "reasoning_config" in message or "thinking_token_budget" in message
 
     def _request_chat_completion_stream(
         self,

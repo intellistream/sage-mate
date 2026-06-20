@@ -1374,6 +1374,64 @@ body.drawer-pinned .history-rail {
     font-size: 0.85em;
 }
 
+.message-body strong {
+    font-weight: 700;
+    color: var(--ink);
+}
+
+.message-body em {
+    font-style: italic;
+}
+
+.message-body h1,
+.message-body h2,
+.message-body h3 {
+    margin: 12px 0 6px;
+    font-weight: 700;
+    line-height: 1.35;
+    color: var(--ink);
+}
+
+.message-body h1 { font-size: 1.25rem; }
+.message-body h2 { font-size: 1.1rem; }
+.message-body h3 { font-size: 1rem; }
+
+.message-body ul,
+.message-body ol {
+    margin: 6px 0;
+    padding-left: 1.5em;
+}
+
+.message-body li {
+    margin: 2px 0;
+    line-height: 1.6;
+}
+
+.message-body a {
+    color: var(--accent);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+}
+
+.message-body a:hover {
+    color: var(--accent-deep);
+}
+
+.message-body blockquote {
+    margin: 8px 0;
+    padding: 4px 12px;
+    border-left: 3px solid var(--accent);
+    color: var(--muted);
+    background: rgba(47, 111, 237, 0.04);
+    border-radius: 0 6px 6px 0;
+}
+
+.message-body hr {
+    border: none;
+    border-top: 1px solid rgba(0, 0, 0, 0.1);
+    margin: 12px 0;
+}
+
 /* --- Reasoning/thinking text display --- */
 .thinking-text-section {
     margin-top: 8px;

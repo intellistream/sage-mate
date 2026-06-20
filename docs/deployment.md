@@ -46,7 +46,7 @@ The repository includes a repo-local Nginx launcher so you can serve the app and
 homepage compatibility route without writing into system-wide `/etc/nginx`.
 
 ```bash
-./tools/run_local_site.sh
+./tools/run_local_proxy.sh
 ```
 
 Relevant variables:

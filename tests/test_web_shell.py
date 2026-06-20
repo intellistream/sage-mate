@@ -10,7 +10,6 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 NGINX_TEMPLATE = REPO_ROOT / "tools" / "nginx-local.conf"
 LOCAL_PROXY_SCRIPTS = [
     REPO_ROOT / "tools" / "run_local_proxy.sh",
-    REPO_ROOT / "tools" / "run_local_site.sh",
 ]
 
 

@@ -6724,7 +6724,7 @@ function appendStreamingAnswerDelta(delta) {
             const frame = pending.querySelector(".message-frame") || pending;
             frame.appendChild(body);
         }
-        body.textContent = mainContent;
+        body.innerHTML = formatMessageContent(mainContent);
     }
 }
 
@@ -7744,16 +7744,67 @@ function escapeHtml(value) {
         .replaceAll("'", "&#39;");
 }
 
-// Task 5: Basic markdown formatting (code blocks + inline code).
-// Processes escaped HTML so XSS-safe output is preserved.
+// Markdown formatter: code blocks, inline code, bold, italic, headers,
+// unordered/ordered lists, links, blockquotes, horizontal rules, and
+// line breaks.  HTML is escaped first so the output is XSS-safe.
 function formatMessageContent(rawText) {
     const escaped = escapeHtml(rawText);
-    // Replace triple-backtick code blocks
-    let formatted = escaped.replace(/```(\w*)\n?([\s\S]*?)```/g, (_, lang, code) => {
+
+    // ── Block-level elements (processed first to avoid inner conflicts) ──
+
+    // Fenced code blocks (``` ... ```)
+    let formatted = escaped.replace(/```(\w*)\n?([\s\S]*?)```/g, (_, _lang, code) => {
         return `<pre>${code.trim()}</pre>`;
     });
-    // Replace inline backtick code
+
+    // Headings (### before ## before #)
+    formatted = formatted.replace(/^### (.+)$/gm, '<h3>$1</h3>');
+    formatted = formatted.replace(/^## (.+)$/gm, '<h2>$1</h2>');
+    formatted = formatted.replace(/^# (.+)$/gm, '<h1>$1</h1>');
+
+    // Horizontal rules
+    formatted = formatted.replace(/^---$/gm, '<hr>');
+
+    // Blockquotes (single-level)
+    formatted = formatted.replace(/^&gt; (.+)$/gm, '<blockquote>$1</blockquote>');
+
+    // ── List grouping ──────────────────────────────────────────────────
+    // Collect consecutive lines starting with "- " or "* " into <ul>,
+    // and consecutive lines starting with "N. " into <ol>.
+    formatted = formatted.replace(/((?:^- .+$\n?)+)/gm, (block) => {
+        const items = block.trim().split('\n').map(l => `<li>${l.replace(/^- /, '')}</li>`).join('');
+        return `<ul>${items}</ul>`;
+    });
+    formatted = formatted.replace(/((?:^\d+\. .+$\n?)+)/gm, (block) => {
+        const items = block.trim().split('\n').map(l => `<li>${l.replace(/^\d+\. /, '')}</li>`).join('');
+        return `<ol>${items}</ol>`;
+    });
+
+    // ── Inline formatting (order matters: ** before *) ─────────────────
+
+    // Inline code (`...`)
     formatted = formatted.replace(/`([^`]+)`/g, '<code>$1</code>');
+
+    // Bold (**text**)
+    formatted = formatted.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+
+    // Italic (*text*)
+    formatted = formatted.replace(/\*(.+?)\*/g, '<em>$1</em>');
+
+    // Links [text](url) — reject javascript: URIs for safety
+    formatted = formatted.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (_, text, url) => {
+        if (/^javascript:/i.test(url.trim())) return `[${text}](${url})`;
+        return `<a href="${url}" target="_blank" rel="noopener noreferrer">${text}</a>`;
+    });
+
+    // ── Line breaks ────────────────────────────────────────────────────
+    // Convert remaining newlines to <br>, but skip lines that are already
+    // wrapped in block-level HTML tags.
+    formatted = formatted.replace(/\n/g, '<br>');
+    // Clean up <br> immediately after block tags
+    formatted = formatted.replace(/<\/(h[1-6]|pre|ul|ol|blockquote|hr)><br>/g, '</$1>');
+    formatted = formatted.replace(/<hr><br>/g, '<hr>');
+
     return formatted;
 }
 

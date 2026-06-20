@@ -5,7 +5,7 @@ This script compares two chat endpoints (baseline vs VAMOS-enabled) on the
 same request set and reports latency/throughput/truncation deltas.
 
 Example:
-  tools/run_repo_python.sh tools/benchmark_vamos_impact.py \
+  python tools/benchmark_vamos_impact.py \
     --baseline-url http://127.0.0.1:55601/chat \
     --vamos-url http://127.0.0.1:8010/chat \
     --requests-per-level 24 --concurrency-levels 1,4,8

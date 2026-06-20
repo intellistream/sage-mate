@@ -180,7 +180,7 @@
 **当前 KB 覆盖**: 不是 KB 缺料问题, 是 **检索 + 上下文** 问题。
 
 - 短查询扩展 (Task 4) 已落地, replay 已确认 case 6/8/9 在 FAISS 后端下从 `ask_follow_up` 升级为 `answer`。
-- 检索后端从 BM25 切换到 `faiss:BAAI/bge-small-zh-v1.5` 后, 这一类的 kb_hits 从 0 升到 3 (见 `student-questions-replay-report.faiss.md`)。
+- 检索后端从 BM25 切换到 `faiss:BAAI/bge-small-zh-v1.5` 后, 这一类的 kb_hits 从 0 升到 3。
 
 **应对材料**: 不需要新 FAQ 文档, 但要补一条 *deterministic 元 FAQ*: `FAQ | 我会不会联系上下文`。
 
