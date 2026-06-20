@@ -2,6 +2,25 @@
 
 ## Unreleased
 
+## v4.2.4 - 2026-06-20
+
+`v4.2.4` is a systematic overhaul of the answer basis ("依据") system. No more ad-hoc patches.
+
+### Refactored
+
+- **`_build_answer_basis` rewritten** with documented design rules, numbered sections, and a safety-net filter that guarantees "近期交流记录" can never appear regardless of code path.
+- **Deleted `_build_recent_session_basis_item`**: dead code that produced session-context citations.
+- **Simplified `_build_memory_basis_item`**: removed the unreachable short-term conversation branch. Only artifact (uploaded) and long-term profile memory are eligible.
+- **Memory filtering moved upstream**: eligible hits are pre-filtered before sorting, eliminating inline `continue` guards.
+
+### Design Invariants (enforced)
+
+1. Session context is NEVER cited — it is implicit and always visible in chat.
+2. Short-term conversation memory is NEVER cited — same reason.
+3. Knowledge hits are deduplicated by canonical source group (no multi-part duplicates).
+4. Generic index/listing pages are filtered (no "论文索引" crowding).
+5. Safety-net filter strips any "近期交流记录" label regardless of origin.
+
 ## v4.2.3 - 2026-06-20
 
 `v4.2.3` fixes intermittent false "error" status and shows the active model name in the top bar.

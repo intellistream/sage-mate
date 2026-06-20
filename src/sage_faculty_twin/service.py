@@ -4033,18 +4033,31 @@ class FacultyTwinWorkflowSupport:
         return "\n".join(sections) + "\n"
 
     def _build_answer_basis(self, context: ChatWorkflowContext) -> list[AnswerBasisItem]:
+        """Build the visible citation ("依据") items for a response.
+
+        Design rules:
+        - Knowledge hits: deduplicated by source group, generic index pages
+          filtered, max 3 items.
+        - Web search hits: max 2 items.
+        - Memory hits: only artifact (uploaded) and long-term profile memory;
+          short-term conversation memory is NEVER cited (it is implicit).
+        - Session context: NEVER cited — conversation history is already
+          visible in the chat UI.
+        - Final safety net: any item with basis_label "近期交流记录" is
+          stripped regardless of how it was produced.
+        """
         basis_items: list[AnswerBasisItem] = []
 
+        # 1. Admin-added knowledge (from this turn)
         if context.added_knowledge_record is not None:
             basis_items.append(
                 self._build_added_knowledge_basis_item(context.added_knowledge_record)
             )
 
-        # Deduplicate knowledge hits by canonical source group so multiple
-        # parts of the same page don't all appear as separate basis items.
-        # Also skip generic index/listing pages that match too broadly.
+        # 2. Knowledge base hits — deduplicated, filtered, max 3
         seen_source_groups: set[str] = set()
-        for hit in context.knowledge_hits[:5]:
+        knowledge_count = 0
+        for hit in context.knowledge_hits[:6]:
             source_group = _canonical_source_group(hit.source_name, hit.document_id)
             if source_group in seen_source_groups:
                 continue
@@ -4052,9 +4065,11 @@ class FacultyTwinWorkflowSupport:
                 continue
             seen_source_groups.add(source_group)
             basis_items.append(self._build_knowledge_basis_item(hit))
-            if len(basis_items) >= 4:
+            knowledge_count += 1
+            if knowledge_count >= 3:
                 break
 
+        # 3. Web search hits — max 2
         for hit in context.web_search_hits[:2]:
             basis_items.append(
                 AnswerBasisItem(
@@ -4065,25 +4080,31 @@ class FacultyTwinWorkflowSupport:
                 )
             )
 
-        # Recent session context is an implicit reference — always available
-        # to the LLM but never shown as a visible basis item, since the
-        # conversation history is already displayed in the chat UI.
-
+        # 4. Memory hits — only artifact (uploaded) and long-term profile.
+        #    Short-term conversation memory is an implicit reference and
+        #    must NEVER appear as a visible basis item.
+        eligible_memory_hits = [
+            hit for hit in context.memory_hits
+            if hit.topic == "artifact_memory"
+            or hit.source == "attachment_excerpt"
+            or hit.memory_type == "long_term"
+        ]
         prioritized_memory_hits = sorted(
-            context.memory_hits,
+            eligible_memory_hits,
             key=lambda hit: (
                 0 if (hit.topic == "artifact_memory" or hit.source == "attachment_excerpt") else 1,
-                0 if hit.memory_type == "long_term" else 1,
                 -float(hit.score or 0.0),
             ),
         )
         for hit in prioritized_memory_hits[:2]:
             basis_items.append(self._build_memory_basis_item(hit))
 
+        # 5. Meeting availability (only for booking workflows)
         availability_item = self._build_availability_basis_item(context)
         if availability_item is not None:
             basis_items.append(availability_item)
 
+        # 6. Deduplicate by (label, title, source) key
         deduped_items: list[AnswerBasisItem] = []
         seen_keys: set[tuple[str, str, str]] = set()
         for item in basis_items:
@@ -4093,7 +4114,12 @@ class FacultyTwinWorkflowSupport:
             seen_keys.add(item_key)
             deduped_items.append(item)
 
-        return deduped_items[:5]
+        # 7. Safety net: strip any "近期交流记录" that slipped through.
+        #    Session context is implicit and must never be cited.
+        return [
+            item for item in deduped_items
+            if item.basis_label != "近期交流记录"
+        ][:5]
 
     @staticmethod
     def _is_generic_index_page(hit: KnowledgeSearchHit) -> bool:
@@ -4105,20 +4131,12 @@ class FacultyTwinWorkflowSupport:
             return True
         return False
 
-    def _build_recent_session_basis_item(
-        self, recent_session_context: str
-    ) -> AnswerBasisItem | None:
-        detail = self._normalize_recent_session_context(recent_session_context)
-        if not detail:
-            return None
-        return AnswerBasisItem(
-            basis_label="近期交流记录",
-            title="当前对话里刚刚提到的内容",
-            source_label="同会话上下文",
-            detail=self._clip_basis_text(detail, 1000),
-        )
-
     def _build_memory_basis_item(self, hit: ConversationMemoryHit) -> AnswerBasisItem:
+        """Build a basis item for an eligible memory hit.
+
+        Only artifact (uploaded) and long-term profile memory reach this
+        method — short-term conversation memory is filtered upstream.
+        """
         if hit.topic == "artifact_memory" or hit.source == "attachment_excerpt":
             return AnswerBasisItem(
                 basis_label="上传材料",
@@ -4126,17 +4144,11 @@ class FacultyTwinWorkflowSupport:
                 source_label=hit.source_label,
                 detail=self._clip_basis_text(self._format_memory_basis_detail(hit.summary), 1000),
             )
-        if hit.memory_type == "long_term":
-            return AnswerBasisItem(
-                basis_label="学生长期记录",
-                title="过往交流里提到过的长期偏好",
-                source_label="长期记录",
-                detail=self._clip_basis_text(self._format_memory_basis_detail(hit.summary), 1000),
-            )
+        # Long-term profile memory
         return AnswerBasisItem(
-            basis_label="近期交流记录",
-            title="这轮对话前后提到过的相关内容",
-            source_label="近期对话",
+            basis_label="学生长期记录",
+            title="过往交流里提到过的长期偏好",
+            source_label="长期记录",
             detail=self._clip_basis_text(self._format_memory_basis_detail(hit.summary), 1000),
         )
 
