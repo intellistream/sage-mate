@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+## v4.2.2 - 2026-06-20
+
+`v4.2.2` removes "近期交流记录" from the visible basis section entirely — session context is an implicit reference that never needs citation.
+
+### Changed
+
+- **Remove session context from basis display**: recent conversation history is always available to the LLM but no longer shown as a "依据" item, since the chat UI already displays it.
+
 ## v4.2.1 - 2026-06-20
 
 `v4.2.1` fixes the "依据" (answer basis) section showing repeated identical citations across consecutive turns.

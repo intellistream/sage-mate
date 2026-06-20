@@ -4065,15 +4065,9 @@ class FacultyTwinWorkflowSupport:
                 )
             )
 
-        # Only show recent session context as basis when there are ≥2 prior
-        # exchanges — a single current Q&A is already visible in the chat.
-        recent_session_basis_item = self._build_recent_session_basis_item(
-            context.recent_session_context
-        )
-        if recent_session_basis_item is not None:
-            exchange_count = (context.recent_session_context or "").count("User:")
-            if exchange_count >= 2:
-                basis_items.append(recent_session_basis_item)
+        # Recent session context is an implicit reference — always available
+        # to the LLM but never shown as a visible basis item, since the
+        # conversation history is already displayed in the chat UI.
 
         prioritized_memory_hits = sorted(
             context.memory_hits,
