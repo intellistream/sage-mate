@@ -112,6 +112,7 @@ const workflowMobileCloseButton = document.getElementById("workflow-mobile-close
 const workflowTotalDuration = document.getElementById("workflow-total-duration");
 const workflowCurrentAction = document.getElementById("workflow-current-action");
 const workflowKnowledgeCount = document.getElementById("workflow-knowledge-count");
+const workflowWebCount = document.getElementById("workflow-web-count");
 const workflowPlanCard = document.getElementById("workflow-plan-card");
 const workflowPlanHeading = document.getElementById("workflow-plan-heading");
 const workflowPlanBadge = document.getElementById("workflow-plan-badge");
@@ -289,6 +290,7 @@ let suppressWorkflowTraceToggleClick = false;
 let latestWorkflowMeta = {
     workflowAction: null,
     knowledgeHits: null,
+    webSearchHits: null,
     isStreaming: false,
     plannerPreview: null,
     shadowPlannerPreview: null,
@@ -995,6 +997,7 @@ chatForm.addEventListener("submit", async (event) => {
             renderWorkflowTrace(data.workflow_trace || [], {
                 workflowAction: data.workflow_action || null,
                 knowledgeHits: Array.isArray(data.knowledge_hits) ? data.knowledge_hits.length : null,
+                webSearchHits: Array.isArray(data.web_search_hits) ? data.web_search_hits.length : null,
                 isStreaming: false,
                 plannerPreview: data.planner_preview || null,
                 shadowPlannerPreview: data.shadow_planner_preview || null,
@@ -4366,6 +4369,7 @@ function resetConversationViewForHistoryScopeSwitch() {
     latestWorkflowMeta = {
         workflowAction: null,
         knowledgeHits: null,
+        webSearchHits: null,
         isStreaming: false,
         plannerPreview: null,
         shadowPlannerPreview: null,
@@ -4634,6 +4638,7 @@ async function restoreConversationFromHistory(conversationId) {
         renderWorkflowTrace([], {
             workflowAction: null,
             knowledgeHits: null,
+            webSearchHits: null,
             isStreaming: false,
             currentLabel: undefined,
             plannerPreview: null,
@@ -4784,6 +4789,7 @@ function startFreshConversation() {
     latestWorkflowMeta = {
         workflowAction: null,
         knowledgeHits: null,
+        webSearchHits: null,
         isStreaming: false,
         plannerPreview: null,
         shadowPlannerPreview: null,
@@ -5877,6 +5883,8 @@ function renderWorkflowTrace(steps, meta = {}) {
             meta.workflowAction !== undefined ? meta.workflowAction : latestWorkflowMeta.workflowAction,
         knowledgeHits:
             meta.knowledgeHits !== undefined ? meta.knowledgeHits : latestWorkflowMeta.knowledgeHits,
+        webSearchHits:
+            meta.webSearchHits !== undefined ? meta.webSearchHits : latestWorkflowMeta.webSearchHits,
         isStreaming: meta.isStreaming !== undefined ? meta.isStreaming : latestWorkflowMeta.isStreaming,
         currentLabel: meta.currentLabel !== undefined ? meta.currentLabel : latestWorkflowMeta.currentLabel,
         plannerPreview:
@@ -6130,6 +6138,7 @@ function renderWorkflowTraceError(message) {
     updateWorkflowStats([], {
         workflowAction: "error",
         knowledgeHits: latestWorkflowMeta.knowledgeHits,
+        webSearchHits: latestWorkflowMeta.webSearchHits,
         isStreaming: false,
         currentLabel: "流程失败",
         plannerPreview: latestWorkflowMeta.plannerPreview,
@@ -6169,6 +6178,7 @@ function renderWorkflowTracePlaceholder(title, summary, detail) {
     updateWorkflowStats(activeWorkflowSteps, {
         workflowAction: latestWorkflowMeta.workflowAction,
         knowledgeHits: latestWorkflowMeta.knowledgeHits,
+        webSearchHits: latestWorkflowMeta.webSearchHits,
         isStreaming: true,
         currentLabel: title,
         plannerPreview: null,
@@ -6796,6 +6806,7 @@ function handleWorkflowStreamEvent(payload) {
         renderWorkflowTrace(activeWorkflowSteps, {
             workflowAction: latestWorkflowMeta.workflowAction,
             knowledgeHits: latestWorkflowMeta.knowledgeHits,
+            webSearchHits: latestWorkflowMeta.webSearchHits,
             isStreaming: true,
             currentLabel: payload.step.title,
             plannerPreview: latestWorkflowMeta.plannerPreview,
@@ -6958,6 +6969,10 @@ function updateWorkflowStats(steps, meta = {}) {
     workflowCurrentAction.textContent = formatWorkflowActionLabel(meta, steps);
     workflowKnowledgeCount.textContent =
         typeof meta.knowledgeHits === "number" ? `${meta.knowledgeHits} 条` : steps.length ? "0 条" : "--";
+    if (workflowWebCount) {
+        workflowWebCount.textContent =
+            typeof meta.webSearchHits === "number" ? `${meta.webSearchHits} 条` : steps.length ? "0 条" : "--";
+    }
     updateWorkflowPlanSummary(meta.plannerPreview, meta.shadowPlannerPreview, meta.plannerComparison, meta.isStreaming);
     updateMobileWorkflowTrigger(meta, steps);
 }

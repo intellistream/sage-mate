@@ -984,173 +984,122 @@ class FacultyTwinWorkflowSupport:
             )
             return context
 
-        if context.route != "answer" or context.answer is not None:
+        # --- Determine whether knowledge retrieval should run ---
+        needs_retrieval = (
+            context.route == "answer"
+            and context.answer is None
+            and self._planner_requests_any_step(
+                context, "retrieve_knowledge", "retrieve_hybrid_knowledge"
+            )
+        )
+        explicit_web = bool(getattr(context.request, "web_search", False))
+
+        if not needs_retrieval and not explicit_web:
             self._append_trace(
-                context,
-                key="knowledge_retrieve",
-                title="知识检索",
-                summary="未执行知识检索。",
-                detail="当前回答不需要额外知识检索。",
-                status="skipped",
-                duration_ms=self._elapsed_ms(started_at),
+                context, key="knowledge_retrieve", title="知识检索",
+                summary=(
+                    "未执行知识检索。" if context.route != "answer" or context.answer is not None
+                    else "当前工作流规划跳过知识检索。"
+                ),
+                detail=(
+                    "当前回答不需要额外知识检索。" if context.route != "answer" or context.answer is not None
+                    else "deterministic planner 已接受当前规划，且本轮执行不需要知识检索步骤。"
+                ),
+                status="skipped", duration_ms=self._elapsed_ms(started_at),
             )
             return context
 
-        if not self._planner_requests_any_step(
-            context, "retrieve_knowledge", "retrieve_hybrid_knowledge"
-        ):
-            # Even when the planner skips knowledge retrieval, honour an
-            # explicit web_search checkbox so the user can force web
-            # grounding for questions like greetings or bookings.
-            if bool(getattr(context.request, "web_search", False)):
-                interaction_intent = context.interaction_intent or self._build_fallback_interaction_intent(
-                    context.request
-                )
-                context.web_search_hits = self._retrieve_web_search_hits(
-                    context,
-                    interaction_intent=interaction_intent,
-                    local_hit_count=0,
-                    local_top_score=0.0,
-                )
-                web_hit_count = len(context.web_search_hits)
-                self._append_trace(
-                    context,
-                    key="knowledge_retrieve",
-                    title="知识检索",
-                    summary=(
-                        f"工作流规划跳过本地检索，但用户显式开启联网搜索，"
-                        f"联网补充 {web_hit_count} 条。"
-                    ),
-                    detail=(
-                        f"deterministic planner 未规划知识检索步骤，"
-                        f"因用户勾选了联网搜索，仍执行联网补充 {web_hit_count} 条。"
-                    ),
-                    duration_ms=self._elapsed_ms(started_at),
-                )
-                return context
-            self._append_trace(
-                context,
-                key="knowledge_retrieve",
-                title="知识检索",
-                summary="当前工作流规划跳过知识检索。",
-                detail="deterministic planner 已接受当前规划，且本轮执行不需要知识检索步骤。",
-                status="skipped",
-                duration_ms=self._elapsed_ms(started_at),
-            )
-            return context
-
+        # --- Run local KB search (when planner requested it) ---
         interaction_intent = context.interaction_intent or self._build_fallback_interaction_intent(
             context.request
         )
-        retrieval_query = self._build_knowledge_query(
-            context.request, interaction_intent, context.recent_session_context
-        )
-        raw_hits = self._knowledge_store.search(
-            retrieval_query,
-            visitor_profile=context.request.visitor_profile,
-            admin_role=self._resolve_admin_role(),
-        )
-        context.knowledge_hits = self._filter_knowledge_hits_by_intent(raw_hits, interaction_intent)
-        hit_count = len(context.knowledge_hits)
-        top_score = context.knowledge_hits[0].score if context.knowledge_hits else 0.0
+        hit_count, top_score = 0, 0.0
+        if needs_retrieval:
+            retrieval_query = self._build_knowledge_query(
+                context.request, interaction_intent, context.recent_session_context
+            )
+            raw_hits = self._knowledge_store.search(
+                retrieval_query,
+                visitor_profile=context.request.visitor_profile,
+                admin_role=self._resolve_admin_role(),
+            )
+            context.knowledge_hits = self._filter_knowledge_hits_by_intent(raw_hits, interaction_intent)
+            hit_count = len(context.knowledge_hits)
+            top_score = context.knowledge_hits[0].score if context.knowledge_hits else 0.0
 
-        # Run web search immediately after local KB retrieval so it is always
-        # available regardless of downstream early-return paths (clarification
-        # override, weak-hit clarification, etc.).
+        # --- Run web search (always available when explicitly requested) ---
         context.web_search_hits = self._retrieve_web_search_hits(
-            context,
-            interaction_intent=interaction_intent,
-            local_hit_count=hit_count,
-            local_top_score=top_score,
+            context, interaction_intent=interaction_intent,
+            local_hit_count=hit_count, local_top_score=top_score,
         )
-        web_hit_count = len(context.web_search_hits)
+        web_count = len(context.web_search_hits)
 
-        # Task 3 post-retrieval revisit: if the classifier originally wanted to
-        # ask a follow-up but retrieval surfaced a strong hit, demote to answer
-        # so the downstream prompt builder grounds on KB. Otherwise emit the
-        # clarification with the top-3 titles attached, so the student gets
-        # something concrete back instead of a blind reflection loop.
-        if context.pending_clarification_message is not None:
+        # --- Post-retrieval: clarification override or demotion ---
+        trace_summary, trace_detail, trace_status = None, None, None
+        if context.pending_clarification_message is not None and needs_retrieval:
             if hit_count > 0 and top_score >= 12.0:
+                # Strong KB hit → cancel clarification, proceed to answer
                 context.pending_clarification_message = None
                 if context.workflow_action == "ask_follow_up":
                     context.workflow_action = "answer"
                 if context.interaction_intent is not None:
                     context.interaction_intent = context.interaction_intent.model_copy(
-                        update={
-                            "action": "answer",
-                            "needs_clarification": False,
-                            "clarification_message": None,
-                        }
+                        update={"action": "answer", "needs_clarification": False, "clarification_message": None}
                     )
-                self._append_trace(
-                    context,
-                    key="knowledge_retrieve",
-                    title="知识检索",
-                    summary=(
-                        f"命中本地 {hit_count} 条资料，联网补充 {web_hit_count} 条，"
-                        f"已取消澄清，直接依据 KB 回答。"
-                    ),
-                    detail=(
-                        f"top-1 得分 {top_score:.1f} 超过阈值 12，"
-                        f"将 ask_followup 降级为 answer。意图域：{interaction_intent.domain}；"
-                        f"联网补充 {web_hit_count} 条。"
-                    ),
-                    duration_ms=self._elapsed_ms(started_at),
+                trace_summary = (
+                    f"命中本地 {hit_count} 条，联网 {web_count} 条，已取消澄清，直接依据 KB 回答。"
                 )
-                return context
-
-            top_titles = [hit.title for hit in context.knowledge_hits[:3] if hit.title]
-            clarification = context.pending_clarification_message
-            if top_titles:
-                titles_block = "\n".join(f"- {title}" for title in top_titles)
-                context.answer = (
-                    f"{clarification}\n\n"
-                    "我大致检索到这些相关材料，可一起说明你想聚焦哪一块：\n"
-                    f"{titles_block}"
+                trace_detail = (
+                    f"top-1 得分 {top_score:.1f} 超过阈值 12，将 ask_followup 降级为 answer；"
+                    f"意图域 {interaction_intent.domain}。"
                 )
             else:
-                context.answer = clarification
-            context.workflow_action = "ask_follow_up"
-            context.route = "done"
-            context.pending_clarification_message = None
-            self._append_trace(
-                context,
-                key="knowledge_retrieve",
-                title="知识检索",
-                summary=(
-                    f"命中本地 {hit_count} 条资料，联网补充 {web_hit_count} 条，"
-                    f"但 top 得分 {top_score:.1f} 不足，附上标题后发出澄清。"
-                    if hit_count
-                    else f"本地无命中，联网补充 {web_hit_count} 条，发出澄清。"
-                ),
-                detail=(
-                    f"已将 top-{min(hit_count, 3)} 标题附在澄清中，避免盲反思循环；"
-                    f"联网补充 {web_hit_count} 条。"
-                    if top_titles
-                    else f"本轮本地检索未命中，联网补充 {web_hit_count} 条，仅发送澄清话术。"
-                ),
-                duration_ms=self._elapsed_ms(started_at),
-            )
-            return context
+                # Weak hit → emit clarification with top titles attached
+                top_titles = [hit.title for hit in context.knowledge_hits[:3] if hit.title]
+                clarification = context.pending_clarification_message
+                if top_titles:
+                    titles_block = "\n".join(f"- {t}" for t in top_titles)
+                    context.answer = (
+                        f"{clarification}\n\n"
+                        "我大致检索到这些相关材料，可一起说明你想聚焦哪一块：\n"
+                        f"{titles_block}"
+                    )
+                else:
+                    context.answer = clarification
+                context.workflow_action = "ask_follow_up"
+                context.route = "done"
+                context.pending_clarification_message = None
+                trace_summary = (
+                    f"命中本地 {hit_count} 条，联网 {web_count} 条，"
+                    f"但 top 得分 {top_score:.1f} 不足，发出澄清。"
+                    if hit_count else f"本地无命中，联网 {web_count} 条，发出澄清。"
+                )
+                trace_detail = (
+                    f"已将 top-{min(hit_count, 3)} 标题附在澄清中；联网 {web_count} 条。"
+                    if top_titles else f"本轮本地未命中，联网 {web_count} 条，仅发送澄清话术。"
+                )
+
+        # --- Build final trace (single consolidated entry) ---
+        if trace_summary is None:
+            if not needs_retrieval and explicit_web:
+                trace_summary = f"工作流跳过本地检索，用户显式联网搜索，联网 {web_count} 条。"
+                trace_detail = (
+                    f"deterministic planner 未规划知识检索，因用户勾选联网搜索，"
+                    f"仍执行联网补充 {web_count} 条。"
+                )
+            elif hit_count or web_count:
+                trace_summary = f"命中本地 {hit_count} 条，联网 {web_count} 条。"
+                trace_detail = (
+                    f"本地 {hit_count} 条，联网 {web_count} 条；"
+                    f"意图域 {interaction_intent.domain}，top 得分 {top_score:.1f}。"
+                )
+            else:
+                trace_summary = "没有命中直接相关资料。"
+                trace_detail = "未检索到相关材料，将基于角色设定直接回答。"
 
         self._append_trace(
-            context,
-            key="knowledge_retrieve",
-            title="知识检索",
-            summary=(
-                f"命中本地 {hit_count} 条资料，联网补充 {web_hit_count} 条。"
-                if (hit_count or web_hit_count)
-                else "没有命中直接相关资料。"
-            ),
-            detail=(
-                (
-                    f"本地命中 {hit_count} 条，联网补充 {web_hit_count} 条；"
-                    f"意图域 {interaction_intent.domain}，本地 top 得分 {top_score:.1f}。"
-                )
-                if (hit_count or web_hit_count)
-                else "未检索到直接相关材料，将基于角色设定直接回答。"
-            ),
+            context, key="knowledge_retrieve", title="知识检索",
+            summary=trace_summary, detail=trace_detail, status=trace_status,
             duration_ms=self._elapsed_ms(started_at),
         )
         return context
