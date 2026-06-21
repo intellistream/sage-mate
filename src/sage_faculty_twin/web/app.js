@@ -3992,7 +3992,7 @@ async function loadSuggestionList() {
     if (!suggestionList || !suggestionResponse) {
         return;
     }
-    setInlineStatus(suggestionResponse, "正在加载匿名留言...", "empty");
+    setInlineStatus(suggestionResponse, "", "empty");
     suggestionList.innerHTML = `<div class="list-card"><p class="list-body">正在加载匿名留言...</p></div>`;
 
     try {
@@ -4000,7 +4000,6 @@ async function loadSuggestionList() {
         suggestionList.innerHTML = "";
         if (!records.length) {
             suggestionList.innerHTML = `<div class="list-card"><p class="list-body">目前还没有匿名留言。</p></div>`;
-            setInlineStatus(suggestionResponse, "目前还没有匿名留言。", "empty");
             return;
         }
 
@@ -8680,6 +8679,9 @@ async function toggleChangelogModal() {
 }
 
 window.toggleChangelogModal = toggleChangelogModal;
+document.getElementById("app-version-badge")?.addEventListener("click", () => {
+    toggleChangelogModal();
+});
 
 async function initializePage() {
     renderConversationHistoryList();

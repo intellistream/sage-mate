@@ -2849,6 +2849,7 @@ body.sidebar-expanded .sidebar {
     gap: 2px;
     width: 100%;
     margin-top: 8px;
+    overflow: hidden;
 }
 
 .rail-history {
