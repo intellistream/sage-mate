@@ -5947,6 +5947,64 @@ body.workflow-shell-collapsed #workflow-toggle {
     letter-spacing: -0.02em;
 }
 
+/* Seed question chips — shown below greeting when chat is empty */
+.seed-chips {
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    padding: 16px 20px;
+    margin-top: 8px;
+    border: 1.5px dashed rgba(0, 0, 0, 0.12);
+    border-radius: 14px;
+    max-width: 560px;
+    width: 100%;
+}
+
+.chat-shell.chat-empty .seed-chips {
+    display: flex;
+}
+
+.seed-chips-label {
+    font-size: 0.8rem;
+    color: rgba(0, 0, 0, 0.4);
+    margin: 0;
+}
+
+.seed-chips-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: center;
+}
+
+.seed-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 14px;
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    border-radius: 999px;
+    background: #fff;
+    color: rgba(0, 0, 0, 0.65);
+    font-size: 0.85rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    white-space: nowrap;
+}
+
+.seed-chip:hover {
+    background: rgba(99, 102, 241, 0.06);
+    border-color: rgba(99, 102, 241, 0.3);
+    color: #6366f1;
+}
+
+.seed-chip svg {
+    flex-shrink: 0;
+    opacity: 0.5;
+}
+
 /* ChatGPT-style: center composer when empty */
 .chat-shell.chat-empty {
     display: flex;

@@ -683,15 +683,12 @@ document.getElementById("sidebar-toggle")?.addEventListener("click", () => {
     document.body.classList.toggle("sidebar-expanded");
 });
 
-// Sidebar quick action buttons
-document.querySelectorAll(".sidebar-action-btn").forEach((btn) => {
+// Seed question chips (above composer when chat is empty)
+document.querySelectorAll(".seed-chip").forEach((btn) => {
     btn.addEventListener("click", () => {
         const question = btn.dataset.seedQuestion;
         if (question && chatQuestion) {
             chatQuestion.value = question;
-            // Collapse sidebar after selecting
-            document.body.classList.remove("sidebar-expanded");
-            // Submit the question
             chatForm?.requestSubmit();
         }
     });
