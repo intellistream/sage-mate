@@ -10,11 +10,8 @@ Covers:
 from __future__ import annotations
 
 import json
-import tempfile
 from datetime import UTC, datetime
 from pathlib import Path
-
-import pytest
 
 from sage_faculty_twin.memory_store import (
     ConversationDigestRecord,
@@ -154,7 +151,7 @@ class TestDigestTriggerLogic:
             context_digest_dir=tmp_path / "digests",
             conversation_memory_dir=tmp_path / "mem",
         )
-        store = ConversationDigestStore(settings.context_digest_dir)
+        ConversationDigestStore(settings.context_digest_dir)
         # Simulate: only 2 turns in the conversation.
         # The trigger check compares len(all_records) - turns_already_digested < threshold.
         # With 2 turns and threshold 4, it should NOT trigger.

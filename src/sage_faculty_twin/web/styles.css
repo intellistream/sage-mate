@@ -2568,6 +2568,67 @@ body.conversation-active .intro-card .message-body {
 }
 
 /* ============================================
+   Mobile sidebar toggle button + backdrop
+   ============================================ */
+
+/* Hidden by default on desktop */
+.mobile-sidebar-btn {
+    display: none;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    flex-shrink: 0;
+    border: none;
+    border-radius: 10px;
+    background: transparent;
+    color: rgba(0, 0, 0, 0.6);
+    cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease;
+}
+
+.mobile-sidebar-btn:hover {
+    background: rgba(0, 0, 0, 0.06);
+    color: rgba(0, 0, 0, 0.85);
+}
+
+.mobile-sidebar-btn:active {
+    background: rgba(0, 0, 0, 0.10);
+}
+
+/* Backdrop overlay (hidden by default) */
+.sidebar-backdrop {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.35);
+    z-index: 99;
+    opacity: 0;
+    transition: opacity 250ms ease;
+}
+
+@media (max-width: 720px) {
+    .mobile-sidebar-btn {
+        display: inline-flex;
+    }
+
+    .sidebar-backdrop {
+        display: block;
+        pointer-events: none;
+    }
+
+    body.sidebar-expanded .sidebar-backdrop {
+        opacity: 1;
+        pointer-events: auto;
+    }
+
+    /* Ensure sidebar z-index is above backdrop */
+    body.sidebar-expanded .sidebar {
+        z-index: 100;
+    }
+}
+
+/* ============================================
    Hide old footer - status info moved to drawer
    ============================================ */
 /* Footer banner — keep Powered-by at page bottom, hide runtime row (now in status view) */

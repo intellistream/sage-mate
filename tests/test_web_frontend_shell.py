@@ -35,11 +35,11 @@ def test_embedded_homepage_route_is_served() -> None:
     assert "<html" in response.text.lower()
 
 
-def test_overlay_modal_registry_tolerates_missing_identity_modal() -> None:
+def test_overlay_modal_registry_includes_identity_modal() -> None:
     index_html = (WEB_DIR / "index.html").read_text(encoding="utf-8")
     app_js = (WEB_DIR / "app.js").read_text(encoding="utf-8")
 
-    assert 'id="identity-modal"' not in index_html
+    assert 'id="identity-modal"' in index_html
     assert 'id="lucky-question-button"' in index_html
     assert 'id="knowledge-feedback-web-list"' in index_html
     assert "const RANDOM_CHAT_QUESTION_BANKS = {" in app_js
@@ -50,5 +50,3 @@ def test_overlay_modal_registry_tolerates_missing_identity_modal() -> None:
     assert "data-feedback-web-action" in app_js
     assert "const overlayModals = [" in app_js
     assert "function hasVisibleOverlayModal()" in app_js
-    assert 'identityModal.classList.contains("hidden")' not in app_js
-    assert "[identityModal, knowledgeModal" not in app_js

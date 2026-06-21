@@ -1066,7 +1066,8 @@ def test_chat_reuses_neuromem_conversation_memory_in_follow_up_prompt(
     assert "Recent conversation memory:" not in llm.prompts[-1]
     assert "我之前说我想讨论什么主题？" in llm.prompts[-1]
     assert "科研指导" in llm.prompts[-1]
-    assert any(item.basis_label == "近期交流记录" for item in follow_up.answer_basis)
+    # "近期交流记录" is stripped by safety net (session context must never be cited)
+    assert not any(item.basis_label == "近期交流记录" for item in follow_up.answer_basis)
     assert any(item.basis_label == "学生长期记录" for item in follow_up.answer_basis)
     assert follow_up.memory_used is True
     assert follow_up.memory_write_back is True

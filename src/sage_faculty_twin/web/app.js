@@ -683,6 +683,27 @@ document.getElementById("sidebar-toggle")?.addEventListener("click", () => {
     document.body.classList.toggle("sidebar-expanded");
 });
 
+// Mobile sidebar toggle + backdrop dismiss
+const mobileSidebarToggle = document.getElementById("mobile-sidebar-toggle");
+const sidebarBackdrop = document.getElementById("sidebar-backdrop");
+
+mobileSidebarToggle?.addEventListener("click", () => {
+    document.body.classList.toggle("sidebar-expanded");
+});
+
+sidebarBackdrop?.addEventListener("click", () => {
+    document.body.classList.remove("sidebar-expanded");
+});
+
+// Auto-close mobile sidebar when any rail button is tapped
+document.querySelectorAll(".sidebar .rail-btn, .sidebar .rail-user").forEach((btn) => {
+    btn.addEventListener("click", () => {
+        if (window.innerWidth <= 720) {
+            document.body.classList.remove("sidebar-expanded");
+        }
+    });
+});
+
 // Seed question chips (above composer when chat is empty)
 document.querySelectorAll(".seed-chip").forEach((btn) => {
     btn.addEventListener("click", () => {

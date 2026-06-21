@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -18,7 +18,6 @@ from sage_faculty_twin.skill_tools import SkillToolRegistry
 from sage_faculty_twin.skills import (
     SkillContext,
     SkillDefinition,
-    SkillResult,
     SkillToolDefinition,
     SkillToolParameter,
     check_skill_compatibility,

@@ -457,6 +457,7 @@ def test_chat_uses_authenticated_visitor_profile_over_client_payload(monkeypatch
             "email": email,
             "visitor_profile": "lab_member",
             "password": "StrongPass123!",
+            "invitation_code": settings.lab_member_invitation_code,
         },
     )
     assert register_response.status_code == 200
@@ -582,6 +583,7 @@ def test_user_can_register_login_and_logout(isolated_availability_store) -> None
             "email": "alice@example.com",
             "visitor_profile": "lab_member",
             "password": "alice-password-123",
+            "invitation_code": settings.lab_member_invitation_code,
         },
     )
     assert register_response.status_code == 200

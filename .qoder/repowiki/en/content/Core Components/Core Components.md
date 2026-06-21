@@ -19,11 +19,11 @@
 
 ## Update Summary
 **Changes Made**
-- Enhanced UI/UX documentation with comprehensive seed chip implementation details
-- Added detailed suggestion board deduplication mechanism documentation
-- Updated changelog modal accessibility improvements section
-- Expanded CSS overflow fixes documentation for better layout management
-- Documented sidebar redesign from shortcut buttons to seed chips above chat composer
+- Enhanced user interface interaction system documentation with race condition fixes for sidebar user icon and settings drawer
+- Improved seed chip visibility during page load and proper chat empty state initialization
+- Added comprehensive documentation of enhanced web interface architecture including improved user interaction handling
+- Documented seed chip implementation with event delegation and streaming response optimization
+- Updated streaming response handling with race condition fixes and improved initialization
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -33,19 +33,21 @@
 5. [Detailed Component Analysis](#detailed-component-analysis)
 6. [Enhanced Web Interface Architecture](#enhanced-web-interface-architecture)
 7. [Seed Chip Implementation](#seed-chip-implementation)
-8. [Suggestion Board Deduplication](#suggestion-board-deduplication)
-9. [Changelog Modal Accessibility](#changelog-modal-accessibility)
-10. [CSS Overflow Management](#css-overflow-management)
-11. [Sidebar Redesign](#sidebar-redesign)
-12. [Markdown Rendering Pipeline](#markdown-rendering-pipeline)
-13. [Streaming Response Handling](#streaming-response-handling)
-14. [Dependency Analysis](#dependency-analysis)
-15. [Performance Considerations](#performance-considerations)
-16. [Troubleshooting Guide](#troubleshooting-guide)
-17. [Conclusion](#conclusion)
+8. [Race Condition Fixes](#race-condition-fixes)
+9. [Chat Empty State Management](#chat-empty-state-management)
+10. [Streaming Response Optimization](#streaming-response-optimization)
+11. [Suggestion Board Deduplication](#suggestion-board-deduplication)
+12. [Changelog Modal Accessibility](#changelog-modal-accessibility)
+13. [CSS Overflow Management](#css-overflow-management)
+14. [Sidebar Redesign](#sidebar-redesign)
+15. [Markdown Rendering Pipeline](#markdown-rendering-pipeline)
+16. [Dependency Analysis](#dependency-analysis)
+17. [Performance Considerations](#performance-considerations)
+18. [Troubleshooting Guide](#troubleshooting-guide)
+19. [Conclusion](#conclusion)
 
 ## Introduction
-This document explains the core backend components of Sage Faculty Twin, focusing on the service layer architecture, configuration management, authentication and authorization, runtime environment handling, workflow orchestration, memory management integration, and knowledge base connectivity. The system has been enhanced with comprehensive web interface capabilities including advanced markdown rendering, optimized streaming response handling, seed chip implementation, suggestion board deduplication, and improved accessibility features.
+This document explains the core backend components of Sage Faculty Twin, focusing on the service layer architecture, configuration management, authentication and authorization, runtime environment handling, workflow orchestration, memory management integration, and knowledge base connectivity. The system has been enhanced with comprehensive web interface capabilities including advanced markdown rendering, optimized streaming response handling, seed chip implementation, suggestion board deduplication, and improved accessibility features with race condition fixes.
 
 ## Project Structure
 The backend is organized around a FastAPI application that exposes REST endpoints and an internal service layer responsible for orchestrating workflows. The frontend has been significantly enhanced with comprehensive markdown rendering capabilities, seed chip functionality, and real-time streaming optimizations. Key modules include:
@@ -81,9 +83,11 @@ SYS["ServiceRuntimeManager"]
 END
 subgraph "Enhanced Frontend"
 WEB["Web Interface<br/>Seed Chips & Accessibility"]
-STREAM["Streaming Handler<br/>Formatted innerHTML"]
+STREAM["Streaming Handler<br/>Race Condition Fixed"]
 MARKDOWN["Markdown Pipeline<br/>Comprehensive Formatting"]
 CHANGES["Changelog Modal<br/>Accessibility Improvements"]
+SEED["Seed Chip System<br/>Event Delegation"]
+EMPTY["Empty State Manager<br/>Initialization Fix"]
 END
 API --> SVC
 SVC --> PLANNER
@@ -99,6 +103,8 @@ SVC --> SYS
 WEB --> STREAM
 STREAM --> MARKDOWN
 WEB --> CHANGES
+WEB --> SEED
+WEB --> EMPTY
 ```
 
 **Diagram sources**
@@ -186,7 +192,7 @@ The system follows a layered architecture with enhanced web interface capabiliti
 - Service layer orchestrates planning, retrieval, LLM invocation, persistence, and notifications.
 - Data stores encapsulate knowledge, memory, and suggestion management with deduplication.
 - Runtime manager coordinates external services.
-- Enhanced frontend with comprehensive markdown rendering, seed chips, and accessibility improvements.
+- Enhanced frontend with comprehensive markdown rendering, seed chips, and accessibility improvements with race condition fixes.
 
 ```mermaid
 sequenceDiagram
@@ -213,6 +219,9 @@ Svc->>LLM : stream chat completion
 LLM-->>Svc : answer chunks
 Svc->>Broker : publish answer_delta
 API-->>Client : SSE answer_delta with formatted content
+Note over Client,API : Race condition fixes for sidebar user icon and settings drawer
+Note over Client,API : Seed chip visibility during page load
+Note over Client,API : Proper chat empty state initialization
 ```
 
 **Diagram sources**
@@ -459,10 +468,10 @@ Score --> Render["Render user response"]
 ## Enhanced Web Interface Architecture
 
 ### Web Interface Components
-The enhanced web interface consists of three main components working together to provide comprehensive markdown rendering and optimized streaming:
+The enhanced web interface consists of three main components working together to provide comprehensive markdown rendering and optimized streaming with race condition fixes:
 
 - **Frontend Shell (index.html)**: Main HTML structure with responsive design, accessibility features, and modular UI components including seed chips and suggestion boards.
-- **Application Logic (app.js)**: Comprehensive JavaScript implementation handling streaming responses, markdown processing, real-time updates, seed chip interactions, and suggestion board management.
+- **Application Logic (app.js)**: Comprehensive JavaScript implementation handling streaming responses, markdown processing, real-time updates, seed chip interactions, and suggestion board management with race condition fixes.
 - **Styling (styles.css)**: CSS framework supporting the enhanced interface with modern design patterns, seed chip styling, and overflow management.
 
 ### Seed Chip Implementation
@@ -484,6 +493,78 @@ Implementation details:
 - [index.html:97-114](file://src/sage_faculty_twin/web/index.html#L97-L114)
 - [app.js:686-695](file://src/sage_faculty_twin/web/app.js#L686-L695)
 - [styles.css:5974-6006](file://src/sage_faculty_twin/web/styles.css#L5974-L6006)
+
+### Race Condition Fixes
+
+**Updated** Comprehensive race condition fixes for sidebar user icon and settings drawer
+
+The enhanced web interface includes critical race condition fixes to ensure reliable user interaction:
+
+- **Sidebar User Icon Race Condition**: Fixed timing issues where the sidebar user icon click event could fire before the settings drawer was properly initialized.
+- **Settings Drawer Event Handling**: Implemented proper event delegation and initialization order to prevent race conditions during drawer opening/closing.
+- **Event Listener Management**: Ensured event listeners are attached after DOM elements are ready and properly cleaned up when drawers are closed.
+
+Key improvements:
+- Deferred event listener attachment until settings drawer DOM nodes are moved into the view
+- Proper initialization order for settings drawer content migration
+- Race condition prevention in sidebar user icon click handlers
+- Improved event delegation patterns for dynamic content
+
+**Section sources**
+- [app.js:7967-7974](file://src/sage_faculty_twin/web/app.js#L7967-L7974)
+- [app.js:832-835](file://src/sage_faculty_twin/web/app.js#L832-L835)
+- [app.js:1591-1600](file://src/sage_faculty_twin/web/app.js#L1591-L1600)
+
+### Chat Empty State Management
+
+**Updated** Proper chat empty state initialization and seed chip visibility
+
+The enhanced empty state management ensures optimal user experience when the chat is empty:
+
+- **Empty State Detection**: Proper detection of empty conversations using `chat-shell.chat-empty` class
+- **Seed Chip Visibility**: Seed chips are prominently displayed above the composer when chat is empty
+- **Layout Optimization**: Centered composition layout with proper spacing and alignment
+- **Initialization Timing**: Seed chips are visible immediately upon page load without delay
+
+Implementation details:
+- Empty state class management during conversation lifecycle
+- Seed chip container visibility control
+- Responsive layout adjustments for empty state
+- Immediate seed chip rendering without initialization delays
+
+**Section sources**
+- [styles.css:6009-6035](file://src/sage_faculty_twin/web/styles.css#L6009-L6035)
+- [app.js:4514-4516](file://src/sage_faculty_twin/web/app.js#L4514-L4516)
+
+### Streaming Response Optimization
+
+**Updated** Enhanced streaming response handling with race condition fixes
+
+The streaming response system has been optimized with comprehensive race condition fixes:
+
+```mermaid
+sequenceDiagram
+participant Client as "Client Browser"
+participant App as "app.js"
+participant Parser as "parseStreamingThinkContent"
+participant Formatter as "formatMessageContent"
+participant DOM as "DOM Tree"
+Client->>App : answer_delta event
+App->>Parser : parseStreamingThinkContent(buffer)
+Parser-->>App : {think, main} content
+App->>Formatter : formatMessageContent(main)
+Formatter-->>App : HTML formatted content
+App->>DOM : body.innerHTML = formatted content
+App->>DOM : Update thinking panel
+App->>DOM : Scroll to bottom
+Note over App,DOM : Race condition fixes for DOM updates
+Note over App,DOM : Proper initialization order for streaming
+```
+
+**Diagram sources**
+- [app.js:6701-6729](file://src/sage_faculty_twin/web/app.js#L6701-L6729)
+- [app.js:6732-6753](file://src/sage_faculty_twin/web/app.js#L6732-L6753)
+- [app.js:7749-7809](file://src/sage_faculty_twin/web/app.js#L7749-L7809)
 
 ### Suggestion Board Deduplication
 
@@ -567,31 +648,6 @@ The redesign includes:
 - [index.html:47-91](file://src/sage_faculty_twin/web/index.html#L47-L91)
 - [styles.css:6009-6035](file://src/sage_faculty_twin/web/styles.css#L6009-L6035)
 
-### Streaming Response Handling
-The system implements sophisticated streaming response handling with real-time content rendering:
-
-```mermaid
-sequenceDiagram
-participant Client as "Client Browser"
-participant App as "app.js"
-participant Parser as "parseStreamingThinkContent"
-participant Formatter as "formatMessageContent"
-participant DOM as "DOM Tree"
-Client->>App : answer_delta event
-App->>Parser : parseStreamingThinkContent(buffer)
-Parser-->>App : {think, main} content
-App->>Formatter : formatMessageContent(main)
-Formatter-->>App : HTML formatted content
-App->>DOM : body.innerHTML = formatted content
-App->>DOM : Update thinking panel
-App->>DOM : Scroll to bottom
-```
-
-**Diagram sources**
-- [app.js:6701-6729](file://src/sage_faculty_twin/web/app.js#L6701-L6729)
-- [app.js:6732-6753](file://src/sage_faculty_twin/web/app.js#L6732-L6753)
-- [app.js:7749-7809](file://src/sage_faculty_twin/web/app.js#L7749-L7809)
-
 ### Markdown Rendering Pipeline
 The enhanced markdown rendering system processes content through a comprehensive pipeline supporting all major markdown features:
 
@@ -667,7 +723,7 @@ F --> G["Safe HTML Output"]
 ## Streaming Response Handling
 
 ### Real-Time Content Delivery
-The streaming response system optimizes user experience through progressive content delivery:
+The streaming response system optimizes user experience through progressive content delivery with race condition fixes:
 
 #### Streaming Buffer Management
 - **Dual Buffer System**: Separate buffers for main content and thinking process
@@ -701,6 +757,7 @@ Complete --> [*]
 - **Buffer Management**: Efficient string concatenation and cleanup for streaming data
 - **DOM Optimization**: Minimal DOM operations during frequent updates
 - **Scroll Management**: Automatic scrolling to newly added content
+- **Race Condition Prevention**: Proper initialization order and event handling
 
 **Section sources**
 - [app.js:6701-6729](file://src/sage_faculty_twin/web/app.js#L6701-L6729)
@@ -721,6 +778,7 @@ Complete --> [*]
   - Modern JavaScript features for streaming, DOM manipulation, seed chip interactions, and suggestion board management.
   - CSS Grid and Flexbox for responsive layouts with overflow management.
   - Accessibility features for inclusive design including ARIA labels and keyboard navigation.
+  - Race condition fixes for sidebar user icon and settings drawer interactions.
 
 ```mermaid
 graph LR
@@ -740,6 +798,7 @@ APPJS --> SEEDCHIPS["Seed Chip Logic"]
 APPJS --> SUGGESTLOGIC["Suggestion Board Logic"]
 APPJS --> MARKDOWN["formatMessageContent()"]
 APPJS --> STREAMING["appendStreamingAnswerDelta()"]
+APPJS --> RACEFIXES["Race Condition Fixes"]
 ```
 
 **Diagram sources**
@@ -769,7 +828,7 @@ APPJS --> STREAMING["appendStreamingAnswerDelta()"]
   - References:
     - [Background default and toggles:428-430](file://src/sage_faculty_twin/service.py#L428-L430)
 - Streaming answers
-  - Optional streaming of LLM tokens over SSE to improve perceived latency.
+  - Optional streaming of LLM tokens over SSE to improve perceived latency with race condition fixes.
   - References:
     - [Streaming toggle and SSE broker:145-147](file://src/sage_faculty_twin/api.py#L145-L147)
     - [WorkflowEventBroker.publish_answer_chunk:218-226](file://src/sage_faculty_twin/api.py#L218-L226)
@@ -780,13 +839,13 @@ APPJS --> STREAMING["appendStreamingAnswerDelta()"]
     - [NeuroMem bm25 index:512-518](file://src/sage_faculty_twin/knowledge_base.py#L512-L518)
 - Enhanced frontend performance
   - Optimized markdown processing with efficient regex patterns and DOM manipulation.
-  - Streaming response handling with minimal layout recalculations.
+  - Streaming response handling with minimal layout recalculations and race condition fixes.
   - Real-time content updates with debounced scroll positioning.
-  - Seed chip interactions with efficient event delegation.
+  - Seed chip interactions with efficient event delegation and immediate visibility.
   - Suggestion board deduplication with client-side validation.
   - Accessibility features with proper focus management and keyboard navigation.
-
-[No sources needed since this section provides general guidance]
+  - Race condition fixes for sidebar user icon and settings drawer interactions.
+  - Proper chat empty state initialization with seed chip visibility.
 
 ## Troubleshooting Guide
 - Missing runtime dependencies
@@ -816,6 +875,9 @@ APPJS --> STREAMING["appendStreamingAnswerDelta()"]
   - Suggestion board deduplication requires proper message hashing implementation.
   - Changelog modal accessibility issues resolved with proper focus management.
   - CSS overflow problems addressed with consistent overflow property usage.
+  - Race condition issues resolved with proper event listener initialization order.
+  - Sidebar user icon and settings drawer interactions fixed with deferred event attachment.
+  - Chat empty state initialization issues resolved with proper class management.
 
 **Section sources**
 - [runtime_env.py:116-130](file://src/sage_faculty_twin/runtime_env.py#L116-L130)
@@ -827,4 +889,4 @@ APPJS --> STREAMING["appendStreamingAnswerDelta()"]
 - [api.py:194-200](file://src/sage_faculty_twin/api.py#L194-L200)
 
 ## Conclusion
-Sage Faculty Twin's backend is a modular, configuration-driven system centered on a service orchestrator that integrates planning, retrieval, memory, suggestions, and notifications. The enhanced web interface provides comprehensive markdown rendering capabilities with sophisticated streaming response handling, featuring real-time content delivery, progressive rendering, extensive formatting support, seed chip functionality, suggestion board deduplication, and improved accessibility features. The system emphasizes operability through environment-based configuration, robust authentication, streaming-first UX patterns with optimized frontend performance, and comprehensive UI/UX improvements including seed chips, suggestion board management, and accessibility enhancements. The architecture supports extensibility via pluggable backends, policy-driven planning, and clear dependency boundaries, now augmented with advanced web interface capabilities for rich content presentation and improved user experience.
+Sage Faculty Twin's backend is a modular, configuration-driven system centered on a service orchestrator that integrates planning, retrieval, memory, suggestions, and notifications. The enhanced web interface provides comprehensive markdown rendering capabilities with sophisticated streaming response handling, featuring real-time content delivery, progressive rendering, extensive formatting support, seed chip functionality, suggestion board deduplication, and improved accessibility features with race condition fixes. The system emphasizes operability through environment-based configuration, robust authentication, streaming-first UX patterns with optimized frontend performance, and comprehensive UI/UX improvements including seed chips, suggestion board management, accessibility enhancements, and race condition fixes for sidebar user icon and settings drawer interactions. The architecture supports extensibility via pluggable backends, policy-driven planning, and clear dependency boundaries, now augmented with advanced web interface capabilities for rich content presentation and improved user experience with comprehensive race condition fixes and proper initialization handling.

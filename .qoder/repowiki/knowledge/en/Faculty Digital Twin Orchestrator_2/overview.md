@@ -1,1 +1,1 @@
-Orchestrates a deterministic, policy-governed chat workflow for academic advising, meeting booking, and knowledge retrieval with traceable execution.
+Provides a 24/7 academic digital twin for faculty members, handling student inquiries, meeting bookings, and knowledge retrieval via an agentic workflow pipeline.
