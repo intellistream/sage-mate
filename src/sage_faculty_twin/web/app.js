@@ -1674,17 +1674,18 @@ chatForm.addEventListener("submit", async (event) => {
     const wasOnboarding = onboardingActive;
     let onboardingWrappedQuestion = question;
     if (wasOnboarding && onboardingSteps[onboardingCurrentStep]) {
-        const step = onboardingSteps[onboardingCurrentStep];
-        const stepLabel = step.context || "新手引导";
-        const stepNum = onboardingCurrentStep + 1;
-        const totalSteps = onboardingSteps.length;
         const profile = visitorProfileInput?.value || "general_visitor";
-        // Only include evaluation/feedback instructions for guided-learning profiles
+        // Only wrap with coaching template for guided-learning profiles.
+        // general_visitor asks natural questions — no evaluation/coaching.
         const isGuidedProfile = ["lab_member", "paper_writing_student", "hust_undergraduate"].includes(profile);
-        const feedbackInstruction = isGuidedProfile
-            ? "\n\n请对我的回答给出具体的评价和改进建议，并引导我思考下一步。"
-            : "";
-        onboardingWrappedQuestion = `[${stepLabel} · 第 ${stepNum}/${totalSteps} 步] ${step.copy}\n\n问题模板：${step.question}\n\n我的回答：${question}${feedbackInstruction}`;
+        if (isGuidedProfile) {
+            const step = onboardingSteps[onboardingCurrentStep];
+            const stepLabel = step.context || "新手引导";
+            const stepNum = onboardingCurrentStep + 1;
+            const totalSteps = onboardingSteps.length;
+            onboardingWrappedQuestion = `[${stepLabel} · 第 ${stepNum}/${totalSteps} 步] ${step.copy}\n\n问题模板：${step.question}\n\n我的回答：${question}\n\n请对我的回答给出具体的评价和改进建议，并引导我思考下一步。`;
+        }
+        // For general_visitor: send the raw question so the LLM answers it directly.
     }
 
     lastFailedQuestion = null;
