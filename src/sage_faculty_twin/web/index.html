@@ -96,10 +96,10 @@
 
             <section class="chat-shell chat-empty">
                 <div id="chat-stream" class="chat-stream">
-                    <div id="welcome-greeting" class="welcome-greeting">
+                    <div id="welcome-greeting" class="welcome-greeting hidden">
                         <h1 id="greeting-text" class="greeting-text">你好</h1>
                     </div>
-                    <div id="seed-chips" class="seed-chips">
+                    <div id="seed-chips" class="seed-chips hidden">
                         <p class="seed-chips-label">可以试试这些问题：</p>
                         <div id="seed-chips-list" class="seed-chips-list">
                         </div>
@@ -246,6 +246,16 @@
                                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
                             </button>
                             <textarea id="chat-question" name="question" rows="1" required placeholder="请写下你的问题..."></textarea>
+                            <button type="button" id="voice-input-button"
+                                class="composer-mic-button" aria-label="语音输入" title="点击开始语音输入">
+                                <svg class="mic-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+                                    <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+                                    <line x1="12" y1="19" x2="12" y2="23"/>
+                                    <line x1="8" y1="23" x2="16" y2="23"/>
+                                </svg>
+                                <span class="mic-recording-indicator" aria-hidden="true"></span>
+                            </button>
                             <button type="submit" class="send-button">发送</button>
                         </div>
                         <div class="composer-tools-row" aria-label="发送附加操作">
@@ -346,29 +356,6 @@
                     <ol id="workflow-plan-steps" class="workflow-plan-steps" hidden></ol>
                 </section>
 
-                <section id="workflow-shadow-plan-panel" class="workflow-plan-card workflow-plan-card-shadow" hidden>
-                    <header class="workflow-plan-header">
-                        <h3 id="workflow-shadow-plan-heading">Shadow Planner</h3>
-                        <span id="workflow-shadow-plan-badge" class="workflow-plan-badge">待评估</span>
-                    </header>
-                    <p id="workflow-shadow-plan-copy" class="workflow-plan-copy">尚未生成 shadow 规划。</p>
-                    <p id="workflow-shadow-plan-details" class="workflow-plan-details"></p>
-                    <button type="button" id="workflow-shadow-plan-toggle" class="workflow-plan-toggle"
-                        aria-expanded="false">展开 shadow 步骤</button>
-                    <ol id="workflow-shadow-plan-steps" class="workflow-plan-steps" hidden></ol>
-                </section>
-
-                <section id="workflow-plan-compare-panel" class="workflow-plan-card workflow-plan-card-compare" hidden>
-                    <header class="workflow-plan-header">
-                        <h3 id="workflow-plan-compare-heading">Planner 对比</h3>
-                        <span id="workflow-plan-compare-badge" class="workflow-plan-badge">待对比</span>
-                    </header>
-                    <p id="workflow-plan-compare-copy" class="workflow-plan-copy">正在等待对比结果。</p>
-                    <p id="workflow-plan-compare-details" class="workflow-plan-details"></p>
-                    <button type="button" id="workflow-plan-compare-toggle" class="workflow-plan-toggle"
-                        aria-expanded="false">展开差异清单</button>
-                    <ol id="workflow-plan-compare-steps" class="workflow-plan-steps" hidden></ol>
-                </section>
 
                 <div id="workflow-trace-wrap" class="workflow-trace-wrap">
                     <div id="workflow-trace" class="workflow-trace" aria-live="polite"></div>
@@ -565,34 +552,6 @@
             <button type="submit" class="primary-button">进入管理员模式</button>
         </form>
         <div id="admin-login-response" class="inline-status inline-status-empty">这里只给张书豪本人或受信管理员维护系统使用。</div>
-    </section>
-
-    <section id="identity-modal" class="modal-panel landing-panel hidden" aria-hidden="true">
-        <div class="landing-hero">
-            <div class="landing-brand">
-                <span class="landing-logo">&#9670;</span>
-                <span class="landing-title">SAGE</span>
-            </div>
-            <h1 class="landing-heading">数字孪生助手</h1>
-            <p class="landing-tagline">课题组智能问答与研究支持平台</p>
-        </div>
-        <div class="landing-actions">
-            <button type="button" id="identity-auth" class="landing-card landing-card-primary">
-                <span class="landing-card-icon">&#128274;</span>
-                <span class="landing-card-body">
-                    <span class="landing-card-title">注册 / 登录</span>
-                    <span class="landing-card-desc">课题组内部成员请输入邀请码获取完整权限</span>
-                </span>
-            </button>
-            <button type="button" id="identity-guest" class="landing-card">
-                <span class="landing-card-icon">&#128100;</span>
-                <span class="landing-card-body">
-                    <span class="landing-card-title">访客访问</span>
-                    <span class="landing-card-desc">无需注册即可体验，聊天记录不会保存</span>
-                </span>
-            </button>
-        </div>
-        <p class="landing-footer">SAGE Lab &middot; HUST</p>
     </section>
 
     <section id="user-register-modal" class="modal-panel hidden" aria-hidden="true" style="display:none">
@@ -1049,7 +1008,7 @@
         </div>
     </section>
 
-    <script src="./app.js"></script>
+    <script src="./app.js" defer></script>
 </body>
 
 </html>

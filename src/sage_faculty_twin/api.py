@@ -572,6 +572,7 @@ async def record_presence_heartbeat(
 async def lucky_question(
     visitor_profile: str = Query(default="general_visitor"),
     recent: str = Query(default="", description="Comma-separated recent questions to avoid"),
+    onboarding_step: str = Query(default="", description="Current onboarding step label for context"),
 ) -> dict[str, str]:
     """Ask the LLM to generate a contextual question for the
     "I'm feeling lucky" button.  Returns ``{}`` on failure so the
@@ -585,6 +586,7 @@ async def lucky_question(
                 service.generate_lucky_question,
                 visitor_profile=visitor_profile,
                 recent_questions=recent_questions,
+                onboarding_step=onboarding_step,
             ),
             timeout=8.0,
         )

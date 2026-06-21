@@ -592,6 +592,7 @@ class VllmChatClient:
         owner_role: str,
         visitor_profile: str = "general_visitor",
         recent_questions: list[str] | None = None,
+        onboarding_step: str = "",
     ) -> dict[str, str]:
         """Use the intent model to generate a contextual question for the
         "I'm feeling lucky" button.  Falls back gracefully on any error so
@@ -625,6 +626,11 @@ class VllmChatClient:
             "'论文写作课', '初次来访', or '组会准备'. "
             "The question must be in Chinese. Keep it under 40 characters."
         )
+        if onboarding_step:
+            system_prompt += (
+                f"\nThe visitor is currently on onboarding step: {onboarding_step}. "
+                "Generate a question that is relevant to this specific onboarding step."
+            )
         user_prompt = (
             f"Generate one question for a {profile_label} visiting "
             f"{owner_name}'s digital twin."

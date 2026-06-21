@@ -6744,6 +6744,7 @@ class DigitalTwinService:
         *,
         visitor_profile: str = "general_visitor",
         recent_questions: list[str] | None = None,
+        onboarding_step: str = "",
     ) -> dict[str, str]:
         """Ask the LLM to generate a contextual question for the
         'I'm feeling lucky' button.  Returns an empty dict on failure
@@ -6757,6 +6758,7 @@ class DigitalTwinService:
                 owner_role=self._settings.owner_role,
                 visitor_profile=visitor_profile,
                 recent_questions=recent_questions,
+                onboarding_step=onboarding_step,
             )
         except Exception:
             return {}

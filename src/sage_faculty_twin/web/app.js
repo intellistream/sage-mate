@@ -1,3 +1,11 @@
+// Global error handler — prevents uncaught errors from silently breaking all event listeners.
+window.addEventListener("error", (event) => {
+    console.error("[app.js] Uncaught error:", event.message, "at", event.filename + ":" + event.lineno);
+});
+window.addEventListener("unhandledrejection", (event) => {
+    console.error("[app.js] Unhandled promise rejection:", event.reason);
+});
+
 const statusPill = document.getElementById("status-pill");
 const modelPill = document.getElementById("model-pill");
 const knowledgePill = document.getElementById("knowledge-pill");
@@ -30,7 +38,6 @@ const accountView = document.getElementById("account-view");
 const accountViewBody = document.getElementById("account-view-body");
 const accountTabRegister = document.getElementById("account-tab-register");
 const accountTabLogin = document.getElementById("account-tab-login");
-const identityModal = document.getElementById("identity-modal");
 const knowledgeModal = document.getElementById("knowledge-modal");
 const bookingModal = document.getElementById("booking-modal");
 const suggestionModal = document.getElementById("suggestion-modal");
@@ -86,7 +93,6 @@ const openMemoryProfilesButton = document.getElementById("open-memory-profiles")
 const openOperationsConsoleButton = document.getElementById("open-operations-console");
 const openQuestionAnalyticsButton = document.getElementById("open-question-analytics");
 const openAvailabilityEditorButton = document.getElementById("open-availability-editor");
-const assistantName = document.getElementById("assistant-name");
 const topbarTitle = document.getElementById("topbar-title");
 const topbarSubtitle = document.getElementById("topbar-subtitle");
 const homepageLink = document.getElementById("homepage-link");
@@ -133,20 +139,6 @@ const workflowPlanNote = document.getElementById("workflow-plan-note");
 const workflowPlanDetails = document.getElementById("workflow-plan-details");
 const workflowPlanToggle = document.getElementById("workflow-plan-toggle");
 const workflowPlanSteps = document.getElementById("workflow-plan-steps");
-const workflowShadowPlanPanel = document.getElementById("workflow-shadow-plan-panel");
-const workflowShadowPlanHeading = document.getElementById("workflow-shadow-plan-heading");
-const workflowShadowPlanBadge = document.getElementById("workflow-shadow-plan-badge");
-const workflowShadowPlanCopy = document.getElementById("workflow-shadow-plan-copy");
-const workflowShadowPlanDetails = document.getElementById("workflow-shadow-plan-details");
-const workflowShadowPlanToggle = document.getElementById("workflow-shadow-plan-toggle");
-const workflowShadowPlanSteps = document.getElementById("workflow-shadow-plan-steps");
-const workflowPlanComparePanel = document.getElementById("workflow-plan-compare-panel");
-const workflowPlanCompareHeading = document.getElementById("workflow-plan-compare-heading");
-const workflowPlanCompareBadge = document.getElementById("workflow-plan-compare-badge");
-const workflowPlanCompareCopy = document.getElementById("workflow-plan-compare-copy");
-const workflowPlanCompareDetails = document.getElementById("workflow-plan-compare-details");
-const workflowPlanCompareToggle = document.getElementById("workflow-plan-compare-toggle");
-const workflowPlanCompareSteps = document.getElementById("workflow-plan-compare-steps");
 const mobileWorkflowTrigger = document.getElementById("mobile-workflow-trigger");
 const workflowMobileBackdrop = document.getElementById("workflow-mobile-backdrop");
 const initialChatStreamMarkup = chatStream?.innerHTML || "";
@@ -161,7 +153,7 @@ const luckyQuestionButton = document.getElementById("lucky-question-button");
 const knowledgeForm = document.getElementById("knowledge-form");
 const bookingForm = document.getElementById("booking-form");
 const suggestionForm = document.getElementById("suggestion-form");
-const chatSubmitButton = chatForm.querySelector('button[type="submit"]');
+const chatSubmitButton = chatForm?.querySelector('button[type="submit"]') || null;
 let deepThinkingExplicitlyEnabled = Boolean(deepThinkingCheckbox?.checked);
 let lastFailedQuestion = null;
 
@@ -232,7 +224,6 @@ const AVAILABILITY_END_HOUR = 18;
 const AVAILABILITY_DAY_COUNT = 7;
 const WORKFLOW_SHELL_COLLAPSED_KEY = "myTwinWorkflowShellCollapsed";
 const WORKFLOW_MOBILE_MODE_KEY = "myTwinWorkflowMobileMode";
-const VISITOR_IDENTITY_SELECTED_KEY = "myTwinVisitorIdentitySelected";
 const VISITOR_PROFILE_STORAGE_KEY = "myTwinVisitorProfile";
 const CHAT_HISTORY_STORAGE_KEY = "myTwinConversationHistory";
 const CHAT_HISTORY_META_STORAGE_KEY = "myTwinConversationHistoryMeta";
@@ -881,6 +872,12 @@ function renderOnboardingStep() {
     chatQuestion?.focus();
 }
 
+function showDefaultLandingContent() {
+    // Show welcome greeting and seed chips when onboarding is not active
+    document.getElementById("welcome-greeting")?.classList.remove("hidden");
+    document.getElementById("seed-chips")?.classList.remove("hidden");
+}
+
 function startOnboarding(profile, { force = false } = {}) {
     if (!force && (hasCompletedOnboarding() || isOnboardingDismissed())) {
         return;
@@ -956,11 +953,6 @@ function skipOnboarding() {
 }
 
 function restartOnboarding() {
-    // If user hasn't selected an identity yet, prompt them first
-    if (shouldPromptForVisitorIdentity()) {
-        openModal(identityModal);
-        return;
-    }
     // Manually re-open onboarding from help button, bypassing completed/dismissed checks
     const profile = visitorProfileInput?.value || "general_visitor";
     // Clear completed key so startOnboarding with force works cleanly
@@ -972,47 +964,63 @@ function restartOnboarding() {
     startOnboarding(profile, { force: true });
 }
 
-function resetOnboardingForNewProfile(profile) {
-    // If switching profiles, allow re-running onboarding
-    try {
-        globalThis.localStorage?.removeItem(ONBOARDING_COMPLETED_KEY);
-        globalThis.localStorage?.removeItem(ONBOARDING_DISMISSED_KEY);
-    } catch {
-        // Ignore
-    }
-    startOnboarding(profile, { force: true });
-}
+
 
 // --- Onboarding button event listeners ---
 document.getElementById("onboarding-back-btn")?.addEventListener("click", goBackOnboarding);
 document.getElementById("onboarding-next-btn")?.addEventListener("click", advanceOnboarding);
 document.getElementById("onboarding-skip-btn")?.addEventListener("click", skipOnboarding);
 document.getElementById("open-onboarding-help")?.addEventListener("click", restartOnboarding);
-document.getElementById("onboarding-random-btn")?.addEventListener("click", () => {
+document.getElementById("onboarding-random-btn")?.addEventListener("click", async () => {
+    const btn = document.getElementById("onboarding-random-btn");
+    if (!btn) return;
+    const originalHtml = btn.innerHTML;
     const profile = visitorProfileInput?.value || "general_visitor";
-    const pool = ONBOARDING_RESEARCH_EXAMPLES[profile] || ONBOARDING_RESEARCH_EXAMPLES.lab_member;
-    if (!pool || pool.length === 0) return;
-    const pick = pool[Math.floor(Math.random() * pool.length)];
     const step = onboardingSteps[onboardingCurrentStep];
     const ctx = (step && step.context) || "";
+    const onboardingStepLabel = ctx;
+
+    // Show loading state while generating
+    btn.disabled = true;
+    btn.innerHTML = '<span class="lucky-loading-spinner" aria-hidden="true"></span> 生成中。。';
+
+    // Try LLM-generated question first (contextual to the onboarding step)
+    let pick = null;
+    if (onboardingStepLabel) {
+        try {
+            const apiUrl = `/lucky-question?visitor_profile=${encodeURIComponent(profile)}&onboarding_step=${encodeURIComponent(onboardingStepLabel)}`;
+            const result = await apiRequest(apiUrl, { timeoutMs: 6000 });
+            if (result && typeof result === "object" && result.question) {
+                pick = result.question;
+            }
+        } catch {
+            // API failed — fall through to static pool.
+        }
+    }
+
+    // Fall back to static pool
+    if (!pick) {
+        const pool = ONBOARDING_RESEARCH_EXAMPLES[profile] || ONBOARDING_RESEARCH_EXAMPLES.lab_member;
+        if (!pool || pool.length === 0) {
+            btn.disabled = false;
+            btn.innerHTML = originalHtml;
+            return;
+        }
+        pick = pool[Math.floor(Math.random() * pool.length)];
+    }
+
     if (chatQuestion) {
         seedChatQuestion(pick, ctx);
         updateComposerContextChips();
-        // Scroll the composer into view so the user can see the filled question
         chatQuestion.scrollIntoView({ behavior: "smooth", block: "center" });
         chatQuestion.focus();
     }
     // Visual feedback: briefly show "已填入" on the button
-    const btn = document.getElementById("onboarding-random-btn");
-    if (btn) {
-        const orig = btn.innerHTML;
-        btn.disabled = true;
-        btn.innerHTML = '<span aria-hidden="true">✓</span> 已填入下方输入框';
-        setTimeout(() => {
-            btn.disabled = false;
-            btn.innerHTML = orig;
-        }, 1200);
-    }
+    btn.innerHTML = '<span aria-hidden="true">✓</span> 已填入下方输入框';
+    setTimeout(() => {
+        btn.disabled = false;
+        btn.innerHTML = originalHtml;
+    }, 1200);
 });
 
 function applyLuckyQuestionPreferences(selection) {
@@ -1077,7 +1085,7 @@ async function handleLuckyQuestionClick() {
     }
     const originalHtml = luckyQuestionButton.innerHTML;
     luckyQuestionButton.disabled = true;
-    luckyQuestionButton.innerHTML = '<span class="lucky-loading-spinner" aria-hidden="true"></span><span class="composer-tool-label" aria-hidden="true">生成中…</span>';
+    luckyQuestionButton.innerHTML = '<span class="lucky-loading-spinner" aria-hidden="true"></span><span class="composer-tool-label" aria-hidden="true">生成中。。</span>';
     try {
         const profile = visitorProfileInput?.value || "general_visitor";
         // Try LLM-powered generation first (with short timeout).
@@ -1138,7 +1146,6 @@ const adminOnlyModals = [
     questionAnalyticsModal,
 ].filter(Boolean);
 const overlayModals = [
-    identityModal,
     authModal,
     knowledgeModal,
     bookingModal,
@@ -1261,17 +1268,6 @@ globalThis.document?.addEventListener("visibilitychange", () => {
     }
 });
 visitorProfileInput?.addEventListener("change", handleVisitorProfileChange);
-identityModal?.addEventListener("click", handleIdentityChoiceClick);
-document.getElementById("identity-user-login")?.addEventListener("click", () => {
-    markVisitorIdentitySelected();
-    closeModals();
-    openAccountView("login");
-});
-document.getElementById("identity-admin-login")?.addEventListener("click", () => {
-    markVisitorIdentitySelected();
-    closeModals();
-    openModal(adminLoginModal);
-});
 
 // --- Registration profile selector + invitation code toggle ---
 const registerProfileSelect = document.getElementById("user-register-profile-select");
@@ -1291,20 +1287,6 @@ function syncRegisterInvitationVisibility() {
     }
 }
 registerProfileSelect?.addEventListener("change", syncRegisterInvitationVisibility);
-
-// --- Identity modal: mandatory boot prompt ---
-document.getElementById("identity-auth")?.addEventListener("click", () => {
-    closeModals();
-    openModal(authModal);
-});
-document.getElementById("identity-guest")?.addEventListener("click", () => {
-    markVisitorIdentitySelected("general_visitor");
-    if (visitorProfileInput) visitorProfileInput.value = "general_visitor";
-    applyVisitorProfilePresentation({ syncCourseContext: true });
-    closeModals();
-    startOnboarding("general_visitor");
-    chatQuestion?.focus();
-});
 
 // --- Auth modal: tab switching ---
 document.querySelectorAll("[data-auth-tab]").forEach((tab) => {
@@ -1588,11 +1570,7 @@ operationsTasks?.addEventListener("click", handleOperationsTaskAction);
 modalOverlay.addEventListener("click", handleModalOverlayClick);
 document.addEventListener("click", handleOutsideDrawerClick);
 document.querySelectorAll("[data-close-modal]").forEach((button) => {
-    button.addEventListener("click", () => {
-        closeModals();
-        // Re-open identity prompt if user dismissed auth/admin modal without selecting identity
-        maybeOpenVisitorIdentityPrompt();
-    });
+    button.addEventListener("click", closeModals);
 });
 bookingList.addEventListener("click", handleBookingApprovalClick);
 escalationList?.addEventListener("click", handleEscalationResolveClick);
@@ -1680,12 +1658,6 @@ userLoginForm?.addEventListener("submit", async (event) => {
 
 chatForm.addEventListener("submit", async (event) => {
     event.preventDefault();
-
-    // Block chat submission until user has selected an identity
-    if (shouldPromptForVisitorIdentity()) {
-        openModal(identityModal);
-        return;
-    }
 
     const question = document.getElementById("chat-question").value.trim();
     if (!question) {
@@ -2080,26 +2052,8 @@ function prepareUserRegistrationForm() {
     userRegisterResponse.className = "inline-status inline-status-empty";
 }
 
-function handleIdentityChoiceClick(event) {
-    const trigger = event.target.closest("[data-identity-profile]");
-    if (!(trigger instanceof HTMLElement)) {
-        return;
-    }
-    const profile = trigger.dataset.identityProfile;
-    if (!profile || !VISITOR_PROFILE_CONFIGS[profile] || !visitorProfileInput) {
-        return;
-    }
-    visitorProfileInput.value = profile;
-    markVisitorIdentitySelected(profile);
-    syncUserRegisterProfileFromVisitorProfile();
-    applyVisitorProfilePresentation({ syncCourseContext: true });
-    closeModals();
-    chatQuestion?.focus();
-}
-
 function markVisitorIdentitySelected(profile = visitorProfileInput?.value) {
     try {
-        globalThis.localStorage?.setItem(VISITOR_IDENTITY_SELECTED_KEY, "true");
         if (profile && VISITOR_PROFILE_CONFIGS[profile]) {
             globalThis.localStorage?.setItem(VISITOR_PROFILE_STORAGE_KEY, profile);
         }
@@ -2125,53 +2079,7 @@ function applyStoredVisitorProfile() {
     }
 }
 
-function shouldPromptForVisitorIdentity() {
-    // Always show the identity prompt if user is not authenticated.
-    // Guests must re-select their identity each visit (their history is ephemeral).
-    if (isAdminSession || isUserAuthenticated || !identityModal) {
-        return false;
-    }
-    return true;
-}
-
-function hasActiveOverlaySurface() {
-    return [
-        settingsDrawer,
-        statusView,
-        identityModal,
-        knowledgeModal,
-        bookingModal,
-        suggestionModal,
-        adminLoginModal,
-        userRegisterModal,
-        userLoginModal,
-        availabilityModal,
-        bookingAdminModal,
-        escalationAdminModal,
-        memoryProfilesModal,
-        operationsConsoleModal,
-        questionAnalyticsModal,
-    ].some(isOverlayElementVisible);
-}
-
-function isOverlayElementVisible(element) {
-    return Boolean(element && !element.classList.contains("hidden"));
-}
-
-function maybeOpenVisitorIdentityPrompt() {
-    if (shouldPromptForVisitorIdentity() && !hasActiveOverlaySurface()) {
-        openModal(identityModal);
-    }
-}
-
-function isVisitorIdentityPromptOpen() {
-    return isOverlayElementVisible(identityModal);
-}
-
 function handleModalOverlayClick() {
-    if (isVisitorIdentityPromptOpen()) {
-        return;
-    }
     closeModals();
 }
 
@@ -5091,10 +4999,6 @@ function friendlyHttpErrorMessage(status, body) {
     return `请求失败（${status}）。`;
 }
 
-function setResponse(element, text, state) {
-    element.textContent = text;
-    element.className = `response-card response-${state}`;
-}
 
 function setInlineStatus(element, text, state) {
     element.textContent = text;
@@ -6446,58 +6350,6 @@ function normalizeWorkflowStepStatus(status) {
     return "completed";
 }
 
-function appendPendingWorkflowTraceItems(traceList, steps, options = {}) {
-    if (!traceList || !Array.isArray(steps) || !steps.length) {
-        return;
-    }
-
-    steps.forEach((step, index) => {
-        const wrapper = document.createElement("div");
-        wrapper.innerHTML = buildPendingWorkflowTraceItemHtml(step, index === steps.length - 1);
-        const element = wrapper.firstElementChild;
-        if (!(element instanceof HTMLElement)) {
-            return;
-        }
-        if (options.animate) {
-            element.classList.add("thinking-trace-item-enter");
-        }
-        traceList.appendChild(element);
-    });
-}
-
-function buildPendingWorkflowTraceItemHtml(step, isLatest = false) {
-    const statusLabel = isLatest ? "进行中" : "已完成";
-    return `
-        <article class="thinking-trace-item ${isLatest ? "thinking-trace-item-latest" : ""}" data-step-key="${escapeHtml(getPendingWorkflowTraceKey(step))}">
-            <div class="thinking-trace-title-row">
-                <div class="thinking-trace-title-copy">
-                    <strong>${escapeHtml(step?.title || "处理中")}</strong>
-                    <span class="thinking-trace-status">${escapeHtml(statusLabel)}</span>
-                </div>
-                ${typeof step?.duration_ms === "number" ? `<span class="thinking-trace-duration">${escapeHtml(formatWorkflowDuration(step.duration_ms))}</span>` : ""}
-            </div>
-        </article>
-    `;
-}
-
-function getPendingWorkflowTraceKey(step) {
-    return String(step?.key || step?.title || step?.summary || "pending-step");
-}
-
-function buildWorkflowTraceMessageItemHtml(step, index) {
-    return `
-        <article class="message-process-item">
-            <div class="message-process-head">
-                <span class="message-process-index">${escapeHtml(String(index + 1))}</span>
-                <div class="message-process-copy">
-                    <strong>${escapeHtml(step.title || "处理中")}</strong>
-                    <p>${escapeHtml(step.summary || step.detail || "")}</p>
-                </div>
-                ${typeof step.duration_ms === "number" ? `<span class="message-process-duration">${escapeHtml(formatWorkflowDuration(step.duration_ms))}</span>` : ""}
-            </div>
-        </article>
-    `;
-}
 
 function stripNotificationText(text, notification) {
     if (!notification || !text) {
@@ -7590,14 +7442,6 @@ async function openWorkflowTraceStream(requestId) {
     activeWorkflowRequestId = requestId;
     activeWorkflowSteps = [];
 
-    // Auto-show the reasoning path panel when a request starts
-    if (document.body.classList.contains("workflow-shell-collapsed")) {
-        if (isMobileWorkflowViewport()) {
-            openWorkflowMobileSheet();
-        } else {
-            setWorkflowShellCollapsed(false);
-        }
-    }
 
     if (typeof EventSource !== "function") {
         renderWorkflowTracePlaceholder(
@@ -7988,124 +7832,7 @@ function updateWorkflowStats(steps, meta = {}) {
     updateMobileWorkflowTrigger(meta, steps);
 }
 
-function updateWorkflowPlanComparison(comparison) {
-    if (!workflowPlanCompareHeading || !workflowPlanCompareCopy) {
-        return;
-    }
 
-    if (!comparison) {
-        workflowPlanCompareHeading.textContent = "方案对照";
-        workflowPlanCompareCopy.textContent = "只有存在对照结果时，这里才会说明两套方案是否一致。";
-        if (workflowPlanCompareBadge) {
-            workflowPlanCompareBadge.textContent = "对照";
-            workflowPlanCompareBadge.className = "workflow-plan-badge workflow-plan-badge-idle";
-        }
-        if (workflowPlanCompareDetails) {
-            workflowPlanCompareDetails.hidden = true;
-            workflowPlanCompareDetails.open = false;
-        }
-        if (workflowPlanCompareSteps) {
-            workflowPlanCompareSteps.innerHTML = "";
-        }
-        return;
-    }
-
-    const sharedSteps = Array.isArray(comparison.shared_steps) ? comparison.shared_steps : [];
-    const deterministicOnlySteps = Array.isArray(comparison.deterministic_only_steps)
-        ? comparison.deterministic_only_steps
-        : [];
-    const shadowOnlySteps = Array.isArray(comparison.shadow_only_steps) ? comparison.shadow_only_steps : [];
-    const diffChips = [
-        ...deterministicOnlySteps.map((stepId) => ({ prefix: "D", stepId })),
-        ...shadowOnlySteps.map((stepId) => ({ prefix: "S", stepId })),
-    ];
-
-    workflowPlanCompareHeading.textContent = formatPlannerComparisonHeading(comparison.comparison_status);
-    workflowPlanCompareCopy.textContent = formatPlannerComparisonSummary(comparison);
-    if (workflowPlanCompareBadge) {
-        workflowPlanCompareBadge.textContent = formatPlannerComparisonBadge(comparison.comparison_status);
-        workflowPlanCompareBadge.className = "workflow-plan-badge workflow-plan-badge-compare";
-    }
-    if (workflowPlanCompareToggle) {
-        workflowPlanCompareToggle.textContent = diffChips.length
-            ? `查看差异步骤 (${diffChips.length})`
-            : `查看共有步骤 (${sharedSteps.length})`;
-    }
-    if (workflowPlanCompareDetails) {
-        workflowPlanCompareDetails.hidden = !diffChips.length && !sharedSteps.length;
-    }
-    if (workflowPlanCompareSteps) {
-        const chipSource = diffChips.length
-            ? diffChips.map(
-                ({ prefix, stepId }) => `
-                    <span class="workflow-plan-chip">
-                        <span class="workflow-plan-chip-index">${escapeHtml(prefix === "D" ? "实" : "对")}</span>
-                        <span>${escapeHtml(formatWorkflowPlanStepLabel(stepId))}</span>
-                    </span>
-                `
-            )
-            : sharedSteps.map(
-                (stepId, index) => `
-                    <span class="workflow-plan-chip">
-                        <span class="workflow-plan-chip-index">${index + 1}</span>
-                        <span>${escapeHtml(formatWorkflowPlanStepLabel(stepId))}</span>
-                    </span>
-                `
-            );
-        workflowPlanCompareSteps.innerHTML = chipSource.join("");
-    }
-}
-
-function formatPlannerComparisonHeading(status) {
-    switch (status) {
-        case "shadow_disabled":
-            return "当前处理方式";
-        case "shadow_error":
-            return "系统改用稳妥路径";
-        case "equivalent":
-            return "处理方式已确认";
-        case "different_steps":
-            return "系统补充做了一次校验";
-        case "different_goal":
-            return "系统采用了更稳妥的处理方式";
-        default:
-            return "处理说明";
-    }
-}
-
-function formatPlannerComparisonBadge(status) {
-    switch (status) {
-        case "shadow_disabled":
-            return "说明";
-        case "shadow_error":
-            return "已保护";
-        case "equivalent":
-            return "已确认";
-        case "different_steps":
-            return "已校验";
-        case "different_goal":
-            return "已调整";
-        default:
-            return "说明";
-    }
-}
-
-function formatPlannerComparisonSummary(comparison) {
-    switch (comparison.comparison_status) {
-        case "shadow_error":
-            return "系统在后台做补充校验时没有完成，所以这次直接沿用已确认的稳妥路径，不影响你现在看到的回复。";
-        case "equivalent":
-            return "系统内部的补充校验结果与当前处理方式一致，所以本轮回复按既定路径完成。";
-        case "different_steps":
-            return "系统在组织回复前又补充检查了一次准备顺序，但最终仍沿用当前这条处理路径，不会改变这次回答的结论。";
-        case "different_goal":
-            return "系统评估过另一种回复组织方式，但最终保留了更稳妥的当前方案，所以你看到的是已经收敛后的结果。";
-        case "shadow_disabled":
-            return "这里展示的是本次实际采用的处理方式。";
-        default:
-            return comparison.summary || "这里会补充说明系统这次为什么这样组织回答。";
-    }
-}
 
 function updateWorkflowPlanSummary(plannerPreview, shadowPlannerPreview) {
     const comparison = arguments.length >= 3 ? arguments[2] : latestWorkflowMeta.plannerComparison;
@@ -8219,9 +7946,6 @@ function syncWorkflowPlannerVisibility(plannerPreview, comparison) {
     }
 }
 
-function hasVisiblePlannerComparison(comparison) {
-    return Boolean(comparison) && comparison.comparison_status !== "shadow_disabled";
-}
 
 function shouldShowWorkflowPlanCard(plannerPreview, comparison) {
     if (plannerPreview && plannerPreview.accepted === false) {
@@ -8705,9 +8429,6 @@ function areDrawersClosed() {
     return isSettingsDrawerClosed() && isStatusDrawerClosed() && isSuggestionViewClosed() && isAccountViewClosed();
 }
 
-function openDrawer() {
-    openSettingsDrawer();
-}
 
 function closeDrawer() {
     closeSettingsDrawer();
@@ -8722,13 +8443,6 @@ function syncFloatingWorkflowTriggerState() {
     document.body.classList.toggle("workflow-trigger-suppressed", hasOverlaySurface);
 }
 
-function isDrawerOverlayViewport() {
-    try {
-        return Boolean(globalThis.matchMedia?.("(max-width: 920px)").matches);
-    } catch {
-        return false;
-    }
-}
 
 function isMobileTopbarActionsOpen() {
     return document.body.classList.contains("mobile-topbar-actions-open");
@@ -8926,6 +8640,7 @@ document.getElementById("context-compress-btn")?.addEventListener("click", async
 
 function autoResizeTextarea() {
     const textarea = document.getElementById("chat-question");
+    if (!textarea) return;
     textarea.style.height = "auto";
     textarea.style.height = `${Math.min(textarea.scrollHeight, 180)}px`;
 }
@@ -9321,8 +9036,107 @@ function initFooterToggle() {
     });
 }
 
+// ── Voice Input (Web Speech API) ────────────────────────────────────────
+
+const voiceInputButton = document.getElementById("voice-input-button");
+
+function initVoiceInput() {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+    if (!SpeechRecognition) {
+        // Browser does not support Speech Recognition — disable button with explanation
+        if (voiceInputButton) {
+            voiceInputButton.classList.add("is-unsupported");
+            voiceInputButton.setAttribute("title", "您的浏览器不支持语音输入，请使用 Chrome 或 Edge");
+            voiceInputButton.setAttribute("aria-label", "语音输入（浏览器不支持）");
+            voiceInputButton.addEventListener("click", (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+            });
+        }
+        return;
+    }
+
+    const recognition = new SpeechRecognition();
+    recognition.lang = "zh-CN";
+    recognition.continuous = true;
+    recognition.interimResults = true;
+    recognition.maxAlternatives = 1;
+
+    let isRecording = false;
+    let baseValue = "";          // textarea value when recording started
+    let committedTranscript = ""; // accumulated final results
+
+    function startRecording() {
+        const textarea = document.getElementById("chat-question");
+        baseValue = textarea ? textarea.value : "";
+        committedTranscript = "";
+        recognition.start();
+        voiceInputButton.classList.add("is-recording");
+        voiceInputButton.setAttribute("aria-label", "停止录音");
+        voiceInputButton.setAttribute("title", "点击停止录音");
+        isRecording = true;
+    }
+
+    function stopRecording() {
+        recognition.stop();
+        voiceInputButton.classList.remove("is-recording");
+        voiceInputButton.setAttribute("aria-label", "语音输入");
+        voiceInputButton.setAttribute("title", "按住或点击开始语音输入");
+        isRecording = false;
+    }
+
+    voiceInputButton?.addEventListener("click", () => {
+        if (isRecording) {
+            stopRecording();
+        } else {
+            startRecording();
+        }
+    });
+
+    recognition.addEventListener("result", (event) => {
+        let interimTranscript = "";
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+            const transcript = event.results[i][0].transcript;
+            if (event.results[i].isFinal) {
+                committedTranscript += transcript;
+            } else {
+                interimTranscript += transcript;
+            }
+        }
+        const textarea = document.getElementById("chat-question");
+        if (textarea) {
+            // Rebuild: base + committed finals + current interim
+            textarea.value = baseValue + committedTranscript + interimTranscript;
+            autoResizeTextarea();
+        }
+    });
+
+    recognition.addEventListener("end", () => {
+        if (isRecording) {
+            voiceInputButton.classList.remove("is-recording");
+            voiceInputButton.setAttribute("aria-label", "语音输入");
+            voiceInputButton.setAttribute("title", "按住或点击开始语音输入");
+            isRecording = false;
+        }
+    });
+
+    recognition.addEventListener("error", (event) => {
+        console.warn("[Voice] Recognition error:", event.error);
+        stopRecording();
+        if (event.error === "not-allowed" || event.error === "service-not-allowed") {
+            if (voiceInputButton) {
+                voiceInputButton.classList.add("is-unsupported");
+                voiceInputButton.setAttribute("title", "麦克风权限被拒绝，请在浏览器设置中允许麦克风访问");
+                voiceInputButton.setAttribute("aria-label", "语音输入（权限被拒绝）");
+            }
+        }
+    });
+}
+
 async function initializePage() {
     initFooterToggle();
+    initVoiceInput();
     renderConversationHistoryList();
     applyStoredVisitorProfile();
     applyVisitorProfilePresentation({ syncCourseContext: true });
@@ -9336,7 +9150,16 @@ async function initializePage() {
     await refreshSession();
     await refreshUserSession();
     applyVisitorProfilePresentation({ syncCourseContext: true });
-    maybeOpenVisitorIdentityPrompt();
+    // Auto-mark identity as guest for unauthenticated users — no landing page needed
+    if (!isAdminSession && !isUserAuthenticated) {
+        markVisitorIdentitySelected(visitorProfileInput?.value || "general_visitor");
+    }
+    // Start onboarding for new users, or show default landing content for returning users
+    const profile = visitorProfileInput?.value || "general_visitor";
+    startOnboarding(profile);
+    if (!onboardingActive) {
+        showDefaultLandingContent();
+    }
 }
 
-initializePage();
+try { initializePage(); } catch (e) { console.error("[init] initializePage:", e); }

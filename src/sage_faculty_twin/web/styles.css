@@ -3570,6 +3570,76 @@ body.sidebar-expanded .rail-user {
     flex: 0 0 auto;
 }
 
+/* ── Voice input mic button ───────────────────────────────────────────── */
+.composer-mic-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    border-radius: 999px;
+    border: 1px solid rgba(22, 35, 56, 0.08);
+    background: rgba(255, 255, 255, 0.72);
+    color: var(--muted);
+    cursor: pointer;
+    position: relative;
+    transition: background 150ms ease, border-color 150ms ease, color 150ms ease, transform 150ms ease;
+}
+
+.composer-mic-button:hover {
+    background: rgba(255, 255, 255, 0.95);
+    border-color: rgba(99, 102, 241, 0.18);
+    color: var(--ink);
+}
+
+.composer-mic-button .mic-icon {
+    display: block;
+    width: 18px;
+    height: 18px;
+    flex: 0 0 auto;
+}
+
+.composer-mic-button .mic-recording-indicator {
+    display: none;
+    position: absolute;
+    inset: -4px;
+    border-radius: 999px;
+    border: 2px solid rgba(220, 53, 69, 0.5);
+    animation: mic-pulse 1.4s ease-in-out infinite;
+}
+
+/* Recording active state */
+.composer-mic-button.is-recording {
+    background: rgba(220, 53, 69, 0.10);
+    border-color: rgba(220, 53, 69, 0.35);
+    color: #dc3545;
+}
+
+.composer-mic-button.is-recording .mic-recording-indicator {
+    display: block;
+}
+
+@keyframes mic-pulse {
+    0%   { transform: scale(1);   opacity: 0.7; }
+    50%  { transform: scale(1.2); opacity: 0;   }
+    100% { transform: scale(1);   opacity: 0.7; }
+}
+
+/* Voice unsupported: disabled state with explanatory tooltip */
+.composer-mic-button.is-unsupported {
+    opacity: 0.35;
+    cursor: not-allowed;
+    pointer-events: auto;
+}
+
+.composer-mic-button.is-unsupported:hover {
+    background: rgba(255, 255, 255, 0.72);
+    border-color: rgba(22, 35, 56, 0.08);
+    color: var(--muted);
+}
+
 @keyframes lucky-spinner-rotate {
     from { transform: rotate(0deg); }
     to { transform: rotate(360deg); }
@@ -5708,6 +5778,16 @@ body.workflow-shell-collapsed #workflow-toggle {
         padding: 10px 14px;
     }
 
+    .composer-mic-button {
+        width: 40px;
+        height: 40px;
+    }
+
+    .composer-mic-button .mic-icon {
+        width: 20px;
+        height: 20px;
+    }
+
     .workflow-phase-rail {
         grid-template-columns: repeat(3, minmax(0, 1fr));
         row-gap: 12px;
@@ -6108,149 +6188,6 @@ body.workflow-shell-collapsed #workflow-toggle {
 @keyframes compress-spin {
     from { transform: rotate(0deg); }
     to { transform: rotate(360deg); }
-}
-
-/* ============================================
-   Landing Page (Identity Modal) - Full Screen Overlay
-   ============================================ */
-.landing-panel {
-    /* Override modal-panel positioning for full-screen centered overlay */
-    position: fixed !important;
-    top: 0 !important;
-    left: 0 !important;
-    right: 0 !important;
-    bottom: 0 !important;
-    width: 100% !important;
-    max-width: 100% !important;
-    height: 100vh !important;
-    border-radius: 0 !important;
-    border: none !important;
-    background: rgba(20, 20, 25, 0.95) !important;
-    backdrop-filter: blur(20px) !important;
-    z-index: 100 !important;
-    display: flex !important;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    padding: 2rem !important;
-    overflow: auto;
-}
-
-.landing-panel.hidden {
-    display: none !important;
-}
-
-.landing-hero {
-    margin-bottom: 2.5rem;
-    text-align: center;
-}
-
-.landing-brand {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.625rem;
-    margin-bottom: 1rem;
-}
-
-.landing-logo {
-    font-size: 2.5rem;
-    color: #8b5cf6;
-    line-height: 1;
-}
-
-.landing-title {
-    font-size: 2rem;
-    font-weight: 700;
-    letter-spacing: -0.02em;
-    color: #ffffff;
-}
-
-.landing-heading {
-    font-size: 1.375rem;
-    font-weight: 500;
-    color: rgba(255, 255, 255, 0.9);
-    margin: 0 0 0.5rem;
-}
-
-.landing-tagline {
-    font-size: 1rem;
-    color: rgba(255, 255, 255, 0.6);
-    margin: 0;
-}
-
-.landing-actions {
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
-    width: 100%;
-    max-width: 400px;
-    margin-bottom: 2rem;
-}
-
-.landing-card {
-    display: flex;
-    align-items: center;
-    gap: 1.25rem;
-    padding: 1.25rem 1.5rem;
-    border: 1px solid rgba(255, 255, 255, 0.12);
-    border-radius: 1rem;
-    background: rgba(255, 255, 255, 0.06);
-    cursor: pointer;
-    text-align: left;
-    transition: all 0.25s ease;
-    width: 100%;
-    font: inherit;
-    color: inherit;
-}
-
-.landing-card:hover {
-    border-color: #8b5cf6;
-    background: rgba(139, 92, 246, 0.12);
-    transform: translateY(-2px);
-    box-shadow: 0 8px 32px rgba(139, 92, 246, 0.2);
-}
-
-.landing-card-primary {
-    border-color: rgba(139, 92, 246, 0.5);
-    background: linear-gradient(135deg, rgba(139, 92, 246, 0.2) 0%, rgba(139, 92, 246, 0.08) 100%);
-}
-
-.landing-card-primary:hover {
-    background: linear-gradient(135deg, rgba(139, 92, 246, 0.3) 0%, rgba(139, 92, 246, 0.15) 100%);
-    box-shadow: 0 8px 40px rgba(139, 92, 246, 0.3);
-}
-
-.landing-card-icon {
-    font-size: 2rem;
-    line-height: 1;
-    flex-shrink: 0;
-}
-
-.landing-card-body {
-    display: flex;
-    flex-direction: column;
-    gap: 0.375rem;
-    min-width: 0;
-}
-
-.landing-card-title {
-    font-weight: 600;
-    font-size: 1.125rem;
-    color: #ffffff;
-}
-
-.landing-card-desc {
-    font-size: 0.875rem;
-    color: rgba(255, 255, 255, 0.6);
-    line-height: 1.4;
-}
-
-.landing-footer {
-    font-size: 0.8125rem;
-    color: rgba(255, 255, 255, 0.4);
-    margin: 0;
-    letter-spacing: 0.03em;
-    text-align: center;
 }
 
 /* Auth modal tabs */
