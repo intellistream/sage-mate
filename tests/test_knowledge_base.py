@@ -920,6 +920,8 @@ def test_infer_default_audience_restricts_sensitive_sources(
             "公开论文｜MorphStream",
             "公开资料｜实验室简介",
         }
+
+
 def test_service_prompt_includes_retrieved_owner_materials(tmp_path: Path) -> None:
     settings = AppSettings(knowledge_base_dir=tmp_path)
     service = DigitalTwinService(settings)
