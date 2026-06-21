@@ -2623,6 +2623,220 @@ body.conversation-active .intro-card .message-body {
     max-width: 720px;
 }
 
+/* --- Onboarding guided question card --- */
+.onboarding-card {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    max-width: 580px;
+    width: 100%;
+    margin: 16px auto 0;
+    padding: 20px 22px;
+    border-radius: 16px;
+    background: linear-gradient(135deg, rgba(99, 102, 241, 0.04), rgba(129, 140, 248, 0.06));
+    border: 1.5px solid rgba(99, 102, 241, 0.15);
+    box-shadow: 0 2px 12px rgba(99, 102, 241, 0.06);
+    animation: onboarding-fade-in 0.3s ease;
+}
+
+.onboarding-card.hidden {
+    display: none;
+}
+
+@keyframes onboarding-fade-in {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.onboarding-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.onboarding-badge {
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: #6366f1;
+    background: rgba(99, 102, 241, 0.1);
+    padding: 3px 10px;
+    border-radius: 999px;
+    letter-spacing: 0.02em;
+    white-space: nowrap;
+}
+
+.onboarding-progress {
+    flex: 1;
+    height: 4px;
+    background: rgba(0, 0, 0, 0.06);
+    border-radius: 999px;
+    overflow: hidden;
+}
+
+.onboarding-progress-bar {
+    height: 100%;
+    background: linear-gradient(90deg, #6366f1, #818cf8);
+    border-radius: 999px;
+    transition: width 0.35s ease;
+    width: 33%;
+}
+
+.onboarding-step-label {
+    font-size: 0.75rem;
+    color: rgba(0, 0, 0, 0.4);
+    font-weight: 500;
+    white-space: nowrap;
+}
+
+.onboarding-body {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.onboarding-step-copy {
+    font-size: 0.85rem;
+    color: rgba(0, 0, 0, 0.55);
+    margin: 0;
+    font-weight: 500;
+}
+
+.onboarding-step-copy.hidden {
+    display: none;
+}
+
+.onboarding-question-card {
+    background: #fff;
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    border-radius: 12px;
+    padding: 14px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.onboarding-question-card.hidden {
+    display: none;
+}
+
+.onboarding-question-text {
+    font-size: 0.9rem;
+    color: rgba(0, 0, 0, 0.8);
+    margin: 0;
+    line-height: 1.5;
+    font-weight: 500;
+}
+
+.onboarding-question-hint {
+    font-size: 0.78rem;
+    color: rgba(99, 102, 241, 0.7);
+    margin: 0;
+    font-style: italic;
+}
+
+.onboarding-nav {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.onboarding-nav.hidden {
+    display: none;
+}
+
+.onboarding-answer-area {
+    display: none;
+}
+
+.onboarding-cta {
+    font-size: 0.8rem;
+    color: rgba(0, 0, 0, 0.45);
+    margin: 4px 0 0 0;
+    font-style: italic;
+}
+
+.onboarding-cta.hidden {
+    display: none;
+}
+
+.onboarding-answer-actions {
+    display: none;
+}
+
+.onboarding-submit-btn {
+    display: none;
+}
+
+.onboarding-submit-hint {
+    display: none;
+}
+
+.onboarding-feedback {
+    display: none;
+}
+
+.onboarding-next-btn {
+    font-size: 0.82rem;
+    padding: 7px 14px;
+    border-radius: 8px;
+}
+
+.onboarding-back-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    font-size: 0.82rem;
+    padding: 7px 12px;
+    border-radius: 8px;
+}
+
+.onboarding-back-btn.hidden {
+    display: none;
+}
+
+.onboarding-back-btn svg {
+    opacity: 0.6;
+}
+
+.onboarding-skip-btn {
+    font-size: 0.78rem;
+    padding: 5px 10px;
+    border-radius: 8px;
+    margin-left: auto;
+    opacity: 0.6;
+}
+
+.onboarding-skip-btn:hover {
+    opacity: 1;
+}
+
+.onboarding-done {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    text-align: center;
+    padding: 8px 0;
+    animation: onboarding-fade-in 0.3s ease;
+}
+
+.onboarding-done.hidden {
+    display: none;
+}
+
+.onboarding-done-title {
+    font-size: 1rem;
+    font-weight: 600;
+    color: #6366f1;
+    margin: 0;
+}
+
+.onboarding-done-copy {
+    font-size: 0.82rem;
+    color: rgba(0, 0, 0, 0.5);
+    margin: 0;
+}
+
 /* ============================================
    Mobile sidebar toggle button + backdrop
    ============================================ */

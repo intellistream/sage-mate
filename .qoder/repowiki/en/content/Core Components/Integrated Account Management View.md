@@ -11,6 +11,13 @@
 - [models.py](file://src/sage_faculty_twin/models.py)
 </cite>
 
+## Update Summary
+**Changes Made**
+- Added documentation for new user account provisioning as part of testing infrastructure
+- Enhanced visitor profile documentation to include lab member accounts
+- Updated user account storage and authentication flow documentation
+- Added information about invitation code system for lab member access
+
 ## Table of Contents
 1. [Introduction](#introduction)
 2. [System Architecture](#system-architecture)
@@ -21,14 +28,17 @@
 7. [Frontend Integration](#frontend-integration)
 8. [Security Considerations](#security-considerations)
 9. [Data Storage](#data-storage)
-10. [Troubleshooting Guide](#troubleshooting-guide)
-11. [Conclusion](#conclusion)
+10. [Testing Infrastructure](#testing-infrastructure)
+11. [Troubleshooting Guide](#troubleshooting-guide)
+12. [Conclusion](#conclusion)
 
 ## Introduction
 
 The Integrated Account Management View is a comprehensive user authentication and session management system built into the SAGE Faculty Twin platform. This system provides seamless user registration, login, and session persistence capabilities while maintaining robust security standards and user experience.
 
 The system integrates tightly with the frontend application through a modern JavaScript interface that supports tabbed account management views, real-time session updates, and responsive design patterns. It leverages a layered architecture with clear separation of concerns between authentication logic, session management, and user data storage.
+
+**Updated** The system now includes enhanced support for lab member accounts as part of the testing infrastructure, with dedicated visitor profiles and invitation code validation for controlled access.
 
 ## System Architecture
 
@@ -40,37 +50,44 @@ subgraph "Frontend Layer"
 A[Web Interface]
 B[Account Management View]
 C[Session Management]
+D[Visitor Profile Selection]
 end
 subgraph "API Layer"
-D[FastAPI Endpoints]
-E[Authentication Routes]
-F[Session Handlers]
+E[FastAPI Endpoints]
+F[Authentication Routes]
+G[Session Handlers]
+H[Visitor Profile Validation]
 end
 subgraph "Service Layer"
-G[DigitalTwinService]
-H[User Authentication Service]
-I[Session Validation]
+I[DigitalTwinService]
+J[User Authentication Service]
+K[Session Validation]
+L[Invitation Code Verification]
 end
 subgraph "Data Layer"
-J[User Store]
-K[Session Storage]
-L[Configuration Management]
+M[User Store]
+N[Session Storage]
+O[Configuration Management]
+P[Visitor Profile Registry]
 end
-A --> D
-B --> D
-C --> D
-D --> G
-E --> H
-F --> I
-G --> J
-H --> J
-I --> K
-J --> L
+A --> E
+B --> E
+C --> E
+D --> E
+E --> I
+F --> J
+G --> K
+H --> L
+I --> M
+J --> M
+K --> N
+L --> O
+M --> P
 ```
 
 **Diagram sources**
-- [api.py:497-527](file://src/sage_faculty_twin/api.py#L497-L527)
-- [service.py:2914-2945](file://src/sage_faculty_twin/service.py#L2914-L2945)
+- [api.py:499-529](file://src/sage_faculty_twin/api.py#L499-L529)
+- [service.py:2915-2946](file://src/sage_faculty_twin/service.py#L2915-L2946)
 - [auth.py:16-86](file://src/sage_faculty_twin/auth.py#L16-L86)
 
 ## Core Components
@@ -111,10 +128,10 @@ AuthModule --> CookieHandler : uses
 ```
 
 **Diagram sources**
-- [auth.py:16-214](file://src/sage_faculty_twin/auth.py#L16-L214)
+- [auth.py:16-86](file://src/sage_faculty_twin/auth.py#L16-L86)
 
 **Section sources**
-- [auth.py:16-214](file://src/sage_faculty_twin/auth.py#L16-L214)
+- [auth.py:16-86](file://src/sage_faculty_twin/auth.py#L16-L86)
 
 ### User Store Management
 
@@ -131,10 +148,10 @@ class UserAccountStore {
 +authenticate_user() UserAccountResponse
 +get_user_by_id() UserAccountResponse
 +count_users() int
--_persist_record() void
--_load_from_disk() void
--_hash_password() string
--_normalize_email() string
++_persist_record() void
++_load_from_disk() void
++_hash_password() string
++_normalize_email() string
 }
 class UserAccountRecord {
 +user_id : string
@@ -187,7 +204,7 @@ AccountView->>User : Show User Dashboard
 
 **Diagram sources**
 - [app.js:8021-8051](file://src/sage_faculty_twin/web/app.js#L8021-L8051)
-- [api.py:510-514](file://src/sage_faculty_twin/api.py#L510-L514)
+- [api.py:512-516](file://src/sage_faculty_twin/api.py#L512-L516)
 
 The account management view consists of two primary tabs:
 
@@ -210,7 +227,7 @@ The backend exposes comprehensive authentication endpoints:
 | `/auth/user/session` | GET | Retrieves current user session |
 
 **Section sources**
-- [api.py:510-527](file://src/sage_faculty_twin/api.py#L510-L527)
+- [api.py:512-529](file://src/sage_faculty_twin/api.py#L512-L529)
 
 ## Session Management
 
@@ -233,7 +250,7 @@ ReturnSuccess --> End
 
 **Diagram sources**
 - [auth.py:57-86](file://src/sage_faculty_twin/auth.py#L57-L86)
-- [service.py:2930-2942](file://src/sage_faculty_twin/service.py#L2930-L2942)
+- [service.py:2931-2943](file://src/sage_faculty_twin/service.py#L2931-L2943)
 
 ### Session Validation
 
@@ -271,7 +288,7 @@ API-->>Client : UserSessionResponse with Session Token
 
 **Diagram sources**
 - [user_store.py:71-121](file://src/sage_faculty_twin/user_store.py#L71-L121)
-- [service.py:2914-2928](file://src/sage_faculty_twin/service.py#L2914-L2928)
+- [service.py:2915-2929](file://src/sage_faculty_twin/service.py#L2915-L2929)
 
 ### Login Process
 
@@ -279,7 +296,7 @@ The login process validates credentials and establishes authenticated sessions:
 
 **Section sources**
 - [user_store.py:123-161](file://src/sage_faculty_twin/user_store.py#L123-L161)
-- [service.py:2930-2942](file://src/sage_faculty_twin/service.py#L2930-L2942)
+- [service.py:2931-2943](file://src/sage_faculty_twin/service.py#L2931-L2943)
 
 ## Frontend Integration
 
@@ -401,6 +418,56 @@ The storage system ensures data integrity through:
 - [user_store.py:170-176](file://src/sage_faculty_twin/user_store.py#L170-L176)
 - [user_store.py:178-183](file://src/sage_faculty_twin/user_store.py#L178-L183)
 
+## Testing Infrastructure
+
+### Lab Member Account Provisioning
+
+The system includes dedicated support for lab member accounts as part of the testing infrastructure:
+
+**Updated** The testing infrastructure now includes provisioned lab member accounts with controlled access through invitation codes.
+
+#### Visitor Profile System
+
+The system supports four distinct visitor profiles with different access levels:
+
+| Profile Type | Access Level | Description | Invitation Code Required |
+|--------------|--------------|-------------|-------------------------|
+| `general_visitor` | Basic | Public access for general visitors | No |
+| `hust_undergraduate` | Course Access | Access to undergraduate course materials | No |
+| `paper_writing_student` | Writing Access | Access to thesis writing resources | No |
+| `lab_member` | Full Access | Complete research system access | Yes |
+
+#### Invitation Code Validation
+
+Lab member accounts require invitation code validation during registration and login:
+
+```mermaid
+flowchart TD
+Start([Lab Member Registration]) --> CheckCode["Check Invitation Code Enabled"]
+CheckCode --> |Enabled| ValidateCode["Validate Invitation Code"]
+CheckCode --> |Disabled| CreateAccount["Create Account"]
+ValidateCode --> CodeValid{"Code Valid?"}
+CodeValid --> |Yes| CreateAccount
+CodeValid --> |No| ReturnError["Return 403 Forbidden"]
+CreateAccount --> End([Account Created])
+ReturnError --> End
+```
+
+**Diagram sources**
+- [user_store.py:92-104](file://src/sage_faculty_twin/user_store.py#L92-L104)
+
+#### Test Account Examples
+
+The testing infrastructure includes pre-provisioned lab member accounts:
+
+- **Test Account 1**: `8e5a47f9-49e8-4132-b983-dff1314a6d05` - Lab User
+- **Test Account 2**: `01215b72-6871-483f-8799-d8f0a6d909df` - Lab User  
+- Additional lab member accounts for comprehensive testing
+
+**Section sources**
+- [user_store.py:92-104](file://src/sage_faculty_twin/user_store.py#L92-L104)
+- [data/user_accounts/8e5a47f9-49e8-4132-b983-dff1314a6d05.json:1-11](file://data/user_accounts/8e5a47f9-49e8-4132-b983-dff1314a6d05.json#L1-L11)
+
 ## Troubleshooting Guide
 
 ### Common Authentication Issues
@@ -419,6 +486,11 @@ The storage system ensures data integrity through:
 - **Cause**: Browser privacy settings or cookie restrictions
 - **Solution**: Check SameSite and Secure cookie attributes
 - **Debug Steps**: Verify browser cookie settings, test cross-origin requests
+
+**Issue**: Lab member registration blocked by invitation code
+- **Cause**: Invitation code validation failure
+- **Solution**: Verify invitation code configuration and enablement
+- **Debug Steps**: Check `lab_member_invitation_code_enabled` setting, validate code format
 
 ### Performance Optimization
 
@@ -441,5 +513,8 @@ Key strengths include:
 - **Scalability**: Modular design supporting future expansion
 - **Usability**: Intuitive frontend interface with responsive design
 - **Maintainability**: Clear separation of concerns and comprehensive error handling
+- **Testing Infrastructure**: Dedicated support for lab member accounts and invitation code validation
 
 The system provides a solid foundation for user management while maintaining flexibility for future enhancements and integration with additional authentication providers or advanced security features.
+
+**Updated** The addition of dedicated testing infrastructure with lab member accounts enhances the system's capability to support controlled access scenarios and comprehensive testing of authentication flows across different user profiles.

@@ -3,19 +3,24 @@ schema_version: 1
 locale: en-US
 branch: main
 nodes_managed: true
-exported_at: "2026-06-21T10:47:59Z"
+exported_at: "2026-06-21T11:20:06Z"
 modules:
     "":
-        dir_name: Faculty Digital Twin Orchestrator_2
-        title: Faculty Digital Twin Orchestrator
+        dir_name: SAGE Faculty Digital Twin Orchestrator
+        title: SAGE Faculty Digital Twin Orchestrator
         scope: []
         source_files: []
-        children: []
+        children:
+            - app_source
+            - deployment
+            - docs
+            - runtime_data
+            - tests
         depends_on: []
         related_to: []
     app_source:
-        dir_name: Faculty Digital Twin Service & API
-        title: Faculty Digital Twin Service & API
+        dir_name: Faculty Digital Twin Service
+        title: Faculty Digital Twin Service
         scope:
             - src/sage_faculty_twin/
         source_files: []
@@ -76,6 +81,7 @@ modules:
         depends_on: []
         related_to:
             - path: app_source
+            - path: docs
     docs:
         dir_name: Product Documentation & Deployment Operations
         title: Product Documentation & Deployment Operations
@@ -84,7 +90,9 @@ modules:
         source_files: []
         children: []
         depends_on: []
-        related_to: []
+        related_to:
+            - path: deployment
+            - path: runtime_data
     error_handling:
         dir_name: Error Handling — Custom Exceptions, HTTPException Propagation, and Retry Logic
         title: Error Handling — Custom Exceptions, HTTPException Propagation, and Retry Logic
@@ -135,6 +143,7 @@ modules:
         depends_on: []
         related_to:
             - path: app_source
+            - path: docs
     tests:
         dir_name: Faculty Digital Twin Integration & Regression Testing
         title: Faculty Digital Twin Integration & Regression Testing

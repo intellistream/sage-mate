@@ -7,25 +7,25 @@ category: adr
 
 # Enforce invitation code for lab member registration
 
-_Source: coding plans from commit period f38f0eb → 3eb7563 — records intent at planning time; the implementation may lag or differ._
+_Source: coding plans from commit period b109c0f → 67e3d05 — records intent at planning time; the implementation may lag or differ._
 
 **Status:** accepted
 
 ## Context
-The application needed to restrict access to internal onboarding knowledge base entries (previously public) to verified lab members only. The existing auth system supported profiles but lacked a mechanism to prevent unauthorized users from self-registering as 'lab_member'.
+The application needed to restrict access to sensitive onboarding knowledge base entries (previously public) to verified lab members only, while maintaining a guest mode for public users. The existing auth system lacked a mechanism to vet new 'lab_member' accounts during sign-up.
 
 ## Decision drivers
-- Data confidentiality for internal research materials
-- Controlled user onboarding without manual admin approval
-- Simplicity of implementation over complex identity providers
+- Access control for internal research materials
+- Prevention of unauthorized account creation
+- Simplicity of shared-secret verification
 
 ## Considered options
-- **Shared invitation code validation** — pros: Simple to implement and distribute; no external dependencies; immediate enforcement at registration time.; cons: Code leakage allows unauthorized access; requires manual rotation if compromised; single point of failure for the secret.
-- **Admin-approved registration queue** _(rejected)_ — pros: Highest security; explicit control over every account.; cons: High operational overhead for the admin; delays user onboarding; requires building a new admin workflow.
-- **Keep onboarding content public** _(rejected)_ — pros: Zero friction for new users; no code changes needed.; cons: Exposes internal research philosophy and standards to the general public; violates data segregation requirements.
+- **Invitation code validation** — pros: Simple to implement; no external identity provider required; effective barrier against random sign-ups.; cons: Code leakage allows unauthorized access; requires manual distribution of the code.
+- **Open registration for lab members** _(rejected)_ — pros: Frictionless onboarding.; cons: Anyone could claim 'lab_member' status and access restricted 'audience: lab_member' documents.
+- **Admin-approved registration** _(rejected)_ — pros: Highest security; explicit control over each user.; cons: High operational overhead; requires admin UI and notification workflows not currently present.
 
 ## Decision
-Implement a shared invitation code (`lab_member_invitation_code`) configured in backend settings. The `user_store.register_user()` method now validates this code when the `visitor_profile` is 'lab_member', rejecting requests with HTTP 403 if the code is missing or incorrect. The frontend registration modal conditionally displays an input field for this code based on the selected profile.
+Implement a configurable invitation code (`lab_member_invitation_code`) in `config.py` that must be provided during registration when selecting the 'lab_member' profile. The backend (`user_store.py`) validates this code against the settings, rejecting invalid attempts with HTTP 403. The frontend (`index.html`, `app.js`) conditionally displays the input field and enforces an initial identity selection modal.
 
 ## Consequences
-Lab members can self-register if they possess the code, reducing admin workload. Internal KB entries are effectively hidden from general visitors by changing their audience metadata to 'lab_member'. If the code is leaked, it must be rotated in config/.env to restore security.
+Lab member onboarding now requires a shared secret, preventing arbitrary access to restricted KB entries. The system relies on the secrecy of the code rather than individual approvals. Guest users retain access but without persistent history, and the 'identity-modal' ensures users consciously choose their access level on every session start if not already authenticated.

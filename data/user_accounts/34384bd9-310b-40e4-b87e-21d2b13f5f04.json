@@ -1,0 +1,10 @@
+{
+  "user_id": "34384bd9-310b-40e4-b87e-21d2b13f5f04",
+  "name": "李旭恒",
+  "email": "sssarrior@gmail.com",
+  "visitor_profile": "lab_member",
+  "password_salt": "e8a2e30bf059fe1c4e29f714ce74fdf6",
+  "password_hash": "dc549533ebb3871ab0fffc14bc786e6c87caf13eb212374900ddc222b87422b24e03f0995cb0e7132397a9c483e1741382c158d38e22456b3a7b8b039468fea4",
+  "created_at": "2026-06-21T10:59:02.601413+00:00",
+  "updated_at": "2026-06-21T12:02:35.124215+00:00"
+}

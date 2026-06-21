@@ -7,25 +7,25 @@ category: adr
 
 # Enforce invitation code for lab member registration
 
-_Source: coding plans from commit period 6c49c35 → 4c9a1f2 — records intent at planning time; the implementation may lag or differ._
+_Source: coding plans from commit period 67e3d05 → 3ffb35c — records intent at planning time; the implementation may lag or differ._
 
 **Status:** accepted
 
 ## Context
-The application needed to restrict access to internal onboarding knowledge base entries (previously public) to verified lab members only. The existing auth system supported profiles but lacked a mechanism to verify new 'lab_member' registrations, and the frontend identity selection modal was missing.
+The application needed to restrict access to sensitive onboarding knowledge base entries (previously public) to verified lab members only, while still allowing general visitors. The existing auth system supported profiles but lacked a mechanism to verify new lab member registrations.
 
 ## Decision drivers
-- Access control for sensitive internal documentation
+- Access control for internal documentation
 - Prevention of unauthorized lab member account creation
-- Explicit user identity selection on every session start
+- Simplicity of shared-secret verification
 
 ## Considered options
-- **Invitation code validation** — pros: Simple shared-secret verification; no external identity provider required; easy to rotate via config/env; cons: Code can be shared among unauthorized users; manual distribution required
-- **Open registration for lab members** _(rejected)_ — pros: Zero friction for new users; cons: Anyone could claim 'lab_member' status and access restricted onboarding materials
-- **Admin-approved registration** _(rejected)_ — pros: Highest security; explicit vetting of each user; cons: High operational overhead; requires admin UI and workflow not currently present
+- **Invitation code validation** — pros: Simple to implement; no external identity provider required; effective gate for small teams.; cons: Code can be shared inadvertently; requires manual rotation if leaked.
+- **Open registration for lab members** _(rejected)_ — pros: Zero friction for new users.; cons: Anyone could claim 'lab_member' status and access restricted onboarding materials.
+- **Admin-approved registration** _(rejected)_ — pros: Highest security; explicit vetting of each user.; cons: High operational overhead for the admin; delays onboarding.
 
 ## Decision
-Implement an invitation code gate for 'lab_member' registration. The backend validates the code against `settings.lab_member_invitation_code` during `register_user()`, rejecting invalid codes with HTTP 403. The frontend exposes the code input conditionally and forces an identity choice via a mandatory `identity-modal` on boot.
+Implement a configurable invitation code (`lab_member_invitation_code`) in `config.py` that must be provided during registration when the `lab_member` profile is selected. The backend (`user_store.py`) validates this code against the configuration, rejecting invalid attempts with HTTP 403. The frontend (`index.html`, `app.js`) conditionally displays the input field and enforces a mandatory identity selection modal on boot.
 
 ## Consequences
-Lab members must possess a valid code to register, securing the `audience: 'lab_member'` knowledge base entries. Guests retain access but are explicitly warned that their chat history is ephemeral. The `identity-modal` removes the previous `localStorage` bypass, ensuring users consciously select their role (Member, Login, Guest) at the start of every unauthenticated session.
+Lab member accounts are now gated by a shared secret. Onboarding KB entries were reclassified from 'public' to 'lab_member' audience, making them inaccessible to guests. Guests retain access but lose persistent chat history. The identity modal is now mandatory, removing the previous localStorage bypass.

@@ -493,6 +493,294 @@ const RANDOM_CHAT_QUESTION_BANKS = {
     ],
 };
 
+// --- Onboarding guided question steps per visitor profile ---
+// Lab members and paper-writing students go through the full "七步提问法"
+// (7-step research question framework). Undergrads get a condensed version.
+const ONBOARDING_STEPS = {
+    lab_member: [
+        {
+            copy: "第 1 步：你到底想解决什么问题？",
+            question: "我想解决的研究问题是______。请用七步提问法的第一步帮我检验这个问题定义是否清晰，输入、输出和约束是否明确。",
+            hint: "把“我要做 X 系统”转化为“我想解决 Y 问题”。用因果问句代替愿景陈述。",
+            context: "七步提问法 · 问题定义",
+        },
+        {
+            copy: "第 2 步：真实存在吗？解决了有什么好处？",
+            question: "我认为这个问题重要的原因是______。请帮我检验它的影响力：是技术瓶颈、科学空白还是实际需求？",
+            hint: "没有重要性的问题是伪问题。“没人研究不代表不重要，很多人在做也可能没意义。”",
+            context: "七步提问法 · 重要性",
+        },
+        {
+            copy: "第 3 步：别人的解法为什么不行？",
+            question: "目前已有的相关工作包括______，但它们的不足是______。请帮我分析现有工作的隐藏假设和被忽视的角落。",
+            hint: "研究空白不是搜索关键词没搜到，而是深入阅读发现边界。批判不是贬低，而是理解界限。",
+            context: "七步提问法 · 现有工作局限",
+        },
+        {
+            copy: "第 4 步：你有什么好思路？",
+            question: "我的核心 idea 是：通过______机制，在______条件下，改进______。请帮我检验这个 idea 是否有启发性、可验证性，是否让问题变得更“可研究”。",
+            hint: "用模板：“我们提出了一种___的方法，核心是通过___机制，在___条件下显著改进了___。”",
+            context: "七步提问法 · 核心思路",
+        },
+        {
+            copy: "第 5 步：能在有限时间内实现吗？",
+            question: "我的设计方案需要以下资源和条件：______。请帮我评估研究难度：是否过于琐碎或过于空泛？有没有技术上的不可实现因素？",
+            hint: "设计是从“想法”到“系统”的桥梁。需要明确资源、数据、假设和约束。",
+            context: "七步提问法 · 设计与实现",
+        },
+        {
+            copy: "第 6 步：你打算怎么验证？",
+            question: "我计划的实验验证方案是______，对比对象包括______。请帮我检验：如何定义“成功”？如果无法评估，问题本身是否难以成立？",
+            hint: "证明你错不了，而不是你对了。预设实验方案，倒逼界定研究目标与约束条件。",
+            context: "七步提问法 · 实验验证",
+        },
+        {
+            copy: "第 7 步：别人会怎么引用你的工作？",
+            question: "如果这项工作成功了，我希望别人的引用方式是：“This paper shows that ______.” 请帮我总结这项工作的核心知识增量。",
+            hint: "Takeaway 不是实验数据，而是对知识的增量。想象别人要复现/引用时会怎么说。",
+            context: "七步提问法 · 核心贡献",
+        },
+    ],
+    hust_undergraduate: [
+        {
+            copy: "先确定你的课程背景：",
+            question: "我目前在学______课程，实验进度到了______。请帮我梳理这门课的核心知识点和当前实验重点。",
+            hint: "例如“大模型推理引擎 Tutorial 5”或“数据库实验 3”。",
+            context: "本科课程答疑",
+        },
+        {
+            copy: "看看实验中的卡点：",
+            question: "在最近一次实验中，我遇到的问题/报错是______。请帮我分析可能的原因和解决思路。",
+            hint: "可以粘贴报错信息或描述现象。",
+            context: "实验答疑",
+        },
+        {
+            copy: "最后为下次答疑做准备：",
+            question: "如果我要准备下一次 office hour，最值得先整理哪些实验现象或数据？请列出一个简短的准备清单。",
+            hint: "会帮你生成一个高效的答疑准备模板。",
+            context: "Office Hour 准备",
+        },
+    ],
+    paper_writing_student: [
+        {
+            copy: "第 1 步：你到底想解决什么问题？",
+            question: "我的论文想解决的问题是______。请用七步提问法帮我检验：这个问题定义的输入、输出和约束是否清晰？",
+            hint: "把“我要写关于 X 的论文”转化为“我想回答 Y 这个研究问题”。",
+            context: "七步提问法 · 问题定义",
+        },
+        {
+            copy: "第 2 步：真实存在吗？解决了有什么好处？",
+            question: "我认为这个问题值得研究，因为______。请帮我检验它的重要性：是填补了研究空白，还是回应了实际需求？",
+            hint: "“没人研究不代表不重要，很多人在做也可能没意义。”",
+            context: "七步提问法 · 重要性",
+        },
+        {
+            copy: "第 3 步：别人的解法为什么不行？",
+            question: "在 related work 中，已有工作的不足是______。请帮我梳理如何写一段有说服力的文献综述，体现我对边界的理解。",
+            hint: "研究空白不是搜索关键词没搜到，而是深入阅读后发现边界。",
+            context: "七步提问法 · 现有工作局限",
+        },
+        {
+            copy: "第 4 步：你有什么好思路？",
+            question: "我的论文核心 idea 是：______。请帮我用 pitch 句模板表达：“我们提出了一种___的方法，核心是通过___机制，改进了___。”",
+            hint: "好 idea 让问题变得更“可研究”，有明确的机制和作用路径。",
+            context: "七步提问法 · 核心思路",
+        },
+        {
+            copy: "第 5 步：能在有限时间内实现吗？",
+            question: "我的写作/实验计划是______，预计在______前完成。请帮我评估可行性，并建议一个合理的时间安排。",
+            hint: "设计是从“想法”到“论文”的桥梁。明确资源、数据和约束。",
+            context: "七步提问法 · 设计与实现",
+        },
+        {
+            copy: "第 6 步：你打算怎么验证？",
+            question: "我的论文验证方案是______，对比的 baseline 包括______。请帮我检验评估设计是否能支撑论文的核心主张。",
+            hint: "证明你错不了，而不是你对了。评估方案决定了审稿人能否信服。",
+            context: "七步提问法 · 实验验证",
+        },
+        {
+            copy: "第 7 步：别人会怎么引用你的工作？",
+            question: "如果论文发表后，我希望别人的引用方式是：“This paper shows that ______.” 请帮我提炼论文的核心 takeaway 和 one-liner。",
+            hint: "Takeaway 不是实验数据，而是对知识的增量。审稿人最看重的就是这个。",
+            context: "七步提问法 · 核心贡献",
+        },
+    ],
+    general_visitor: [
+        {
+            copy: "先了解一下你最关心的：",
+            question: "我最初想了解的是______。请帮我快速梳理这个方向的核心概念和关键资源。",
+            hint: "可以是研究方向、课程信息、合作机会等。",
+            context: "初次来访",
+        },
+        {
+            copy: "再深入一步：",
+            question: "如果想进一步了解______，最值得先看的资料或论文有哪些？请按优先级列出来。",
+            hint: "会得到一个按难度排序的阅读清单。",
+            context: "初次来访",
+        },
+    ],
+};
+
+const ONBOARDING_COMPLETED_KEY = "sageOnboardingCompleted";
+let onboardingCurrentStep = 0;
+let onboardingSteps = [];
+let onboardingActive = false;
+
+function getOnboardingStepsForProfile(profile) {
+    return ONBOARDING_STEPS[profile] || ONBOARDING_STEPS.general_visitor;
+}
+
+function hasCompletedOnboarding() {
+    try {
+        return globalThis.localStorage?.getItem(ONBOARDING_COMPLETED_KEY) === "true";
+    } catch {
+        return false;
+    }
+}
+
+function markOnboardingCompleted() {
+    try {
+        globalThis.localStorage?.setItem(ONBOARDING_COMPLETED_KEY, "true");
+    } catch {
+        // Ignore storage errors
+    }
+}
+
+function showOnboardingCard() {
+    const card = document.getElementById("onboarding-card");
+    if (card) {
+        card.classList.remove("hidden");
+        card.setAttribute("aria-hidden", "false");
+    }
+}
+
+function hideOnboardingCard() {
+    const card = document.getElementById("onboarding-card");
+    if (card) {
+        card.classList.add("hidden");
+        card.setAttribute("aria-hidden", "true");
+    }
+    onboardingActive = false;
+}
+
+function renderOnboardingStep() {
+    const step = onboardingSteps[onboardingCurrentStep];
+    if (!step) {
+        finishOnboarding();
+        return;
+    }
+    const total = onboardingSteps.length;
+    const stepLabel = document.getElementById("onboarding-step-label");
+    const progressBar = document.getElementById("onboarding-progress-bar");
+    const stepCopy = document.getElementById("onboarding-step-copy");
+    const questionText = document.getElementById("onboarding-question-text");
+    const questionHint = document.getElementById("onboarding-question-hint");
+    const donePanel = document.getElementById("onboarding-done");
+    const navRow = document.querySelector(".onboarding-nav");
+    const ctaEl = document.getElementById("onboarding-cta");
+
+    if (stepLabel) stepLabel.textContent = `${onboardingCurrentStep + 1} / ${total}`;
+    if (progressBar) progressBar.style.width = `${((onboardingCurrentStep + 1) / total) * 100}%`;
+    if (stepCopy) { stepCopy.textContent = step.copy; stepCopy.classList.remove("hidden"); }
+    if (questionText) questionText.textContent = step.question;
+    if (questionHint) questionHint.textContent = step.hint;
+    if (donePanel) donePanel.classList.add("hidden");
+    if (navRow) navRow.classList.remove("hidden");
+    if (ctaEl) ctaEl.classList.remove("hidden");
+    if (questionText) questionText.parentElement?.classList.remove("hidden");
+
+    // Update "next" button label
+    const nextBtn = document.getElementById("onboarding-next-btn");
+    if (nextBtn) {
+        nextBtn.textContent = onboardingCurrentStep < total - 1 ? "下一步" : "完成引导";
+    }
+    // Show/hide back button (hidden on first step)
+    const backBtn = document.getElementById("onboarding-back-btn");
+    if (backBtn) {
+        backBtn.classList.toggle("hidden", onboardingCurrentStep === 0);
+    }
+
+    // Seed the main chat input with the step question template and focus it
+    seedChatQuestion(step.question, step.context || "");
+}
+
+function startOnboarding(profile) {
+    if (hasCompletedOnboarding()) {
+        return;
+    }
+    onboardingSteps = getOnboardingStepsForProfile(profile);
+    if (onboardingSteps.length === 0) {
+        return;
+    }
+    onboardingCurrentStep = 0;
+    onboardingActive = true;
+    showOnboardingCard();
+    renderOnboardingStep();
+}
+
+function advanceOnboarding() {
+    onboardingCurrentStep += 1;
+    if (onboardingCurrentStep >= onboardingSteps.length) {
+        finishOnboarding();
+    } else {
+        renderOnboardingStep();
+    }
+}
+
+function goBackOnboarding() {
+    if (onboardingCurrentStep > 0) {
+        onboardingCurrentStep -= 1;
+        renderOnboardingStep();
+    }
+}
+
+function finishOnboarding() {
+    markOnboardingCompleted();
+    onboardingActive = false;
+    const donePanel = document.getElementById("onboarding-done");
+    const navRow = document.querySelector(".onboarding-nav");
+    const stepCopy = document.getElementById("onboarding-step-copy");
+    const questionCard = document.getElementById("onboarding-question-card");
+    const ctaEl = document.getElementById("onboarding-cta");
+    const progressBar = document.getElementById("onboarding-progress-bar");
+    const stepLabel = document.getElementById("onboarding-step-label");
+
+    if (donePanel) donePanel.classList.remove("hidden");
+    if (navRow) navRow.classList.add("hidden");
+    if (stepCopy) stepCopy.classList.add("hidden");
+    if (questionCard) questionCard.classList.add("hidden");
+    if (ctaEl) ctaEl.classList.add("hidden");
+    if (progressBar) progressBar.style.width = "100%";
+    if (stepLabel) stepLabel.textContent = "\u2713";
+
+    // Auto-hide after 3 seconds
+    setTimeout(() => {
+        hideOnboardingCard();
+        chatQuestion?.focus();
+    }, 3000);
+}
+
+function skipOnboarding() {
+    markOnboardingCompleted();
+    hideOnboardingCard();
+    chatQuestion?.focus();
+}
+
+function resetOnboardingForNewProfile(profile) {
+    // If switching profiles, allow re-running onboarding
+    try {
+        globalThis.localStorage?.removeItem(ONBOARDING_COMPLETED_KEY);
+    } catch {
+        // Ignore
+    }
+    startOnboarding(profile);
+}
+
+// --- Onboarding button event listeners ---
+document.getElementById("onboarding-back-btn")?.addEventListener("click", goBackOnboarding);
+document.getElementById("onboarding-next-btn")?.addEventListener("click", advanceOnboarding);
+document.getElementById("onboarding-skip-btn")?.addEventListener("click", skipOnboarding);
+
 function applyLuckyQuestionPreferences(selection) {
     if (!selection || typeof selection !== "object") {
         return;
@@ -617,6 +905,7 @@ const adminOnlyModals = [
 ].filter(Boolean);
 const overlayModals = [
     identityModal,
+    authModal,
     knowledgeModal,
     bookingModal,
     suggestionModal,
@@ -1116,6 +1405,9 @@ chatForm.addEventListener("submit", async (event) => {
         return;
     }
 
+    // If onboarding is active, advance to next step after chat submission
+    const wasOnboarding = onboardingActive;
+
     lastFailedQuestion = null;
     noteOutgoingConversationQuestion(question);
 
@@ -1226,7 +1518,12 @@ chatForm.addEventListener("submit", async (event) => {
         }
     }
     chatSubmitButton.disabled = false;
-    chatSubmitButton.textContent = "发送";
+    chatSubmitButton.textContent = "\u53d1\u9001";
+
+    // Auto-advance onboarding after chat response completes
+    if (wasOnboarding && onboardingActive) {
+        setTimeout(() => advanceOnboarding(), 800);
+    }
 });
 
 function getChatAttachmentKey(file) {
@@ -2359,6 +2656,11 @@ function applyUserSession(session) {
         applyVisitorProfilePresentation();
         switchConversationHistoryScope(resolveConversationHistoryStorageScope());
         updateWelcomeGreeting();
+        // Trigger progressive onboarding for newly authenticated users
+        if (!wasAuthenticated && !hasCompletedOnboarding()) {
+            const profile = account.visitor_profile || "general_visitor";
+            startOnboarding(profile);
+        }
         return;
     }
 

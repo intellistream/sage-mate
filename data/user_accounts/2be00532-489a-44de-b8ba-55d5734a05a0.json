@@ -1,0 +1,10 @@
+{
+  "user_id": "2be00532-489a-44de-b8ba-55d5734a05a0",
+  "name": "Lab User",
+  "email": "lab-user-f55564c0773b417e84092bcdf6303eea@example.com",
+  "visitor_profile": "lab_member",
+  "password_salt": "3bd565477e9503a802128bab7304ab37",
+  "password_hash": "fd88d8318a391b93d428e5fdb2ccffb7090aa5ea248db431564823e72625233b61e2f12df93b0a1b81c6525a33f6b6e1df1fae943da47355884d7c50ae6f4d32",
+  "created_at": "2026-06-21T12:15:04.036105+00:00",
+  "updated_at": "2026-06-21T12:15:04.036105+00:00"
+}

@@ -1,0 +1,2 @@
+- **Environment Bootstrap**: The module requires a specific directory structure with sibling repositories (`SAGE`, `sageVDB`, `neuromem`). `runtime_env.bootstrap_runtime_env()` automatically symlinks compiled `.so` files from installed packages into source trees if missing.
+- **Feature Flags**: Chat streaming and latency optimizations are controlled via environment variables like `DIGITAL_TWIN_STREAM_CHAT_ANSWER` and `DIGITAL_TWIN_POST_ANSWER_BACKGROUND`.

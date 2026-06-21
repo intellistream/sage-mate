@@ -11,7 +11,16 @@
 - [planner_metrics_store.py](file://src/sage_faculty_twin/planner_metrics_store.py)
 - [deployment.md](file://docs/deployment.md)
 - [benchmark_vamos_impact.py](file://tools/benchmark_vamos_impact.py)
+- [__init__.py](file://src/sage_faculty_twin/__init__.py)
+- [pyproject.toml](file://pyproject.toml)
 </cite>
+
+## Update Summary
+**Changes Made**
+- Added new section documenting the stack monitoring system and /stack/versions endpoint
+- Updated system monitoring setup to include stack version display capabilities
+- Enhanced troubleshooting guide with stack version verification procedures
+- Added new subsection covering app_version field in stack monitoring
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -28,13 +37,15 @@
 ## Introduction
 This document provides comprehensive monitoring and logging guidance for Sage Faculty Twin operations. It covers application logging configuration, log levels, and rotation strategies; analytics data collection via analytics_store.py and performance metrics tracking; system monitoring setup including health checks, uptime monitoring, and alerting; log aggregation and centralized logging; and troubleshooting workflows using logs and monitoring data to diagnose performance issues and service failures.
 
+**Updated** Added coverage of the stack monitoring system with the /stack/versions endpoint and app_version field display capabilities.
+
 ## Project Structure
 The monitoring and logging ecosystem spans configuration, analytics, runtime telemetry, and operational controls:
 - Application configuration defines storage locations and runtime knobs.
 - Analytics store persists and reports feedback and satisfaction metrics.
 - Planner metrics store records planning decisions and latencies.
 - Service runtime manager orchestrates systemd-managed services.
-- API server exposes health endpoints and streaming events.
+- API server exposes health endpoints, stack monitoring, and streaming events.
 - Runtime environment bootstraps dependencies and validates local sources.
 
 ```mermaid
@@ -52,6 +63,10 @@ SVC["DigitalTwinService<br/>service.py"]
 API["FastAPI app<br/>api.py"]
 RTENV["Runtime bootstrap<br/>runtime_env.py"]
 end
+subgraph "Stack Monitoring"
+SV["Stack Versions Endpoint<br/>/stack/versions"]
+AV["App Version Display<br/>app_version field"]
+end
 CFG --> AS
 CFG --> PM
 CFG --> SRM
@@ -61,6 +76,8 @@ RTENV --> API
 SVC --> AS
 SVC --> PM
 SRM --> API
+API --> SV
+SV --> AV
 ```
 
 **Diagram sources**
@@ -71,6 +88,8 @@ SRM --> API
 - [service.py:446-446](file://src/sage_faculty_twin/service.py#L446-L446)
 - [api.py:90-200](file://src/sage_faculty_twin/api.py#L90-L200)
 - [runtime_env.py:102-131](file://src/sage_faculty_twin/runtime_env.py#L102-L131)
+- [api.py:552-555](file://src/sage_faculty_twin/api.py#L552-L555)
+- [service.py:256-273](file://src/sage_faculty_twin/service.py#L256-L273)
 
 **Section sources**
 - [config.py:1-132](file://src/sage_faculty_twin/config.py#L1-L132)
@@ -91,7 +110,10 @@ SRM --> API
   - Planner metrics store captures planner acceptance rates, fallback reasons, latency statistics, and step-level rejection counts.
 - System monitoring
   - Health checks are supported via a dedicated endpoint; streaming workflow events are available for long-running operations.
+  - Stack monitoring provides comprehensive version information through the /stack/versions endpoint including the new app_version field.
   - Service control actions (start/stop/restart/status) are delegated to systemd-managed units.
+
+**Updated** Enhanced system monitoring to include stack version display capabilities and app_version field integration.
 
 **Section sources**
 - [service.py:446-446](file://src/sage_faculty_twin/service.py#L446-L446)
@@ -101,9 +123,11 @@ SRM --> API
 - [planner_metrics_store.py:132-186](file://src/sage_faculty_twin/planner_metrics_store.py#L132-L186)
 - [api.py:170-200](file://src/sage_faculty_twin/api.py#L170-L200)
 - [service_runtime.py:19-48](file://src/sage_faculty_twin/service_runtime.py#L19-L48)
+- [api.py:552-555](file://src/sage_faculty_twin/api.py#L552-L555)
+- [service.py:256-273](file://src/sage_faculty_twin/service.py#L256-L273)
 
 ## Architecture Overview
-The monitoring architecture integrates configuration-driven storage, analytics computation, planner metrics, and operational controls.
+The monitoring architecture integrates configuration-driven storage, analytics computation, planner metrics, and operational controls with enhanced stack monitoring capabilities.
 
 ```mermaid
 graph TB
@@ -114,6 +138,8 @@ AS["ConversationAnalyticsStore<br/>analytics_store.py"]
 PM["PlannerMetricsStore<br/>planner_metrics_store.py"]
 CFG["AppSettings<br/>config.py"]
 SRM["ServiceRuntimeManager<br/>service_runtime.py"]
+SV["Stack Versions Endpoint<br/>/stack/versions"]
+AV["App Version Display<br/>app_version field"]
 Client --> API
 API --> SVC
 SVC --> AS
@@ -122,6 +148,8 @@ CFG --> AS
 CFG --> PM
 CFG --> SRM
 SRM --> API
+API --> SV
+SV --> AV
 ```
 
 **Diagram sources**
@@ -131,6 +159,8 @@ SRM --> API
 - [planner_metrics_store.py:75-85](file://src/sage_faculty_twin/planner_metrics_store.py#L75-L85)
 - [config.py:99-132](file://src/sage_faculty_twin/config.py#L99-L132)
 - [service_runtime.py:13-48](file://src/sage_faculty_twin/service_runtime.py#L13-L48)
+- [api.py:552-555](file://src/sage_faculty_twin/api.py#L552-L555)
+- [service.py:256-273](file://src/sage_faculty_twin/service.py#L256-L273)
 
 ## Detailed Component Analysis
 
@@ -248,6 +278,43 @@ PlannerMetricsStore --> PlannerMetricsEntry : "manages"
 - [planner_metrics_store.py:188-202](file://src/sage_faculty_twin/planner_metrics_store.py#L188-L202)
 - [planner_metrics_store.py:218-234](file://src/sage_faculty_twin/planner_metrics_store.py#L218-L234)
 
+### Stack Monitoring System
+- Stack versions endpoint
+  - The /stack/versions endpoint provides comprehensive version information for all stack components including the new app_version field.
+  - Returns a dictionary containing app_version and stack component versions (stack_version_sage, stack_version_neuromem, stack_version_vllm_hust, stack_version_sagevdb, stack_version_sage_anns).
+- Version resolution
+  - App version is resolved from the package's __version__ attribute defined in __init__.py.
+  - Stack component versions are resolved from local source checkouts or pip metadata as fallback.
+- Frontend integration
+  - The frontend displays version information in the powered-by badges and app version badge.
+  - Version normalization ensures consistent display format with 'v' prefix handling.
+
+```mermaid
+sequenceDiagram
+participant Client as "Client"
+participant API as "FastAPI"
+participant SVC as "DigitalTwinService"
+participant VersionResolver as "Version Resolver"
+Client->>API : GET /stack/versions
+API->>SVC : build_stack_versions_payload()
+SVC->>VersionResolver : Resolve app_version
+SVC->>VersionResolver : Resolve stack components
+VersionResolver-->>SVC : Version data
+SVC-->>API : {app_version, stack versions}
+API-->>Client : JSON response
+```
+
+**Diagram sources**
+- [api.py:552-555](file://src/sage_faculty_twin/api.py#L552-L555)
+- [service.py:256-273](file://src/sage_faculty_twin/service.py#L256-L273)
+
+**Section sources**
+- [api.py:552-555](file://src/sage_faculty_twin/api.py#L552-L555)
+- [service.py:256-273](file://src/sage_faculty_twin/service.py#L256-L273)
+- [service.py:23](file://src/sage_faculty_twin/service.py#L23)
+- [__init__.py:3](file://src/sage_faculty_twin/__init__.py#L3)
+- [pyproject.toml:7](file://pyproject.toml#L7)
+
 ### System Monitoring Setup
 - Health checks
   - A health endpoint is used by external tools to probe service readiness. The endpoint returns a status field indicating operational state.
@@ -255,6 +322,11 @@ PlannerMetricsStore --> PlannerMetricsEntry : "manages"
   - SSE-based streaming provides keepalive events and workflow trace updates for long-running chat operations.
 - Service control
   - ServiceRuntimeManager delegates start/stop/restart/status to systemd-run and parses results from a control script.
+- Stack version display
+  - The frontend automatically fetches and displays stack version information including the new app_version field.
+  - Version information is refreshed periodically and handles transient failures gracefully.
+
+**Updated** Added stack version display capabilities and app_version field monitoring.
 
 ```mermaid
 sequenceDiagram
@@ -262,6 +334,8 @@ participant Probe as "Health checker"
 participant API as "FastAPI"
 Probe->>API : GET /health
 API-->>Probe : {status : "..."}
+Note over API : Stack monitoring<br/>GET /stack/versions
+API-->>Probe : {app_version, stack versions}
 ```
 
 **Diagram sources**
@@ -272,12 +346,15 @@ API-->>Probe : {status : "..."}
 - [benchmark_vamos_impact.py:175-207](file://tools/benchmark_vamos_impact.py#L175-L207)
 - [service_runtime.py:19-48](file://src/sage_faculty_twin/service_runtime.py#L19-L48)
 - [service_runtime.py:50-69](file://src/sage_faculty_twin/service_runtime.py#L50-L69)
+- [api.py:552-555](file://src/sage_faculty_twin/api.py#L552-L555)
+- [service.py:256-273](file://src/sage_faculty_twin/service.py#L256-L273)
 
 ## Dependency Analysis
 - Configuration dependencies
   - Analytics and planner metrics stores depend on AppSettings for base directories and runtime paths.
 - Service dependencies
   - DigitalTwinService composes analytics and planner metrics stores and uses the configured settings for timeouts, search parameters, and operational modes.
+  - Stack version resolution depends on package metadata and local source checkouts.
 - Runtime dependencies
   - ServiceRuntimeManager depends on AppSettings for locating the service manager script and on systemd-run for queuing actions.
 
@@ -289,6 +366,9 @@ CFG --> SRM["ServiceRuntimeManager<br/>service_runtime.py"]
 CFG --> SVC["DigitalTwinService<br/>service.py"]
 SVC --> AS
 SVC --> PM
+SVC --> SV["Stack Versions<br/>service.py"]
+SV --> AV["App Version<br/>__init__.py"]
+API["FastAPI<br/>api.py"] --> SV
 ```
 
 **Diagram sources**
@@ -297,6 +377,9 @@ SVC --> PM
 - [planner_metrics_store.py:75-85](file://src/sage_faculty_twin/planner_metrics_store.py#L75-L85)
 - [service_runtime.py:16-18](file://src/sage_faculty_twin/service_runtime.py#L16-L18)
 - [service.py:581-634](file://src/sage_faculty_twin/service.py#L581-L634)
+- [service.py:256-273](file://src/sage_faculty_twin/service.py#L256-L273)
+- [service.py:23](file://src/sage_faculty_twin/service.py#L23)
+- [api.py:552-555](file://src/sage_faculty_twin/api.py#L552-L555)
 
 **Section sources**
 - [config.py:99-132](file://src/sage_faculty_twin/config.py#L99-L132)
@@ -304,6 +387,8 @@ SVC --> PM
 - [planner_metrics_store.py:75-85](file://src/sage_faculty_twin/planner_metrics_store.py#L75-L85)
 - [service_runtime.py:16-18](file://src/sage_faculty_twin/service_runtime.py#L16-L18)
 - [service.py:581-634](file://src/sage_faculty_twin/service.py#L581-L634)
+- [service.py:256-273](file://src/sage_faculty_twin/service.py#L256-L273)
+- [service.py:23](file://src/sage_faculty_twin/service.py#L23)
 
 ## Performance Considerations
 - Prompt soft cap and background post-answer stages
@@ -312,10 +397,15 @@ SVC --> PM
   - Streaming chat answers can be enabled to improve perceived latency and UX; this is controlled by an environment variable.
 - Web search fallback
   - Web search is conditionally triggered based on local grounding quality and query markers; failures are logged at warning level.
+- Stack monitoring overhead
+  - Version resolution operations are lightweight and cached internally, with minimal impact on service performance.
+
+**Updated** Added note about stack monitoring performance considerations.
 
 **Section sources**
 - [api.py:127-147](file://src/sage_faculty_twin/api.py#L127-L147)
 - [service.py:1179-1181](file://src/sage_faculty_twin/service.py#L1179-L1181)
+- [service.py:256-273](file://src/sage_faculty_twin/service.py#L256-L273)
 
 ## Troubleshooting Guide
 - Diagnosing slow responses
@@ -327,21 +417,33 @@ SVC --> PM
   - Use the health endpoint to confirm service readiness; external probes can validate uptime and readiness.
 - Operational control verification
   - Use service control actions to restart or query service status; ensure systemd-run and the control script are available and executable.
+- Stack version verification
+  - Access the /stack/versions endpoint directly to verify all component versions are being resolved correctly.
+  - Check that the app_version field displays the expected semantic version (e.g., "4.2.5").
+  - Verify stack component versions match expected values for SAGE, neuromem, vLLM, sageVDB, and sage-anns.
+  - Monitor for "unknown" version indicators which may indicate missing local source checkouts or pip package issues.
+
+**Updated** Added comprehensive stack version verification procedures and troubleshooting steps.
 
 **Section sources**
 - [planner_metrics_store.py:132-186](file://src/sage_faculty_twin/planner_metrics_store.py#L132-L186)
 - [service.py:1179-1181](file://src/sage_faculty_twin/service.py#L1179-L1181)
 - [benchmark_vamos_impact.py:175-207](file://tools/benchmark_vamos_impact.py#L175-L207)
 - [service_runtime.py:19-48](file://src/sage_faculty_twin/service_runtime.py#L19-L48)
+- [api.py:552-555](file://src/sage_faculty_twin/api.py#L552-L555)
+- [service.py:256-273](file://src/sage_faculty_twin/service.py#L256-L273)
 
 ## Conclusion
-Sage Faculty Twin’s monitoring and logging rely on:
+Sage Faculty Twin's monitoring and logging rely on:
 - Standard library logging with warning-level emissions for recoverable failures.
 - Analytics and planner metrics stores for operational insights and performance tracking.
 - Health checks and streaming events for system observability.
 - ServiceRuntimeManager for operational control via systemd.
+- Stack monitoring system with comprehensive version display including the new app_version field.
 
-To harden monitoring, integrate external log rotation, centralize logs, and instrument analytics and planner metrics for dashboards and alerts.
+To harden monitoring, integrate external log rotation, centralize logs, and instrument analytics and planner metrics for dashboards and alerts. The enhanced stack monitoring provides better visibility into component versions and facilitates troubleshooting version-related issues.
+
+**Updated** Enhanced conclusion to include stack monitoring capabilities and app_version field benefits.
 
 ## Appendices
 
@@ -357,8 +459,12 @@ To harden monitoring, integrate external log rotation, centralize logs, and inst
 ### Alerting Configuration
 - Suggested thresholds
   - High web search failure rate, elevated planner fallback rate, increased average latency, and degraded health status.
+  - Stack version anomalies such as "unknown" versions or version mismatches.
 - Integration
   - Wire health endpoint results and planner metrics summaries into alerting rules.
+  - Monitor stack version endpoints for unexpected version changes or missing version information.
+
+**Updated** Added stack version monitoring recommendations to alerting configuration.
 
 [No sources needed since this section provides general guidance]
 
@@ -367,7 +473,29 @@ To harden monitoring, integrate external log rotation, centralize logs, and inst
   - DIGITAL_TWIN_STREAM_CHAT_ANSWER, DIGITAL_TWIN_CHAT_REQUEST_TIMEOUT_SECONDS, DIGITAL_TWIN_CHAT_SSE_KEEPALIVE_SECONDS are read at import time and must be exported by launch scripts.
 - Prompt soft cap
   - DIGITAL_TWIN_PROMPT_SOFT_CAP controls prompt truncation behavior.
+- Stack monitoring
+  - Stack version resolution is handled internally and does not require additional environment variables.
+  - Version display normalization ensures consistent formatting across different version formats.
+
+**Updated** Added stack monitoring environment considerations.
 
 **Section sources**
 - [deployment.md:254-264](file://docs/deployment.md#L254-L264)
 - [api.py:127-147](file://src/sage_faculty_twin/api.py#L127-L147)
+- [service.py:256-273](file://src/sage_faculty_twin/service.py#L256-L273)
+
+### Stack Version Information Schema
+The /stack/versions endpoint returns the following structure:
+- app_version: Primary application version (e.g., "4.2.5")
+- stack_version_sage: SAGE framework version
+- stack_version_neuromem: Neuromem memory system version
+- stack_version_vllm_hust: vLLM engine version
+- stack_version_sagevdb: sageVDB vector database version
+- stack_version_sage_anns: sage-anns approximate nearest neighbors version
+
+**Section sources**
+- [api.py:552-555](file://src/sage_faculty_twin/api.py#L552-L555)
+- [service.py:256-273](file://src/sage_faculty_twin/service.py#L256-L273)
+- [service.py:23](file://src/sage_faculty_twin/service.py#L23)
+- [__init__.py:3](file://src/sage_faculty_twin/__init__.py#L3)
+- [pyproject.toml:7](file://pyproject.toml#L7)

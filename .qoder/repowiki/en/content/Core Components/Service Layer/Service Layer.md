@@ -19,16 +19,16 @@
 - [run_vllm_openai_proxy.sh](file://tools/run_vllm_openai_proxy.sh)
 - [sage-faculty-twin-vllm-openai-proxy.service](file://deploy/systemd/user/sage-faculty-twin-vllm-openai-proxy.service)
 - [web/app.js](file://src/sage_faculty_twin/web/app.js)
+- [manage.sh](file://manage.sh)
 </cite>
 
 ## Update Summary
 **Changes Made**
-- Redesigned answer basis system with explicit design rules for deduplication, citation filtering, and safety-net mechanisms
-- Implemented comprehensive filtering of knowledge hits by canonical source groups
-- Added systematic deduplication by label/title/source combinations
-- Enhanced citation safety-net to prevent session context from appearing as visible basis items
-- Improved response quality by eliminating redundant citations and filtering generic index pages
-- Updated knowledge retrieval enhancement to support new filtering mechanisms
+- Enhanced service runtime management with improved version tracking and monitoring capabilities
+- Added comprehensive stack version resolution system for multi-component tracking
+- Integrated hardware monitoring and system information collection
+- Strengthened service lifecycle management with centralized control and monitoring
+- Improved operational visibility through enhanced service status reporting
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -37,15 +37,18 @@
 4. [Architecture Overview](#architecture-overview)
 5. [Detailed Component Analysis](#detailed-component-analysis)
 6. [Service Lifecycle and Management](#service-lifecycle-and-management)
-7. [Mobile Network Resilience](#mobile-network-resilience)
-8. [Answer Basis System Redesign](#answer-basis-system-redesign)
-9. [Dependency Analysis](#dependency-analysis)
-10. [Performance Considerations](#performance-considerations)
-11. [Troubleshooting Guide](#troubleshooting-guide)
-12. [Conclusion](#conclusion)
+7. [Enhanced Version Tracking and Monitoring](#enhanced-version-tracking-and-monitoring)
+8. [Mobile Network Resilience](#mobile-network-resilience)
+9. [Answer Basis System Redesign](#answer-basis-system-redesign)
+10. [Dependency Analysis](#dependency-analysis)
+11. [Performance Considerations](#performance-considerations)
+12. [Troubleshooting Guide](#troubleshooting-guide)
+13. [Conclusion](#conclusion)
 
 ## Introduction
 This document explains the Sage Faculty Twin service layer architecture with a focus on the main service orchestrator, workflow context management, and inter-component communication patterns. It details the FacultyTwinWorkflowSupport class and its coordination across knowledge retrieval, memory management, booking workflows, and administrative functions. The architecture now includes enhanced service lifecycle management with consolidated Qwen3-32B service management through a unified script, improved graceful shutdown procedures, advanced PID detection logic, comprehensive mobile network resilience features, and a completely redesigned answer basis system with explicit design rules for deduplication, citation filtering, and safety-net mechanisms.
+
+**Enhanced Service Runtime Management**: The system now features comprehensive service runtime management with improved version tracking and monitoring capabilities, providing operational visibility and centralized control over all service components.
 
 ## Project Structure
 The service layer centers around a primary orchestrator that composes multiple subsystems, now enhanced with unified service management, robust error handling, and a redesigned answer basis system:
@@ -56,6 +59,7 @@ The service layer centers around a primary orchestrator that composes multiple s
 - **Enhanced Service Management**: Unified Qwen3-32B service control with graceful shutdown and PID detection
 - **Mobile Network Resilience**: Automatic retry logic for transient network errors with exponential backoff
 - **Redesigned Answer Basis System**: Explicit design rules for deduplication, citation filtering, and safety-net mechanisms
+- **Version Tracking and Monitoring**: Comprehensive stack version resolution and hardware monitoring
 
 ```mermaid
 graph TB
@@ -85,6 +89,11 @@ subgraph "Service Management"
 SRM["ServiceRuntimeManager<br/>Unified service control"]
 QSS["run_qwen3_32b_service.sh<br/>Graceful shutdown & PID detection"]
 VOP["vLLM OpenAI Proxy<br/>Service endpoint"]
+MAN["manage.sh<br/>Centralized control"]
+end
+subgraph "Version Tracking"
+SVR["Stack Version Resolver<br/>Multi-component tracking"]
+HW["Hardware Monitor<br/>System information"]
 end
 subgraph "Network Resilience"
 RRL["Retry Logic<br/>Exponential Backoff"]
@@ -115,6 +124,9 @@ ABS --> CSG
 ABS --> SN
 SRM --> QSS
 SRM --> VOP
+SRM --> MAN
+SVR --> HW
+MAN --> SVR
 LLM --> RRL
 RRL --> EM
 ```
@@ -125,12 +137,13 @@ RRL --> EM
 - [workflow_policy.py:15-48](file://src/sage_faculty_twin/workflow_policy.py#L15-L48)
 - [workflow_steps.py:9-21](file://src/sage_faculty_twin/workflow_steps.py#L9-L21)
 - [service_runtime.py:13-69](file://src/sage_faculty_twin/service_runtime.py#L13-L69)
-- [run_qwen3_32b_service.sh:1-93](file://run_qwen3_32b_service.sh#L1-L93)
+- [run_qwen3_32b_service.sh:1-93](file://run_qwen3_32b_service.sh#L1-93)
 - [vllm_openai_proxy.py:123-257](file://src/sage_faculty_twin/vllm_openai_proxy.py#L123-L257)
 - [llm_client.py:870-1069](file://src/sage_faculty_twin/llm_client.py#L870-L1069)
 - [config.py:24-26](file://src/sage_faculty_twin/config.py#L24-L26)
 - [service.py:4040-4127](file://src/sage_faculty_twin/service.py#L4040-L4127)
 - [knowledge_base.py:1885-1890](file://src/sage_faculty_twin/knowledge_base.py#L1885-L1890)
+- [manage.sh:1-198](file://manage.sh#L1-L198)
 
 **Section sources**
 - [service.py:581-634](file://src/sage_faculty_twin/service.py#L581-L634)
@@ -150,6 +163,7 @@ RRL --> EM
 - **Enhanced Service Management**: ServiceRuntimeManager with unified service control, run_qwen3_32b_service.sh for Qwen3-32B management, and vLLM OpenAI proxy for service endpoint exposure.
 - **Mobile Network Resilience**: Automatic retry mechanisms with exponential backoff for transient network errors, enhanced error messaging, and improved frontend retry handling.
 - **Redesigned Answer Basis System**: Comprehensive citation management with explicit design rules for deduplication, filtering, and safety-net mechanisms.
+- **Version Tracking and Monitoring**: Stack version resolution system for multi-component tracking and hardware monitoring capabilities.
 
 Key responsibilities:
 - Bootstrap and intent classification
@@ -163,6 +177,8 @@ Key responsibilities:
 - **Service lifecycle management**: Unified service control, graceful shutdown procedures, PID detection and management
 - **Network resilience**: Automatic retry for transient errors, enhanced error messaging, and frontend retry support
 - **Answer basis management**: Systematic deduplication, citation filtering, and safety-net mechanisms for improved response quality
+- **Version tracking**: Multi-component version resolution and monitoring
+- **Operational monitoring**: Hardware information collection and system status reporting
 
 **Section sources**
 - [service.py:581-634](file://src/sage_faculty_twin/service.py#L581-L634)
@@ -181,6 +197,8 @@ Key responsibilities:
 ## Architecture Overview
 The service layer uses a deterministic planner to select a fixed sequence of steps per request, validated against a policy. The orchestrator coordinates subsystems and maintains a canonical trace of executed steps. Optional background post-answer stages run after the initial response is returned to improve throughput. The architecture now includes enhanced service lifecycle management with unified Qwen3-32B service control, comprehensive mobile network resilience features, and a redesigned answer basis system with explicit design rules for deduplication, citation filtering, and safety-net mechanisms.
 
+**Enhanced Version Tracking**: The system now includes comprehensive version tracking across all stack components, providing operational visibility into the exact versions of each integrated service and library.
+
 ```mermaid
 sequenceDiagram
 participant Client as "Client"
@@ -193,6 +211,7 @@ participant SRM as "ServiceRuntimeManager"
 participant QSS as "run_qwen3_32b_service.sh"
 participant LLM as "VllmChatClient<br/>with Retry Logic"
 participant ABS as "AnswerBasisBuilder<br/>with Redesign"
+participant SVR as "Stack Version Resolver<br/>Multi-component tracking"
 Client->>API : "POST /chat"
 API->>Orchestrator : "bootstrap_chat(ChatRequest)"
 Orchestrator->>Planner : "plan(WorkflowRequestContext)"
@@ -206,6 +225,9 @@ Orchestrator->>LLM : "answer_with_llm()<br/>Auto Retry on Transient Errors"
 Note over SRM,QSS : Service lifecycle management
 SRM->>QSS : "start/stop/restart service"
 QSS->>QSS : "PID detection & graceful shutdown"
+Note over SVR : Version tracking and monitoring
+SVR->>SVR : "Resolve stack versions"
+SVR->>SVR : "Collect hardware info"
 Note over Client,API : Network Resilience
 API->>API : "Automatic Retry on Transient Errors"
 API->>API : "Enhanced Error Messaging"
@@ -234,6 +256,8 @@ API-->>Client : "ChatResponse"
 - [run_qwen3_32b_service.sh:12-86](file://run_qwen3_32b_service.sh#L12-L86)
 - [llm_client.py:870-1069](file://src/sage_faculty_twin/llm_client.py#L870-L1069)
 - [service.py:4040-4127](file://src/sage_faculty_twin/service.py#L4040-L4127)
+- [service.py:256-273](file://src/sage_faculty_twin/service.py#L256-L273)
+- [service.py:276-353](file://src/sage_faculty_twin/service.py#L276-L353)
 
 ## Detailed Component Analysis
 
@@ -479,6 +503,97 @@ Example paths:
 - [vllm_openai_proxy.py:157-169](file://src/sage_faculty_twin/vllm_openai_proxy.py#L157-L169)
 - [run_vllm_openai_proxy.sh:33-53](file://tools/run_vllm_openai_proxy.sh#L33-L53)
 
+## Enhanced Version Tracking and Monitoring
+
+### Comprehensive Stack Version Resolution
+The system now includes sophisticated version tracking capabilities that provide visibility into all integrated components. The version resolution system handles multiple scenarios:
+
+**Multi-Component Tracking**: The `build_stack_versions_payload()` function resolves versions across:
+- Application version (`app_version`)
+- SAGE framework version (`stack_version_sage`)
+- Neuromem knowledge base version (`stack_version_neuromem`)
+- vLLM-HUST inference engine version (`stack_version_vllm_hust`)
+- sageVDB vector database version (`stack_version_sagevdb`)
+- sage-ANNs ANN search library version (`stack_version_sage_anns`)
+
+**Version Resolution Strategies**:
+1. **Local Source Priority**: First checks local pyproject.toml files for static or dynamic version values
+2. **Package Metadata Fallback**: Falls back to pip metadata for installed packages
+3. **Git Tag Resolution**: Special handling for vLLM-HUST using setuptools-scm for git-tag-based versions
+4. **Name Verification**: Validates package names to prevent incorrect version resolution
+
+**Version Resolution Functions**:
+- `_resolve_distribution_version()`: Resolves version from multiple candidate package names
+- `_resolve_source_version()`: Resolves version from local source checkout with name verification
+- `_resolve_vllm_hust_version()`: Specialized resolver for vLLM-HUST with setuptools-scm support
+
+### Hardware Monitoring and System Information
+The system collects comprehensive hardware and system information for operational monitoring:
+
+**Hardware Information Collection**:
+- **NPU Detection**: Uses `npu-smi` to detect Ascend NPUs with model name and quantity reporting
+- **CPU Information**: Retrieves model name and core count using `lscpu` or `/proc/cpuinfo`
+- **Memory Statistics**: Collects total system memory from `/proc/meminfo`
+- **Fallback Mechanisms**: Graceful degradation when system tools are unavailable
+
+**System Information Reporting**:
+- **Device Enumeration**: Reports NPU devices with model names and quantities
+- **Performance Metrics**: CPU model and core count for capacity planning
+- **Resource Availability**: Memory capacity for system sizing and optimization
+
+### Centralized Service Control and Monitoring
+The `manage.sh` script provides comprehensive service control with enhanced monitoring capabilities:
+
+**Service Registry Management**:
+- **Unified Control**: Manages multiple systemd services through a single interface
+- **Service Discovery**: Dynamically discovers and manages service units
+- **Status Aggregation**: Collects and reports status for all managed services
+- **JSON Output**: Provides machine-readable status information for automation
+
+**Service Control Features**:
+- **Action Delegation**: Supports status, start, stop, restart operations
+- **Log Management**: Provides log tailing for individual services
+- **Service Dependencies**: Manages service dependencies and startup order
+- **Runtime Environment**: Sets up proper environment variables and paths
+
+**Enhanced Monitoring Integration**:
+- **Version Payload**: Integrates with version tracking system for complete stack visibility
+- **Hardware Reporting**: Combines with hardware monitoring for comprehensive system status
+- **Service Health**: Provides service-specific health indicators and metrics
+
+### Implementation Examples
+- **Version Resolution**: The sophisticated version tracking system demonstrates multi-source version resolution
+- **Hardware Monitoring**: Comprehensive system information collection with fallback mechanisms
+- **Service Control**: Centralized management through the unified `manage.sh` script
+- **Integration Points**: Seamless integration between version tracking, hardware monitoring, and service control
+
+Example paths:
+- [service.py:256-273](file://src/sage_faculty_twin/service.py#L256-L273)
+- [service.py:276-353](file://src/sage_faculty_twin/service.py#L276-L353)
+- [manage.sh:177-198](file://manage.sh#L177-L198)
+- [service_runtime.py:31-48](file://src/sage_faculty_twin/service_runtime.py#L31-L48)
+
+**Section sources**
+- [service.py:256-273](file://src/sage_faculty_twin/service.py#L256-L273)
+- [service.py:276-353](file://src/sage_faculty_twin/service.py#L276-L353)
+- [service.py:242-253](file://src/sage_faculty_twin/service.py#L242-L253)
+- [service.py:147-157](file://src/sage_faculty_twin/service.py#L147-L157)
+- [service.py:160-189](file://src/sage_faculty_twin/service.py#L160-L189)
+- [manage.sh:177-198](file://manage.sh#L177-L198)
+- [service_runtime.py:31-48](file://src/sage_faculty_twin/service_runtime.py#L31-L48)
+
+### Implementation Examples
+- **Service Control**: The ServiceRuntimeManager demonstrates unified service control through the manage.sh script
+- **Qwen3-32B Management**: The run_qwen3_32b_service.sh shows consolidated service management with graceful shutdown
+- **Proxy Integration**: The vLLM OpenAI proxy provides seamless integration with the unified service architecture
+- **Error Handling**: Comprehensive error handling for service lifecycle operations
+
+Example paths:
+- [service_runtime.py:19-48](file://src/sage_faculty_twin/service_runtime.py#L19-L48)
+- [run_qwen3_32b_service.sh:12-86](file://run_qwen3_32b_service.sh#L12-L86)
+- [vllm_openai_proxy.py:157-169](file://src/sage_faculty_twin/vllm_openai_proxy.py#L157-L169)
+- [run_vllm_openai_proxy.sh:33-53](file://tools/run_vllm_openai_proxy.sh#L33-L53)
+
 ## Mobile Network Resilience
 
 ### Automatic Retry Logic for Chat POST Requests
@@ -616,6 +731,7 @@ The redesigned answer basis system delivers significant quality improvements:
 - **Enhanced Service Dependencies**: ServiceRuntimeManager integrates with unified service management scripts and systemd for comprehensive service lifecycle control.
 - **Network Resilience Dependencies**: LLM client retry logic integrates with configuration settings and provides exponential backoff for transient errors.
 - **Answer Basis Dependencies**: Redesigned answer basis system integrates with knowledge base filtering and canonical source grouping mechanisms.
+- **Version Tracking Dependencies**: Stack version resolution system integrates with multiple package sources and provides comprehensive component tracking.
 
 ```mermaid
 graph LR
@@ -638,6 +754,9 @@ ABS --> CSG["Canonical Source Groups"]
 ABS --> SN["Safety Net Mechanisms"]
 SRM["ServiceRuntimeManager"] --> QSS["run_qwen3_32b_service.sh"]
 SRM --> VOP["vLLM OpenAI Proxy"]
+SRM --> MAN["manage.sh"]
+MAN --> SVR["Stack Version Resolver"]
+SVR --> HW["Hardware Monitor"]
 QSS --> Container["Docker Container"]
 VOP --> Upstream["Qwen3-32B Model Service"]
 LLM --> Retry["Exponential Backoff"]
@@ -655,6 +774,8 @@ Retry --> Config["Retry Configuration"]
 - [llm_client.py:870-1069](file://src/sage_faculty_twin/llm_client.py#L870-L1069)
 - [service.py:4040-4127](file://src/sage_faculty_twin/service.py#L4040-L4127)
 - [knowledge_base.py:1885-1890](file://src/sage_faculty_twin/knowledge_base.py#L1885-L1890)
+- [manage.sh:177-198](file://manage.sh#L177-L198)
+- [service.py:256-273](file://src/sage_faculty_twin/service.py#L256-L273)
 
 **Section sources**
 - [service.py:581-634](file://src/sage_faculty_twin/service.py#L581-L634)
@@ -675,6 +796,7 @@ Retry --> Config["Retry Configuration"]
 - **Network Resilience**: Exponential backoff retry mechanism optimizes resource usage during transient failures.
 - **Mobile Optimization**: Enhanced error handling and retry logic improve user experience in variable network conditions.
 - **Answer Basis Efficiency**: Redesigned system reduces computational overhead through systematic filtering and deduplication.
+- **Version Tracking Performance**: Efficient version resolution minimizes startup overhead and provides cached version information.
 
 ## Troubleshooting Guide
 Common issues and strategies:
@@ -688,6 +810,7 @@ Common issues and strategies:
   - Graceful shutdown problems: Verify SIGTERM/SIGKILL handling in the shutdown procedure
   - Service control failures: Review ServiceRuntimeManager error messages and systemd integration
   - Proxy connection issues: Verify vLLM OpenAI proxy configuration and authentication
+  - Version tracking failures: Check stack version resolution for missing package metadata
 - **Network Resilience Issues**:
   - Retry attempts exhausted: Check LLM client configuration and network connectivity
   - Excessive retry delays: Adjust retry backoff settings in configuration
@@ -698,6 +821,10 @@ Common issues and strategies:
   - Unexpected citation filtering: Check canonical source group normalization and deduplication rules
   - Safety-net violations: Ensure session context is properly handled as implicit reference
   - Citation quality concerns: Review design rule enforcement and filtering mechanisms
+- **Version Tracking Issues**:
+  - Incomplete version information: Verify pyproject.toml presence and package installation status
+  - Hardware detection failures: Check system tool availability and permissions
+  - Service status reporting issues: Verify systemd service configuration and user permissions
 
 **Section sources**
 - [service.py:1894-1896](file://src/sage_faculty_twin/service.py#L1894-L1896)
@@ -710,6 +837,7 @@ Common issues and strategies:
 - [vllm_openai_proxy.py:157-169](file://src/sage_faculty_twin/vllm_openai_proxy.py#L157-L169)
 - [llm_client.py:870-1069](file://src/sage_faculty_twin/llm_client.py#L870-L1069)
 - [service.py:4040-4127](file://src/sage_faculty_twin/service.py#L4040-L4127)
+- [service.py:256-273](file://src/sage_faculty_twin/service.py#L256-L273)
 
 ## Conclusion
 The Sage Faculty Twin service layer combines deterministic planning with robust orchestration to deliver consistent, policy-aligned responses. FacultyTwinWorkflowSupport coordinates knowledge retrieval, memory management, booking workflows, and administrative functions while maintaining traceability and performance. The design emphasizes configurability, streaming, and background processing to balance responsiveness and completeness.
@@ -723,3 +851,5 @@ The Sage Faculty Twin service layer combines deterministic planning with robust 
 **Knowledge Retrieval Enhancement**: The refactored retrieve_knowledge function demonstrates the commitment to continuous improvement, with consolidated trace operations and enhanced web search execution logic ensuring better clarity, maintainability, and reliability in the knowledge retrieval process.
 
 **Redesigned Answer Basis System**: The most significant enhancement is the completely redesigned answer basis system with explicit design rules for deduplication, citation filtering, and safety-net mechanisms. This system eliminates redundant citations, improves response quality, and ensures systematic filtering of knowledge hits by canonical source groups. The comprehensive safety-net mechanisms prevent session context from appearing as visible citations, while the systematic deduplication and filtering ensure cleaner, more focused responses that complement the visible chat interface.
+
+**Enhanced Version Tracking and Monitoring**: The addition of comprehensive version tracking and monitoring capabilities provides operational visibility into all integrated components. The sophisticated version resolution system tracks multiple stack components, while hardware monitoring provides system information for capacity planning and troubleshooting. This enhanced observability enables better operational management and faster issue resolution.
