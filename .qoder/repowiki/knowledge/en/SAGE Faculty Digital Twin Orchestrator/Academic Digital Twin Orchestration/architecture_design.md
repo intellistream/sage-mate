@@ -1,0 +1,5 @@
+- **Entry Point**: `api.py` defines the `FastAPI` application (`llm_app`), mounting static web assets and configuring CORS. It employs a `LazyDigitalTwinService` proxy to defer heavy initialization of the `DigitalTwinService` until the first request.
+- **Service Layer**: `service.py` contains the `DigitalTwinService` class, which acts as the central orchestrator. It manages stateful components like `LocalKnowledgeStore`, `NeuroMemConversationStore`, and `VllmChatClient`, and executes complex workflows such as `answer()` for chat interactions.
+- **Runtime Bootstrap**: `runtime_env.py` handles environment setup, automatically prepending sibling repository paths (e.g. `SAGE`, `sageVDB`) to `sys.path` and validating compiled extensions before the application starts.
+- **Configuration**: `config.py` uses `pydantic-settings` to manage environment variables prefixed with `DIGITAL_TWIN_`, providing typed access to LLM endpoints, database paths, and feature flags.
+- **Authentication**: `auth.py` implements session management using HMAC-signed cookies for both admin and user roles, with dependencies injected into protected endpoints via `Depends(require_admin_session)`.

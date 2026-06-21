@@ -1,4 +1,3 @@
-- Workflow stages consistently use `perf_counter()` for latency measurement and append `WorkflowTraceStep` records via `_append_trace()` to maintain a canonical execution log.
-- Intent-based routing relies on a set of private heuristic functions (e.g., `_looks_like_booking_request`, `_should_include_profile_memory`) that scan question text for domain-specific markers instead of using a single monolithic classifier.
-- Administrative and benchmark requests are explicitly short-circuited in memory retrieval and persistence stages to prevent data pollution or unauthorized access.
-- Prompt construction applies a progressive truncation strategy (memory hits → knowledge excerpts → attachment bodies → session digest) when the combined token count exceeds the `_PROMPT_SOFT_CAP`.
+- Workflow trace steps are appended using `_append_trace` with consistent keys (e.g., `bootstrap`, `interaction_understand`) to enable canonical ordering and UI rendering.
+- LLM client methods provide both synchronous (`_sync`) and asynchronous (`async`) variants, with the async version delegating to the sync version via `asyncio.to_thread`.
+- Configuration settings are accessed via a global `settings` instance of `AppSettings`, with environment variables prefixed by `DIGITAL_TWIN_`.

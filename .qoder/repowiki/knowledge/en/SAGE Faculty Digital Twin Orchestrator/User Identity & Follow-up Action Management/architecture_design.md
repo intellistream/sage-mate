@@ -1,4 +1,0 @@
-- **Storage Layer**: Implements file-based persistence for user accounts (`user_store.py`) and follow-up actions (`follow_up_store.py`) using JSON files in `data/user_accounts` and `data/follow_up_actions`, with in-memory indexing for performance.
-- **Security & Auth**: Handles password hashing via `scrypt` and session management using HMAC-signed cookies (`auth.py`), supporting both admin and user roles with distinct TTLs.
-- **Service Integration**: Exposes functionality through `DigitalTwinService` (`service.py`) which coordinates registration, login, and action dispatching, while `api.py` provides the FastAPI endpoints for these operations.
-- **Data Models**: Defines structured Pydantic models for user accounts, session responses, and follow-up queue records in `models.py`, ensuring consistent validation across the API and storage layers.

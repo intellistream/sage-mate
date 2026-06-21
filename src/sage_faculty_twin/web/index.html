@@ -60,6 +60,10 @@
                         </button>
                     </div>
                     <div class="rail-utils">
+                        <button type="button" id="open-onboarding-help" class="rail-btn hidden" title="新手引导">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                            <span class="rail-label">新手引导</span>
+                        </button>
                         <button type="button" id="open-status-drawer" class="rail-btn" title="系统状态">
                             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
                             <span class="rail-label">系统状态</span>
@@ -139,6 +143,10 @@
                         <div class="onboarding-done hidden" id="onboarding-done">
                             <p class="onboarding-done-title">引导完成！</p>
                             <p class="onboarding-done-copy">现在可以自由提问了，也可以在下方点击推荐问题快速开始。</p>
+                            <label class="onboarding-dismiss-label">
+                                <input type="checkbox" id="onboarding-dismiss-checkbox" />
+                                <span>不再自动弹出新手引导</span>
+                            </label>
                         </div>
                     </div>
                 </div>
@@ -218,6 +226,9 @@
                 <div id="account-view" class="chat-view" hidden>
                     <div class="chat-view-head">
                         <h2 class="chat-view-title">账号管理</h2>
+                        <button type="button" class="chat-view-close" id="close-account-view" title="关闭" aria-label="关闭账号管理">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                        </button>
                         <p class="chat-view-desc">登录后，当前聊天和预约会自动绑定到你的账号。</p>
                     </div>
                     <div id="account-view-body" class="chat-view-body">
@@ -634,8 +645,8 @@
                 <small class="form-hint">课题组内部成员注册需要邀请码，请联系导师获取。</small>
             </label>
             <button type="submit" class="primary-button">完成注册</button>
+            <div id="user-register-response" class="inline-status inline-status-empty">注册后会自动登录当前账号。</div>
         </form>
-        <div id="user-register-response" class="inline-status inline-status-empty">注册后会自动登录当前账号。</div>
     </section>
 
     <section id="user-login-modal" class="modal-panel hidden" aria-hidden="true" style="display:none">
@@ -663,8 +674,8 @@
                     placeholder="选填：课题组邀请码" autocomplete="off" />
             </label>
             <button type="submit" class="primary-button">登录账号</button>
+            <div id="user-login-response" class="inline-status inline-status-empty">还没有账号的话，可以先返回注册。</div>
         </form>
-        <div id="user-login-response" class="inline-status inline-status-empty">还没有账号的话，可以先返回注册。</div>
     </section>
 
     <section id="auth-modal" class="modal-panel hidden" aria-hidden="true">

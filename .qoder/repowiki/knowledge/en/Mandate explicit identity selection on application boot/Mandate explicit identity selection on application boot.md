@@ -7,24 +7,24 @@ category: adr
 
 # Mandate explicit identity selection on application boot
 
-_Source: coding plans from commit period f38f0eb → 3eb7563 — records intent at planning time; the implementation may lag or differ._
+_Source: coding plans from commit period c6c2ee0 → c05d89b — records intent at planning time; the implementation may lag or differ._
 
 **Status:** accepted
 
 ## Context
-The application previously allowed users to bypass identity selection via a `localStorage` flag (`VISITOR_IDENTITY_SELECTED_KEY`), leading to ambiguous session states. Additionally, the referenced `identity-modal` was missing from the HTML, preventing users from choosing between authenticated and guest modes.
+The frontend previously allowed users to bypass identity selection via local storage, leading to inconsistent state where guests might inadvertently access features intended for authenticated users or vice versa. The identity modal was referenced in JS but missing from HTML.
 
 ## Decision drivers
-- Clear separation of guest vs. authenticated user experiences
+- Clear separation of guest vs. authenticated user capabilities
 - Ensuring users acknowledge ephemeral nature of guest chats
-- Fixing broken UI reference to enable intended workflow
+- Fixing broken UI reference to identity-modal
 
 ## Considered options
-- **Mandatory blocking identity modal** — pros: Forces explicit user intent; prevents accidental data loss confusion for guests; ensures correct profile loading.; cons: Adds an extra click step for returning users; interrupts immediate access to the chat interface.
-- **Auto-resume previous session via localStorage** _(rejected)_ — pros: Fastest path to interaction for returning users.; cons: Users may forget they are in guest mode and expect history persistence; ambiguous state management.
+- **Mandatory blocking modal on boot** — pros: Forces explicit choice every session if not authenticated; clearly communicates trade-offs (e.g., no history for guests); prevents accidental state leakage.; cons: Adds an extra click/step for returning guests; cannot be dismissed without choosing a path.
+- **Optional identity prompt with localStorage persistence** _(rejected)_ — pros: Less intrusive for returning users.; cons: Users may forget their status; harder to enforce security boundaries for lab-member-only content if state is stale.
 
 ## Decision
-Introduce a mandatory `identity-modal` that appears on every boot if the user is not authenticated. This modal removes the close button and forces a choice between 'Lab Member' (register/login), 'Existing Account' (login), or 'Guest Mode'. The `localStorage` bypass key is removed to ensure this prompt always appears for unauthenticated sessions. Guest mode explicitly notifies users that chat history will not be saved.
+Introduce a non-dismissible `identity-modal` that appears on every boot for unauthenticated users. It offers three paths: Lab Member Registration (with invite code), Existing User Login, or Guest Mode (with explicit notice about ephemeral history). LocalStorage bypasses are removed.
 
 ## Consequences
-Unauthenticated users can no longer silently enter the app; they must consciously choose guest mode or authenticate. This clarifies the expectation of ephemeral chats for guests and ensures lab members are directed to the correct authentication flow.
+All users must consciously select their role upon entry. Guest users are explicitly informed that their chat history will not be saved, managing expectations. Authenticated flows are strictly separated from guest flows.

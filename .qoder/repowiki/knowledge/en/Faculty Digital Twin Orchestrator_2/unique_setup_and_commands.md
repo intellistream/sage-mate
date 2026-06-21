@@ -1,3 +1,0 @@
-- **Quickstart**: `./quickstart.sh` automates environment setup, dependency installation, and systemd service configuration.
-- **Service Management**: `./manage.sh` provides a unified interface for starting, stopping, restarting, and checking logs for the app, vLLM engine, and proxy services.
-- **Systemd Integration**: Deploys as systemd user services (`sage-faculty-twin-app.service`, etc.) defined in `deploy/systemd/user/`.

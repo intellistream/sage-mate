@@ -3,7 +3,7 @@ schema_version: 1
 locale: en-US
 branch: main
 nodes_managed: true
-exported_at: "2026-06-21T11:20:06Z"
+exported_at: "2026-06-21T12:59:35Z"
 modules:
     "":
         dir_name: SAGE Faculty Digital Twin Orchestrator
@@ -19,8 +19,8 @@ modules:
         depends_on: []
         related_to: []
     app_source:
-        dir_name: Faculty Digital Twin Service
-        title: Faculty Digital Twin Service
+        dir_name: Academic Digital Twin Orchestration
+        title: Academic Digital Twin Orchestration
         scope:
             - src/sage_faculty_twin/
         source_files: []
@@ -29,6 +29,7 @@ modules:
         related_to:
             - path: deployment
             - path: runtime_data
+            - path: tests
     build_system:
         dir_name: Build, Deployment, and Runtime Orchestration
         title: Build, Deployment, and Runtime Orchestration
@@ -81,7 +82,6 @@ modules:
         depends_on: []
         related_to:
             - path: app_source
-            - path: docs
     docs:
         dir_name: Product Documentation & Deployment Operations
         title: Product Documentation & Deployment Operations
@@ -90,9 +90,7 @@ modules:
         source_files: []
         children: []
         depends_on: []
-        related_to:
-            - path: deployment
-            - path: runtime_data
+        related_to: []
     error_handling:
         dir_name: Error Handling — Custom Exceptions, HTTPException Propagation, and Retry Logic
         title: Error Handling — Custom Exceptions, HTTPException Propagation, and Retry Logic
@@ -134,8 +132,8 @@ modules:
         depends_on: []
         related_to: []
     runtime_data:
-        dir_name: User Identity & Follow-up Action Management
-        title: User Identity & Follow-up Action Management
+        dir_name: Runtime Data & Knowledge Store
+        title: Runtime Data & Knowledge Store
         scope:
             - data/
         source_files: []
@@ -143,7 +141,6 @@ modules:
         depends_on: []
         related_to:
             - path: app_source
-            - path: docs
     tests:
         dir_name: Faculty Digital Twin Integration & Regression Testing
         title: Faculty Digital Twin Integration & Regression Testing
@@ -152,4 +149,5 @@ modules:
         source_files: []
         children: []
         depends_on: []
-        related_to: []
+        related_to:
+            - path: app_source

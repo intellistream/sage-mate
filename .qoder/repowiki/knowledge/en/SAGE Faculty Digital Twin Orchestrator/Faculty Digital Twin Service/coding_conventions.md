@@ -1,4 +1,0 @@
-- Endpoints use Pydantic models for both request bodies and response schemas, ensuring strict type validation and automatic OpenAPI documentation generation.
-- Administrative routes are protected by injecting a dependency that validates HMAC-signed session cookies from the request context.
-- Long-running or heavy service components are initialized lazily using a thread-safe proxy pattern to reduce cold-start latency.
-- Workflow execution steps emit structured `WorkflowTraceStep` events via callbacks, enabling real-time SSE streaming of reasoning paths to the client.

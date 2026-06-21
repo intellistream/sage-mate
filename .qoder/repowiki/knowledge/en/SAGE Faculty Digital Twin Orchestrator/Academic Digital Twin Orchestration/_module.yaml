@@ -1,0 +1,11 @@
+schema_version: 1
+module_path: app_source
+title: Academic Digital Twin Orchestration
+scope:
+    - src/sage_faculty_twin/
+source_files: []
+depends_on: []
+related_to:
+    - path: deployment
+    - path: runtime_data
+    - path: tests

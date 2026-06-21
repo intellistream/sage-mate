@@ -9,28 +9,32 @@
 - [app.js](file://src/sage_faculty_twin/web/app.js)
 - [index.html](file://src/sage_faculty_twin/web/index.html)
 - [models.py](file://src/sage_faculty_twin/models.py)
+- [config.py](file://src/sage_faculty_twin/config.py)
 </cite>
 
 ## Update Summary
 **Changes Made**
-- Added documentation for new user account provisioning as part of testing infrastructure
-- Enhanced visitor profile documentation to include lab member accounts
-- Updated user account storage and authentication flow documentation
-- Added information about invitation code system for lab member access
+- Enhanced visitor profile system documentation with new onboarding integration
+- Updated user account management with invitation code validation for lab members
+- Added comprehensive visitor profile configuration and presentation system
+- Expanded onboarding guidance framework for different user types
+- Updated testing infrastructure documentation with lab member account provisioning
 
 ## Table of Contents
 1. [Introduction](#introduction)
 2. [System Architecture](#system-architecture)
 3. [Core Components](#core-components)
-4. [Account Management Implementation](#account-management-implementation)
-5. [Session Management](#session-management)
-6. [User Authentication Flow](#user-authentication-flow)
-7. [Frontend Integration](#frontend-integration)
-8. [Security Considerations](#security-considerations)
-9. [Data Storage](#data-storage)
-10. [Testing Infrastructure](#testing-infrastructure)
-11. [Troubleshooting Guide](#troubleshooting-guide)
-12. [Conclusion](#conclusion)
+4. [Enhanced Visitor Profile System](#enhanced-visitor-profile-system)
+5. [Onboarding Integration Framework](#onboarding-integration-framework)
+6. [Account Management Implementation](#account-management-implementation)
+7. [Session Management](#session-management)
+8. [User Authentication Flow](#user-authentication-flow)
+9. [Frontend Integration](#frontend-integration)
+10. [Security Considerations](#security-considerations)
+11. [Data Storage](#data-storage)
+12. [Testing Infrastructure](#testing-infrastructure)
+13. [Troubleshooting Guide](#troubleshooting-guide)
+14. [Conclusion](#conclusion)
 
 ## Introduction
 
@@ -38,7 +42,7 @@ The Integrated Account Management View is a comprehensive user authentication an
 
 The system integrates tightly with the frontend application through a modern JavaScript interface that supports tabbed account management views, real-time session updates, and responsive design patterns. It leverages a layered architecture with clear separation of concerns between authentication logic, session management, and user data storage.
 
-**Updated** The system now includes enhanced support for lab member accounts as part of the testing infrastructure, with dedicated visitor profiles and invitation code validation for controlled access.
+**Updated** The system now includes an enhanced visitor profile system with comprehensive onboarding integration and invitation code validation for lab member access. The visitor profile system provides personalized user experiences through configurable profiles, presentation templates, and guided onboarding workflows tailored to different user types including general visitors, undergraduate students, paper writing students, and lab members.
 
 ## System Architecture
 
@@ -51,38 +55,45 @@ A[Web Interface]
 B[Account Management View]
 C[Session Management]
 D[Visitor Profile Selection]
+E[Onboarding Integration]
 end
 subgraph "API Layer"
-E[FastAPI Endpoints]
-F[Authentication Routes]
-G[Session Handlers]
-H[Visitor Profile Validation]
+F[FastAPI Endpoints]
+G[Authentication Routes]
+H[Session Handlers]
+I[Visitor Profile Validation]
+J[Onboarding Guidance]
 end
 subgraph "Service Layer"
-I[DigitalTwinService]
-J[User Authentication Service]
-K[Session Validation]
-L[Invitation Code Verification]
+K[DigitalTwinService]
+L[User Authentication Service]
+M[Session Validation]
+N[Invitation Code Verification]
+O[Profile Configuration Management]
 end
 subgraph "Data Layer"
-M[User Store]
-N[Session Storage]
-O[Configuration Management]
-P[Visitor Profile Registry]
+P[User Store]
+Q[Session Storage]
+R[Configuration Management]
+S[Visitor Profile Registry]
+T[Onboarding State Tracking]
 end
-A --> E
-B --> E
-C --> E
-D --> E
-E --> I
-F --> J
-G --> K
-H --> L
-I --> M
-J --> M
-K --> N
-L --> O
-M --> P
+A --> F
+B --> F
+C --> F
+D --> F
+E --> F
+F --> K
+G --> L
+H --> M
+I --> N
+J --> O
+K --> P
+L --> P
+M --> Q
+N --> R
+O --> S
+P --> T
 ```
 
 **Diagram sources**
@@ -175,6 +186,131 @@ UserAccountStore --> UserAccountRecord : manages
 **Section sources**
 - [user_store.py:62-200](file://src/sage_faculty_twin/user_store.py#L62-L200)
 
+## Enhanced Visitor Profile System
+
+### Visitor Profile Configuration
+
+The system now supports four distinct visitor profiles with comprehensive configuration and presentation:
+
+```mermaid
+classDiagram
+class VisitorProfileConfig {
++label : string
++defaultContext : string
++defaultQuestion : string
++placeholder : string
++drawerHint : string
++introLines : list[string]
++quickActions : list[QuickAction]
+}
+class QuickAction {
++label : string
++question : string
++context : string
+}
+class OnboardingFramework {
++steps : dict[string, list[OnboardingStep]]
++lab_member : list[OnboardingStep]
++hust_undergraduate : list[OnboardingStep]
++paper_writing_student : list[OnboardingStep]
+}
+class OnboardingStep {
++copy : string
++question : string
++hint : string
++context : string
+}
+VisitorProfileConfig --> QuickAction : contains
+OnboardingFramework --> OnboardingStep : contains
+```
+
+**Diagram sources**
+- [app.js:398-463](file://src/sage_faculty_twin/web/app.js#L398-L463)
+- [app.js:496-589](file://src/sage_faculty_twin/web/app.js#L496-L589)
+
+The visitor profile system includes:
+
+| Profile Type | Access Level | Key Features | Onboarding Complexity |
+|--------------|--------------|-------------|----------------------|
+| `general_visitor` | Basic | Public access with basic guidance | Minimal |
+| `hust_undergraduate` | Course Access | Course-specific context and condensed onboarding | Medium |
+| `paper_writing_student` | Writing Access | Thesis writing guidance with seven-step framework | High |
+| `lab_member` | Full Access | Comprehensive research guidance with full onboarding | Highest |
+
+**Section sources**
+- [app.js:398-463](file://src/sage_faculty_twin/web/app.js#L398-L463)
+- [app.js:496-589](file://src/sage_faculty_twin/web/app.js#L496-L589)
+
+### Visitor Profile Presentation System
+
+The frontend implements dynamic presentation based on visitor profiles:
+
+```mermaid
+sequenceDiagram
+participant User as User
+participant IdentityModal as IdentityModal
+participant ProfileConfig as ProfileConfig
+participant Presentation as Presentation
+User->>IdentityModal : Open Identity Selection
+IdentityModal->>ProfileConfig : Get Profile Configuration
+ProfileConfig->>Presentation : Apply Profile Settings
+Presentation->>User : Update UI with Profile-specific Content
+User->>Presentation : Start Conversation
+Presentation->>Presentation : Apply Profile Context
+```
+
+**Diagram sources**
+- [app.js:1839-1874](file://src/sage_faculty_twin/web/app.js#L1839-L1874)
+- [app.js:2047-2071](file://src/sage_faculty_twin/web/app.js#L2047-L2071)
+
+**Section sources**
+- [app.js:1839-1874](file://src/sage_faculty_twin/web/app.js#L1839-L1874)
+- [app.js:2047-2071](file://src/sage_faculty_twin/web/app.js#L2047-L2071)
+
+## Onboarding Integration Framework
+
+### Seven-Step Research Question Framework
+
+The system implements a comprehensive onboarding framework with different approaches for various user types:
+
+```mermaid
+flowchart TD
+Start([User Registration]) --> ProfileSelection["Select Visitor Profile"]
+ProfileSelection --> ProfileType{"Profile Type?"}
+ProfileType --> |lab_member| FullFramework["Full 7-Step Framework"]
+ProfileType --> |paper_writing_student| FullFramework
+ProfileType --> |hust_undergraduate| CondensedFramework["Condensed 3-Step Framework"]
+ProfileType --> |general_visitor| BasicFramework["Basic Guidance"]
+FullFramework --> Step1["Define Research Problem"]
+Step1 --> Step2["Assess Importance"]
+Step2 --> Step3["Analyze Existing Work"]
+Step3 --> Step4["Develop Core Idea"]
+Step4 --> Step5["Consider Implementation"]
+Step5 --> Step6["Plan Validation"]
+Step6 --> Step7["Summarize Contributions"]
+Step7 --> Completion["Onboarding Complete"]
+CondensedFramework --> CStep1["Establish Course Context"]
+CStep1 --> CStep2["Identify Experiment Blockers"]
+CStep2 --> CStep3["Prepare Next Meeting"]
+CStep3 --> Completion
+BasicFramework --> BStep1["Explore Available Resources"]
+BStep1 --> BStep2["Understand Basic Procedures"]
+BStep2 --> Completion
+```
+
+**Diagram sources**
+- [app.js:496-589](file://src/sage_faculty_twin/web/app.js#L496-L589)
+
+**Section sources**
+- [app.js:496-589](file://src/sage_faculty_twin/web/app.js#L496-L589)
+
+### Profile-Specific Quick Actions
+
+Each visitor profile provides tailored quick actions and guidance:
+
+**Section sources**
+- [app.js:464-494](file://src/sage_faculty_twin/web/app.js#L464-L494)
+
 ## Account Management Implementation
 
 ### Frontend Account View
@@ -221,8 +357,8 @@ The backend exposes comprehensive authentication endpoints:
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|
-| `/auth/user/register` | POST | Creates new user accounts |
-| `/auth/user/login` | POST | Authenticates existing users |
+| `/auth/user/register` | POST | Creates new user accounts with visitor profile and invitation code validation |
+| `/auth/user/login` | POST | Authenticates existing users with optional invitation code upgrade |
 | `/auth/user/logout` | POST | Terminates user sessions |
 | `/auth/user/session` | GET | Retrieves current user session |
 
@@ -277,6 +413,8 @@ Client->>API : POST /auth/user/register
 API->>API : Validate Registration Data
 API->>Store : register_user()
 Store->>Store : Normalize Email & Validate
+Store->>Store : Check Visitor Profile
+Store->>Store : Validate Invitation Code (if lab_member)
 Store->>Store : Generate Salt & Hash Password
 Store->>Store : Persist User Record
 Store-->>API : UserAccountResponse
@@ -363,6 +501,7 @@ Comprehensive input validation prevents injection attacks and data corruption:
 - **Email Validation**: RFC-compliant email format checking
 - **Password Strength**: Minimum length and complexity requirements
 - **Visitor Profile Validation**: Whitelisted profile values only
+- **Invitation Code Validation**: Secure constant-time comparison
 - **Rate Limiting**: Built-in protection against brute force attacks
 
 **Section sources**
@@ -424,7 +563,7 @@ The storage system ensures data integrity through:
 
 The system includes dedicated support for lab member accounts as part of the testing infrastructure:
 
-**Updated** The testing infrastructure now includes provisioned lab member accounts with controlled access through invitation codes.
+**Updated** The testing infrastructure now includes provisioned lab member accounts with controlled access through invitation codes and comprehensive visitor profile support.
 
 #### Visitor Profile System
 
@@ -464,6 +603,10 @@ The testing infrastructure includes pre-provisioned lab member accounts:
 - **Test Account 2**: `01215b72-6871-483f-8799-d8f0a6d909df` - Lab User  
 - Additional lab member accounts for comprehensive testing
 
+#### Onboarding Integration Testing
+
+The system includes comprehensive onboarding integration testing:
+
 **Section sources**
 - [user_store.py:92-104](file://src/sage_faculty_twin/user_store.py#L92-L104)
 - [data/user_accounts/8e5a47f9-49e8-4132-b983-dff1314a6d05.json:1-11](file://data/user_accounts/8e5a47f9-49e8-4132-b983-dff1314a6d05.json#L1-L11)
@@ -492,6 +635,11 @@ The testing infrastructure includes pre-provisioned lab member accounts:
 - **Solution**: Verify invitation code configuration and enablement
 - **Debug Steps**: Check `lab_member_invitation_code_enabled` setting, validate code format
 
+**Issue**: Visitor profile not applying correctly
+- **Cause**: Profile configuration not loaded or localStorage issues
+- **Solution**: Verify profile configuration exists and localStorage is accessible
+- **Debug Steps**: Check `VISITOR_PROFILE_CONFIGS` object, verify localStorage permissions
+
 ### Performance Optimization
 
 **Recommendations**:
@@ -499,6 +647,7 @@ The testing infrastructure includes pre-provisioned lab member accounts:
 - Implement connection pooling for database operations
 - Optimize password hashing parameters for deployment environment
 - Monitor session storage growth and implement cleanup policies
+- Cache frequently accessed profile configurations
 
 **Section sources**
 - [user_store.py:78-90](file://src/sage_faculty_twin/user_store.py#L78-L90)
@@ -512,9 +661,11 @@ Key strengths include:
 - **Security**: Industry-standard password hashing and cookie-based authentication
 - **Scalability**: Modular design supporting future expansion
 - **Usability**: Intuitive frontend interface with responsive design
-- **Maintainability**: Clear separation of concerns and comprehensive error handling
+- **Visitor Profiles**: Comprehensive visitor profile system with personalized experiences
+- **Onboarding**: Structured onboarding framework tailored to different user types
 - **Testing Infrastructure**: Dedicated support for lab member accounts and invitation code validation
+- **Maintainability**: Clear separation of concerns and comprehensive error handling
 
 The system provides a solid foundation for user management while maintaining flexibility for future enhancements and integration with additional authentication providers or advanced security features.
 
-**Updated** The addition of dedicated testing infrastructure with lab member accounts enhances the system's capability to support controlled access scenarios and comprehensive testing of authentication flows across different user profiles.
+**Updated** The enhancement of the visitor profile system with comprehensive onboarding integration and invitation code validation significantly improves the platform's ability to support diverse user types and controlled access scenarios. The addition of structured onboarding workflows, particularly for lab members and paper writing students, demonstrates the system's commitment to providing personalized user experiences while maintaining security and access control.

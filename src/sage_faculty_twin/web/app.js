@@ -622,6 +622,7 @@ const ONBOARDING_STEPS = {
 };
 
 const ONBOARDING_COMPLETED_KEY = "sageOnboardingCompleted";
+const ONBOARDING_DISMISSED_KEY = "sageOnboardingDismissed";
 let onboardingCurrentStep = 0;
 let onboardingSteps = [];
 let onboardingActive = false;
@@ -635,6 +636,22 @@ function hasCompletedOnboarding() {
         return globalThis.localStorage?.getItem(ONBOARDING_COMPLETED_KEY) === "true";
     } catch {
         return false;
+    }
+}
+
+function isOnboardingDismissed() {
+    try {
+        return globalThis.localStorage?.getItem(ONBOARDING_DISMISSED_KEY) === "true";
+    } catch {
+        return false;
+    }
+}
+
+function markOnboardingDismissed() {
+    try {
+        globalThis.localStorage?.setItem(ONBOARDING_DISMISSED_KEY, "true");
+    } catch {
+        // Ignore storage errors
     }
 }
 
@@ -700,12 +717,12 @@ function renderOnboardingStep() {
         backBtn.classList.toggle("hidden", onboardingCurrentStep === 0);
     }
 
-    // Seed the main chat input with the step question template and focus it
-    seedChatQuestion(step.question, step.context || "");
+    // Focus the main chat input (leave empty for student to type their answer)
+    chatQuestion?.focus();
 }
 
-function startOnboarding(profile) {
-    if (hasCompletedOnboarding()) {
+function startOnboarding(profile, { force = false } = {}) {
+    if (!force && (hasCompletedOnboarding() || isOnboardingDismissed())) {
         return;
     }
     onboardingSteps = getOnboardingStepsForProfile(profile);
@@ -738,12 +755,16 @@ function finishOnboarding() {
     markOnboardingCompleted();
     onboardingActive = false;
     const donePanel = document.getElementById("onboarding-done");
+    const dismissCheckbox = document.getElementById("onboarding-dismiss-checkbox");
     const navRow = document.querySelector(".onboarding-nav");
     const stepCopy = document.getElementById("onboarding-step-copy");
     const questionCard = document.getElementById("onboarding-question-card");
     const ctaEl = document.getElementById("onboarding-cta");
     const progressBar = document.getElementById("onboarding-progress-bar");
     const stepLabel = document.getElementById("onboarding-step-label");
+
+    // Reset dismiss checkbox state before showing
+    if (dismissCheckbox) dismissCheckbox.checked = isOnboardingDismissed();
 
     if (donePanel) donePanel.classList.remove("hidden");
     if (navRow) navRow.classList.add("hidden");
@@ -753,33 +774,54 @@ function finishOnboarding() {
     if (progressBar) progressBar.style.width = "100%";
     if (stepLabel) stepLabel.textContent = "\u2713";
 
-    // Auto-hide after 3 seconds
+    // Auto-hide after 5 seconds (giving user time to check the dismiss box)
     setTimeout(() => {
+        if (dismissCheckbox?.checked) {
+            markOnboardingDismissed();
+        }
         hideOnboardingCard();
         chatQuestion?.focus();
-    }, 3000);
+    }, 5000);
 }
 
 function skipOnboarding() {
     markOnboardingCompleted();
+    const dismissCheckbox = document.getElementById("onboarding-dismiss-checkbox");
+    if (dismissCheckbox?.checked) {
+        markOnboardingDismissed();
+    }
     hideOnboardingCard();
     chatQuestion?.focus();
+}
+
+function restartOnboarding() {
+    // Manually re-open onboarding from help button, bypassing completed/dismissed checks
+    const profile = visitorProfileInput?.value || "general_visitor";
+    // Clear completed key so startOnboarding with force works cleanly
+    try {
+        globalThis.localStorage?.removeItem(ONBOARDING_COMPLETED_KEY);
+    } catch {
+        // Ignore
+    }
+    startOnboarding(profile, { force: true });
 }
 
 function resetOnboardingForNewProfile(profile) {
     // If switching profiles, allow re-running onboarding
     try {
         globalThis.localStorage?.removeItem(ONBOARDING_COMPLETED_KEY);
+        globalThis.localStorage?.removeItem(ONBOARDING_DISMISSED_KEY);
     } catch {
         // Ignore
     }
-    startOnboarding(profile);
+    startOnboarding(profile, { force: true });
 }
 
 // --- Onboarding button event listeners ---
 document.getElementById("onboarding-back-btn")?.addEventListener("click", goBackOnboarding);
 document.getElementById("onboarding-next-btn")?.addEventListener("click", advanceOnboarding);
 document.getElementById("onboarding-skip-btn")?.addEventListener("click", skipOnboarding);
+document.getElementById("open-onboarding-help")?.addEventListener("click", restartOnboarding);
 
 function applyLuckyQuestionPreferences(selection) {
     if (!selection || typeof selection !== "object") {
@@ -1143,6 +1185,54 @@ document.getElementById("sidebar-user-icon")?.addEventListener("click", (e) => {
     e.preventDefault();
     openSettingsDrawer();
 });
+
+// --- Account view: register form (in settings view) ---
+document.getElementById("user-register-form")?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const responseEl = document.getElementById("user-register-response");
+    setInlineStatus(responseEl, "正在注册...", "empty");
+    const invitationCode = document.getElementById("user-register-invitation-code")?.value || "";
+    const visitorProfile = document.getElementById("user-register-profile")?.value || "general_visitor";
+    try {
+        await apiRequest("/auth/user/register", {
+            method: "POST",
+            body: JSON.stringify({
+                name: document.getElementById("user-register-name").value,
+                email: document.getElementById("user-register-email").value,
+                password: document.getElementById("user-register-password").value,
+                visitor_profile: visitorProfile,
+                invitation_code: invitationCode,
+            }),
+        });
+        setInlineStatus(responseEl, "注册成功！", "success");
+        await refreshUserSession();
+        setTimeout(() => closeAccountView(), 800);
+    } catch (error) {
+        setInlineStatus(responseEl, error.message, "error");
+    }
+});
+
+// --- Account view: login form (in settings view) ---
+document.getElementById("user-login-form")?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const responseEl = document.getElementById("user-login-response");
+    setInlineStatus(responseEl, "正在登录...", "empty");
+    try {
+        await apiRequest("/auth/user/login", {
+            method: "POST",
+            body: JSON.stringify({
+                email: document.getElementById("user-login-email").value,
+                password: document.getElementById("user-login-password").value,
+                invitation_code: document.getElementById("user-login-invitation-code")?.value || "",
+            }),
+        });
+        setInlineStatus(responseEl, "登录成功！", "success");
+        await refreshUserSession();
+        setTimeout(() => closeAccountView(), 800);
+    } catch (error) {
+        setInlineStatus(responseEl, error.message, "error");
+    }
+});
 // Use event delegation for close buttons (content may be moved into views)
 settingsViewBody?.addEventListener("click", (e) => {
     if (e.target.closest("[data-close-drawer]")) closeSettingsDrawer();
@@ -1158,6 +1248,7 @@ accountViewBody?.addEventListener("click", (e) => {
     if (tab?.dataset.accountTab) switchAccountTab(tab.dataset.accountTab);
     if (e.target.closest("[data-close-view]")) closeAccountView();
 });
+document.getElementById("close-account-view")?.addEventListener("click", closeAccountView);
 document.getElementById("open-user-register")?.addEventListener("click", () => {
     prepareUserRegistrationForm();
     closeSettingsDrawer();
@@ -1405,8 +1496,13 @@ chatForm.addEventListener("submit", async (event) => {
         return;
     }
 
-    // If onboarding is active, advance to next step after chat submission
+    // If onboarding is active, wrap user's answer with the step template
     const wasOnboarding = onboardingActive;
+    let onboardingWrappedQuestion = question;
+    if (wasOnboarding && onboardingSteps[onboardingCurrentStep]) {
+        const step = onboardingSteps[onboardingCurrentStep];
+        onboardingWrappedQuestion = `[七步提问法 · 第 ${onboardingCurrentStep + 1} 步] ${step.copy}\n\n问题模板：${step.question}\n\n我的回答：${question}\n\n请对我的回答给出具体的评价和改进建议，并引导我思考下一步。`;
+    }
 
     lastFailedQuestion = null;
     noteOutgoingConversationQuestion(question);
@@ -1416,7 +1512,7 @@ chatForm.addEventListener("submit", async (event) => {
         student_email: document.getElementById("student-email").value || null,
         course_context: document.getElementById("course-context").value || null,
         visitor_profile: visitorProfileInput?.value || null,
-        question,
+        question: onboardingWrappedQuestion,
         conversation_id: activeConversationId,
         deep_thinking: deepThinkingCheckbox?.checked ?? false,
         deep_thinking_explicit: deepThinkingExplicitlyEnabled,
@@ -1926,17 +2022,8 @@ function handleOutsideDrawerClick(event) {
         }
     }
 
-    if (!isAccountViewClosed()) {
-        if (
-            !accountView?.contains(target)
-            && !target.closest("#sidebar-user-icon")
-            && !target.closest("#open-user-register")
-            && !target.closest("#open-user-login")
-            && !target.closest("#identity-user-login")
-        ) {
-            closeAccountView();
-        }
-    }
+    // Account view (register/login) is intentionally NOT closed on outside
+    // clicks — users must use the explicit close button to dismiss it.
 }
 
 function getVisitorProfileConfig(profile = visitorProfileInput?.value) {
@@ -2006,8 +2093,8 @@ function applyVisitorProfilePresentation({ syncCourseContext = false } = {}) {
         chatQuestion.placeholder = config.placeholder;
         const currentQuestion = chatQuestion.value.trim();
         if (!currentQuestion || currentQuestion === lastAutoChatQuestion) {
-            chatQuestion.value = config.defaultQuestion;
-            lastAutoChatQuestion = config.defaultQuestion;
+            chatQuestion.value = "";
+            lastAutoChatQuestion = "";
             autoResizeTextarea();
         }
     }
@@ -2656,6 +2743,9 @@ function applyUserSession(session) {
         applyVisitorProfilePresentation();
         switchConversationHistoryScope(resolveConversationHistoryStorageScope());
         updateWelcomeGreeting();
+        // Show help (onboarding) button for registered users
+        const onboardingHelpBtn = document.getElementById("open-onboarding-help");
+        if (onboardingHelpBtn) onboardingHelpBtn.classList.remove("hidden");
         // Trigger progressive onboarding for newly authenticated users
         if (!wasAuthenticated && !hasCompletedOnboarding()) {
             const profile = account.visitor_profile || "general_visitor";
@@ -2665,6 +2755,9 @@ function applyUserSession(session) {
     }
 
     userSessionCopy.textContent = "当前未登录用户账号。";
+    // Hide help button for unauthenticated users
+    const onboardingHelpBtnOff = document.getElementById("open-onboarding-help");
+    if (onboardingHelpBtnOff) onboardingHelpBtnOff.classList.add("hidden");
     if (topbarUserBadge) {
         topbarUserBadge.classList.add("hidden");
         topbarUserBadge.title = "当前账号";
@@ -4815,6 +4908,11 @@ function setResponse(element, text, state) {
 function setInlineStatus(element, text, state) {
     element.textContent = text;
     element.className = `inline-status inline-status-${state}`;
+    if (state === "error" || state === "success") {
+        requestAnimationFrame(() => {
+            element.scrollIntoView({ behavior: "smooth", block: "nearest" });
+        });
+    }
 }
 
 function renderBookingResponseStatus(element, bookingResponse, options = {}) {
