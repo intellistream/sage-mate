@@ -11,15 +11,25 @@
 - [config.py](file://src/sage_faculty_twin/config.py)
 - [index.html](file://src/sage_faculty_twin/web/index.html)
 - [app.js](file://src/sage_faculty_twin/web/app.js)
+- [styles.css](file://src/sage_faculty_twin/web/styles.css)
 - [onboarding-first-month.json](file://data/knowledge_base/onboarding-first-month.json)
 - [4a05e39e-61c2-44c5-93b7-64679cf48511.json](file://data/user_accounts/4a05e39e-61c2-44c5-93b7-64679cf48511.json)
 </cite>
+
+## Update Summary
+**Changes Made**
+- Enhanced onboarding system with new 'don't show again' checkbox mechanism (ONBOARDING_DISMISSED_KEY)
+- Added help button (#open-onboarding-help) for manual restart functionality
+- Implemented 5-second auto-hide delay with user preference respect
+- Introduced restartOnboarding() function for manual onboarding restart
+- Updated onboarding completion logic to respect dismissal preferences
+- Improved user control and preference management
 
 ## Table of Contents
 1. [Introduction](#introduction)
 2. [System Architecture](#system-architecture)
 3. [User Registration Flow](#user-registration-flow)
-4. [Onboarding Experience](#onboarding-experience)
+4. [Enhanced Onboarding Experience](#enhanced-onboarding-experience)
 5. [Authentication System](#authentication-system)
 6. [Data Storage](#data-storage)
 7. [Configuration Management](#configuration-management)
@@ -33,6 +43,8 @@ The User Onboarding System is a comprehensive framework designed to seamlessly i
 
 The system supports multiple user profiles including general visitors, students, and lab members, each with distinct permissions and capabilities. It leverages advanced session management, secure password handling, and intelligent knowledge-based guidance to create a personalized user journey from first visit to full platform utilization.
 
+**Updated** Enhanced with improved user control mechanisms, preference persistence, and manual restart capabilities for better user experience.
+
 ## System Architecture
 
 The User Onboarding System follows a layered architecture pattern with clear separation of concerns across multiple components:
@@ -42,6 +54,7 @@ graph TB
 subgraph "Presentation Layer"
 UI[Web Interface]
 Mobile[Mobile Interface]
+HelpButton[Help Button #open-onboarding-help]
 end
 subgraph "API Layer"
 AuthAPI[Authentication API]
@@ -53,14 +66,18 @@ AuthService[Authentication Service]
 UserStore[User Store Service]
 OnboardingService[Onboarding Service]
 SessionManager[Session Manager]
+LocalStorage[Local Storage Manager]
 end
 subgraph "Data Layer"
 UserDatabase[(User Accounts)]
 KnowledgeBase[(Knowledge Base)]
 SessionStore[(Session Storage)]
+DismissedPrefs[(Dismissed Preferences)]
+CompletedPrefs[(Completed Preferences)]
 end
 UI --> AuthAPI
 Mobile --> AuthAPI
+HelpButton --> OnboardingService
 AuthAPI --> AuthService
 UserAPI --> UserStore
 OnboardingAPI --> OnboardingService
@@ -68,14 +85,18 @@ AuthService --> SessionManager
 UserStore --> UserDatabase
 OnboardingService --> KnowledgeBase
 SessionManager --> SessionStore
+OnboardingService --> LocalStorage
+LocalStorage --> DismissedPrefs
+LocalStorage --> CompletedPrefs
 ```
 
 **Diagram sources**
 - [api.py:512-530](file://src/sage_faculty_twin/api.py#L512-L530)
 - [auth.py:45-86](file://src/sage_faculty_twin/auth.py#L45-L86)
 - [user_store.py:62-122](file://src/sage_faculty_twin/user_store.py#L62-L122)
+- [app.js:652-654](file://src/sage_faculty_twin/web/app.js#L652-L654)
 
-The architecture ensures scalability through lazy initialization of services and efficient resource management. The modular design allows for easy maintenance and extension of onboarding features.
+The architecture ensures scalability through lazy initialization of services and efficient resource management. The modular design allows for easy maintenance and extension of onboarding features, with enhanced preference management and user control mechanisms.
 
 **Section sources**
 - [api.py:92-136](file://src/sage_faculty_twin/api.py#L92-L136)
@@ -117,9 +138,9 @@ The registration flow includes comprehensive input validation, duplicate prevent
 - [user_store.py:71-105](file://src/sage_faculty_twin/user_store.py#L71-L105)
 - [models.py:741-755](file://src/sage_faculty_twin/models.py#L741-L755)
 
-## Onboarding Experience
+## Enhanced Onboarding Experience
 
-The onboarding system provides an interactive guided tour tailored to different user profiles, ensuring new users can quickly understand and utilize the platform effectively:
+The onboarding system provides an interactive guided tour tailored to different user profiles, ensuring new users can quickly understand and utilize the platform effectively. The system now includes enhanced user control mechanisms and preference management:
 
 ```mermaid
 flowchart TD
@@ -127,13 +148,17 @@ Start([User Accesses Platform]) --> CheckProfile{Check Visitor Profile}
 CheckProfile --> GeneralVisitor[General Visitor]
 CheckProfile --> Student[Student]
 CheckProfile --> LabMember[Lab Member]
-GeneralVisitor --> ShowWelcome[Show Welcome Message]
-Student --> ShowWelcome
-LabMember --> ShowWelcome
-ShowWelcome --> LoadOnboarding[Load Onboarding Steps]
-LoadOnboarding --> CheckProgress{Check Completion}
+GeneralVisitor --> CheckCompletion{Check Completion & Dismissal}
+Student --> CheckCompletion
+LabMember --> CheckCompletion
+CheckCompletion --> HasCompleted{Has Completed?}
+CheckCompletion --> IsDismissed{Is Dismissed?}
+HasCompleted --> |Yes| SkipOnboarding[Skip Onboarding]
+HasCompleted --> |No| CheckProgress{Check Progress}
+IsDismissed --> |Yes| SkipOnboarding
+IsDismissed --> |No| CheckProgress
 CheckProgress --> |Not Completed| ShowStep[Display Step Card]
-CheckProgress --> |Completed| SkipOnboarding[Skip Onboarding]
+CheckProgress --> |Completed| SkipOnboarding
 ShowStep --> RenderQuestion[Render Question Template]
 RenderQuestion --> UserResponse[User Provides Response]
 UserResponse --> ValidateResponse{Validate Response}
@@ -143,20 +168,32 @@ ShowHint --> UserResponse
 NextStep --> MoreSteps{More Steps?}
 MoreSteps --> |Yes| ShowStep
 MoreSteps --> |No| CompleteOnboarding[Complete Onboarding]
-CompleteOnboarding --> EnableFeatures[Enable Full Features]
+CompleteOnboarding --> ShowDone[Show Done Panel]
+ShowDone --> AutoHide{Auto-hide in 5s?}
+AutoHide --> |Yes| HideCard[Hide Card]
+AutoHide --> |No| ShowDismiss[Show Dismiss Checkbox]
+ShowDismiss --> UserChoice{User Checked Dismiss?}
+UserChoice --> |Yes| MarkDismissed[Mark As Dismissed]
+UserChoice --> |No| KeepVisible[Keep Visible]
+MarkDismissed --> HideCard
+HideCard --> EnableFeatures[Enable Full Features]
 SkipOnboarding --> EnableFeatures
 EnableFeatures --> End([Access Granted])
 ```
 
 **Diagram sources**
-- [app.js:707-735](file://src/sage_faculty_twin/web/app.js#L707-L735)
-- [index.html:115-143](file://src/sage_faculty_twin/web/index.html#L115-L143)
+- [app.js:795-807](file://src/sage_faculty_twin/web/app.js#L795-L807)
+- [app.js:825-856](file://src/sage_faculty_twin/web/app.js#L825-L856)
+- [index.html:119-154](file://src/sage_faculty_twin/web/index.html#L119-L154)
 
-The onboarding experience is dynamically generated based on the user's visitor profile and includes progress tracking, step-by-step guidance, and automatic completion detection. Users can skip the onboarding process if they prefer to explore independently.
+**Updated** The onboarding experience now includes enhanced user control with a 'don't show again' checkbox, 5-second auto-hide delay, manual restart capability via help button, and improved preference management through localStorage keys ONBOARDING_COMPLETED_KEY and ONBOARDING_DISMISSED_KEY.
+
+The onboarding experience is dynamically generated based on the user's visitor profile and includes progress tracking, step-by-step guidance, automatic completion detection, and respectful handling of user preferences. Users can now manually restart onboarding, choose to dismiss future prompts, and have granular control over their onboarding experience.
 
 **Section sources**
-- [app.js:692-761](file://src/sage_faculty_twin/web/app.js#L692-L761)
-- [index.html:115-143](file://src/sage_faculty_twin/web/index.html#L115-L143)
+- [app.js:652-693](file://src/sage_faculty_twin/web/app.js#L652-L693)
+- [app.js:795-890](file://src/sage_faculty_twin/web/app.js#L795-L890)
+- [index.html:119-154](file://src/sage_faculty_twin/web/index.html#L119-L154)
 
 ## Authentication System
 
@@ -238,6 +275,15 @@ SessionLogs[Session Logs]
 Sessions --> ActiveSessions
 Sessions --> SessionLogs
 end
+subgraph "Preference Storage"
+LocalStorage[(Browser LocalStorage)]
+OnboardingPrefs[Onboarding Preferences]
+CompletionPrefs[Completion Status]
+DismissalPrefs[Dismissal Preferences]
+LocalStorage --> OnboardingPrefs
+OnboardingPrefs --> CompletionPrefs
+OnboardingPrefs --> DismissalPrefs
+end
 UserData --> UserAccounts
 OnboardingDocs --> KB
 ResearchDocs --> KB
@@ -246,12 +292,14 @@ ResearchDocs --> KB
 **Diagram sources**
 - [config.py:86](file://src/sage_faculty_twin/config.py#L86)
 - [config.py:63](file://src/sage_faculty_twin/config.py#L63)
+- [app.js:652-654](file://src/sage_faculty_twin/web/app.js#L652-L654)
 
-User accounts are stored as individual JSON files in the user_accounts directory, allowing for efficient individual record access and updates. The knowledge base contains structured documents that guide the onboarding process and provide contextual information.
+User accounts are stored as individual JSON files in the user_accounts directory, allowing for efficient individual record access and updates. The knowledge base contains structured documents that guide the onboarding process and provide contextual information. Onboarding preferences are now managed through browser localStorage with separate keys for completion status and dismissal preferences.
 
 **Section sources**
 - [config.py:86](file://src/sage_faculty_twin/config.py#L86)
 - [onboarding-first-month.json:1-23](file://data/knowledge_base/onboarding-first-month.json#L1-L23)
+- [app.js:652-693](file://src/sage_faculty_twin/web/app.js#L652-L693)
 
 ## Configuration Management
 
@@ -294,9 +342,18 @@ The User Onboarding System implements multiple layers of security to protect use
 - Session validation middleware for protected routes
 - Graceful degradation when authentication fails
 
+### Preference Security
+- LocalStorage-based preference storage with error handling
+- Separate keys for completion and dismissal preferences
+- Automatic cleanup of temporary onboarding data
+- Respectful handling of user preferences and choices
+
+**Updated** Enhanced security measures now include proper handling of user preferences and choices, with graceful error handling for localStorage operations and respectful management of user consent.
+
 **Section sources**
 - [user_store.py:188-196](file://src/sage_faculty_twin/user_store.py#L188-L196)
 - [auth.py:182-214](file://src/sage_faculty_twin/auth.py#L182-L214)
+- [app.js:678-693](file://src/sage_faculty_twin/web/app.js#L678-L693)
 
 ## Troubleshooting Guide
 
@@ -324,24 +381,42 @@ The User Onboarding System implements multiple layers of security to protect use
 - **Cause**: Session token expiration or tampering
 - **Solution**: Clear browser cookies and retry authentication
 
-### Onboarding Experience Problems
+### Enhanced Onboarding Experience Issues
 
 **Problem**: Onboarding steps not displaying
-- **Cause**: User has previously completed onboarding
-- **Solution**: Reset onboarding completion status in local storage or use a different user profile
+- **Cause**: User has previously completed onboarding or dismissed future prompts
+- **Solution**: Use the help button (#open-onboarding-help) to manually restart onboarding, or clear localStorage preferences
 
-**Problem**: Knowledge base content not loading
-- **Cause**: Missing or corrupted knowledge base files
-- **Solution**: Verify knowledge base directory exists and contains required JSON files
+**Problem**: 'Don't show again' checkbox not working
+- **Cause**: Browser localStorage restrictions or JavaScript errors
+- **Solution**: Check browser console for errors, verify localStorage is enabled, or clear browser data
+
+**Problem**: Onboarding auto-hides too quickly
+- **Cause**: 5-second auto-hide delay without user interaction
+- **Solution**: Check the 'don't show again' checkbox before the 5-second countdown completes
+
+**Problem**: Help button (#open-onboarding-help) not responding
+- **Cause**: Missing DOM element or event listener issues
+- **Solution**: Verify the button exists in index.html and check browser console for JavaScript errors
+
+**Problem**: Switching profiles doesn't restart onboarding
+- **Cause**: Existing completion/dismissal preferences for previous profile
+- **Solution**: Use resetOnboardingForNewProfile() function or manually clear localStorage keys
 
 **Section sources**
 - [user_store.py:92-105](file://src/sage_faculty_twin/user_store.py#L92-L105)
 - [auth.py:158-172](file://src/sage_faculty_twin/auth.py#L158-L172)
+- [app.js:869-890](file://src/sage_faculty_twin/web/app.js#L869-L890)
+- [index.html:62-66](file://src/sage_faculty_twin/web/index.html#L62-L66)
 
 ## Conclusion
 
 The User Onboarding System represents a comprehensive solution for managing user integration and engagement in the SAGE Faculty Twin platform. Its modular architecture, robust security measures, and personalized user experience create a solid foundation for long-term user retention and satisfaction.
 
-Key strengths of the system include its flexible profile-based approach, secure authentication mechanisms, and adaptive onboarding experience. The implementation demonstrates best practices in web application development, including proper separation of concerns, comprehensive error handling, and scalable data management.
+**Updated** Key enhancements include improved user control mechanisms, preference management through localStorage, manual restart capabilities, and respectful handling of user choices. The system now provides granular control over onboarding experience with the ability to dismiss future prompts, manually restart onboarding, and maintain user preferences across sessions.
 
-Future enhancements could include expanded user profile types, enhanced analytics for onboarding effectiveness, and integration with external identity providers. The current architecture provides a strong foundation for these improvements while maintaining backward compatibility and system stability.
+The system's strengths include its flexible profile-based approach, secure authentication mechanisms, adaptive onboarding experience, and enhanced user preference management. The implementation demonstrates best practices in web application development, including proper separation of concerns, comprehensive error handling, scalable data management, and user-centric design principles.
+
+Future enhancements could include expanded user profile types, enhanced analytics for onboarding effectiveness, integration with external identity providers, and additional customization options for onboarding content. The current architecture provides a strong foundation for these improvements while maintaining backward compatibility and system stability.
+
+The enhanced onboarding system now offers users meaningful control over their experience while maintaining the system's core objectives of effective user education and platform adoption.

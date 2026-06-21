@@ -58,6 +58,7 @@ body {
     max-width: none;
     width: calc(100% - 56px);
     height: 100vh;
+    height: 100dvh;
     overflow: hidden;
     display: flex;
     flex-direction: column;
@@ -1328,11 +1329,14 @@ body.drawer-pinned .history-rail {
 
 .chat-stream {
     flex: 1;
+    min-height: 0;
     padding: 24px 0 12px;
     display: flex;
     flex-direction: column;
     gap: 22px;
     overflow: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
     scroll-padding-top: 18px;
     width: min(100%, 820px);
     margin: 0 auto;
@@ -2628,7 +2632,7 @@ body.conversation-active .intro-card .message-body {
     display: flex;
     flex-direction: column;
     gap: 14px;
-    max-width: 580px;
+    max-width: 720px;
     width: 100%;
     margin: 16px auto 0;
     padding: 20px 22px;
@@ -2732,6 +2736,42 @@ body.conversation-active .intro-card .message-body {
     color: rgba(99, 102, 241, 0.7);
     margin: 0;
     font-style: italic;
+    transition: opacity 0.3s ease;
+}
+
+.onboarding-question-hint.hint-fade {
+    opacity: 0;
+}
+
+.onboarding-random-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 14px;
+    border-radius: 999px;
+    border: 1.5px solid rgba(99, 102, 241, 0.35);
+    background: linear-gradient(135deg, rgba(99, 102, 241, 0.07), rgba(99, 102, 241, 0.13));
+    color: #6366f1;
+    font-size: 0.82rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.18s ease;
+    width: fit-content;
+}
+
+.onboarding-random-btn:hover {
+    background: linear-gradient(135deg, rgba(99, 102, 241, 0.12), rgba(99, 102, 241, 0.2));
+    border-color: rgba(99, 102, 241, 0.55);
+    box-shadow: 0 2px 8px rgba(99, 102, 241, 0.18);
+    transform: translateY(-1px);
+}
+
+.onboarding-random-btn:active {
+    transform: translateY(0);
+}
+
+.onboarding-random-btn.hidden {
+    display: none;
 }
 
 .onboarding-nav {
@@ -5489,7 +5529,7 @@ body.workflow-shell-collapsed #workflow-toggle {
         grid-template-columns: 1fr;
         gap: 12px;
         min-height: 0;
-        align-items: start;
+        align-items: stretch;
     }
 
     body.history-rail-collapsed .chat-layout {
@@ -5525,7 +5565,7 @@ body.workflow-shell-collapsed #workflow-toggle {
 
     .chat-shell {
         min-height: 0;
-        height: auto;
+        height: 100%;
     }
 
     .chat-shell.view-active {

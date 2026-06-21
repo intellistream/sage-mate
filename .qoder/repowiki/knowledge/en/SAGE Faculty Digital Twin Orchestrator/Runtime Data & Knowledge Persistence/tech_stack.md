@@ -1,0 +1,2 @@
+- **SQLite**: Used for `planner_metrics.sqlite3` and `memory_store.sqlite3` to handle structured query-heavy workloads within the conversation memory domain.
+- **JSON Flat-Files**: Primary persistence format for knowledge base entries, user accounts, and plugin definitions, enabling easy manual inspection and version control compatibility.

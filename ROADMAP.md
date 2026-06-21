@@ -978,6 +978,46 @@ Exit criteria:
 - Timeout, HTTP error, and connection failures show distinct error messages.
 - All 35 tests pass.
 
+### V4 Answer Basis Quality (v4.2.1–v4.2.4, Implemented)
+
+The answer basis display — the section that shows which knowledge sources, memory records, and
+retrieval evidence influenced the response — received four incremental improvements that
+collectively amount to a systematic overhaul:
+
+- **v4.2.1**: Deduplicated answer basis citations so the same source is displayed only once
+  regardless of how many retrieval paths returned it.
+- **v4.2.2**: Removed raw session context from the basis display. Only knowledge hits and memory
+  records are shown, eliminating noise from conversation-history echoes.
+- **v4.2.3**: Fixed the LLM status indicator that falsely reported errors, and added the current
+  model name to the top bar for operator transparency.
+- **v4.2.4**: Systematic answer basis refactor — unified the rendering component into structured
+  citation cards with source classification and confidence markers, replacing the old scattered
+  citation-string concatenation.
+
+These changes do not alter the retrieval or planning pipeline; they only improve how evidence
+is surfaced to the user.
+
+### V4.2.5 UI Modernization — ChatGPT-Style Sidebar & UX Polish (Implemented)
+
+`v4.2.5` delivers the most visible frontend changes since the initial launch:
+
+- **ChatGPT-style sidebar**: the user avatar in the sidebar rail opens a settings/account in-chat
+  panel instead of a separate modal. The redundant settings gear icon is removed, enforcing a
+  single-entry-point principle.
+- **In-chat account view**: registration and login modals are converted to tabbed in-chat views.
+  The register tab includes invitation-code enforcement; the login tab supports password login.
+  Both are dismissible without page reload.
+- **Seed chips**: pre-filled questions moved from the sidebar to clickable chips above the composer.
+  Chips are visible on first load and profile-aware (general visitors get randomized lab/contact
+  questions; students get course-aware questions).
+- **Onboarding improvements**: dismiss button (✕), help button (?), and account-view close
+  button. The ? icon remains gated behind the identity-selection modal for unauthenticated users.
+- **Responsive footer**: small-screen footer collapses to a compact layout; flex-based layout
+  ensures the footer stays visible within the viewport on all screen sizes.
+- **Infrastructure**: `app_version` exposed via `/stack/versions` endpoint; CI lint violations
+  and planner step assertion mismatches resolved; test screenshots removed from repo.
+- **Test count**: 384 tests collected, all passing.
+
 ### V4 Product Theme
 
 - Voice-first academic office entrance: students can speak naturally, receive spoken responses,
@@ -1090,3 +1130,11 @@ any time from the token usage detail panel in the composer. The button calls a d
 `POST /context/compress` endpoint that forces immediate digest compression of all unsummarized
 turns, with clear UX feedback (loading, success, error states). Compression keeps future prompts
 bounded via the rolling digest and the prompt soft-cap truncation chain.
+
+`v4.2.1`–`v4.2.4` incrementally overhauled the answer basis display: citation deduplication,
+session-context removal, LLM status fix, model name in top bar, and a systematic basis rendering
+refactor with structured citation cards.
+
+`v4.2.5` modernizes the UI: ChatGPT-style sidebar with avatar-driven account panel, in-chat
+register/login views with invitation-code enforcement, seed chips replacing sidebar pre-fills,
+onboarding dismiss/help buttons, collapsible small-screen footer, and 384 passing tests.

@@ -1,4 +1,0 @@
-- **Data Partitioning**: Organizes runtime data into distinct semantic domains: `knowledge_base` for static/retrievable documents, `conversation_memory` for dynamic interaction history (using SQLite for metrics/comparisons and JSON for raw/digest data), and `user_accounts` for identity.
-- **Configuration as Data**: Uses JSON manifests in `capability_plugins` and `skills` to define extensible agent behaviors and routing logic without code changes.
-- **Persona & Policy**: Centralizes behavioral constraints in `persona/style_profile.md` and operational rules in `workflow_policies`, separating logic from configuration.
-- **Storage Mechanism**: Relies on flat-file JSON storage for most entities (UUID-named files) and lightweight SQLite databases for structured analytical data like planner metrics.

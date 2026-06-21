@@ -17,10 +17,11 @@
 
 ## Update Summary
 **Changes Made**
-- Updated frontend authentication integration to reflect unified account view system
-- Modified user-facing authentication flow documentation to account for integrated modal system
-- Updated frontend architecture diagrams to show account-view tabbed interface
-- Revised user experience documentation to reflect seamless authentication through unified view
+- Added new authentication endpoints: /auth/user/register and /auth/user/login
+- Enhanced error handling with automatic scrolling to inline status elements
+- Implemented progressive onboarding for newly authenticated users
+- Updated session management with enhanced user authentication workflows
+- Improved frontend integration with automatic onboarding triggers
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -36,7 +37,7 @@
 ## Introduction
 This document provides comprehensive documentation for the authentication and authorization system. It explains session token generation and validation for both users and administrators, the authentication middleware, token encoding/decoding processes, and session management lifecycle. It also covers user registration and login workflows, credential validation, role-based access control, implementation examples for authentication decorators, session handling, security best practices, token expiration and refresh mechanisms, audit logging for authentication events, and integration with user stores and session persistence.
 
-**Updated** Enhanced with unified account view system that integrates authentication modals into a single tabbed interface for improved user experience.
+**Updated** Enhanced with new user authentication endpoints, improved error handling with automatic scrolling, and progressive onboarding for newly authenticated users.
 
 ## Project Structure
 The authentication system spans several modules with integrated frontend components:
@@ -46,13 +47,14 @@ The authentication system spans several modules with integrated frontend compone
 - Configuration for session secrets, TTLs, and invitation code policies
 - Service layer orchestrating authentication workflows with invitation code processing
 - Authorization helpers for resource access control
-- Unified account view system with integrated authentication modals
+- Progressive onboarding system for new user authentication
+- Enhanced error handling with automatic UI feedback
 
 ```mermaid
 graph TB
 subgraph "API Layer"
 API["FastAPI Endpoints<br/>auth.py, api.py"]
-FRONT["Unified Account View<br/>app.js, index.html"]
+FRONT["Frontend Integration<br/>app.js, index.html"]
 end
 subgraph "Auth Core"
 AUTH["Session Tokens<br/>auth.py"]
@@ -66,6 +68,8 @@ end
 subgraph "Service Layer"
 SVC["Authentication Workflows<br/>service.py"]
 HIST["History Access Control<br/>history_auth.py"]
+ONBOARD["Progressive Onboarding<br/>app.js"]
+ERROR["Error Handling<br/>app.js"]
 end
 FRONT --> API
 API --> AUTH
@@ -76,6 +80,8 @@ SVC --> AUTH
 SVC --> MODELS
 SVC --> INV
 API --> HIST
+FRONT --> ONBOARD
+FRONT --> ERROR
 ```
 
 **Diagram sources**
@@ -109,9 +115,10 @@ API --> HIST
 - Protected resource access control for user history
 - Invitation code enforcement for lab member registration and profile upgrades
 - Configuration-driven session secrets, TTLs, and invitation code policies
-- Unified account view system with integrated authentication modals
+- Progressive onboarding system for newly authenticated users
+- Enhanced error handling with automatic UI feedback and smooth scrolling
 
-**Updated** Added unified account view system that consolidates authentication interfaces into a single tabbed interface.
+**Updated** Added new user authentication endpoints (/auth/user/register, /auth/user/login) and progressive onboarding system for enhanced user experience.
 
 **Section sources**
 - [auth.py:16-214](file://src/sage_faculty_twin/auth.py#L16-L214)
@@ -124,14 +131,14 @@ API --> HIST
 - [app.js:8021-8051](file://src/sage_faculty_twin/web/app.js#L8021-L8051)
 
 ## Architecture Overview
-The authentication system follows a layered architecture with enhanced invitation code functionality and unified frontend integration:
-- API layer exposes endpoints for login/logout and protected resources with invitation code support
+The authentication system follows a layered architecture with enhanced user authentication endpoints and progressive onboarding:
+- API layer exposes endpoints for user registration/login and protected resources with invitation code support
 - Service layer validates credentials, processes invitation codes, builds sessions, and enforces RBAC
 - Auth module handles token encoding/decoding and cookie management
 - Storage layer persists user accounts, manages password hashes, and validates invitation codes
 - Configuration module defines secrets, session lifetimes, and invitation code policies
-- Unified account view system provides integrated authentication experience through tabbed interface
-- Frontend captures invitation codes seamlessly through unified interface
+- Progressive onboarding system provides guided user experience for new authenticated users
+- Enhanced error handling with automatic UI feedback and smooth scrolling
 
 ```mermaid
 sequenceDiagram
@@ -152,10 +159,19 @@ Auth->>Config : read user_session_secret, ttl
 Auth-->>Service : session_token
 Service-->>API : UserAuthWorkflowResult
 API->>Client : Set HttpOnly cookie (session_token)
+Note over Client,API : Progressive onboarding triggered for new users
+Client->>API : POST /auth/user/login (with invitation_code)
+API->>Service : login_user(payload)
+Service->>Store : authenticate_user(email, password, invitation_code)
+Store->>Config : check lab_member_invitation_code_enabled
+Store->>Store : upgrade profile if invitation_code valid
+Store-->>Service : UserAccountResponse
+Service-->>API : UserAuthWorkflowResult
+API-->>Client : Set HttpOnly cookie
 ```
 
 **Diagram sources**
-- [api.py:510-514](file://src/sage_faculty_twin/api.py#L510-L514)
+- [api.py:510-521](file://src/sage_faculty_twin/api.py#L510-L521)
 - [service.py:2914-2928](file://src/sage_faculty_twin/service.py#L2914-L2928)
 - [auth.py:45-54](file://src/sage_faculty_twin/auth.py#L45-L54)
 - [user_store.py:71-121](file://src/sage_faculty_twin/user_store.py#L71-L121)
@@ -163,31 +179,112 @@ API->>Client : Set HttpOnly cookie (session_token)
 
 ## Detailed Component Analysis
 
-### Unified Account View System
-The authentication system now features a unified account view that integrates previously separate modals into a cohesive tabbed interface:
-- Single account-view container with register and login tabs
-- Dynamic content migration from legacy modals to tab panels
-- Seamless tab switching between registration and login forms
-- Maintained backward compatibility with hidden legacy modal elements
+### New User Authentication Endpoints
+The system now includes dedicated endpoints for user authentication with enhanced error handling:
+- POST /auth/user/register: Creates new user accounts with validation and invitation code processing
+- POST /auth/user/login: Authenticates existing users with optional profile upgrades
+- POST /auth/user/logout: Clears user session cookies and resets state
+- Enhanced error handling with automatic UI feedback and smooth scrolling
 
 ```mermaid
 flowchart TD
-LegacyModals["Legacy Modals<br/>user-register-modal<br/>user-login-modal"] --> UnifiedView["Unified Account View<br/>account-view"]
-UnifiedView --> TabSystem["Tab System<br/>account-tab-register<br/>account-tab-login"]
-TabSystem --> RegisterTab["Register Tab<br/>account-tab-register"]
-TabSystem --> LoginTab["Login Tab<br/>account-tab-login"]
-RegisterTab --> MigrateContent["Migrate Modal Content<br/>first-time load only"]
-LoginTab --> MigrateContent
-MigrateContent --> ActiveForms["Active Form Elements<br/>user-register-form<br/>user-login-form"]
+NewEndpoints["New User Auth Endpoints"] --> Register["/auth/user/register"]
+NewEndpoints --> Login["/auth/user/login"]
+NewEndpoints --> Logout["/auth/user/logout"]
+Register --> Validate["Validate input fields"]
+Validate --> EmailCheck{"Email unique?"}
+EmailCheck --> |No| Conflict["HTTP 409 Conflict"]
+EmailCheck --> |Yes| ProfileCheck{"Lab member profile?"}
+ProfileCheck --> |No| Hash["Hash password"]
+ProfileCheck --> |Yes| InviteCheck{"Invitation code enabled?"}
+InviteCheck --> |No| Hash
+InviteCheck --> |Yes| InviteValid{"Valid code?"}
+InviteValid --> |No| Forbidden["HTTP 403 Forbidden"]
+InviteValid --> |Yes| Hash
+Hash --> Persist["Persist account"]
+Persist --> Token["Build session token"]
+Token --> Cookie["Set HttpOnly cookie"]
+Cookie --> Success["Return UserSessionResponse"]
+Login --> Auth["Authenticate credentials"]
+Auth --> UpgradeCheck{"Profile upgrade needed?"}
+UpgradeCheck --> |No| Success
+UpgradeCheck --> |Yes| InviteUpgrade["Validate invitation code"]
+InviteUpgrade --> UpgradeSuccess["Upgrade profile and persist"]
+UpgradeSuccess --> Success
+Logout --> Clear["Clear session cookie"]
+Clear --> Guest["Return guest session"]
 ```
 
 **Diagram sources**
-- [app.js:8021-8051](file://src/sage_faculty_twin/web/app.js#L8021-L8051)
-- [index.html:184-202](file://src/sage_faculty_twin/web/index.html#L184-L202)
+- [api.py:512-523](file://src/sage_faculty_twin/api.py#L512-L523)
+- [service.py:2915-2943](file://src/sage_faculty_twin/service.py#L2915-L2943)
+- [user_store.py:71-161](file://src/sage_faculty_twin/user_store.py#L71-L161)
 
 **Section sources**
-- [app.js:8021-8051](file://src/sage_faculty_twin/web/app.js#L8021-L8051)
-- [index.html:184-202](file://src/sage_faculty_twin/web/index.html#L184-L202)
+- [api.py:512-523](file://src/sage_faculty_twin/api.py#L512-L523)
+- [service.py:2915-2943](file://src/sage_faculty_twin/service.py#L2915-L2943)
+- [user_store.py:71-161](file://src/sage_faculty_twin/user_store.py#L71-L161)
+
+### Progressive Onboarding System
+The authentication system now includes a progressive onboarding system for newly authenticated users:
+- Automatic onboarding initiation for new users who haven't completed the process
+- Profile-specific onboarding steps with completion tracking
+- Smooth user experience with guided setup and helpful hints
+- Local storage persistence for onboarding state across sessions
+
+```mermaid
+sequenceDiagram
+participant User as "User"
+participant Auth as "Authentication Flow"
+participant Onboarding as "Onboarding System"
+participant Storage as "Local Storage"
+User->>Auth : Successful login/register
+Auth->>Onboarding : Check onboarding status
+Onboarding->>Storage : hasCompletedOnboarding()
+Storage-->>Onboarding : false
+Onboarding->>Onboarding : startOnboarding(profile)
+Onboarding->>User : Show onboarding card
+User->>Onboarding : Complete steps
+Onboarding->>Storage : markOnboardingCompleted()
+Onboarding->>User : Onboarding complete
+```
+
+**Diagram sources**
+- [app.js:2832-2837](file://src/sage_faculty_twin/web/app.js#L2832-L2837)
+- [app.js:795-807](file://src/sage_faculty_twin/web/app.js#L795-L807)
+- [app.js:653-693](file://src/sage_faculty_twin/web/app.js#L653-L693)
+
+**Section sources**
+- [app.js:2832-2837](file://src/sage_faculty_twin/web/app.js#L2832-L2837)
+- [app.js:795-807](file://src/sage_faculty_twin/web/app.js#L795-L807)
+- [app.js:653-693](file://src/sage_faculty_twin/web/app.js#L653-L693)
+
+### Enhanced Error Handling with Automatic Scrolling
+The system now includes improved error handling with automatic UI feedback:
+- Inline status elements with automatic scrolling to error messages
+- Smooth scrolling behavior for better user experience
+- Context-aware error messaging for authentication failures
+- Consistent error presentation across all authentication flows
+
+```mermaid
+flowchart TD
+ErrorHandling["Enhanced Error Handling"] --> StatusElements["Inline Status Elements"]
+StatusElements --> ScrollBehavior["Smooth Scrolling Behavior"]
+ScrollBehavior --> ErrorStates["Error/Success States"]
+ErrorStates --> AutoScroll["Auto-scroll to status"]
+AutoScroll --> UserFeedback["Better User Feedback"]
+StatusElements --> ContextAware["Context-aware Messages"]
+ContextAware --> AuthErrors["Authentication Errors"]
+ContextAware --> SystemErrors["System Errors"]
+```
+
+**Diagram sources**
+- [app.js:4992-5000](file://src/sage_faculty_twin/web/app.js#L4992-L5000)
+- [app.js:2832-2837](file://src/sage_faculty_twin/web/app.js#L2832-L2837)
+
+**Section sources**
+- [app.js:4992-5000](file://src/sage_faculty_twin/web/app.js#L4992-L5000)
+- [app.js:2832-2837](file://src/sage_faculty_twin/web/app.js#L2832-L2837)
 
 ### Session Token Generation and Validation
 - Administrator and user sessions use distinct cookies and secrets
@@ -288,6 +385,7 @@ UserAuth --> TokenCodec : "uses"
 - Login authenticates credentials and optionally upgrades profile based on invitation code
 - Session cookie is validated on subsequent requests
 - Logout clears the session cookie and returns anonymous state
+- Progressive onboarding triggers for newly authenticated users
 
 ```mermaid
 sequenceDiagram
@@ -308,6 +406,7 @@ Auth->>Config : read user_session_secret, ttl
 Auth-->>Service : session_token
 Service-->>API : UserAuthWorkflowResult
 API-->>Client : Set HttpOnly cookie
+Note over Client,API : Trigger progressive onboarding
 Client->>API : POST /auth/user/login (invitation_code optional)
 API->>Service : login_user(payload)
 Service->>Store : authenticate_user(email, password, invitation_code)
@@ -347,6 +446,7 @@ API-->>Client : Clear cookie
 - Login validates credentials using timing-safe comparison and optionally upgrades profile based on invitation code
 - Both workflows issue session cookies and return session responses
 - Invitation code validation is configurable and can be enabled/disabled
+- Progressive onboarding triggers automatically for new users
 
 ```mermaid
 flowchart TD
@@ -361,7 +461,10 @@ InvEnabled --> |Yes| InvValid{"Invitation code valid?"}
 InvValid --> |No| Forbidden["HTTP 403 Forbidden"]
 InvValid --> |Yes| Hash
 Hash --> Persist["Persist account record"]
-Persist --> DoneReg["Return UserSessionResponse"]
+Persist --> Token["Build user session token"]
+Token --> Cookie["Set HttpOnly cookie"]
+Cookie --> Onboarding["Trigger progressive onboarding"]
+Onboarding --> DoneReg["Return UserSessionResponse"]
 LoginStart["Login Start"] --> Find["Lookup user by normalized email"]
 Find --> Found{"User found?"}
 Found --> |No| Unauthorized["HTTP 401 Unauthorized"]
@@ -535,18 +638,19 @@ API-->>Resp : 200 OK
 - Records indexed by ID and normalized email for fast lookup
 - Session persistence relies on cookies; no server-side session store
 - Invitation code validation occurs during registration and login workflows
+- Progressive onboarding state stored in local storage for persistence
 
 **Section sources**
 - [user_store.py:62-208](file://src/sage_faculty_twin/user_store.py#L62-L208)
 - [auth.py:57-86](file://src/sage_faculty_twin/auth.py#L57-L86)
 
-### Unified Frontend Authentication Experience
-The unified account view system provides a seamless authentication experience:
-- Single entry point for both registration and login
-- Tabbed interface eliminates modal switching complexity
-- Dynamic content migration preserves event handlers and form state
-- Backward compatibility maintained through hidden legacy modal elements
-- Enhanced user experience with integrated invitation code handling
+### Enhanced Frontend Authentication Experience
+The authentication system now provides an enhanced user experience with progressive onboarding and improved error handling:
+- New dedicated endpoints for user registration and login
+- Automatic progressive onboarding for newly authenticated users
+- Enhanced error handling with automatic UI feedback and smooth scrolling
+- Improved user guidance through onboarding steps
+- Persistent onboarding state across sessions
 
 ```mermaid
 sequenceDiagram
@@ -555,31 +659,37 @@ participant UnifiedView as "Unified Account View<br/>openAccountView()"
 participant TabSystem as "Tab System<br/>switchAccountTab()"
 participant LegacyModals as "Legacy Modals<br/>user-register-modal<br/>user-login-modal"
 participant API as "Backend API<br/>api.py"
+participant Onboarding as "Onboarding System"
 User->>UnifiedView : Click account button
 UnifiedView->>LegacyModals : Migrate content (first open)
 UnifiedView->>TabSystem : switchAccountTab(register|login)
 TabSystem->>UnifiedView : Show selected tab
-UnifiedView->>API : Submit form data
+UnifiedView->>API : Submit form data to new endpoints
 API-->>UnifiedView : Authentication response
-UnifiedView->>User : Display success/error message
+Note over UnifiedView,Onboarding : Trigger progressive onboarding for new users
+UnifiedView->>Onboarding : startOnboarding(profile)
+Onboarding-->>UnifiedView : Show onboarding steps
+UnifiedView->>User : Display success/error message with auto-scroll
 ```
 
 **Diagram sources**
 - [app.js:8021-8051](file://src/sage_faculty_twin/web/app.js#L8021-L8051)
 - [index.html:184-202](file://src/sage_faculty_twin/web/index.html#L184-L202)
+- [api.py:512-523](file://src/sage_faculty_twin/api.py#L512-L523)
 
 **Section sources**
 - [app.js:8021-8051](file://src/sage_faculty_twin/web/app.js#L8021-L8051)
 - [index.html:184-202](file://src/sage_faculty_twin/web/index.html#L184-L202)
+- [api.py:512-523](file://src/sage_faculty_twin/api.py#L512-L523)
 
 ## Dependency Analysis
-The authentication system exhibits clear separation of concerns with enhanced invitation code functionality and unified frontend integration:
+The authentication system exhibits clear separation of concerns with enhanced user authentication endpoints and progressive onboarding:
 - API depends on Service for orchestration
 - Service depends on Auth for token handling, User Store for credentials, and Config for policies
 - Auth depends on Config for secrets and TTLs
 - Models define request/response contracts used across layers
-- Unified account view system integrates frontend components with backend authentication
-- Legacy modal elements maintained for backward compatibility
+- Progressive onboarding system integrates frontend components with backend authentication
+- Enhanced error handling provides automatic UI feedback
 
 ```mermaid
 graph LR
@@ -591,8 +701,8 @@ SVC --> CFG["config.py"]
 AUTH --> CFG
 USTORE --> CFG
 FRONT["app.js<br/>index.html"] --> API
-UNIFIEDVIEW["Unified Account View"] --> FRONT
-LEGACYMODALS["Legacy Modals"] --> UNIFIEDVIEW
+ONBOARD["Progressive Onboarding<br/>app.js"] --> FRONT
+ERROR["Error Handling<br/>app.js"] --> FRONT
 ```
 
 **Diagram sources**
@@ -618,7 +728,8 @@ LEGACYMODALS["Legacy Modals"] --> UNIFIEDVIEW
 - Password hashing uses scrypt with tunable cost parameters
 - Cookie-based sessions eliminate server-side state, improving scalability
 - Invitation code validation adds minimal overhead with constant-time comparison
-- Unified account view reduces DOM manipulation overhead through content migration
+- Progressive onboarding uses local storage for persistence, minimizing server load
+- Enhanced error handling with automatic scrolling provides better UX without performance impact
 - Consider adding refresh tokens and sliding expiration for long-lived sessions
 
 ## Troubleshooting Guide
@@ -629,10 +740,11 @@ Common issues and resolutions:
 - 403 Forbidden accessing user history: must be logged in with matching email
 - 403 Forbidden on lab member registration: incorrect or missing invitation code
 - 400 Bad Request on registration: invalid visitor profile for invitation code flow
-- Unified view tab switching issues: ensure proper tab element IDs are present
-- Legacy modal compatibility: verify hidden modal elements remain accessible for migration
+- New user onboarding not triggering: check localStorage permissions and onboarding state
+- Error messages not appearing: verify inline status element IDs and CSS classes
+- Progressive onboarding steps not loading: ensure profile-specific onboarding configuration exists
 
-**Updated** Added troubleshooting for unified account view system and legacy modal compatibility.
+**Updated** Added troubleshooting for new user authentication endpoints, progressive onboarding system, and enhanced error handling.
 
 **Section sources**
 - [user_store.py:87-161](file://src/sage_faculty_twin/user_store.py#L87-L161)
@@ -642,4 +754,4 @@ Common issues and resolutions:
 - [app.js:8021-8051](file://src/sage_faculty_twin/web/app.js#L8021-L8051)
 
 ## Conclusion
-The authentication system provides robust session-based authentication for both users and administrators with enhanced invitation code functionality for controlled lab member registration and profile upgrades. The system now features a unified account view that integrates authentication modals into a cohesive tabbed interface, improving user experience while maintaining backward compatibility. It leverages secure token encoding, timing-safe credential validation, and role-based access control. The invitation code system allows for gated access to lab member profiles while maintaining security through constant-time validation. The unified frontend architecture streamlines the authentication process through dynamic content migration and seamless tab switching. While the current implementation focuses on cookie-based sessions without server-side persistence, it offers a solid foundation for extending with refresh tokens, audit logging, and enhanced invitation code management as needed.
+The authentication system provides robust session-based authentication for both users and administrators with enhanced user authentication endpoints, progressive onboarding, and improved error handling. The system now features dedicated endpoints (/auth/user/register, /auth/user/login) that streamline the user authentication process while maintaining backward compatibility. The progressive onboarding system enhances user experience by providing guided setup for new authenticated users, with persistent state tracking across sessions. Enhanced error handling with automatic UI feedback and smooth scrolling improves the overall user experience during authentication flows. The system leverages secure token encoding, timing-safe credential validation, and role-based access control. The invitation code system allows for gated access to lab member profiles while maintaining security through constant-time validation. The integration of progressive onboarding and enhanced error handling demonstrates a commitment to user experience optimization while maintaining strong security practices. While the current implementation focuses on cookie-based sessions without server-side persistence, it offers a solid foundation for extending with refresh tokens, audit logging, and enhanced invitation code management as needed.

@@ -14,11 +14,11 @@
 
 ## Update Summary
 **Changes Made**
-- Enhanced visitor profile system documentation with new onboarding integration
-- Updated user account management with invitation code validation for lab members
-- Added comprehensive visitor profile configuration and presentation system
-- Expanded onboarding guidance framework for different user types
-- Updated testing infrastructure documentation with lab member account provisioning
+- Enhanced account view with comprehensive registration and login forms
+- Added new form handlers in app.js for user registration and login processes
+- Implemented proper error handling and success feedback mechanisms
+- Enhanced account view with prominent close button (#close-account-view)
+- Improved user interface elements for better user experience
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -42,7 +42,7 @@ The Integrated Account Management View is a comprehensive user authentication an
 
 The system integrates tightly with the frontend application through a modern JavaScript interface that supports tabbed account management views, real-time session updates, and responsive design patterns. It leverages a layered architecture with clear separation of concerns between authentication logic, session management, and user data storage.
 
-**Updated** The system now includes an enhanced visitor profile system with comprehensive onboarding integration and invitation code validation for lab member access. The visitor profile system provides personalized user experiences through configurable profiles, presentation templates, and guided onboarding workflows tailored to different user types including general visitors, undergraduate students, paper writing students, and lab members.
+**Updated** The system now includes comprehensive registration and login forms within the account view, featuring new form handlers in app.js for user registration and login processes with proper error handling and success feedback mechanisms. The account view has been enhanced with a prominent close button (#close-account-view) and improved user interface elements for better user experience.
 
 ## System Architecture
 
@@ -56,44 +56,50 @@ B[Account Management View]
 C[Session Management]
 D[Visitor Profile Selection]
 E[Onboarding Integration]
+F[Registration Forms]
+G[Login Forms]
+H[Form Handlers]
+I[Error Handling]
+J[Success Feedback]
 end
 subgraph "API Layer"
-F[FastAPI Endpoints]
-G[Authentication Routes]
-H[Session Handlers]
-I[Visitor Profile Validation]
-J[Onboarding Guidance]
+K[FastAPI Endpoints]
+L[Authentication Routes]
+M[Session Handlers]
+N[Visitor Profile Validation]
+O[Onboarding Guidance]
 end
 subgraph "Service Layer"
-K[DigitalTwinService]
-L[User Authentication Service]
-M[Session Validation]
-N[Invitation Code Verification]
-O[Profile Configuration Management]
+P[DigitalTwinService]
+Q[User Authentication Service]
+R[Session Validation]
+S[Invitation Code Verification]
+T[Profile Configuration Management]
 end
 subgraph "Data Layer"
-P[User Store]
-Q[Session Storage]
-R[Configuration Management]
-S[Visitor Profile Registry]
-T[Onboarding State Tracking]
+U[User Store]
+V[Session Storage]
+W[Configuration Management]
+X[Visitor Profile Registry]
+Y[Onboarding State Tracking]
 end
-A --> F
-B --> F
-C --> F
-D --> F
-E --> F
-F --> K
-G --> L
-H --> M
-I --> N
-J --> O
+A --> K
+B --> K
+F --> H
+G --> H
+H --> K
+I --> J
 K --> P
-L --> P
-M --> Q
-N --> R
-O --> S
-P --> T
+L --> Q
+M --> R
+N --> S
+O --> T
+P --> U
+Q --> U
+R --> V
+S --> W
+T --> X
+U --> Y
 ```
 
 **Diagram sources**
@@ -339,7 +345,7 @@ AccountView->>User : Show User Dashboard
 ```
 
 **Diagram sources**
-- [app.js:8021-8051](file://src/sage_faculty_twin/web/app.js#L8021-L8051)
+- [app.js:8529-8553](file://src/sage_faculty_twin/web/app.js#L8529-L8553)
 - [api.py:512-516](file://src/sage_faculty_twin/api.py#L512-L516)
 
 The account management view consists of two primary tabs:
@@ -348,8 +354,8 @@ The account management view consists of two primary tabs:
 2. **Login Tab**: Provides authentication for existing users
 
 **Section sources**
-- [app.js:8021-8051](file://src/sage_faculty_twin/web/app.js#L8021-L8051)
-- [index.html:185-200](file://src/sage_faculty_twin/web/index.html#L185-L200)
+- [app.js:8529-8553](file://src/sage_faculty_twin/web/app.js#L8529-L8553)
+- [index.html:229-249](file://src/sage_faculty_twin/web/index.html#L229-L249)
 
 ### Backend API Endpoints
 
@@ -364,6 +370,57 @@ The backend exposes comprehensive authentication endpoints:
 
 **Section sources**
 - [api.py:512-529](file://src/sage_faculty_twin/api.py#L512-L529)
+
+### Comprehensive Form Handlers
+
+**Updated** The system now includes comprehensive form handlers in app.js for user registration and login processes with proper error handling and success feedback mechanisms:
+
+```mermaid
+sequenceDiagram
+participant User as User
+participant Form as Registration/Login Form
+participant Handler as Form Handler
+participant API as API Layer
+participant Feedback as Success/Error Feedback
+User->>Form : Submit Registration/Login
+Form->>Handler : Event Listener Triggered
+Handler->>Handler : Validate Form Data
+Handler->>API : Send Authentication Request
+API->>API : Process Authentication
+API-->>Handler : Response (Success/Error)
+Handler->>Feedback : Display Success/Error Message
+Handler->>Handler : Refresh User Session
+Handler->>Handler : Close Account View
+```
+
+**Diagram sources**
+- [app.js:1274-1319](file://src/sage_faculty_twin/web/app.js#L1274-L1319)
+
+**Section sources**
+- [app.js:1274-1319](file://src/sage_faculty_twin/web/app.js#L1274-L1319)
+
+### Enhanced Close Button Functionality
+
+**Updated** The account view now features a prominent close button (#close-account-view) with improved user interface elements:
+
+```mermaid
+sequenceDiagram
+participant User as User
+participant CloseButton as Close Button
+participant AccountView as Account View
+User->>CloseButton : Click Close Button
+CloseButton->>AccountView : Trigger closeAccountView()
+AccountView->>AccountView : Remove Hidden Attribute
+AccountView->>AccountView : Remove Active Class
+```
+
+**Diagram sources**
+- [app.js:1334-1335](file://src/sage_faculty_twin/web/app.js#L1334-L1335)
+- [index.html:231-234](file://src/sage_faculty_twin/web/index.html#L231-L234)
+
+**Section sources**
+- [app.js:1334-1335](file://src/sage_faculty_twin/web/app.js#L1334-L1335)
+- [index.html:231-234](file://src/sage_faculty_twin/web/index.html#L231-L234)
 
 ## Session Management
 
@@ -462,8 +519,8 @@ J --> K[Session Updates]
 ```
 
 **Diagram sources**
-- [app.js:8021-8051](file://src/sage_faculty_twin/web/app.js#L8021-L8051)
-- [index.html:185-200](file://src/sage_faculty_twin/web/index.html#L185-L200)
+- [app.js:8529-8553](file://src/sage_faculty_twin/web/app.js#L8529-L8553)
+- [index.html:229-249](file://src/sage_faculty_twin/web/index.html#L229-L249)
 
 ### Real-time Session Updates
 
@@ -472,6 +529,36 @@ The frontend maintains real-time synchronization of user session states:
 **Section sources**
 - [app.js:8181-8189](file://src/sage_faculty_twin/web/app.js#L8181-L8189)
 - [api.py:474-476](file://src/sage_faculty_twin/api.py#L474-L476)
+
+### Enhanced Form Handling
+
+**Updated** The system now includes comprehensive form handling with proper validation and feedback:
+
+```mermaid
+sequenceDiagram
+participant User as User
+participant Form as Form Handler
+participant Validator as Input Validator
+participant API as API Client
+participant Feedback as Feedback System
+User->>Form : Submit Form
+Form->>Validator : Validate Input Fields
+Validator->>Validator : Check Required Fields
+Validator->>Validator : Validate Email Format
+Validator->>Validator : Validate Password Strength
+Validator-->>Form : Validation Result
+Form->>API : Send Request if Valid
+API->>API : Process Request
+API-->>Form : Response
+Form->>Feedback : Display Success/Error Message
+Form->>Form : Update UI State
+```
+
+**Diagram sources**
+- [app.js:1274-1319](file://src/sage_faculty_twin/web/app.js#L1274-L1319)
+
+**Section sources**
+- [app.js:1274-1319](file://src/sage_faculty_twin/web/app.js#L1274-L1319)
 
 ## Security Considerations
 
@@ -640,6 +727,16 @@ The system includes comprehensive onboarding integration testing:
 - **Solution**: Verify profile configuration exists and localStorage is accessible
 - **Debug Steps**: Check `VISITOR_PROFILE_CONFIGS` object, verify localStorage permissions
 
+**Issue**: Account view forms not working
+- **Cause**: Missing form handlers or DOM elements
+- **Solution**: Verify form handler registration and element IDs
+- **Debug Steps**: Check form element existence, verify event listener attachment
+
+**Issue**: Success/error feedback not displaying
+- **Cause**: Missing inline status elements or setInlineStatus function
+- **Solution**: Verify inline status elements exist and function is defined
+- **Debug Steps**: Check HTML structure, verify setInlineStatus function implementation
+
 ### Performance Optimization
 
 **Recommendations**:
@@ -665,7 +762,11 @@ Key strengths include:
 - **Onboarding**: Structured onboarding framework tailored to different user types
 - **Testing Infrastructure**: Dedicated support for lab member accounts and invitation code validation
 - **Maintainability**: Clear separation of concerns and comprehensive error handling
+- **Enhanced Forms**: Comprehensive registration and login forms with proper validation
+- **Improved UI**: Enhanced user interface elements and feedback mechanisms
 
 The system provides a solid foundation for user management while maintaining flexibility for future enhancements and integration with additional authentication providers or advanced security features.
 
 **Updated** The enhancement of the visitor profile system with comprehensive onboarding integration and invitation code validation significantly improves the platform's ability to support diverse user types and controlled access scenarios. The addition of structured onboarding workflows, particularly for lab members and paper writing students, demonstrates the system's commitment to providing personalized user experiences while maintaining security and access control.
+
+The comprehensive registration and login forms with proper error handling and success feedback mechanisms represent a significant improvement in user experience, making the account management process more intuitive and reliable. The prominent close button and enhanced UI elements contribute to a more polished and professional user interface.

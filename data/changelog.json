@@ -1,5 +1,78 @@
 [
     {
+        "version": "v4.2.5",
+        "date": "2026-06-21",
+        "summary": "ChatGPT 风格侧边栏 & 全面 UX 打磨",
+        "highlights": [
+            "ChatGPT 风格侧边栏：头像点击进入账户视图，设置/账户合并为 in-chat 面板",
+            "注册/登录弹窗改为 in-chat 标签页视图，支持邀请码注册与登录切换",
+            "Seed chips 替代侧边栏预填问题，首次加载即可见",
+            "新手引导支持关闭按钮（✕）、? 帮助按钮、账户视图关闭按钮",
+            "小屏幕 footer 自动折叠为紧凑布局，flex 布局保证 footer 始终可见",
+            "移除侧边栏冗余设置齿轮图标，单一入口原则",
+            "CI 修复：lint 违规清理、planner step 断言修正、测试截图移除",
+            "app_version 暴露至 /stack/versions 端点",
+            "384 tests 全部通过"
+        ]
+    },
+    {
+        "version": "v4.2.4",
+        "date": "2026-06-20",
+        "summary": "答案依据系统性重构",
+        "highlights": [
+            "答案依据展示全面重构：结构化引用卡片、来源分类、置信度标记",
+            "统一依据渲染组件，消除旧版散落的引用拼接逻辑"
+        ]
+    },
+    {
+        "version": "v4.2.3",
+        "date": "2026-06-20",
+        "summary": "LLM 状态修复 & 模型名称展示",
+        "highlights": [
+            "修复 LLM 状态误报（false-error）问题",
+            "顶栏显示当前使用的模型名称"
+        ]
+    },
+    {
+        "version": "v4.2.2",
+        "date": "2026-06-20",
+        "summary": "移除答案依据中的会话上下文",
+        "highlights": [
+            "答案依据不再展示会话上下文，仅保留知识和记忆引用"
+        ]
+    },
+    {
+        "version": "v4.2.1",
+        "date": "2026-06-20",
+        "summary": "答案依据引用去重",
+        "highlights": [
+            "修复答案依据中重复引用的问题，同一来源只展示一次"
+        ]
+    },
+    {
+        "version": "v4.2.0",
+        "date": "2026-06-20",
+        "summary": "按需手动上下文压缩",
+        "highlights": [
+            "Composer token 面板新增「压缩上下文」按钮",
+            "POST /context/compress 端点：强制压缩所有未摘要轮次",
+            "三态反馈：加载中、成功（已压缩 N 轮）、错误（超时/网络/服务端）",
+            "35 tests 覆盖压缩流程"
+        ]
+    },
+    {
+        "version": "v4.1.0",
+        "date": "2026-06-20",
+        "summary": "滚动对话摘要 — 长对话上下文压缩",
+        "highlights": [
+            "ConversationDigestStore：每 4 轮自动 LLM 摘要压缩历史上下文",
+            "摘要注入 prompt，保留长程上下文不超 token 预算",
+            "LLM 失败时自动降级为拼接 fallback",
+            "可配置阈值、字符上限、存储目录",
+            "16 tests 覆盖摘要序列化、触发逻辑、prompt 截断"
+        ]
+    },
+    {
         "version": "v4.0.0",
         "date": "2026-06-20",
         "summary": "Agent Skill System — Prompt + Tools + Multi-turn Reasoning Loop",

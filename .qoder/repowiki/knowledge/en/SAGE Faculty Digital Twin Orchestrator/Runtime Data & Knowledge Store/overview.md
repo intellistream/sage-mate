@@ -1,1 +1,0 @@
-Persists application state, user knowledge, conversation history, and capability configurations using a file-based JSON and SQLite architecture.

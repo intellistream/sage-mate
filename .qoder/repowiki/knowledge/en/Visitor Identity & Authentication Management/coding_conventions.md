@@ -1,4 +1,0 @@
-- Identity selection triggers immediate UI updates by calling `applyVisitorProfilePresentation` to sync context chips and seed questions with the chosen profile.
-- Guest identity persistence is handled by writing a boolean flag to `localStorage` under `myTwinVisitorIdentitySelected` to suppress the boot prompt on subsequent visits.
-- Registration forms dynamically toggle the visibility of the 'Invitation Code' field based on the selected visitor profile (visible only for `lab_member`).
-- Authentication modals use a tabbed interface (`data-auth-tab`) to switch between login and register panels without navigating away from the current context.

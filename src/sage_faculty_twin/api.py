@@ -464,6 +464,7 @@ async def homepage_redirect() -> RedirectResponse:
 
 @llm_app.get("/app.js", include_in_schema=False)
 @llm_app.get("/app.4217.js", include_in_schema=False)
+@llm_app.get("/app.4218.js", include_in_schema=False)
 async def app_js() -> FileResponse:
     return frontend_asset("app.js")
 
@@ -729,6 +730,9 @@ async def submit_chat_feedback(request: ChatFeedbackRequest) -> ChatFeedbackResp
 @llm_app.post("/context/compress")
 async def compress_context(raw_request: Request) -> JSONResponse:
     """Manually trigger context compression for a conversation."""
+    user_session = service.get_user_session(raw_request.cookies.get(USER_COOKIE_NAME))
+    if not user_session.is_authenticated:
+        raise HTTPException(status_code=401, detail="请先登录后再压缩对话上下文。")
     try:
         payload = await raw_request.json()
     except json.JSONDecodeError:

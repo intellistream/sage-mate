@@ -400,7 +400,6 @@ const VISITOR_PROFILE_CONFIGS = {
         label: "一般访客",
         defaultContext: "初次来访",
         defaultQuestion: "张老师主要研究什么方向？",
-        placeholder: "先问研究、资料或预约。",
         drawerHint: "优先参考主页、研究和预约资料。",
         introLines: [
             "研究、资料、预约，都可以直接问。",
@@ -416,7 +415,6 @@ const VISITOR_PROFILE_CONFIGS = {
         label: "华科本科生",
         defaultContext: "大模型推理引擎课程答疑",
         defaultQuestion: "大模型推理引擎 Tutorial 7 主要讲了什么，我应该先看哪部分？",
-        placeholder: "写清课程名、讲次、实验编号或卡点。",
         drawerHint: "优先参考大模型推理引擎、数据库实验课和答疑资料。",
         introLines: [
             "大模型推理引擎、数据库实验课、office hour，直接问。",
@@ -432,7 +430,6 @@ const VISITOR_PROFILE_CONFIGS = {
         label: "论文写作课同学",
         defaultContext: "论文写作课",
         defaultQuestion: "论文写作课第 7 讲主要讲什么？",
-        placeholder: "写清讲次、阶段和 blocker。",
         drawerHint: "优先参考论文写作课资料。",
         introLines: [
             "写作阶段、稿件问题，直接问。",
@@ -448,7 +445,6 @@ const VISITOR_PROFILE_CONFIGS = {
         label: "课题组学生",
         defaultContext: "科研指导",
         defaultQuestion: "我上次提到的研究主题和 blocker 是什么？",
-        placeholder: "写研究主题、blocker 或组会任务。",
         drawerHint: "优先参考研究和组内记录。",
         introLines: [
             "研究进展、blocker、组会准备，直接问。",
@@ -493,16 +489,125 @@ const RANDOM_CHAT_QUESTION_BANKS = {
     ],
 };
 
+// --- Seed chip pool: random starter questions per profile ---
+// 3 are randomly picked on each page load to give variety.
+const SEED_CHIP_POOL = {
+    general_visitor: [
+        { label: "研究方向", question: "张老师主要研究什么方向？", context: "初次来访" },
+        { label: "预约前准备", question: "如果想预约一次讨论，我需要先准备什么？", context: "初次来访" },
+        { label: "公开资料", question: "有没有适合先看的公开资料？", context: "初次来访" },
+        { label: "代表性工作", question: "张老师有没有公开的代表性论文或项目？", context: "初次来访" },
+        { label: "课题组介绍", question: "这个课题组主要做什么，和一般企业 R&D 有什么区别？", context: "初次来访" },
+        { label: "联系方式", question: "如果我想联系张老师讨论合作，最好的方式是什么？", context: "初次来访" },
+        { label: "入门建议", question: "如果我对 LLM 推理优化方向感兴趣，建议先从哪些关键词或系统开始了解？", context: "初次来访" },
+        { label: "招生信息", question: "张老师课题组目前接收什么样的学生或访问学者？", context: "初次来访" },
+        { label: "课程信息", question: "张老师目前开设哪些课程，适合什么背景的学生选修？", context: "初次来访" },
+    ],
+    hust_undergraduate: [
+        { label: "推理引擎 Tutorial", question: "大模型推理引擎 Tutorial 7 主要讲了什么，我应该先看哪部分？", context: "大模型推理引擎课程答疑" },
+        { label: "数据库实验", question: "数据库实验课开始前，我应该先准备哪些环境和材料？", context: "数据库实验课答疑" },
+        { label: "约 office hour", question: "如果我想约 office hour 讨论课程或实验问题，需要先带哪些材料？", context: "本科课程答疑" },
+        { label: "实验报错", question: "我在做实验时遇到了报错，应该怎么排查和解决？", context: "本科课程答疑" },
+        { label: "知识点梳理", question: "帮我梳理一下 KV cache 的基本原理和在推理引擎中的作用。", context: "大模型推理引擎课程答疑" },
+        { label: "实验进度", question: "我目前的实验进度比较慢，有什么高效的方法可以加快进度？", context: "本科课程答疑" },
+    ],
+    paper_writing_student: [
+        { label: "问课程讲次", question: "论文写作课第 7 讲主要讲什么？", context: "论文写作课" },
+        { label: "问写作卡点", question: "我在写 related work，通常应该先检查哪些问题？", context: "论文写作课" },
+        { label: "约论文讨论", question: "我想约时间讨论论文提纲，需要先准备哪些材料？", context: "论文写作课" },
+        { label: "introduction 写作", question: "写 introduction 时最常见的问题有哪些，怎么避免？", context: "论文写作课" },
+        { label: "投稿前自查", question: "投稿前自查时，最值得优先检查的三件事是什么？", context: "论文写作课" },
+        { label: "提纲整理", question: "如果我现在只有一个粗略想法，应该怎么把它整理成论文提纲？", context: "论文写作课" },
+    ],
+    lab_member: [
+        { label: "接着上次进展", question: "我上次提到的研究主题和 blocker 是什么？", context: "科研指导" },
+        { label: "问组会准备", question: "下次组会前我应该准备哪些材料？", context: "组会准备" },
+        { label: "梳理研究重点", question: "帮我梳理一下这周的研究推进重点。", context: "科研指导" },
+        { label: "实验分析", question: "如果实验结果一般，怎么组织分析才更有说服力？", context: "科研指导" },
+        { label: "优先级建议", question: "如果我这周只能推进一件事，最应该优先解决哪个 blocker？", context: "科研指导" },
+        { label: "文献建议", question: "基于我目前的研究方向，有哪些最新的相关工作值得一看？", context: "科研指导" },
+    ],
+};
+
+const SEED_CHIP_COUNT = 3;
+
+function renderSeedChips(profile) {
+    const container = document.getElementById("seed-chips-list");
+    if (!container) return;
+    const pool = SEED_CHIP_POOL[profile] || SEED_CHIP_POOL.general_visitor;
+    // Shuffle and pick SEED_CHIP_COUNT items
+    const shuffled = [...pool].sort(() => Math.random() - 0.5);
+    const picked = shuffled.slice(0, SEED_CHIP_COUNT);
+    container.innerHTML = picked.map((item) => `
+        <button type="button" class="seed-chip" data-seed-question="${item.question}" data-seed-context="${item.context}">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <span>${item.label}</span>
+        </button>
+    `).join("");
+    // Wire click handlers
+    container.querySelectorAll(".seed-chip").forEach((btn) => {
+        btn.addEventListener("click", () => {
+            const question = btn.dataset.seedQuestion;
+            if (question && chatQuestion) {
+                chatQuestion.value = question;
+                if (courseContextInput && btn.dataset.seedContext) {
+                    courseContextInput.value = btn.dataset.seedContext;
+                }
+                autoResizeTextarea();
+                chatQuestion.focus();
+            }
+        });
+    });
+}
+
+// --- Beginner-friendly example research questions for onboarding step 1 ---
+// Shown when the user clicks 🎲 in the onboarding card (first step).
+const ONBOARDING_RESEARCH_EXAMPLES = {
+    general_visitor: [
+        "我想了解的是：张老师目前主要在哪些方向做研究，有没有公开的代表性工作？",
+        "我想了解的是：如果我对 LLM 推理优化方向感兴趣，建议先从哪些关键词或系统开始了解？",
+        "我想了解的是：如果想预约一次讨论，第一次联系时最好附上哪些信息？",
+        "我想了解的是：这个课题组的研究路线和一般企业 R&D 有什么区别？",
+    ],
+    hust_undergraduate: [
+        "我目前在学大模型推理引擎课程，实验进度到了 Tutorial 5。请帮我梳理核心知识点和实验重点。",
+        "我目前在学数据库实验课，实验进度到了实验 3。请帮我理解 B+ 树索引的实现要点。",
+        "我目前在准备大模型推理引擎课程的 office hour，想先搞清楚 KV cache 的基本原理。",
+        "我目前在学数据库课程，对事务隔离级别的实验实现有疑问，请帮我梳理。",
+    ],
+    lab_member: [
+        "我想研究的问题是：在长上下文 LLM 服务中，如何通过 KV 缓存分段复用来减少首次响应延迟？",
+        "我想研究的问题是：多智能体协作场景下，KV 状态如何在不同 agent 之间高效共享和隔离？",
+        "我想研究的问题是：如何在有限 GPU 显存下，通过 KV 缓存淘汰策略支撑更多并发请求？",
+        "我想研究的问题是：面向实时流式问答系统，如何在保证回答质量的前提下降低推理成本？",
+        "我想研究的问题是：RAG 系统中检索到的长文档如何高效融入 LLM 上下文而不丢失关键信息？",
+        "我想研究的问题是：大模型推理中 speculative decoding 的验证开销如何随任务复杂度变化？",
+    ],
+    paper_writing_student: [
+        "我想了解的是：论文写作课第 7 讲主要讲什么，有哪些核心要点？",
+        "我想了解的是：如果我现在只有一个粗略想法，应该怎么把它整理成论文提纲？",
+        "我想了解的是：写 introduction 时最常见的结构性问题有哪些，怎么避免？",
+        "我想了解的是：投稿前自查时，最值得优先检查的三件事是什么？",
+    ],
+};
+
 // --- Onboarding guided question steps per visitor profile ---
-// Lab members and paper-writing students go through the full "七步提问法"
-// (7-step research question framework). Undergrads get a condensed version.
+// Lab members: full "七步提问法" (7-step research question framework)
+// Paper writing students: 7-step writing guidance tied to course materials only
+// Undergrads: condensed 3-step course Q&A flow
+// General visitors: simplified 2-step explore flow (public info only)
 const ONBOARDING_STEPS = {
     lab_member: [
         {
-            copy: "第 1 步：你到底想解决什么问题？",
-            question: "我想解决的研究问题是______。请用七步提问法的第一步帮我检验这个问题定义是否清晰，输入、输出和约束是否明确。",
-            hint: "把“我要做 X 系统”转化为“我想解决 Y 问题”。用因果问句代替愿景陈述。",
+            copy: "第 1 步：你想研究什么问题？",
+            question: "我想研究的问题是：______。请帮我检验这个问题是否清晰、是否有研究价值。",
+            hints: [
+                "把“我要做 X 系统”转化为“我想解决 Y 问题”。用因果问句代替愿景陈述。",
+                "没有想法？点 🎲 随机生成一个示例，直接用或改一改再提交。",
+                "好问题有三个特征：边界清晰、可验证、有增量。",
+            ],
             context: "七步提问法 · 问题定义",
+            canRandomFill: true,
         },
         {
             copy: "第 2 步：真实存在吗？解决了有什么好处？",
@@ -545,8 +650,12 @@ const ONBOARDING_STEPS = {
         {
             copy: "先确定你的课程背景：",
             question: "我目前在学______课程，实验进度到了______。请帮我梳理这门课的核心知识点和当前实验重点。",
-            hint: "例如“大模型推理引擎 Tutorial 5”或“数据库实验 3”。",
+            hints: [
+                "例如“大模型推理引擎 Tutorial 5”或“数据库实验 3”。",
+                "没有想法？点 🎲 随机生成一个示例，直接用或改一改再提交。",
+            ],
             context: "本科课程答疑",
+            canRandomFill: true,
         },
         {
             copy: "看看实验中的卡点：",
@@ -563,54 +672,63 @@ const ONBOARDING_STEPS = {
     ],
     paper_writing_student: [
         {
-            copy: "第 1 步：你到底想解决什么问题？",
-            question: "我的论文想解决的问题是______。请用七步提问法帮我检验：这个问题定义的输入、输出和约束是否清晰？",
-            hint: "把“我要写关于 X 的论文”转化为“我想回答 Y 这个研究问题”。",
-            context: "七步提问法 · 问题定义",
+            copy: "第 1 步：你的论文写作卡在哪里？",
+            question: "我目前在论文写作的______阶段，遇到的问题是______。请结合课程内容帮我梳理下一步该怎么做。",
+            hints: [
+                "可以是选题、提纲、某章节写作、修改、投稿等阶段。",
+                "没有想法？点 🎲 随机生成一个示例，直接用或改一改再提交。",
+                "尽量带上你写的内容或草稿片段，反馈会更具体。",
+            ],
+            context: "论文写作课 · 定位卡点",
+            canRandomFill: true,
         },
         {
-            copy: "第 2 步：真实存在吗？解决了有什么好处？",
-            question: "我认为这个问题值得研究，因为______。请帮我检验它的重要性：是填补了研究空白，还是回应了实际需求？",
-            hint: "“没人研究不代表不重要，很多人在做也可能没意义。”",
-            context: "七步提问法 · 重要性",
+            copy: "第 2 步：这个问题为什么值得解决？",
+            question: "我认为这个问题重要，因为______。请帮我判断：这是真痛点还是我个人的焦虑？",
+            hint: "\u201c没人研究不代表不重要，很多人在做也可能没意义。\u201d",
+            context: "论文写作课 · 重要性",
         },
         {
-            copy: "第 3 步：别人的解法为什么不行？",
-            question: "在 related work 中，已有工作的不足是______。请帮我梳理如何写一段有说服力的文献综述，体现我对边界的理解。",
-            hint: "研究空白不是搜索关键词没搜到，而是深入阅读后发现边界。",
-            context: "七步提问法 · 现有工作局限",
+            copy: "第 3 步：别人怎么写的？好在哪里？",
+            question: "我参考过的论文/范文中，写得好的地方是______，但我学不到的是______。请帮我拆解优秀论文的写作套路。",
+            hint: "对比阅读是提升写作最快的方式：找 3 篇同领域优秀论文，看结构不看内容。",
+            context: "论文写作课 · 学习借鉴",
         },
         {
-            copy: "第 4 步：你有什么好思路？",
-            question: "我的论文核心 idea 是：______。请帮我用 pitch 句模板表达：“我们提出了一种___的方法，核心是通过___机制，改进了___。”",
-            hint: "好 idea 让问题变得更“可研究”，有明确的机制和作用路径。",
-            context: "七步提问法 · 核心思路",
+            copy: "第 4 步：你打算怎么改进？",
+            question: "我计划用______方法来改进我的写作，具体做法是______。请帮我评估这个方案是否合理。",
+            hint: "好修改有明确的目标（解决什么问题）和路径（先改哪里再改哪里）。",
+            context: "论文写作课 · 改进方案",
         },
         {
-            copy: "第 5 步：能在有限时间内实现吗？",
-            question: "我的写作/实验计划是______，预计在______前完成。请帮我评估可行性，并建议一个合理的时间安排。",
-            hint: "设计是从“想法”到“论文”的桥梁。明确资源、数据和约束。",
-            context: "七步提问法 · 设计与实现",
+            copy: "第 5 步：时间上来得及吗？",
+            question: "我的写作/修改计划预计在______前完成，目前进度是______。请帮我评估是否可行，建议优先级。",
+            hint: "论文写作最大的坑不是写不好，而是反复推翻重来。先定骨架再填肉。",
+            context: "论文写作课 · 时间规划",
         },
         {
-            copy: "第 6 步：你打算怎么验证？",
-            question: "我的论文验证方案是______，对比的 baseline 包括______。请帮我检验评估设计是否能支撑论文的核心主张。",
-            hint: "证明你错不了，而不是你对了。评估方案决定了审稿人能否信服。",
-            context: "七步提问法 · 实验验证",
+            copy: "第 6 步：怎么知道改好了？",
+            question: "我判断修改是否成功的标准是______。请帮我检验：这个标准够具体吗？审稿人会怎么看？",
+            hint: "\u201c感觉变好了\u201d不算进步。要有可验证的标准，比如\u201c审稿人不再问 X 问题\u201d。",
+            context: "论文写作课 · 验证标准",
         },
         {
-            copy: "第 7 步：别人会怎么引用你的工作？",
-            question: "如果论文发表后，我希望别人的引用方式是：“This paper shows that ______.” 请帮我提炼论文的核心 takeaway 和 one-liner。",
+            copy: "第 7 步：你的核心 takeaway 是什么？",
+            question: "如果这篇论文只能让读者记住一件事，我希望是______。请帮我提炼 one-liner 和核心贡献。",
             hint: "Takeaway 不是实验数据，而是对知识的增量。审稿人最看重的就是这个。",
-            context: "七步提问法 · 核心贡献",
+            context: "论文写作课 · 核心贡献",
         },
     ],
     general_visitor: [
         {
             copy: "先了解一下你最关心的：",
             question: "我最初想了解的是______。请帮我快速梳理这个方向的核心概念和关键资源。",
-            hint: "可以是研究方向、课程信息、合作机会等。",
+            hints: [
+                "可以是研究方向、课程信息、合作机会等。",
+                "没有想法？点 🎲 随机生成一个示例，直接用或改一改再提交。",
+            ],
             context: "初次来访",
+            canRandomFill: true,
         },
         {
             copy: "再深入一步：",
@@ -669,6 +787,9 @@ function showOnboardingCard() {
         card.classList.remove("hidden");
         card.setAttribute("aria-hidden", "false");
     }
+    // Hide welcome greeting and seed chips while onboarding is visible
+    document.getElementById("welcome-greeting")?.classList.add("hidden");
+    document.getElementById("seed-chips")?.classList.add("hidden");
 }
 
 function hideOnboardingCard() {
@@ -677,10 +798,25 @@ function hideOnboardingCard() {
         card.classList.add("hidden");
         card.setAttribute("aria-hidden", "true");
     }
+    stopHintRotation();
     onboardingActive = false;
+    // Restore welcome greeting and seed chips when onboarding is dismissed
+    document.getElementById("welcome-greeting")?.classList.remove("hidden");
+    document.getElementById("seed-chips")?.classList.remove("hidden");
+}
+
+let onboardingHintTimer = null;
+let onboardingHintIndex = 0;
+
+function stopHintRotation() {
+    if (onboardingHintTimer) {
+        clearInterval(onboardingHintTimer);
+        onboardingHintTimer = null;
+    }
 }
 
 function renderOnboardingStep() {
+    stopHintRotation();
     const step = onboardingSteps[onboardingCurrentStep];
     if (!step) {
         finishOnboarding();
@@ -700,11 +836,35 @@ function renderOnboardingStep() {
     if (progressBar) progressBar.style.width = `${((onboardingCurrentStep + 1) / total) * 100}%`;
     if (stepCopy) { stepCopy.textContent = step.copy; stepCopy.classList.remove("hidden"); }
     if (questionText) questionText.textContent = step.question;
-    if (questionHint) questionHint.textContent = step.hint;
+
+    // Handle hint: single string or rotating array
+    const hints = Array.isArray(step.hints) ? step.hints : (step.hint ? [step.hint] : []);
+    onboardingHintIndex = 0;
+    if (questionHint) {
+        questionHint.textContent = hints[0] || "";
+        questionHint.classList.remove("hint-fade");
+        if (hints.length > 1) {
+            onboardingHintTimer = setInterval(() => {
+                onboardingHintIndex = (onboardingHintIndex + 1) % hints.length;
+                questionHint.classList.add("hint-fade");
+                setTimeout(() => {
+                    questionHint.textContent = hints[onboardingHintIndex];
+                    questionHint.classList.remove("hint-fade");
+                }, 300);
+            }, 4000);
+        }
+    }
+
     if (donePanel) donePanel.classList.add("hidden");
     if (navRow) navRow.classList.remove("hidden");
     if (ctaEl) ctaEl.classList.remove("hidden");
     if (questionText) questionText.parentElement?.classList.remove("hidden");
+
+    // Show/hide the random-fill button based on step.canRandomFill
+    const randomBtn = document.getElementById("onboarding-random-btn");
+    if (randomBtn) {
+        randomBtn.classList.toggle("hidden", !step.canRandomFill);
+    }
 
     // Update "next" button label
     const nextBtn = document.getElementById("onboarding-next-btn");
@@ -771,6 +931,7 @@ function finishOnboarding() {
     if (stepCopy) stepCopy.classList.add("hidden");
     if (questionCard) questionCard.classList.add("hidden");
     if (ctaEl) ctaEl.classList.add("hidden");
+    document.getElementById("onboarding-random-btn")?.classList.add("hidden");
     if (progressBar) progressBar.style.width = "100%";
     if (stepLabel) stepLabel.textContent = "\u2713";
 
@@ -795,6 +956,11 @@ function skipOnboarding() {
 }
 
 function restartOnboarding() {
+    // If user hasn't selected an identity yet, prompt them first
+    if (shouldPromptForVisitorIdentity()) {
+        openModal(identityModal);
+        return;
+    }
     // Manually re-open onboarding from help button, bypassing completed/dismissed checks
     const profile = visitorProfileInput?.value || "general_visitor";
     // Clear completed key so startOnboarding with force works cleanly
@@ -822,6 +988,32 @@ document.getElementById("onboarding-back-btn")?.addEventListener("click", goBack
 document.getElementById("onboarding-next-btn")?.addEventListener("click", advanceOnboarding);
 document.getElementById("onboarding-skip-btn")?.addEventListener("click", skipOnboarding);
 document.getElementById("open-onboarding-help")?.addEventListener("click", restartOnboarding);
+document.getElementById("onboarding-random-btn")?.addEventListener("click", () => {
+    const profile = visitorProfileInput?.value || "general_visitor";
+    const pool = ONBOARDING_RESEARCH_EXAMPLES[profile] || ONBOARDING_RESEARCH_EXAMPLES.lab_member;
+    if (!pool || pool.length === 0) return;
+    const pick = pool[Math.floor(Math.random() * pool.length)];
+    const step = onboardingSteps[onboardingCurrentStep];
+    const ctx = (step && step.context) || "";
+    if (chatQuestion) {
+        seedChatQuestion(pick, ctx);
+        updateComposerContextChips();
+        // Scroll the composer into view so the user can see the filled question
+        chatQuestion.scrollIntoView({ behavior: "smooth", block: "center" });
+        chatQuestion.focus();
+    }
+    // Visual feedback: briefly show "已填入" on the button
+    const btn = document.getElementById("onboarding-random-btn");
+    if (btn) {
+        const orig = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = '<span aria-hidden="true">✓</span> 已填入下方输入框';
+        setTimeout(() => {
+            btn.disabled = false;
+            btn.innerHTML = orig;
+        }, 1200);
+    }
+});
 
 function applyLuckyQuestionPreferences(selection) {
     if (!selection || typeof selection !== "object") {
@@ -1035,16 +1227,8 @@ document.querySelectorAll(".sidebar .rail-btn, .sidebar .rail-user").forEach((bt
     });
 });
 
-// Seed question chips (above composer when chat is empty)
-document.querySelectorAll(".seed-chip").forEach((btn) => {
-    btn.addEventListener("click", () => {
-        const question = btn.dataset.seedQuestion;
-        if (question && chatQuestion) {
-            chatQuestion.value = question;
-            chatForm?.requestSubmit();
-        }
-    });
-});
+// Seed question chips: render random chips based on current profile
+renderSeedChips(visitorProfileInput?.value || "general_visitor");
 
 luckyQuestionButton?.addEventListener("click", handleLuckyQuestionClick);
 composerUploadButton?.addEventListener("click", () => chatFileInput?.click());
@@ -1118,6 +1302,7 @@ document.getElementById("identity-guest")?.addEventListener("click", () => {
     if (visitorProfileInput) visitorProfileInput.value = "general_visitor";
     applyVisitorProfilePresentation({ syncCourseContext: true });
     closeModals();
+    startOnboarding("general_visitor");
     chatQuestion?.focus();
 });
 
@@ -1403,7 +1588,11 @@ operationsTasks?.addEventListener("click", handleOperationsTaskAction);
 modalOverlay.addEventListener("click", handleModalOverlayClick);
 document.addEventListener("click", handleOutsideDrawerClick);
 document.querySelectorAll("[data-close-modal]").forEach((button) => {
-    button.addEventListener("click", closeModals);
+    button.addEventListener("click", () => {
+        closeModals();
+        // Re-open identity prompt if user dismissed auth/admin modal without selecting identity
+        maybeOpenVisitorIdentityPrompt();
+    });
 });
 bookingList.addEventListener("click", handleBookingApprovalClick);
 escalationList?.addEventListener("click", handleEscalationResolveClick);
@@ -1491,6 +1680,13 @@ userLoginForm?.addEventListener("submit", async (event) => {
 
 chatForm.addEventListener("submit", async (event) => {
     event.preventDefault();
+
+    // Block chat submission until user has selected an identity
+    if (shouldPromptForVisitorIdentity()) {
+        openModal(identityModal);
+        return;
+    }
+
     const question = document.getElementById("chat-question").value.trim();
     if (!question) {
         return;
@@ -2090,7 +2286,6 @@ function applyVisitorProfilePresentation({ syncCourseContext = false } = {}) {
     updateProfileDrawerCopy(config);
 
     if (chatQuestion) {
-        chatQuestion.placeholder = config.placeholder;
         const currentQuestion = chatQuestion.value.trim();
         if (!currentQuestion || currentQuestion === lastAutoChatQuestion) {
             chatQuestion.value = "";
@@ -2107,6 +2302,8 @@ function applyVisitorProfilePresentation({ syncCourseContext = false } = {}) {
         }
     }
     updateComposerContextChips();
+    // Re-render seed chips for the new profile
+    renderSeedChips(visitorProfileInput?.value || "general_visitor");
 }
 
 function markPresentationReady() {
@@ -2743,9 +2940,6 @@ function applyUserSession(session) {
         applyVisitorProfilePresentation();
         switchConversationHistoryScope(resolveConversationHistoryStorageScope());
         updateWelcomeGreeting();
-        // Show help (onboarding) button for registered users
-        const onboardingHelpBtn = document.getElementById("open-onboarding-help");
-        if (onboardingHelpBtn) onboardingHelpBtn.classList.remove("hidden");
         // Trigger progressive onboarding for newly authenticated users
         if (!wasAuthenticated && !hasCompletedOnboarding()) {
             const profile = account.visitor_profile || "general_visitor";
@@ -2755,9 +2949,6 @@ function applyUserSession(session) {
     }
 
     userSessionCopy.textContent = "当前未登录用户账号。";
-    // Hide help button for unauthenticated users
-    const onboardingHelpBtnOff = document.getElementById("open-onboarding-help");
-    if (onboardingHelpBtnOff) onboardingHelpBtnOff.classList.add("hidden");
     if (topbarUserBadge) {
         topbarUserBadge.classList.add("hidden");
         topbarUserBadge.title = "当前账号";
@@ -7344,7 +7535,8 @@ function toggleWorkflowShell() {
 
 function syncWorkflowViewportState() {
     if (isMobileWorkflowViewport()) {
-        setWorkflowShellCollapsed(false);
+        // Don't force-uncollapse on mobile; respect the collapsed state.
+        // The mobile bottom-sheet visibility is controlled by workflow-shell-mobile-open.
         if (!document.body.classList.contains("workflow-shell-mobile-open")) {
             setWorkflowMobileSheetMode(getStoredWorkflowMobileSheetMode());
         }
@@ -7397,6 +7589,15 @@ async function openWorkflowTraceStream(requestId) {
     stopWorkflowTraceStream();
     activeWorkflowRequestId = requestId;
     activeWorkflowSteps = [];
+
+    // Auto-show the reasoning path panel when a request starts
+    if (document.body.classList.contains("workflow-shell-collapsed")) {
+        if (isMobileWorkflowViewport()) {
+            openWorkflowMobileSheet();
+        } else {
+            setWorkflowShellCollapsed(false);
+        }
+    }
 
     if (typeof EventSource !== "function") {
         renderWorkflowTracePlaceholder(
@@ -8315,9 +8516,6 @@ function applyBranding(ownerName, ownerRole, homepageUrl) {
     if (homepageLink) {
         homepageLink.hidden = false;
         homepageLink.href = effectiveHomepageUrl;
-    }
-    if (chatQuestion) {
-        chatQuestion.placeholder = "直接说问题；预约请写 agenda、blocker 和 draft。";
     }
 }
 
