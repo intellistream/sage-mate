@@ -10,7 +10,7 @@
     <link
         href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@500;700&display=swap"
         rel="stylesheet" />
-    <link rel="stylesheet" href="./styles.css?v=20260620-v4.2.10" />
+    <link rel="stylesheet" href="./styles.css?v=20260620-v4.2.12" />
     <style>
         html {
             opacity: 0;
@@ -179,6 +179,25 @@
                     </div>
                     <div id="suggestion-view-body" class="chat-view-body">
                         <!-- Suggestion content populated by JS (moved from modal) -->
+                    </div>
+                </div>
+
+                <div id="account-view" class="chat-view" hidden>
+                    <div class="chat-view-head">
+                        <h2 class="chat-view-title">账号管理</h2>
+                        <p class="chat-view-desc">登录后，当前聊天和预约会自动绑定到你的账号。</p>
+                    </div>
+                    <div id="account-view-body" class="chat-view-body">
+                        <div class="account-tabs">
+                            <button type="button" class="account-tab active" data-account-tab="register">注册账号</button>
+                            <button type="button" class="account-tab" data-account-tab="login">用户登录</button>
+                        </div>
+                        <div id="account-tab-register" class="account-tab-panel">
+                            <!-- Register form populated by JS (moved from modal) -->
+                        </div>
+                        <div id="account-tab-login" class="account-tab-panel" hidden>
+                            <!-- Login form populated by JS (moved from modal) -->
+                        </div>
                     </div>
                 </div>
 
@@ -538,7 +557,7 @@
         <p class="landing-footer">SAGE Lab &middot; HUST</p>
     </section>
 
-    <section id="user-register-modal" class="modal-panel hidden" aria-hidden="true">
+    <section id="user-register-modal" class="modal-panel hidden" aria-hidden="true" style="display:none">
         <div class="modal-head">
             <div>
                 <p class="brand-kicker">Account</p>
@@ -582,7 +601,7 @@
         <div id="user-register-response" class="inline-status inline-status-empty">注册后会自动登录当前账号。</div>
     </section>
 
-    <section id="user-login-modal" class="modal-panel hidden" aria-hidden="true">
+    <section id="user-login-modal" class="modal-panel hidden" aria-hidden="true" style="display:none">
         <div class="modal-head">
             <div>
                 <p class="brand-kicker">Account</p>
@@ -992,7 +1011,7 @@
         </div>
     </section>
 
-    <script src="./app.js?v=20260620-v4.2.10"></script>
+    <script src="./app.js?v=20260620-v4.2.12"></script>
 </body>
 
 </html>

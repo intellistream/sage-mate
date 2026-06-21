@@ -26,6 +26,10 @@ const settingsView = document.getElementById("settings-view");
 const settingsViewBody = document.getElementById("settings-view-body");
 const suggestionView = document.getElementById("suggestion-view");
 const suggestionViewBody = document.getElementById("suggestion-view-body");
+const accountView = document.getElementById("account-view");
+const accountViewBody = document.getElementById("account-view-body");
+const accountTabRegister = document.getElementById("account-tab-register");
+const accountTabLogin = document.getElementById("account-tab-login");
 const identityModal = document.getElementById("identity-modal");
 const knowledgeModal = document.getElementById("knowledge-modal");
 const bookingModal = document.getElementById("booking-modal");
@@ -728,7 +732,7 @@ identityModal?.addEventListener("click", handleIdentityChoiceClick);
 document.getElementById("identity-user-login")?.addEventListener("click", () => {
     markVisitorIdentitySelected();
     closeModals();
-    openModal(userLoginModal);
+    openAccountView("login");
 });
 document.getElementById("identity-admin-login")?.addEventListener("click", () => {
     markVisitorIdentitySelected();
@@ -839,14 +843,19 @@ settingsView?.addEventListener("click", (e) => {
 suggestionViewBody?.addEventListener("click", (e) => {
     if (e.target.closest("[data-close-modal]")) closeSuggestionView();
 });
+accountViewBody?.addEventListener("click", (e) => {
+    const tab = e.target.closest(".account-tab");
+    if (tab?.dataset.accountTab) switchAccountTab(tab.dataset.accountTab);
+    if (e.target.closest("[data-close-view]")) closeAccountView();
+});
 document.getElementById("open-user-register")?.addEventListener("click", () => {
     prepareUserRegistrationForm();
-    closeDrawer();
-    openModal(userRegisterModal);
+    closeSettingsDrawer();
+    openAccountView("register");
 });
 document.getElementById("open-user-login")?.addEventListener("click", () => {
-    closeDrawer();
-    openModal(userLoginModal);
+    closeSettingsDrawer();
+    openAccountView("login");
 });
 document.getElementById("open-knowledge").addEventListener("click", async () => {
     if (!ensureAdminOnlyAccess({ openLogin: true })) {
@@ -1595,6 +1604,18 @@ function handleOutsideDrawerClick(event) {
             && !target.closest("#open-suggestions")
         ) {
             closeSuggestionView();
+        }
+    }
+
+    if (!isAccountViewClosed()) {
+        if (
+            !accountView?.contains(target)
+            && !target.closest("#sidebar-user-icon")
+            && !target.closest("#open-user-register")
+            && !target.closest("#open-user-login")
+            && !target.closest("#identity-user-login")
+        ) {
+            closeAccountView();
         }
     }
 }
@@ -7943,6 +7964,7 @@ function openSettingsDrawer() {
     closeMobileTopbarActions();
     closeStatusDrawer();
     closeSuggestionView();
+    closeAccountView();
     // Move settings-drawer DOM nodes into settings-view on first open (preserves event handlers)
     if (settingsDrawer && settingsViewBody && !settingsViewBody.dataset.loaded) {
         while (settingsDrawer.firstChild) {
@@ -7964,6 +7986,7 @@ function openStatusDrawer() {
     closeMobileTopbarActions();
     closeSettingsDrawer();
     closeSuggestionView();
+    closeAccountView();
     statusView?.removeAttribute("hidden");
     chatShell?.classList.add("view-active");
 }
@@ -7978,6 +8001,7 @@ function openSuggestionView() {
     closeMobileTopbarActions();
     closeSettingsDrawer();
     closeStatusDrawer();
+    closeAccountView();
     // Move suggestion-modal children into suggestion-view on first open (preserves event handlers)
     if (suggestionModal && suggestionViewBody && !suggestionViewBody.dataset.loaded) {
         while (suggestionModal.firstChild) {
@@ -7994,10 +8018,52 @@ function closeSuggestionView() {
     chatShell?.classList.remove("view-active");
 }
 
+function openAccountView(tab = "register") {
+    closeWorkflowMobileSheet();
+    closeMobileTopbarActions();
+    closeSettingsDrawer();
+    closeStatusDrawer();
+    closeSuggestionView();
+    // Move register/login modal children into account-view tabs on first open
+    if (userRegisterModal && accountTabRegister && !accountTabRegister.dataset.loaded) {
+        while (userRegisterModal.firstChild) {
+            accountTabRegister.appendChild(userRegisterModal.firstChild);
+        }
+        accountTabRegister.dataset.loaded = "true";
+    }
+    if (userLoginModal && accountTabLogin && !accountTabLogin.dataset.loaded) {
+        while (userLoginModal.firstChild) {
+            accountTabLogin.appendChild(userLoginModal.firstChild);
+        }
+        accountTabLogin.dataset.loaded = "true";
+    }
+    // Switch to requested tab
+    switchAccountTab(tab);
+    accountView?.removeAttribute("hidden");
+    chatShell?.classList.add("view-active");
+}
+
+function switchAccountTab(tab) {
+    const tabs = accountViewBody?.querySelectorAll(".account-tab");
+    tabs?.forEach((t) => t.classList.toggle("active", t.dataset.accountTab === tab));
+    if (accountTabRegister) accountTabRegister.hidden = tab !== "register";
+    if (accountTabLogin) accountTabLogin.hidden = tab !== "login";
+}
+
+function closeAccountView() {
+    accountView?.setAttribute("hidden", "");
+    chatShell?.classList.remove("view-active");
+}
+
+function isAccountViewClosed() {
+    return !accountView || accountView.hidden;
+}
+
 function closeDrawers() {
     closeSettingsDrawer();
     closeStatusDrawer();
     closeSuggestionView();
+    closeAccountView();
 }
 
 function isSettingsDrawerClosed() {
@@ -8013,7 +8079,7 @@ function isSuggestionViewClosed() {
 }
 
 function areDrawersClosed() {
-    return isSettingsDrawerClosed() && isStatusDrawerClosed() && isSuggestionViewClosed();
+    return isSettingsDrawerClosed() && isStatusDrawerClosed() && isSuggestionViewClosed() && isAccountViewClosed();
 }
 
 function openDrawer() {
