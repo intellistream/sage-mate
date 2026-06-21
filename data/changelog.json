@@ -1,5 +1,20 @@
 [
     {
+        "version": "v4.3.0",
+        "date": "2026-06-21",
+        "summary": "移除落地页 & 技术债清理",
+        "highlights": [
+            "移除身份选择落地页，新用户直接进入新手引导",
+            "删除 identity-modal HTML/CSS/JS 全部死代码（~400 行）",
+            "页面加载自动标记访客身份，无需手动选择",
+            "新手引导优先展示，seed chips 和欢迎语隐藏直到引导完成",
+            "添加全局 JS 错误捕获防止未捕获异常阻断事件监听",
+            "/context/compress 端点增加身份验证",
+            "lucky-question 支持 onboarding_step 参数",
+            "375 tests 全部通过"
+        ]
+    },
+    {
         "version": "v4.2.5",
         "date": "2026-06-21",
         "summary": "ChatGPT 风格侧边栏 & 全面 UX 打磨",
