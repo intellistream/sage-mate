@@ -8709,7 +8709,22 @@ document.getElementById("app-version-badge")?.addEventListener("click", () => {
     toggleChangelogModal();
 });
 
+/* ── Footer collapse toggle (mobile) ── */
+function initFooterToggle() {
+    const banner = document.querySelector(".app-stack-banner");
+    const toggleBtn = banner?.querySelector(".footer-toggle-btn");
+    if (!banner || !toggleBtn) return;
+
+    toggleBtn.addEventListener("click", () => {
+        const isCollapsed = banner.classList.contains("footer-collapsed");
+        banner.classList.toggle("footer-collapsed", !isCollapsed);
+        banner.classList.toggle("footer-expanded", isCollapsed);
+        toggleBtn.setAttribute("aria-label", isCollapsed ? "收起技术栈信息" : "展开技术栈信息");
+    });
+}
+
 async function initializePage() {
+    initFooterToggle();
     renderConversationHistoryList();
     applyStoredVisitorProfile();
     applyVisitorProfilePresentation({ syncCourseContext: true });
