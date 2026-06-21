@@ -2959,6 +2959,9 @@ body.sidebar-expanded .rail-label {
     border-radius: 10px;
     cursor: pointer;
     transition: background 150ms ease;
+    border: none;
+    background: transparent;
+    width: 100%;
 }
 
 body.sidebar-expanded .rail-user {
