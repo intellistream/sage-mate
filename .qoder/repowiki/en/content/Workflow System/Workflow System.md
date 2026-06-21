@@ -26,12 +26,10 @@
 
 ## Update Summary
 **Changes Made**
-- Added comprehensive documentation for the new agent skill system integration
-- Documented skill router and skill runner components that handle specialized queries before standard pipeline execution
-- Added skill manifest structure, tool registry system, and multi-turn reasoning loops
-- Updated architecture diagrams to reflect the skill system alongside workflow planner
-- Enhanced troubleshooting guide with skill system monitoring and debugging
-- Added examples of skill manifests and integration patterns
+- Updated planner comparison and preview functionality documentation to reflect defensive fix for CI testing issues
+- Added documentation for conditional behavior when recent memory is not available
+- Enhanced troubleshooting guidance for planner comparison and shadow planning edge cases
+- Updated test expectations and validation logic for planner comparison scenarios
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -47,11 +45,12 @@
 11. [Enhanced V3.1 LLM-Assisted JSON Planner](#enhanced-v31-llm-assisted-json-planner)
 12. [Shadow Comparison and Safety Mechanisms](#shadow-comparison-and-safety-mechanisms)
 13. [Planner Metrics Storage and Analytics](#planner-metrics-storage-and-analytics)
-14. [Dependency Analysis](#dependency-analysis)
-15. [Performance Considerations](#performance-considerations)
-16. [Troubleshooting Guide](#troubleshooting-guide)
-17. [Conclusion](#conclusion)
-18. [Appendices](#appendices)
+14. [Conditional Behavior and Defensive Fixes](#conditional-behavior-and-defensive-fixes)
+15. [Dependency Analysis](#dependency-analysis)
+16. [Performance Considerations](#performance-considerations)
+17. [Troubleshooting Guide](#troubleshooting-guide)
+18. [Conclusion](#conclusion)
+19. [Appendices](#appendices)
 
 ## Introduction
 This document explains the workflow planning and execution system that powers deterministic, step-based, policy-driven interactions. The system has been enhanced with V3.1 capabilities including LLM-assisted JSON planning, shadow comparison functionality, comprehensive planner metrics storage, and a new agent skill system. It covers:
@@ -60,6 +59,7 @@ This document explains the workflow planning and execution system that powers de
 - Enhanced LLM-assisted JSON planner implementation with shadow comparison
 - Agent skill system with pattern-matching router and multi-turn reasoning loops
 - Planner metrics storage and analytics for performance monitoring
+- Conditional behavior adjustments for recent memory availability
 - Fallback mechanisms and planner comparison
 - Integration with memory systems, knowledge retrieval, and LLM processing
 - Guidance for extending the system with custom steps, policies, and skills
@@ -167,7 +167,7 @@ The enhanced V3.1 system follows a deterministic planner with LLM-assisted capab
 - Builds a linear sequence of steps tailored to the intent
 - Computes risk level from the strongest side effect among steps
 - Validates the plan against policy constraints
-- Generates shadow planner candidates for comparison
+- Generates shadow planner candidates for comparison with conditional behavior
 - Records metrics and comparison data for performance analysis
 - Produces a PlannerDecision with optional fallback
 
@@ -783,15 +783,16 @@ class PlannerComparisonStore {
 class PlannerComparisonEntry {
 +record_id : str
 +conversation_id : str
++exchange_id : str | None
 +workflow_action : str
 +question : str
 +comparison_status : str
 +deterministic_goal : str
-+shadow_goal : str
++shadow_goal : str | None
 +same_goal : bool
 +same_fallback_template : bool
-+deterministic_only_steps : str[]
-+shadow_only_steps : str[]
++deterministic_only_steps : list[str]
++shadow_only_steps : list[str]
 +summary : str
 +created_at : datetime
 }
@@ -842,10 +843,10 @@ class PlannerMetricsEntry {
 +goal : str
 +accepted : bool
 +status : str
-+fallback_template : str
-+fallback_reason : str
-+validation_errors : str[]
-+planned_steps : str[]
++fallback_template : str | None
++fallback_reason : str | None
++validation_errors : list[str]
++planned_steps : list[str]
 +latency_ms : float
 +created_at : datetime
 }
@@ -900,6 +901,40 @@ The system provides comprehensive analytics capabilities:
 **Section sources**
 - [planner_metrics_store.py:132-186](file://src/sage_faculty_twin/planner_metrics_store.py#L132-L186)
 
+## Conditional Behavior and Defensive Fixes
+
+### Recent Memory Availability Handling
+The system implements defensive behavior for CI testing scenarios where recent memory may not be available:
+- **Conditional Step Selection**: When recent memory is not available, certain retrieval steps are conditionally omitted
+- **Test Expectation Alignment**: Planner comparison tests are adjusted to account for conditional behavior
+- **Fallback Strategy**: Maintains deterministic fallback when shadow planning conditions are not met
+
+```mermaid
+flowchart TD
+Start(["Workflow Request"]) --> CheckRecent{"Recent Memory Available?"}
+CheckRecent --> |Yes| FullPlan["Include retrieve_recent_memory<br/>and related steps"]
+CheckRecent --> |No| CondensedPlan["Skip retrieve_recent_memory<br/>and optimize steps"]
+CondensedPlan --> EvidenceCheck["Adjust evidence sources<br/>based on availability"]
+FullPlan --> EvidenceCheck
+EvidenceCheck --> Proceed["Proceed with plan evaluation"]
+```
+
+**Diagram sources**
+- [service.py:5847-5886](file://src/sage_faculty_twin/service.py#L5847-L5886)
+- [test_dynamic_workflow_planner.py:153-189](file://tests/test_dynamic_workflow_planner.py#L153-L189)
+
+### Planner Comparison Defensive Logic
+Enhanced defensive measures for CI testing stability:
+- **Benchmark Request Filtering**: Automatically disables shadow planning for benchmark scenarios
+- **Client Capability Validation**: Ensures LLM client supports required shadow planning methods
+- **Graceful Degradation**: Falls back to deterministic planning when shadow planning fails
+- **Test Expectation Updates**: Adjusts test assertions to match conditional behavior
+
+**Section sources**
+- [service.py:5847-5886](file://src/sage_faculty_twin/service.py#L5847-L5886)
+- [test_dynamic_workflow_planner.py:308-355](file://tests/test_dynamic_workflow_planner.py#L308-L355)
+- [test_dynamic_workflow_planner.py:357-400](file://tests/test_dynamic_workflow_planner.py#L357-L400)
+
 ## Dependency Analysis
 - Planner depends on:
   - Step registry for step semantics
@@ -929,6 +964,7 @@ The system provides comprehensive analytics capabilities:
   - Metrics collection and analytics
   - **New**: Skill manifest loading and compatibility
   - **New**: Skill routing and execution patterns
+  - **Updated**: Conditional behavior for recent memory availability
 
 ```mermaid
 graph LR
@@ -984,6 +1020,7 @@ SR --> SK["SkillDefinition"]
 - **Configuration Control**: Shadow planner can be globally enabled/disabled via configuration settings.
 - **Skill System Overhead**: Pattern matching and skill execution add minimal latency compared to full workflow planning.
 - **Skill Tool Calls**: Each tool execution adds LLM call overhead; consider tool call limits and caching strategies.
+- **Defensive Optimization**: Conditional behavior reduces unnecessary computations when recent memory is unavailable.
 
 ## Troubleshooting Guide
 Common issues and resolutions:
@@ -997,11 +1034,13 @@ Common issues and resolutions:
   - Verify `shadow_planner_enabled` configuration is True
   - Review shadow planner temperature and max_tokens settings
   - Monitor shadow_error status codes for detailed failure information
+  - **Updated**: Verify recent memory availability for conditional behavior
 - **Metrics and Analytics**:
   - Verify planner_metrics_dir configuration points to writable location
   - Check SQLite database connectivity for metrics storage
   - Review comparison store for actionable insights
   - Monitor acceptance rates and error patterns for system health
+  - **Updated**: Check conditional behavior in CI environments
 - **Skill System Issues**:
   - Verify skill_dir configuration points to valid directory
   - Check skill manifest JSON syntax and required fields
@@ -1014,6 +1053,7 @@ Common issues and resolutions:
   - Check that SkillRunner receives proper SkillContext with all required fields
   - Ensure LLM client is properly configured for both workflow and skill execution
   - Monitor fallback behavior when skills fail or return non-success results
+  - **Updated**: Verify defensive behavior for recent memory unavailability in tests
 
 **Section sources**
 - [workflow_policy.py:74-199](file://src/sage_faculty_twin/workflow_policy.py#L74-L199)
@@ -1025,7 +1065,7 @@ Common issues and resolutions:
 - [skill_tools.py:61-66](file://src/sage_faculty_twin/skill_tools.py#L61-L66)
 
 ## Conclusion
-The enhanced V3.1 workflow system combines deterministic planning, strict step registry validation, and policy-driven enforcement with advanced LLM-assisted capabilities and a powerful agent skill system. The integration of the skill router and skill runner provides intelligent query routing for specialized tasks, while the workflow planner handles general-purpose interactions. The addition of shadow comparison functionality and comprehensive metrics storage provides unprecedented visibility into planner performance and safety. The agent skill system offers extensible, self-contained capabilities through skill manifests, pattern matching, and multi-turn reasoning loops. Extensibility is achieved through configurable LLM integration, modular step definitions, comprehensive analytics infrastructure, and the skill system's manifest-based approach.
+The enhanced V3.1 workflow system combines deterministic planning, strict step registry validation, and policy-driven enforcement with advanced LLM-assisted capabilities and a powerful agent skill system. The integration of the skill router and skill runner provides intelligent query routing for specialized tasks, while the workflow planner handles general-purpose interactions. The addition of shadow comparison functionality and comprehensive metrics storage provides unprecedented visibility into planner performance and safety. The agent skill system offers extensible, self-contained capabilities through skill manifests, pattern matching, and multi-turn reasoning loops. Extensibility is achieved through configurable LLM integration, modular step definitions, comprehensive analytics infrastructure, and the skill system's manifest-based approach. Recent memory availability handling ensures robust operation in various testing and production environments.
 
 ## Appendices
 
@@ -1036,6 +1076,7 @@ The enhanced V3.1 workflow system combines deterministic planning, strict step r
 - Simple greeting: Minimal steps; skip retrieval to reduce latency.
 - **Enhanced V3.1 Shadow Comparison**: Automatic shadow planning for complex queries with detailed metrics tracking and comparison reporting.
 - **New Skill System Integration**: Pattern-matching router identifies specialized queries → skill execution with multi-turn reasoning → fallback to workflow planner when needed.
+- **Updated Conditional Behavior**: Defensive handling for recent memory unavailability in CI testing scenarios.
 
 **Section sources**
 - [test_dynamic_workflow_planner.py:47-79](file://tests/test_dynamic_workflow_planner.py#L47-L79)
@@ -1063,6 +1104,10 @@ The enhanced V3.1 workflow system combines deterministic planning, strict step r
   - Test skill loading and compatibility with SkillRouter
   - Configure skill directory in AppSettings (skill_dir)
   - Monitor skill execution logs and performance metrics
+- **Updated Defensive Extensions**:
+  - Implement conditional behavior for recent memory availability
+  - Update test expectations to match defensive logic
+  - Ensure graceful fallback when shadow planning conditions are not met
 
 **Section sources**
 - [workflow_steps.py:23-174](file://src/sage_faculty_twin/workflow_steps.py#L23-L174)

@@ -12,6 +12,13 @@
 - [v3_preview_scenarios.json](file://data/workflow_scenarios/v3_preview_scenarios.json)
 </cite>
 
+## Update Summary
+**Changes Made**
+- Updated defensive fix section to reflect CI testing improvements
+- Enhanced troubleshooting guide with recent memory handling considerations
+- Added guidance for handling recent_memory_available=False scenarios
+- Updated performance considerations to include recent memory retrieval optimization
+
 ## Table of Contents
 1. [Introduction](#introduction)
 2. [Project Structure](#project-structure)
@@ -26,6 +33,8 @@
 
 ## Introduction
 This document explains the DeterministicWorkflowPlanner and the broader workflow planning architecture. It covers the deterministic planning algorithm, intent classification logic, plan generation, planner modes, execution modes, risk assessment, evidence contracts, plan specification, fallback mechanisms, and side-effect management. It also provides guidance on extending the planner with new intent classifiers and plan templates.
+
+**Updated** Enhanced with defensive fixes for CI testing issues where `retrieve_recent_memory` was conditionally included in planner steps, making tests more robust across different service initialization states.
 
 ## Project Structure
 The workflow planner lives in the Sage Faculty Twin codebase under src/sage_faculty_twin and integrates with the broader service runtime. The key modules are:
@@ -235,13 +244,15 @@ DeterministicWorkflowPlanner --> WorkflowRequestContext : "consumes"
 - [workflow_planner.py:474-476](file://src/sage_faculty_twin/workflow_planner.py#L474-L476)
 
 ### Intent Classification and Plan Generation
-The planner’s intent classification logic drives plan selection:
+The planner's intent classification logic drives plan selection:
 - Admin-only boundary checks: routes to explain boundary and queue review when admin-only markers appear and the session is not admin.
 - Artifact record requests: builds a plan that records artifact memory with a reviewable draft.
 - Booking preparation vs booking request: distinguishes between preparing agenda (read-only) and executing a booking (deferred to template).
 - Research questions: combines hybrid knowledge with optional profile memory and artifact memory.
 - Simple greeting: lightweight plan avoiding retrieval.
 - General grounded questions: selects between hybrid knowledge and recent memory depending on context and course context.
+
+**Updated** Recent memory handling now includes defensive checks to ensure `retrieve_recent_memory` steps are only included when `recent_memory_available` is True, making CI tests more robust across different service initialization states.
 
 ```mermaid
 flowchart TD
@@ -438,12 +449,17 @@ Service --> Eval["Workflow Replay Scenarios"]
   - Policy limits max_stage_count to prevent overly long plans.
 - Lightweight greetings:
   - Avoid retrieval steps to minimize latency for simple queries.
+- Recent memory optimization:
+  - Defensive checks ensure `retrieve_recent_memory` steps are only included when `recent_memory_available` is True, preventing unnecessary retrieval calls and improving CI test reliability.
+
+**Updated** Recent memory retrieval optimization now includes defensive checks to handle cases where `recent_memory_available` is False, making the system more robust across different service initialization states.
 
 **Section sources**
 - [workflow_steps.py:18-19](file://src/sage_faculty_twin/workflow_steps.py#L18-L19)
 - [workflow_policy.py:20-21](file://src/sage_faculty_twin/workflow_policy.py#L20-L21)
 - [workflow_policy.py:152-162](file://src/sage_faculty_twin/workflow_policy.py#L152-L162)
 - [workflow_planner.py:395-397](file://src/sage_faculty_twin/workflow_planner.py#L395-L397)
+- [workflow_planner.py:721-749](file://src/sage_faculty_twin/workflow_planner.py#L721-L749)
 
 ## Troubleshooting Guide
 Common issues and resolutions:
@@ -453,15 +469,22 @@ Common issues and resolutions:
   - Allowed sources include unavailable sources from context or policy unknown sources; forbidden sources referenced.
 - Risk level mismatch:
   - Plan risk level does not align with the strongest side effect across steps.
+- Recent memory handling issues:
+  - Defensive checks ensure `retrieve_recent_memory` is not included when `recent_memory_available` is False, preventing CI test failures in different service initialization states.
+
+**Updated** Enhanced troubleshooting guidance for recent memory handling, including defensive checks that prevent `retrieve_recent_memory` from being conditionally included when `recent_memory_available` is False, making tests more robust across different service initialization states.
 
 Use PlannerDecision.validation_errors to diagnose and address these issues.
 
 **Section sources**
 - [workflow_policy.py:74-199](file://src/sage_faculty_twin/workflow_policy.py#L74-L199)
 - [workflow_planner.py:114-133](file://src/sage_faculty_twin/workflow_planner.py#L114-L133)
+- [workflow_planner.py:721-749](file://src/sage_faculty_twin/workflow_planner.py#L721-L749)
 
 ## Conclusion
 The DeterministicWorkflowPlanner provides a robust, policy-enforced, deterministic workflow planning system. It classifies intents, selects appropriate steps, manages side effects and risk, and ensures plans adhere to evidence contracts and latency budgets. The architecture supports extension via new intent classifiers, plan templates, and policy updates, while maintaining safety and auditability through shadow evaluation and validation.
+
+**Updated** Recent improvements include defensive fixes for CI testing issues where `retrieve_recent_memory` was conditionally included in planner steps, making the system more robust across different service initialization states and improving test reliability.
 
 ## Appendices
 
@@ -480,3 +503,17 @@ The DeterministicWorkflowPlanner provides a robust, policy-enforced, determinist
 
 **Section sources**
 - [faculty-default-2026-05.json:6-22](file://data/workflow_policies/faculty-default-2026-05.json#L6-L22)
+
+### Appendix C: Defensive Fix Details
+**Updated** The planner now includes defensive checks to handle CI testing issues where `retrieve_recent_memory` was conditionally included in planner steps. The `_should_include_recent_memory` function ensures that recent memory retrieval steps are only included when `context.recent_memory_available` is True, preventing test failures in different service initialization states.
+
+Key defensive measures:
+- Conditional inclusion of `retrieve_recent_memory` based on `recent_memory_available`
+- Proper handling of `recent_session_context_attached` to avoid redundant retrieval
+- Robust test assertions that account for recent memory availability states
+
+**Section sources**
+- [workflow_planner.py:721-749](file://src/sage_faculty_twin/workflow_planner.py#L721-L749)
+- [test_dynamic_workflow_planner.py:153-189](file://tests/test_dynamic_workflow_planner.py#L153-L189)
+- [test_agentic_workflow.py:1410-1430](file://tests/test_agentic_workflow.py#L1410-L1430)
+- [service.py:1227-1240](file://src/sage_faculty_twin/service.py#L1227-L1240)

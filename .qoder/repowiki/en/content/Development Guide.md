@@ -14,24 +14,28 @@
 - [api.py](file://src/sage_faculty_twin/api.py)
 - [service.py](file://src/sage_faculty_twin/service.py)
 - [models.py](file://src/sage_faculty_twin/models.py)
+- [workflow_planner.py](file://src/sage_faculty_twin/workflow_planner.py)
+- [workflow_steps.py](file://src/sage_faculty_twin/workflow_steps.py)
 - [test_chat_streaming.py](file://tests/test_chat_streaming.py)
 - [test_workflow_policy.py](file://tests/test_workflow_policy.py)
 - [test_knowledge_base.py](file://tests/test_knowledge_base.py)
 - [test_knowledge_import.py](file://tests/test_knowledge_import.py)
 - [test_sagevdb_knowledge_store.py](file://tests/test_sagevdb_knowledge_store.py)
 - [test_memory_store.py](file://tests/test_memory_store.py)
+- [test_agentic_workflow.py](file://tests/test_agentic_workflow.py)
+- [test_dynamic_workflow_planner.py](file://tests/test_dynamic_workflow_planner.py)
+- [test_operations_overview.py](file://tests/test_operations_overview.py)
 - [.github/workflows/ci.yml](file://.github/workflows/ci.yml)
 - [.github/agent.md](file://.github/agent.md)
 </cite>
 
 ## Update Summary
 **Changes Made**
-- Enhanced testing infrastructure with comprehensive network prevention system using HF_HUB_OFFLINE and TRANSFORMERS_OFFLINE environment variables
-- Added intelligent model caching detection for sentence-transformers with automatic cache scanning and fallback mechanisms
-- Implemented automatic backend selection system that dynamically detects available knowledge backends (local, neuromem, sagevdb)
-- Added comprehensive pytest marker decorators for conditional test execution based on environment capabilities
-- Improved CI pipeline linting with streamlined job definitions and optimized testing processes
-- Enhanced runtime environment validation with automatic shared library linking for sageVDB
+- Enhanced defensive testing practices documentation for handling conditional planner steps like `retrieve_recent_memory`
+- Added comprehensive guidance on testing planner behavior across different memory availability scenarios
+- Updated testing infrastructure to include memory retrieval conditional logic validation
+- Expanded testing strategies for memory availability scenarios including recent session context, profile memory consent, and artifact memory integration
+- Added documentation for planner decision validation and memory retrieval optimization techniques
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -45,12 +49,13 @@
 9. [Contribution Guidelines](#contribution-guidelines)
 10. [Build System and CI](#build-system-and-ci)
 11. [Testing Infrastructure](#testing-infrastructure)
-12. [Extending Functionality](#extending-functionality)
-13. [Best Practices and Team Collaboration](#best-practices-and-team-collaboration)
-14. [Conclusion](#conclusion)
+12. [Defensive Testing Practices for Conditional Planner Steps](#defensive-testing-practices-for-conditional-planner-steps)
+13. [Extending Functionality](#extending-functionality)
+14. [Best Practices and Team Collaboration](#best-practices-and-team-collaboration)
+15. [Conclusion](#conclusion)
 
 ## Introduction
-This guide provides comprehensive development documentation for contributors and maintainers of the Sage Faculty Twin project. It covers environment setup, testing strategies, code structure conventions, contribution guidelines, build and dependency management, continuous integration processes, and practical guidance for extending functionality while maintaining code quality.
+This guide provides comprehensive development documentation for contributors and maintainers of the Sage Faculty Twin project. It covers environment setup, testing strategies, code structure conventions, contribution guidelines, build and dependency management, continuous integration processes, and practical guidance for extending functionality while maintaining code quality. The guide now includes enhanced documentation of defensive testing practices for handling conditional planner steps and memory availability scenarios.
 
 ## Project Structure
 The repository follows a layered architecture:
@@ -379,6 +384,105 @@ Recommended testing approach:
 - [test_workflow_policy.py](file://tests/test_workflow_policy.py)
 - [conftest.py](file://tests/conftest.py)
 
+## Defensive Testing Practices for Conditional Planner Steps
+
+### Memory Retrieval Conditional Logic
+The system implements robust defensive testing practices for handling conditional planner steps, particularly focusing on memory retrieval optimization. The service module includes sophisticated logic to determine when memory retrieval steps should be executed based on planner decisions and memory availability.
+
+**Key Defensive Testing Patterns:**
+
+#### Benchmark Request Isolation
+The system includes special handling for benchmark requests to prevent memory contamination:
+- Benchmark requests skip memory retrieval entirely
+- This prevents cross-contamination between test scenarios
+- Maintains clean separation between evaluation and production behavior
+
+#### Route-Based Conditional Execution
+Memory retrieval is conditionally executed based on request routing:
+- Only executes when route is "answer" and no answer exists yet
+- Skips execution for non-answer routes or when answers are already present
+- Prevents redundant memory operations and maintains performance
+
+#### Planner Decision Validation
+The system validates planner decisions before executing memory retrieval:
+- Checks if planner specifically requests memory retrieval steps
+- Skips execution when planner determines memory retrieval is unnecessary
+- Logs detailed trace information for debugging and monitoring
+
+#### Memory Availability Optimization
+The system optimizes memory retrieval based on actual availability:
+- Checks for recent session context attachment before requesting recent memory
+- Respects profile memory consent requirements
+- Handles artifact memory availability gracefully
+
+```mermaid
+flowchart TD
+Start([Memory Retrieval Request]) --> CheckBenchmark{"Is Benchmark Request?"}
+CheckBenchmark --> |Yes| SkipBenchmark["Skip Memory Retrieval<br/>for Contamination Prevention"]
+CheckBenchmark --> |No| CheckRoute{"Route == 'answer' AND No Answer?"}
+CheckRoute --> |No| SkipRoute["Skip: Not Applicable"]
+CheckRoute --> |Yes| CheckPlanner{"Planner Requests Memory?"}
+CheckPlanner --> |No| SkipPlanner["Skip: Planner Decision"]
+CheckPlanner --> |Yes| CheckAvailability{"Memory Available?"}
+CheckAvailability --> |No| SkipAvailability["Skip: No Data"]
+CheckAvailability --> |Yes| Execute["Execute Memory Retrieval"]
+Execute --> LogTrace["Log Trace with Hit Counts"]
+LogTrace --> Complete([Complete])
+SkipBenchmark --> Complete
+SkipRoute --> Complete
+SkipPlanner --> Complete
+SkipAvailability --> Complete
+```
+
+**Diagram sources**
+- [service.py](file://src/sage_faculty_twin/service.py)
+
+### Testing Memory Availability Scenarios
+The testing infrastructure includes comprehensive coverage of memory availability scenarios:
+
+#### Recent Session Context Optimization
+Tests validate that when recent session context is already attached, the system skips redundant recent memory retrieval:
+- Confirms `retrieve_recent_memory` is excluded from planned steps
+- Verifies recent session context is properly utilized
+- Ensures evidence contract reflects appropriate source availability
+
+#### Profile Memory Consent Handling
+Tests validate that profile memory retrieval respects user consent:
+- When consent is false, profile memory retrieval is excluded
+- Evidence contract appropriately excludes profile memory sources
+- Maintains privacy compliance while optimizing performance
+
+#### Artifact Memory Integration
+Tests cover artifact memory integration scenarios:
+- Attachment-grounded questions trigger artifact memory retrieval
+- Historical artifact memory retrieval complements current attachments
+- Mixed memory sources are handled gracefully
+
+**Section sources**
+- [service.py](file://src/sage_faculty_twin/service.py)
+- [test_agentic_workflow.py](file://tests/test_agentic_workflow.py)
+- [test_dynamic_workflow_planner.py](file://tests/test_dynamic_workflow_planner.py)
+- [test_operations_overview.py](file://tests/test_operations_overview.py)
+
+### Planner Decision Validation
+The system includes comprehensive validation of planner decisions for memory retrieval steps:
+
+#### Deterministic vs Shadow Planner Comparison
+Tests compare deterministic planner decisions with shadow planner alternatives:
+- Validates that both planners agree on memory retrieval necessity
+- Confirms deterministic planner can skip recent memory retrieval when appropriate
+- Monitors for planner shadow drift that might indicate inconsistent behavior
+
+#### Step-Specific Validation
+Tests validate specific planner steps:
+- Confirms `retrieve_recent_memory` inclusion/exclusion based on context
+- Verifies planner metrics tracking for memory retrieval decisions
+- Ensures proper fallback templates when memory retrieval is skipped
+
+**Section sources**
+- [test_operations_overview.py](file://tests/test_operations_overview.py)
+- [workflow_planner.py](file://src/sage_faculty_twin/workflow_planner.py)
+
 ## Dependency Analysis
 The project uses a layered dependency model with updated version constraints:
 - FastAPI and related HTTP libraries for the web framework
@@ -419,6 +523,7 @@ PYPKG --> ANNS
 - Post-answer background tasks decouple critical path from memory writes and follow-up planning.
 - Environment bootstrapping avoids expensive module reloads and ensures local source preference.
 - Offline mode prevents network overhead during testing and ensures consistent performance.
+- **Updated** Memory retrieval optimization reduces unnecessary database queries and improves response times.
 
 ## Troubleshooting Guide
 Common issues and resolutions:
@@ -431,6 +536,7 @@ Common issues and resolutions:
 - Knowledge backend dependencies: The runtime dependency checker now validates against updated version constraints (isage-vdb>=0.2.0.10, isage-anns>=0.2.0).
 - Network-dependent test failures: The offline mode prevents network downloads during testing, ensuring reproducible results.
 - Model cache issues: Use the provided model caching detection to verify local availability before running embedding-based tests.
+- **Updated** Memory retrieval optimization issues: Use trace logging to debug memory retrieval decisions and verify planner behavior across different scenarios.
 
 **Updated** Enhanced troubleshooting guidance based on recent operational runtime notes and CI improvements, including updated dependency version validation and offline testing considerations
 
@@ -448,6 +554,7 @@ Common issues and resolutions:
 - Validation: Run pytest with automatic conftest.py bootstrap, lint checks for frontend JS, and compile Python modules locally.
 - Coding style: Keep changes small and focused; preserve the app architecture: HTTP surface in api.py, orchestration in service.py, storage and retrieval in dedicated modules.
 - Testing: Leverage the enhanced offline testing infrastructure and automatic backend detection for comprehensive test coverage.
+- **Updated** Defensive testing: When adding new conditional planner steps, include comprehensive tests covering memory availability scenarios and planner decision validation.
 
 **Section sources**
 - [CONTRIBUTING.md](file://CONTRIBUTING.md)
@@ -491,6 +598,7 @@ Guidance for adding new features:
 - Leverage conftest.py automatic bootstrap for comprehensive testing
 - Use pytest markers for conditional execution based on environment capabilities
 - Implement automatic backend detection for new knowledge backends
+- **Updated** Include defensive testing for conditional planner steps and memory availability scenarios
 
 **Section sources**
 - [api.py](file://src/sage_faculty_twin/api.py)
@@ -508,10 +616,15 @@ Guidance for adding new features:
 - Follow streamlined CI processes for faster feedback cycles
 - Implement offline-first testing practices for reliable CI pipelines
 - Use automatic backend detection to ensure cross-environment compatibility
+- **Updated** Implement defensive testing patterns for conditional planner steps and memory retrieval optimization
 
 **Section sources**
 - [CONTRIBUTING.md](file://CONTRIBUTING.md)
 - [README.md](file://README.md)
 
 ## Conclusion
-This guide consolidates development practices, architecture insights, and operational procedures for contributing to the Sage Faculty Twin project. The enhanced testing infrastructure with automatic conftest.py bootstrap provides seamless sibling source checkout support, comprehensive network prevention, intelligent model caching detection, and automatic backend selection capabilities. These improvements ensure reliable testing across diverse environments while maintaining strict offline operation requirements. Recent CI workflow improvements have streamlined the development process by removing duplication and optimizing resource usage. The updated dependency version constraints reflect the latest SAGE ecosystem releases, ensuring compatibility and stability. By following the outlined conventions, testing strategies, and troubleshooting steps, contributors can efficiently extend functionality while preserving system reliability and performance.
+This guide consolidates development practices, architecture insights, and operational procedures for contributing to the Sage Faculty Twin project. The enhanced testing infrastructure with automatic conftest.py bootstrap provides seamless sibling source checkout support, comprehensive network prevention, intelligent model caching detection, and automatic backend selection capabilities. These improvements ensure reliable testing across diverse environments while maintaining strict offline operation requirements. Recent CI workflow improvements have streamlined the development process by removing duplication and optimizing resource usage. The updated dependency version constraints reflect the latest SAGE ecosystem releases, ensuring compatibility and stability. 
+
+**Updated** The guide now includes comprehensive documentation of defensive testing practices for handling conditional planner steps like `retrieve_recent_memory`, with detailed guidance on testing planner behavior across different memory availability scenarios. The system's sophisticated memory retrieval optimization logic, including benchmark request isolation, route-based conditional execution, planner decision validation, and memory availability optimization, is thoroughly documented with practical testing strategies and real-world examples from the test suite.
+
+By following the outlined conventions, testing strategies, and troubleshooting steps, contributors can efficiently extend functionality while preserving system reliability and performance, with particular emphasis on robust defensive testing for conditional planner steps and memory retrieval scenarios.

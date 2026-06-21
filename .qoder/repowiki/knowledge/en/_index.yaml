@@ -3,14 +3,19 @@ schema_version: 1
 locale: en-US
 branch: main
 nodes_managed: true
-exported_at: "2026-06-21T09:46:15Z"
+exported_at: "2026-06-21T10:18:36Z"
 modules:
     "":
-        dir_name: Faculty Digital Twin Orchestrator_2
-        title: Faculty Digital Twin Orchestrator
+        dir_name: SAGE Faculty Digital Twin Orchestrator
+        title: SAGE Faculty Digital Twin Orchestrator
         scope: []
         source_files: []
-        children: []
+        children:
+            - app_source
+            - deployment
+            - docs
+            - runtime_data
+            - tests
         depends_on: []
         related_to: []
     app_source:
@@ -22,7 +27,6 @@ modules:
         children: []
         depends_on: []
         related_to:
-            - path: deployment
             - path: runtime_data
     build_system:
         dir_name: Build, Deployment, and Runtime Orchestration
@@ -74,8 +78,7 @@ modules:
         source_files: []
         children: []
         depends_on: []
-        related_to:
-            - path: app_source
+        related_to: []
     docs:
         dir_name: Product Documentation & Deployment Operations
         title: Product Documentation & Deployment Operations

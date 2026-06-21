@@ -1,3 +1,4 @@
-- **Agentic Framework**: Uses `isage` (SAGE) for workflow orchestration and `isage-neuromem` for neural memory management.
-- **Inference Engine**: Integrates with `vllm-hust` (a customized vLLM fork) for LLM inference, supporting features like thinking token budgets and external prefix caching via DeltaKV.
-- **Vector Search**: Optional dependencies include `isage-vdb` and `isage-anns` for vector database and approximate nearest neighbor search capabilities.
+- **LLM Backend**: vLLM-HUST (custom fork) for high-throughput inference with DeltaKV prefix caching.
+- **Memory Engine**: SAGE Neuromem (`isage-neuromem`) for neural continual memory and vector retrieval.
+- **Web Search**: Tavily API (`tavily-python`) for real-time grounding.
+- **PDF Processing**: `pypdf` for attachment text extraction.

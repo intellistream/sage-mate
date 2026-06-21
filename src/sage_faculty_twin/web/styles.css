@@ -57,8 +57,10 @@ body {
     margin-left: 56px;
     max-width: none;
     width: calc(100% - 56px);
-    min-height: 100vh;
+    height: 100vh;
     overflow: hidden;
+    display: flex;
+    flex-direction: column;
     transition: margin-left 200ms ease;
 }
 
@@ -431,7 +433,8 @@ h2 {
     grid-template-columns: 260px minmax(0, 1fr);
     gap: 16px;
     align-items: stretch;
-    min-height: var(--panel-height);
+    flex: 1;
+    min-height: 0;
     position: relative;
 }
 
@@ -652,8 +655,8 @@ body.drawer-pinned .history-rail {
 }
 
 .chat-shell {
-    min-height: var(--panel-height);
-    height: var(--panel-height);
+    flex: 1;
+    min-height: 0;
     display: flex;
     flex-direction: column;
     overflow: hidden;
@@ -2854,7 +2857,8 @@ body.conversation-active .intro-card .message-body {
 .chat-layout {
     grid-template-columns: minmax(0, 1fr) !important;
     gap: 0 !important;
-    min-height: 100vh !important;
+    flex: 1 !important;
+    min-height: 0 !important;
 }
 
 /* Sidebar container - full viewport height, fixed position */
@@ -5207,6 +5211,11 @@ body.workflow-shell-collapsed #workflow-toggle {
     .chat-shell {
         min-height: 0;
         height: auto;
+    }
+
+    .chat-shell.view-active {
+        flex: 1;
+        min-height: 0;
     }
 
     .composer-shell {

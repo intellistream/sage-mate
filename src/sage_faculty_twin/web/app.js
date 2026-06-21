@@ -7986,6 +7986,7 @@ function openSettingsDrawer() {
     closeStatusDrawer();
     closeSuggestionView();
     closeAccountView();
+    document.body.classList.remove("sidebar-expanded");
     // Move settings-drawer DOM nodes into settings-view on first open (preserves event handlers)
     if (settingsDrawer && settingsViewBody && !settingsViewBody.dataset.loaded) {
         while (settingsDrawer.firstChild) {
@@ -8008,6 +8009,7 @@ function openStatusDrawer() {
     closeSettingsDrawer();
     closeSuggestionView();
     closeAccountView();
+    document.body.classList.remove("sidebar-expanded");
     statusView?.removeAttribute("hidden");
     chatShell?.classList.add("view-active");
 }
@@ -8023,6 +8025,7 @@ function openSuggestionView() {
     closeSettingsDrawer();
     closeStatusDrawer();
     closeAccountView();
+    document.body.classList.remove("sidebar-expanded");
     // Move suggestion-modal children into suggestion-view on first open (preserves event handlers)
     if (suggestionModal && suggestionViewBody && !suggestionViewBody.dataset.loaded) {
         while (suggestionModal.firstChild) {
@@ -8045,6 +8048,7 @@ function openAccountView(tab = "register") {
     closeSettingsDrawer();
     closeStatusDrawer();
     closeSuggestionView();
+    document.body.classList.remove("sidebar-expanded");
     // Move register/login modal children into account-view tabs on first open
     if (userRegisterModal && accountTabRegister && !accountTabRegister.dataset.loaded) {
         while (userRegisterModal.firstChild) {
