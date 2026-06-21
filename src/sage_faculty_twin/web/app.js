@@ -791,8 +791,11 @@ function hideOnboardingCard() {
     }
     stopHintRotation();
     onboardingActive = false;
-    // Restore welcome greeting and seed chips when onboarding is dismissed
-    document.getElementById("welcome-greeting")?.classList.remove("hidden");
+    // Only restore welcome greeting if no messages have been sent yet
+    const hasMessages = chatStream && chatStream.querySelectorAll(".message-user").length > 0;
+    if (!hasMessages) {
+        document.getElementById("welcome-greeting")?.classList.remove("hidden");
+    }
     document.getElementById("seed-chips")?.classList.remove("hidden");
 }
 
@@ -873,8 +876,11 @@ function renderOnboardingStep() {
 }
 
 function showDefaultLandingContent() {
-    // Show welcome greeting and seed chips when onboarding is not active
-    document.getElementById("welcome-greeting")?.classList.remove("hidden");
+    // Show welcome greeting and seed chips only when no messages exist yet
+    const hasMessages = chatStream && chatStream.querySelectorAll(".message-user").length > 0;
+    if (!hasMessages) {
+        document.getElementById("welcome-greeting")?.classList.remove("hidden");
+    }
     document.getElementById("seed-chips")?.classList.remove("hidden");
 }
 
@@ -1669,7 +1675,16 @@ chatForm.addEventListener("submit", async (event) => {
     let onboardingWrappedQuestion = question;
     if (wasOnboarding && onboardingSteps[onboardingCurrentStep]) {
         const step = onboardingSteps[onboardingCurrentStep];
-        onboardingWrappedQuestion = `[七步提问法 · 第 ${onboardingCurrentStep + 1} 步] ${step.copy}\n\n问题模板：${step.question}\n\n我的回答：${question}\n\n请对我的回答给出具体的评价和改进建议，并引导我思考下一步。`;
+        const stepLabel = step.context || "新手引导";
+        const stepNum = onboardingCurrentStep + 1;
+        const totalSteps = onboardingSteps.length;
+        const profile = visitorProfileInput?.value || "general_visitor";
+        // Only include evaluation/feedback instructions for guided-learning profiles
+        const isGuidedProfile = ["lab_member", "paper_writing_student", "hust_undergraduate"].includes(profile);
+        const feedbackInstruction = isGuidedProfile
+            ? "\n\n请对我的回答给出具体的评价和改进建议，并引导我思考下一步。"
+            : "";
+        onboardingWrappedQuestion = `[${stepLabel} · 第 ${stepNum}/${totalSteps} 步] ${step.copy}\n\n问题模板：${step.question}\n\n我的回答：${question}${feedbackInstruction}`;
     }
 
     lastFailedQuestion = null;
@@ -5031,6 +5046,8 @@ function updateChatEmptyState() {
         chatShell.classList.add("chat-empty");
     } else {
         chatShell.classList.remove("chat-empty");
+        // Once the user has interacted, permanently hide the welcome greeting
+        document.getElementById("welcome-greeting")?.classList.add("hidden");
     }
 }
 

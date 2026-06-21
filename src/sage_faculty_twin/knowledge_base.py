@@ -1723,14 +1723,62 @@ def _allowed_audiences_for_requester(
     return frozenset(profile_audiences | role_audiences)
 
 
+_SENSITIVE_SOURCE_PREFIXES = (
+    "workspace/",
+    "private-materials:",
+)
+_SENSITIVE_TAG_INDICATORS = frozenset({
+    "proposal",
+    "roadmap",
+})
+_SENSITIVE_SOURCE_PATH_KEYWORDS = frozenset({
+    "proposal",
+    "roadmap",
+    "award",
+    "基金",
+    "loa",
+})
+
+
+def _infer_default_audience(document: "KnowledgeDocumentRecord") -> str | None:
+    """Infer a default audience for documents that lack explicit audience tags.
+
+    Returns ``"lab_member"`` for documents from internal workspace or
+    private-materials sources, or for documents whose source path or tags
+    suggest sensitive content (proposals, roadmaps, award letters, etc.).
+    Returns ``None`` for all other documents, meaning they remain publicly
+    visible (the original allow-by-default behaviour for public content).
+    """
+    source = (document.source_name or "").lower()
+    # 1. Workspace and private-materials sources are always internal
+    for prefix in _SENSITIVE_SOURCE_PREFIXES:
+        if source.startswith(prefix.lower()):
+            return "lab_member"
+    # 2. Tag-based heuristic: proposal/roadmap tags without explicit audience
+    lower_tags = {t.lower() for t in document.tags}
+    if lower_tags & _SENSITIVE_TAG_INDICATORS:
+        return "lab_member"
+    # 3. Source-path keyword heuristic (award letters, fund docs, etc.)
+    for keyword in _SENSITIVE_SOURCE_PATH_KEYWORDS:
+        if keyword in source:
+            return "lab_member"
+    return None
+
+
 def _document_is_visible_to_requester(
-    document: KnowledgeDocumentRecord,
+    document: "KnowledgeDocumentRecord",
     visitor_profile: str | None,
     admin_role: str | None = None,
 ) -> bool:
     document_audiences = _document_visibility_audiences(document)
     if not document_audiences:
-        return True
+        # No explicit audience: check if the document matches sensitive
+        # source patterns that should be restricted by default.
+        inferred = _infer_default_audience(document)
+        if inferred is not None:
+            document_audiences = frozenset({inferred})
+        else:
+            return True  # genuinely public content
     return bool(document_audiences & _allowed_audiences_for_requester(visitor_profile, admin_role))
 
 
