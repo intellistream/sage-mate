@@ -1018,6 +1018,30 @@ is surfaced to the user.
   and planner step assertion mismatches resolved; test screenshots removed from repo.
 - **Test count**: 384 tests collected, all passing.
 
+### V4.3.0–V4.3.1 Frontend UX Overhaul & Technical Debt Reduction (Implemented)
+
+`v4.3.0` and `v4.3.1` deliver a major frontend simplification and defensive hardening pass:
+
+#### V4.3.0 — Landing Page Removal & Identity Auto-Mark
+
+- **Landing page removed**: new users now enter directly into onboarding instead of a separate identity-selection modal.
+- **Identity auto-marked**: visitor identity is automatically marked on page load for unauthenticated users (guest default).
+- **Dead code purge**: removed ~400 lines of identity-modal HTML/CSS/JS that were no longer reachable.
+- **Global JS error handlers**: added `window.addEventListener("error")` and `unhandledrejection` to prevent uncaught errors from silently breaking all event listeners.
+- **`onboarding_step` parameter**: LLM-powered lucky question now receives the current onboarding step label for context-aware generation (propagated through llm_client → service → API).
+- **`/context/compress` authentication**: endpoint now requires admin session.
+- **375 tests passing**.
+
+#### V4.3.1 — Floating Onboarding & Welcome Greeting Dismissal
+
+- **Sticky onboarding card**: `position: sticky; top: 0` keeps the onboarding guide pinned to the top of the chat area, no longer pushed out of view by messages.
+- **Frosted glass background**: semi-opaque gradient + `backdrop-filter: blur(12px)` prevents content bleed-through.
+- **Welcome greeting auto-dismiss**: "你好" permanently disappears after the user sends their first message; not re-shown after onboarding ends or on page refresh.
+- **Loading state on random button**: both lucky question buttons show "生成中。。" with a spinner during API calls.
+- **Defensive JS re-applied**: null-safe `chatSubmitButton`, `autoResizeTextarea`, `defer` script tag, try-catch `initializePage()`.
+- **Second dead-code pass**: removed 14 dead functions (including `updateWorkflowPlanComparison` + 3 formatters, `appendPendingWorkflowTraceItems` + helpers, `setResponse`, `openDrawer`, `handleIdentityChoiceClick`), 15 unused DOM consts, 2 orphaned HTML sections (~350 lines total).
+- **375 tests passing**.
+
 ### V4 Product Theme
 
 - Voice-first academic office entrance: students can speak naturally, receive spoken responses,
@@ -1138,3 +1162,11 @@ refactor with structured citation cards.
 `v4.2.5` modernizes the UI: ChatGPT-style sidebar with avatar-driven account panel, in-chat
 register/login views with invitation-code enforcement, seed chips replacing sidebar pre-fills,
 onboarding dismiss/help buttons, collapsible small-screen footer, and 384 passing tests.
+
+`v4.3.0` removes the identity-selection landing page — new users enter directly into
+onboarding. Visitor identity is auto-marked on load. ~400 lines of dead modal code purged.
+Global JS error handlers added.
+
+`v4.3.1` makes onboarding float above chat (sticky positioning), permanently hides the welcome
+greeting after first interaction, adds loading states to random-question buttons, and removes
+another ~350 lines of dead code across 14 functions, 15 consts, and 2 HTML sections.
