@@ -256,6 +256,7 @@ def _resolve_vllm_hust_version() -> str:
 def build_stack_versions_payload() -> dict[str, str]:
     """Resolve all stack component versions from local source checkouts."""
     return {
+        "app_version": _app_version,
         "stack_version_sage": _resolve_source_version(
             "SAGE", pip_names=("isage", "isage-common"), expect_name="isage",
         ),
