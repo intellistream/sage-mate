@@ -847,6 +847,79 @@ def test_knowledge_store_enforces_audience_visibility_by_visitor_profile(
         }
 
 
+def test_infer_default_audience_restricts_sensitive_sources(
+    tmp_path: Path,
+) -> None:
+    """Documents from workspace/ or with proposal/roadmap tags should be
+    auto-restricted to lab_member when no explicit audience tag is present."""
+    for backend_name in available_knowledge_backends():
+        if backend_name == "sagevdb":
+            continue
+        knowledge_dir = tmp_path / f"infer-audience-{backend_name}"
+        settings = AppSettings(
+            knowledge_base_dir=knowledge_dir,
+            knowledge_backend="neuromem" if backend_name == "neuromem" else "local",
+        )
+        store = LocalKnowledgeStore(settings)
+
+        for title, tags, source_name in (
+            # Workspace sources should be auto-restricted
+            (
+                "VAMOS Proposal",
+                ["research", "proposal"],
+                "workspace/vamos/proposal",
+            ),
+            (
+                "VAMOS Roadmap",
+                ["research", "roadmap"],
+                "workspace/vamos/roadmap",
+            ),
+            (
+                "VAMOS README",
+                ["research", "agenda"],
+                "workspace/vamos",
+            ),
+            # Public content should remain unrestricted
+            (
+                "公开论文｜MorphStream",
+                ["research", "publication"],
+                "homepage:contents/research_papers/2025/morphstream.md",
+            ),
+            (
+                "公开资料｜实验室简介",
+                ["homepage", "profile"],
+                "homepage:contents/index.md",
+            ),
+        ):
+            store.add_document(
+                KnowledgeDocumentCreate(
+                    title=title,
+                    content="敏感内容自动限制测试：所有身份都能命中这段关键词。",
+                    tags=tags,
+                    source_name=source_name,
+                )
+            )
+
+        query = "敏感内容自动限制测试"
+        visitor_titles = {
+            hit.title
+            for hit in store.search(query, top_k=8, visitor_profile="general_visitor")
+        }
+        lab_titles = {
+            hit.title
+            for hit in store.search(query, top_k=8, visitor_profile="lab_member")
+        }
+
+        # Guest should only see public content
+        assert visitor_titles == {"公开论文｜MorphStream", "公开资料｜实验室简介"}
+        # Lab member should see everything
+        assert lab_titles == {
+            "VAMOS Proposal",
+            "VAMOS Roadmap",
+            "VAMOS README",
+            "公开论文｜MorphStream",
+            "公开资料｜实验室简介",
+        }
 def test_service_prompt_includes_retrieved_owner_materials(tmp_path: Path) -> None:
     settings = AppSettings(knowledge_base_dir=tmp_path)
     service = DigitalTwinService(settings)

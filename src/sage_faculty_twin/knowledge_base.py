@@ -1734,9 +1734,13 @@ _SENSITIVE_TAG_INDICATORS = frozenset({
 _SENSITIVE_SOURCE_PATH_KEYWORDS = frozenset({
     "proposal",
     "roadmap",
-    "award",
     "基金",
-    "loa",
+    "loa ",
+    "loa_",
+    "loa.",
+    "letter of award",
+    "letter of accept",
+    "thesis_proposal",
 })
 
 
