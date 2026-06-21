@@ -18,6 +18,7 @@ data/conversation_memory/planner-metrics/*.json
 data.pre_recovery_*/
 data/*.backup-*/
 *.bak.*
+debug_*.png
 dist/
 build/
 *.egg-info/
