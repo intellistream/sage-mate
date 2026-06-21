@@ -1,4 +1,0 @@
-- **Web Framework**: FastAPI with Pydantic for request validation and data modeling.
-- **LLM Integration**: Custom `VllmChatClient` communicating with vLLM-HUST instances via OpenAI-compatible HTTP APIs.
-- **Vector & Memory**: Integrates with SageVDB and NeuroMem for semantic search and conversational memory storage.
-- **Session Security**: HMAC-SHA256 signed cookies for stateless session management without external identity providers.

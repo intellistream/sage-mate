@@ -10,16 +10,17 @@
 - [knowledge_base.py](file://src/sage_faculty_twin/knowledge_base.py)
 - [config.py](file://src/sage_faculty_twin/config.py)
 - [index.html](file://src/sage_faculty_twin/web/index.html)
+- [styles.css](file://src/sage_faculty_twin/web/styles.css)
+- [app.js](file://src/sage_faculty_twin/web/app.js)
 - [README.md](file://README.md)
 </cite>
 
 ## Update Summary
 **Changes Made**
-- Removed all references to GraphQL API implementation as it has been completely removed from the codebase
-- Updated architecture diagrams to reflect pure REST API structure
-- Clarified that the API is now a standard FastAPI REST service without GraphQL integration
-- Updated troubleshooting section to remove GraphQL-related error scenarios
-- Enhanced security considerations to focus on REST API patterns
+- Updated static asset serving endpoints to reflect versioned filenames (styles.4217.css, app.4217.js)
+- Added backward compatibility support for legacy asset URLs (styles.css, app.js)
+- Enhanced cache management documentation for improved browser caching behavior
+- Updated frontend asset loading examples to demonstrate versioned asset usage
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -54,7 +55,7 @@ Key API-related modules:
 - Availability schedule persistence: [availability.py](file://src/sage_faculty_twin/availability.py)
 - Knowledge base storage and retrieval: [knowledge_base.py](file://src/sage_faculty_twin/knowledge_base.py)
 - Application settings and environment: [config.py](file://src/sage_faculty_twin/config.py)
-- Frontend assets and HTML shell: [index.html](file://src/sage_faculty_twin/web/index.html)
+- Frontend assets and HTML shell: [index.html](file://src/sage_faculty_twin/web/index.html), [styles.css](file://src/sage_faculty_twin/web/styles.css), [app.js](file://src/sage_faculty_twin/web/app.js)
 - Deployment and usage notes: [README.md](file://README.md)
 
 ```mermaid
@@ -65,6 +66,7 @@ end
 subgraph "FastAPI App"
 API["API Routes<br/>/auth/*, /chat*, /knowledge*, /availability*, /operations*"]
 SSE["SSE Broker<br/>/chat/workflow-events"]
+Static["Static Assets<br/>/styles.*.css, /app.*.js"]
 end
 subgraph "Services"
 Auth["Auth Module"]
@@ -78,6 +80,7 @@ API --> Service
 Service --> KB
 Service --> Avail
 API --> SSE
+API --> Static
 ```
 
 **Diagram sources**
@@ -98,11 +101,14 @@ API --> SSE
 - Knowledge base CRUD and search
 - Availability schedule management
 - Operational dashboards and analytics
+- Versioned static asset delivery for optimal caching
 
 Key constants and behaviors:
 - Chat request timeout and SSE keepalive intervals are configurable via environment variables
 - Attachment limits and supported types are enforced server-side
 - Admin-only endpoints are protected by cookie-based session validation
+- Static assets now use versioned filenames (styles.4217.css, app.4217.js) for improved cache management
+- Backward compatibility maintained for legacy asset URLs (styles.css, app.js)
 
 **Section sources**
 - [api.py:116-168](file://src/sage_faculty_twin/api.py#L116-L168)
@@ -114,6 +120,7 @@ High-level flow:
 - Clients call JSON endpoints for authentication, chat, knowledge, availability, and operations
 - Admin endpoints require a valid admin session cookie
 - Chat endpoint optionally streams workflow events via SSE when a request ID is provided
+- Static assets are served with versioned filenames for optimal browser caching
 - The service orchestrates LLM calls, memory retrieval, knowledge search, web search, and follow-up actions
 
 ```mermaid
@@ -128,6 +135,10 @@ C->>API : POST /auth/admin/login
 API->>AUTH : validate credentials
 AUTH-->>API : session token
 API-->>C : Set admin cookie
+C->>API : GET /styles.4217.css
+API-->>C : CSS asset with cache headers
+C->>API : GET /app.4217.js
+API-->>C : JS asset with cache headers
 C->>API : POST /chat
 API->>SVC : answer(ChatRequest)
 SVC->>KB : retrieve/search
@@ -141,8 +152,10 @@ API-->>C : SSE stream (trace, answer_delta, answer_done, error, complete)
 - [api.py:479-510](file://src/sage_faculty_twin/api.py#L479-L510)
 - [api.py:618-700](file://src/sage_faculty_twin/api.py#L618-L700)
 - [api.py:597-609](file://src/sage_faculty_twin/api.py#L597-L609)
+- [api.py:452-455](file://src/sage_faculty_twin/api.py#L452-L455)
+- [api.py:465-468](file://src/sage_faculty_twin/api.py#L465-L468)
 - [service.py:581-634](file://src/sage_faculty_twin/service.py#L581-L634)
-- [knowledge_base.py:273-295](file://src/sage_faculty_twin/knowledge_base.py#L273-L295)
+- [knowledge_base.py:273-295](file://src/sage_faculty_twin/knowledge_base.py#L273-295)
 - [availability.py:17-26](file://src/sage_faculty_twin/availability.py#L17-L26)
 
 ## Detailed Component Analysis
@@ -337,23 +350,39 @@ Behavior:
 - [models.py:257-282](file://src/sage_faculty_twin/models.py#L257-L282)
 
 ### Frontend Assets and Health
+**Updated**: Static asset serving now uses versioned filenames for improved cache management
+
 - GET / (returns index.html)
-- GET /styles.css, /app.js (static assets)
+- GET /styles.css, GET /styles.4217.css (static CSS assets with backward compatibility)
+- GET /app.js, GET /app.4217.js (static JavaScript assets with backward compatibility)
 - GET /health (service health and stack versions)
 - GET /stack/versions, /stack/hardware (runtime metadata)
 
+Versioned asset behavior:
+- Both legacy URLs (/styles.css, /app.js) and versioned URLs (/styles.4217.css, /app.4217.js) serve the same content
+- Versioned assets enable aggressive browser caching with cache-busting through filename versioning
+- Legacy URLs provide backward compatibility for older clients
+- Static assets are served with NO_STORE_HEADERS to prevent intermediate caching
+
+Example curl:
+- Load versioned CSS: curl http://127.0.0.1:55601/styles.4217.css
+- Load versioned JS: curl http://127.0.0.1:55601/app.4217.js
+
 **Section sources**
-- [api.py:429-449](file://src/sage_faculty_twin/api.py#L429-L449)
+- [api.py:447-449](file://src/sage_faculty_twin/api.py#L447-L449)
+- [api.py:452-455](file://src/sage_faculty_twin/api.py#L452-L455)
+- [api.py:465-468](file://src/sage_faculty_twin/api.py#L465-L468)
 - [api.py:512-539](file://src/sage_faculty_twin/api.py#L512-L539)
 - [service.py:250-266](file://src/sage_faculty_twin/service.py#L250-L266)
 - [service.py:269-346](file://src/sage_faculty_twin/service.py#L269-L346)
-- [index.html:1-20](file://src/sage_faculty_twin/web/index.html#L1-L20)
+- [index.html:13](file://src/sage_faculty_twin/web/index.html#L13)
 
 ## Dependency Analysis
 Internal dependencies:
 - API routes depend on auth helpers and DigitalTwinService
 - Service composes knowledge store, availability store, memory stores, LLM client, and workflow components
 - SSE broker is decoupled from routes and used for streaming workflow events
+- Static asset serving uses FastAPI StaticFiles with versioned filename support
 
 ```mermaid
 graph LR
@@ -362,6 +391,7 @@ API --> SVC["service.py"]
 SVC --> KB["knowledge_base.py"]
 SVC --> AV["availability.py"]
 API --> SSE["SSE Broker"]
+API --> STATIC["Static Files<br/>versioned assets"]
 ```
 
 **Diagram sources**
@@ -380,6 +410,7 @@ API --> SSE["SSE Broker"]
 - Chat request timeout: DIGITAL_TWIN_CHAT_REQUEST_TIMEOUT_SECONDS bounds total request time
 - Prompt soft cap and truncation reduce LLM context size when needed
 - Knowledge base backends: choose appropriate embedding and index type for retrieval performance
+- **Updated**: Static asset caching: versioned filenames (styles.4217.css, app.4217.js) enable aggressive browser caching with automatic cache invalidation on updates
 
 ## Troubleshooting Guide
 Common issues and resolutions:
@@ -388,10 +419,12 @@ Common issues and resolutions:
 - 422 Validation errors on chat: missing required fields or invalid attachment types/sizes
 - 504 Gateway Timeout on /chat: exceeded DIGITAL_TWIN_CHAT_REQUEST_TIMEOUT_SECONDS; retry later
 - No streaming output: verify DIGITAL_TWIN_STREAM_CHAT_ANSWER is enabled and upstream LLM supports chunked streaming
+- **Updated**: Asset loading issues: both legacy URLs (/styles.css, /app.js) and versioned URLs (/styles.4217.css, /app.4217.js) are supported; use versioned URLs for optimal caching
 
 Operational checks:
 - Verify /health responds with initialized status
 - Confirm stack versions and hardware info via /stack/versions and /stack/hardware
+- **Updated**: Static assets load successfully with versioned filenames for improved caching behavior
 
 **Section sources**
 - [auth.py:119-129](file://src/sage_faculty_twin/auth.py#L119-L129)
@@ -402,12 +435,13 @@ Operational checks:
 ## Conclusion
 The Sage Faculty Twin API provides a comprehensive set of endpoints for chat, knowledge management, scheduling, and administrative operations. It emphasizes robust session management, streaming chat responses, and modular backend integrations for knowledge and availability. Administrators can manage content and workflows, while users can engage in contextual, streamed conversations with optional attachments and web search.
 
-**Updated**: GraphQL API implementation has been removed from the codebase. The API is now a pure REST service built with FastAPI, providing all functionality through standard HTTP endpoints without GraphQL integration.
+**Updated**: GraphQL API implementation has been removed from the codebase. The API is now a pure REST service built with FastAPI, providing all functionality through standard HTTP endpoints without GraphQL integration. Static asset serving now includes versioned filenames (styles.4217.css, app.4217.js) for improved cache management and backward compatibility.
 
 ## Appendices
 
 ### API Versioning
 - FastAPI app defines a version string; stack versions are exposed separately via /stack/versions and /stack/hardware
+- **Updated**: Static assets use semantic versioning in filenames (styles.4217.css, app.4217.js) where 4217 represents the build version
 
 **Section sources**
 - [api.py](file://src/sage_faculty_twin/api.py#L90)
@@ -425,6 +459,7 @@ The Sage Faculty Twin API provides a comprehensive set of endpoints for chat, kn
 - CORS is configured for local development origins
 - Attachments are validated for type, size, and encoding
 - All endpoints are RESTful JSON APIs without GraphQL attack surface
+- **Updated**: Static asset security: served with NO_STORE_HEADERS to prevent intermediate caching; versioned filenames provide cache-busting capabilities
 
 **Section sources**
 - [auth.py:57-86](file://src/sage_faculty_twin/auth.py#L57-L86)

@@ -1,1 +1,0 @@
-Exposes a FastAPI-based HTTP interface and orchestrates the digital twin's core workflows, including LLM-driven chat, knowledge retrieval, session management, and administrative operations.
