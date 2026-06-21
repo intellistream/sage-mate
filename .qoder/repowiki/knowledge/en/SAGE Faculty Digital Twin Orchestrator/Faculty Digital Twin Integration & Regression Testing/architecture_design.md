@@ -1,0 +1,4 @@
+- **Test Harness**: Uses `pytest` with a centralized `conftest.py` that bootstraps the runtime environment, manages `sys.path` for sibling repositories (SAGE, neuromem), and enforces offline mode for embedding models.
+- **Mocking Strategy**: Extensively employs dependency injection to replace external services (LLM clients, email notifiers, systemd managers) with deterministic fakes (e.g., `IntentAwareLLMClient`, `RecordingNotifier`) to isolate workflow logic.
+- **Coverage Domains**: Organized into functional clusters: agentic workflow planning (`test_agentic_workflow.py`), knowledge base retrieval and ranking (`test_knowledge_base.py`), administrative authentication and booking management (`test_admin_auth.py`), and system resilience (`test_store_resilience.py`).
+- **Benchmarking**: Includes specialized adapters for character evaluation and memory follow-up scenarios (`test_benchmark_adapter.py`) to quantify persona consistency and context retention.

@@ -1,0 +1,4 @@
+- Defines a suite of systemd user services (`*.service`) and a timer (`*.timer`) to orchestrate distinct components: the main app server, vLLM inference engine, OpenAI proxy, SSH tunnel, and wiki sync job.
+- Uses placeholder variables (e.g., `__REPO_ROOT__`, `__PYTHON_BIN__`) in unit files, indicating a template-based deployment workflow where these values are substituted before installation.
+- Establishes dependency ordering with `After=network-online.target` to ensure network availability before starting services.
+- Configures resilience through restart policies (`Restart=always` or `on-failure`) and specific startup timeouts (e.g., 600s for the vLLM engine) to handle heavy initialization loads.

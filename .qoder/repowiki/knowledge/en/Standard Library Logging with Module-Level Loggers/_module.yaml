@@ -1,0 +1,14 @@
+schema_version: 1
+module_path: logging_system
+title: Standard Library Logging with Module-Level Loggers
+scope: []
+source_files:
+    - src/sage_faculty_twin/service.py
+    - src/sage_faculty_twin/llm_client.py
+    - src/sage_faculty_twin/capability_plugins.py
+    - src/sage_faculty_twin/skill_router.py
+    - src/sage_faculty_twin/skill_runner.py
+    - src/sage_faculty_twin/skill_tools.py
+    - tools/run_app_server.sh
+depends_on: []
+related_to: []

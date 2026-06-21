@@ -1,4 +1,0 @@
-- **Environment**: Requires `DIGITAL_TWIN_LLM_BASE_URL` pointing to a running vLLM-HUST instance.
-- **Optional Dependencies**: `isage-anns` for HNSW indexes; `pypdf` for PDF attachment parsing.
-- **Runtime**: Uses `systemd-run` for service control via `manage.sh` (configured in `AppSettings`).
-- **DeltaKV**: Optional KV cache continuity via `DIGITAL_TWIN_KV_CONTINUITY_ENABLED` for stateful sessions across restarts.

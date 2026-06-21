@@ -1,3 +1,0 @@
-- All service units use `Type=simple` and define `WorkingDirectory=__REPO_ROOT__` to ensure consistent execution context.
-- Services targeting network-dependent components explicitly declare `After=network-online.target` and `Wants=network-online.target` to prevent premature startup.
-- Restart policies are standardized with `Restart=always` or `Restart=on-failure` paired with short `RestartSec` intervals (3-10 seconds) for high availability.

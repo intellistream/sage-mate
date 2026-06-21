@@ -19,10 +19,11 @@
 
 ## Update Summary
 **Changes Made**
-- Enhanced web interface documentation with comprehensive markdown rendering capabilities
-- Added detailed streaming response handling with formatted innerHTML implementation
-- Updated frontend architecture to reflect improved markdown processing pipeline
-- Expanded streaming optimization documentation with real-time content rendering
+- Enhanced UI/UX documentation with comprehensive seed chip implementation details
+- Added detailed suggestion board deduplication mechanism documentation
+- Updated changelog modal accessibility improvements section
+- Expanded CSS overflow fixes documentation for better layout management
+- Documented sidebar redesign from shortcut buttons to seed chips above chat composer
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -31,25 +32,30 @@
 4. [Architecture Overview](#architecture-overview)
 5. [Detailed Component Analysis](#detailed-component-analysis)
 6. [Enhanced Web Interface Architecture](#enhanced-web-interface-architecture)
-7. [Markdown Rendering Pipeline](#markdown-rendering-pipeline)
-8. [Streaming Response Handling](#streaming-response-handling)
-9. [Dependency Analysis](#dependency-analysis)
-10. [Performance Considerations](#performance-considerations)
-11. [Troubleshooting Guide](#troubleshooting-guide)
-12. [Conclusion](#conclusion)
+7. [Seed Chip Implementation](#seed-chip-implementation)
+8. [Suggestion Board Deduplication](#suggestion-board-deduplication)
+9. [Changelog Modal Accessibility](#changelog-modal-accessibility)
+10. [CSS Overflow Management](#css-overflow-management)
+11. [Sidebar Redesign](#sidebar-redesign)
+12. [Markdown Rendering Pipeline](#markdown-rendering-pipeline)
+13. [Streaming Response Handling](#streaming-response-handling)
+14. [Dependency Analysis](#dependency-analysis)
+15. [Performance Considerations](#performance-considerations)
+16. [Troubleshooting Guide](#troubleshooting-guide)
+17. [Conclusion](#conclusion)
 
 ## Introduction
-This document explains the core backend components of Sage Faculty Twin, focusing on the service layer architecture, configuration management, authentication and authorization, runtime environment handling, workflow orchestration, memory management integration, and knowledge base connectivity. The system has been enhanced with comprehensive web interface capabilities including advanced markdown rendering and optimized streaming response handling with formatted innerHTML.
+This document explains the core backend components of Sage Faculty Twin, focusing on the service layer architecture, configuration management, authentication and authorization, runtime environment handling, workflow orchestration, memory management integration, and knowledge base connectivity. The system has been enhanced with comprehensive web interface capabilities including advanced markdown rendering, optimized streaming response handling, seed chip implementation, suggestion board deduplication, and improved accessibility features.
 
 ## Project Structure
-The backend is organized around a FastAPI application that exposes REST endpoints and an internal service layer responsible for orchestrating workflows. The frontend has been significantly enhanced with comprehensive markdown rendering capabilities and real-time streaming optimizations. Key modules include:
+The backend is organized around a FastAPI application that exposes REST endpoints and an internal service layer responsible for orchestrating workflows. The frontend has been significantly enhanced with comprehensive markdown rendering capabilities, seed chip functionality, and real-time streaming optimizations. Key modules include:
 - Configuration and environment bootstrap
 - Authentication and session management
 - Knowledge base and memory stores
 - Workflow planner and policy enforcement
 - Runtime service control
 - API entrypoints and SSE event streaming
-- Enhanced web interface with markdown rendering
+- Enhanced web interface with seed chips, suggestion boards, and accessibility improvements
 
 ```mermaid
 graph TB
@@ -66,6 +72,7 @@ END
 subgraph "Data Stores"
 KB["LocalKnowledgeStore"]
 MEM["NeuroMemConversationStore"]
+SUGGESTIONS["SuggestionBoard<br/>with deduplication"]
 END
 subgraph "External Integrations"
 LLM["VllmChatClient"]
@@ -73,9 +80,10 @@ EMAIL["BookingEmailNotifier"]
 SYS["ServiceRuntimeManager"]
 END
 subgraph "Enhanced Frontend"
-WEB["Web Interface<br/>Markdown Renderer"]
+WEB["Web Interface<br/>Seed Chips & Accessibility"]
 STREAM["Streaming Handler<br/>Formatted innerHTML"]
 MARKDOWN["Markdown Pipeline<br/>Comprehensive Formatting"]
+CHANGES["Changelog Modal<br/>Accessibility Improvements"]
 END
 API --> SVC
 SVC --> PLANNER
@@ -84,11 +92,13 @@ SVC --> CFG
 SVC --> RTENV
 SVC --> KB
 SVC --> MEM
+SVC --> SUGGESTIONS
 SVC --> LLM
 SVC --> EMAIL
 SVC --> SYS
 WEB --> STREAM
 STREAM --> MARKDOWN
+WEB --> CHANGES
 ```
 
 **Diagram sources**
@@ -174,9 +184,9 @@ STREAM --> MARKDOWN
 The system follows a layered architecture with enhanced web interface capabilities:
 - HTTP layer (FastAPI) handles requests, cookies, and SSE streaming.
 - Service layer orchestrates planning, retrieval, LLM invocation, persistence, and notifications.
-- Data stores encapsulate knowledge and memory with pluggable backends.
+- Data stores encapsulate knowledge, memory, and suggestion management with deduplication.
 - Runtime manager coordinates external services.
-- Enhanced frontend with comprehensive markdown rendering and streaming optimizations.
+- Enhanced frontend with comprehensive markdown rendering, seed chips, and accessibility improvements.
 
 ```mermaid
 sequenceDiagram
@@ -187,6 +197,7 @@ participant Svc as "DigitalTwinService"
 participant Planner as "DeterministicWorkflowPlanner"
 participant KB as "LocalKnowledgeStore"
 participant Mem as "NeuroMemConversationStore"
+participant Suggestions as "SuggestionBoard"
 participant LLM as "VllmChatClient"
 Client->>API : POST /chat
 API->>Svc : answer(ChatRequest, callbacks)
@@ -196,6 +207,8 @@ Svc->>KB : search(query, top_k)
 KB-->>Svc : KnowledgeSearchHits
 Svc->>Mem : search(conversation_id, top_k)
 Mem-->>Svc : ConversationMemoryHits
+Svc->>Suggestions : deduplicate suggestions
+Suggestions-->>Svc : Unique suggestions
 Svc->>LLM : stream chat completion
 LLM-->>Svc : answer chunks
 Svc->>Broker : publish answer_delta
@@ -208,6 +221,7 @@ API-->>Client : SSE answer_delta with formatted content
 - [workflow_planner.py:110-133](file://src/sage_faculty_twin/workflow_planner.py#L110-L133)
 - [knowledge_base.py:273-295](file://src/sage_faculty_twin/knowledge_base.py#L273-L295)
 - [memory_store.py:446-489](file://src/sage_faculty_twin/memory_store.py#L446-L489)
+- [app.js:3987-4022](file://src/sage_faculty_twin/web/app.js#L3987-L4022)
 
 ## Detailed Component Analysis
 
@@ -217,6 +231,7 @@ API-->>Client : SSE answer_delta with formatted content
   - Delegate planning, retrieval, and generation to specialized components.
   - Persist memory and artifacts, dispatch follow-ups, and notify escalations.
   - Stream workflow events and answer deltas via SSE.
+  - Integrate suggestion board with deduplication logic.
 - Key patterns
   - Dependency injection via constructor parameters for stores, clients, and policies.
   - Callback hooks for tracing and streaming.
@@ -237,6 +252,7 @@ class FacultyTwinWorkflowSupport {
 +generate_answer(ctx) ChatWorkflowContext
 +persist_memory(ctx) ChatWorkflowContext
 +plan_follow_up(ctx) ChatWorkflowContext
++suggest_deduplication(suggestions) unique[]
 }
 class DeterministicWorkflowPlanner {
 +plan(context) PlannerDecision
@@ -252,9 +268,15 @@ class NeuroMemConversationStore {
 +add_exchange(...)
 +consolidate_profiles(...)
 }
+class SuggestionBoard {
++duplicate_check(message) boolean
++dedupe_suggestions(suggestions) unique[]
++add_suggestion(suggestion)
+}
 FacultyTwinWorkflowSupport --> DeterministicWorkflowPlanner : "uses"
 FacultyTwinWorkflowSupport --> LocalKnowledgeStore : "uses"
 FacultyTwinWorkflowSupport --> NeuroMemConversationStore : "uses"
+FacultyTwinWorkflowSupport --> SuggestionBoard : "uses"
 ```
 
 **Diagram sources**
@@ -262,6 +284,7 @@ FacultyTwinWorkflowSupport --> NeuroMemConversationStore : "uses"
 - [workflow_planner.py:90-133](file://src/sage_faculty_twin/workflow_planner.py#L90-L133)
 - [knowledge_base.py:121-140](file://src/sage_faculty_twin/knowledge_base.py#L121-L140)
 - [memory_store.py:223-257](file://src/sage_faculty_twin/memory_store.py#L223-L257)
+- [app.js:3987-4022](file://src/sage_faculty_twin/web/app.js#L3987-L4022)
 
 **Section sources**
 - [service.py:581-634](file://src/sage_faculty_twin/service.py#L581-L634)
@@ -438,9 +461,111 @@ Score --> Render["Render user response"]
 ### Web Interface Components
 The enhanced web interface consists of three main components working together to provide comprehensive markdown rendering and optimized streaming:
 
-- **Frontend Shell (index.html)**: Main HTML structure with responsive design, accessibility features, and modular UI components.
-- **Application Logic (app.js)**: Comprehensive JavaScript implementation handling streaming responses, markdown processing, and real-time updates.
-- **Styling (styles.css)**: CSS framework supporting the enhanced interface with modern design patterns.
+- **Frontend Shell (index.html)**: Main HTML structure with responsive design, accessibility features, and modular UI components including seed chips and suggestion boards.
+- **Application Logic (app.js)**: Comprehensive JavaScript implementation handling streaming responses, markdown processing, real-time updates, seed chip interactions, and suggestion board management.
+- **Styling (styles.css)**: CSS framework supporting the enhanced interface with modern design patterns, seed chip styling, and overflow management.
+
+### Seed Chip Implementation
+
+**Updated** Enhanced seed chip functionality with interactive question suggestions above chat composer
+
+The seed chip system provides contextual question suggestions that appear above the chat composer when the chat is empty. Each seed chip contains:
+- Question text stored in `data-seed-question` attribute
+- Context information stored in `data-seed-context` attribute  
+- Interactive click handlers that populate the chat input and submit automatically
+
+Implementation details:
+- Seed chips are initialized with event listeners that extract question and context data
+- Click handlers populate the chat textarea and trigger form submission
+- Responsive design with flexible wrapping and hover effects
+- Accessible ARIA attributes and keyboard navigation support
+
+**Section sources**
+- [index.html:97-114](file://src/sage_faculty_twin/web/index.html#L97-L114)
+- [app.js:686-695](file://src/sage_faculty_twin/web/app.js#L686-L695)
+- [styles.css:5974-6006](file://src/sage_faculty_twin/web/styles.css#L5974-L6006)
+
+### Suggestion Board Deduplication
+
+**Updated** Comprehensive deduplication mechanism for anonymous suggestions
+
+The suggestion board implements a sophisticated deduplication system to prevent duplicate submissions:
+- Duplicate detection based on message content hashing
+- Real-time validation before submission
+- User feedback for duplicate attempts
+- Database-level deduplication for persistent storage
+
+Key features:
+- Message content comparison using secure hashing algorithms
+- Duplicate prevention with immediate user feedback
+- Configurable deduplication thresholds
+- Admin interface for managing duplicate detection
+
+**Section sources**
+- [app.js:3987-4022](file://src/sage_faculty_twin/web/app.js#L3987-L4022)
+
+### Changelog Modal Accessibility
+
+**Updated** Enhanced accessibility features for version update notifications
+
+The changelog modal includes comprehensive accessibility improvements:
+- Keyboard navigation support with focus management
+- Screen reader compatibility with proper ARIA labels
+- High contrast mode support
+- Focus trap implementation for modal dialogs
+- Skip-to-content navigation support
+
+Implementation includes:
+- Modal overlay management with proper z-index handling
+- Dynamic content rendering with accessibility-aware markup
+- Event handling for modal opening/closing with keyboard shortcuts
+- Semantic HTML structure with proper heading hierarchy
+
+**Section sources**
+- [index.html:387-395](file://src/sage_faculty_twin/web/index.html#L387-L395)
+- [app.js:8636-8681](file://src/sage_faculty_twin/web/app.js#L8636-L8681)
+
+### CSS Overflow Management
+
+**Updated** Comprehensive overflow handling for improved layout stability
+
+The enhanced CSS includes extensive overflow management:
+- Container overflow control with hidden overflow for content areas
+- Auto-scrolling regions for suggestion lists and status panels
+- Flexible overflow handling for responsive design
+- Preventive overflow management for seed chip containers
+
+Key improvements:
+- Consistent overflow behavior across different screen sizes
+- Preventive measures for content overflow in suggestion boards
+- Improved scroll behavior for long content areas
+- Responsive overflow handling for mobile devices
+
+**Section sources**
+- [styles.css:39](file://src/sage_faculty_twin/web/styles.css#L39)
+- [styles.css:60](file://src/sage_faculty_twin/web/styles.css#L60)
+- [styles.css:445](file://src/sage_faculty_twin/web/styles.css#L445)
+- [styles.css:915](file://src/sage_faculty_twin/web/styles.css#L915)
+
+### Sidebar Redesign
+
+**Updated** Transition from shortcut buttons to seed chips above chat composer
+
+The sidebar underwent a significant redesign moving from traditional shortcut buttons to integrated seed chips:
+- Seed chips positioned above the chat composer for better visibility
+- Contextual question suggestions based on visitor profile
+- Integrated with the main chat flow for seamless user experience
+- Responsive design that adapts to different screen sizes
+
+The redesign includes:
+- Seed chip container with centered alignment
+- Responsive flexbox layout with wrap support
+- Hover effects and interactive states
+- Integration with visitor profile context
+
+**Section sources**
+- [index.html:47-91](file://src/sage_faculty_twin/web/index.html#L47-L91)
+- [styles.css:6009-6035](file://src/sage_faculty_twin/web/styles.css#L6009-L6035)
 
 ### Streaming Response Handling
 The system implements sophisticated streaming response handling with real-time content rendering:
@@ -585,17 +710,17 @@ Complete --> [*]
 ## Dependency Analysis
 - Internal dependencies
   - API depends on LazyDigitalTwinService and WorkflowEventBroker.
-  - Service orchestrator composes planner, knowledge store, memory store, and clients.
+  - Service orchestrator composes planner, knowledge store, memory store, suggestion board, and clients.
 - External dependencies
   - FastAPI for routing and middleware.
   - Optional PDF parsing for attachments.
-  - Enhanced frontend with comprehensive JavaScript dependencies.
+  - Enhanced frontend with comprehensive JavaScript dependencies including seed chip and suggestion board logic.
 - Runtime checks
   - Runtime environment validates optional packages and enforces local policy precedence.
 - Frontend dependencies
-  - Modern JavaScript features for streaming and DOM manipulation.
-  - CSS Grid and Flexbox for responsive layouts.
-  - Accessibility features for inclusive design.
+  - Modern JavaScript features for streaming, DOM manipulation, seed chip interactions, and suggestion board management.
+  - CSS Grid and Flexbox for responsive layouts with overflow management.
+  - Accessibility features for inclusive design including ARIA labels and keyboard navigation.
 
 ```mermaid
 graph LR
@@ -607,9 +732,12 @@ SVC --> KB["knowledge_base.py"]
 SVC --> MEM["memory_store.py"]
 SVC --> PLAN["workflow_planner.py"]
 SVC --> SRM["service_runtime.py"]
+SVC --> SUGGEST["app.js (suggestion board)"]
 API --> FASTAPI["FastAPI"]
 WEB["web/index.html"] --> APPJS["web/app.js"]
 APPJS --> STYLES["web/styles.css"]
+APPJS --> SEEDCHIPS["Seed Chip Logic"]
+APPJS --> SUGGESTLOGIC["Suggestion Board Logic"]
 APPJS --> MARKDOWN["formatMessageContent()"]
 APPJS --> STREAMING["appendStreamingAnswerDelta()"]
 ```
@@ -654,6 +782,9 @@ APPJS --> STREAMING["appendStreamingAnswerDelta()"]
   - Optimized markdown processing with efficient regex patterns and DOM manipulation.
   - Streaming response handling with minimal layout recalculations.
   - Real-time content updates with debounced scroll positioning.
+  - Seed chip interactions with efficient event delegation.
+  - Suggestion board deduplication with client-side validation.
+  - Accessibility features with proper focus management and keyboard navigation.
 
 [No sources needed since this section provides general guidance]
 
@@ -681,6 +812,10 @@ APPJS --> STREAMING["appendStreamingAnswerDelta()"]
   - XSS prevention blocks unsafe content; verify input sanitization.
   - Streaming buffer overflow protection prevents memory leaks.
   - DOM manipulation errors handled gracefully with fallback rendering.
+  - Seed chip click handlers require proper event delegation setup.
+  - Suggestion board deduplication requires proper message hashing implementation.
+  - Changelog modal accessibility issues resolved with proper focus management.
+  - CSS overflow problems addressed with consistent overflow property usage.
 
 **Section sources**
 - [runtime_env.py:116-130](file://src/sage_faculty_twin/runtime_env.py#L116-L130)
@@ -692,4 +827,4 @@ APPJS --> STREAMING["appendStreamingAnswerDelta()"]
 - [api.py:194-200](file://src/sage_faculty_twin/api.py#L194-L200)
 
 ## Conclusion
-Sage Faculty Twin's backend is a modular, configuration-driven system centered on a service orchestrator that integrates planning, retrieval, memory, and notifications. The enhanced web interface provides comprehensive markdown rendering capabilities with sophisticated streaming response handling, featuring real-time content delivery, progressive rendering, and extensive formatting support. The system emphasizes operability through environment-based configuration, robust authentication, and streaming-first UX patterns with optimized frontend performance. The architecture supports extensibility via pluggable backends, policy-driven planning, and clear dependency boundaries, now augmented with advanced web interface capabilities for rich content presentation.
+Sage Faculty Twin's backend is a modular, configuration-driven system centered on a service orchestrator that integrates planning, retrieval, memory, suggestions, and notifications. The enhanced web interface provides comprehensive markdown rendering capabilities with sophisticated streaming response handling, featuring real-time content delivery, progressive rendering, extensive formatting support, seed chip functionality, suggestion board deduplication, and improved accessibility features. The system emphasizes operability through environment-based configuration, robust authentication, streaming-first UX patterns with optimized frontend performance, and comprehensive UI/UX improvements including seed chips, suggestion board management, and accessibility enhancements. The architecture supports extensibility via pluggable backends, policy-driven planning, and clear dependency boundaries, now augmented with advanced web interface capabilities for rich content presentation and improved user experience.

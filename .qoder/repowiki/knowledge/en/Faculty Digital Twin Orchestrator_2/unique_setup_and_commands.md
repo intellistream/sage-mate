@@ -1,0 +1,3 @@
+- **Environment Setup**: Requires sibling repositories (`SAGE`, `neuromem`, `vllm-hust`, `sageVDB`) for local version resolution via `build_stack_versions_payload()`.
+- **Runtime Flags**: Key behaviors controlled by env vars like `DIGITAL_TWIN_POST_ANSWER_BACKGROUND=true` (non-blocking post-answer tasks) and `DIGITAL_TWIN_STREAM_CHAT_ANSWER=true` (SSE token streaming).
+- **Hardware Detection**: Automatically probes Ascend NPU (`npu-smi`) and CPU info via `build_hardware_payload()` in the health endpoint.

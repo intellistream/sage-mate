@@ -829,7 +829,10 @@ document.getElementById("auth-register-form")?.addEventListener("submit", async 
 document.getElementById("open-settings-drawer")?.addEventListener("click", openSettingsDrawer);
 document.getElementById("open-status-drawer")?.addEventListener("click", openStatusDrawer);
 topbarUserBadge?.addEventListener("click", openSettingsDrawer);
-document.getElementById("sidebar-user-icon")?.addEventListener("click", openSettingsDrawer);
+document.getElementById("sidebar-user-icon")?.addEventListener("click", (e) => {
+    e.preventDefault();
+    openSettingsDrawer();
+});
 // Use event delegation for close buttons (content may be moved into views)
 settingsViewBody?.addEventListener("click", (e) => {
     if (e.target.closest("[data-close-drawer]")) closeSettingsDrawer();
@@ -1590,6 +1593,7 @@ function handleOutsideDrawerClick(event) {
             !settingsView?.contains(target)
             && !target.closest("#open-settings-drawer")
             && !target.closest("#topbar-user-badge")
+            && !target.closest("#sidebar-user-icon")
         ) {
             closeSettingsDrawer();
         }
@@ -8684,6 +8688,7 @@ async function initializePage() {
     renderConversationHistoryList();
     applyStoredVisitorProfile();
     applyVisitorProfilePresentation({ syncCourseContext: true });
+    updateChatEmptyState();
     markPresentationReady();
     startOnlinePresenceHeartbeat();
     startStatusAutoRefresh();

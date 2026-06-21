@@ -1,4 +1,0 @@
-- Use `tmp_path` fixture to isolate file-based stores and verify directory recreation after `shutil.rmtree`.
-- Inject fake LLM clients or responders to isolate adapter logic from external model dependencies.
-- Assert trace step details (e.g., `prompt_build`) to verify internal workflow diagnostics and truncation flags.
-- Use `model_copy(update={...})` to create isolated `AppSettings` instances for parallel test execution.

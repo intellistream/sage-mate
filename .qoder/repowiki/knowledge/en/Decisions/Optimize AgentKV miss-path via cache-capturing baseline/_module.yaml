@@ -1,7 +1,0 @@
-schema_version: 1
-module_path: decisions/06bcc83493f0_239b8dda5c26
-title: Optimize AgentKV miss-path via cache-capturing baseline
-scope: []
-source_files: []
-depends_on: []
-related_to: []

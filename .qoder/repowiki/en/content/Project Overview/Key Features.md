@@ -22,10 +22,10 @@
 
 ## Update Summary
 **Changes Made**
-- Added version changelog modal interface documentation
-- Enhanced markdown table support documentation
-- Improved answer evidence panel with retry mechanism documentation
-- Updated roadmap status for V3.1 LLM-Assisted JSON Planner
+- Updated sidebar redesign documentation to reflect enhanced user interface with improved accessibility and reduced visual clutter
+- Added comprehensive seed chip implementation documentation for improved discoverability
+- Enhanced sidebar cleanup explanation removing three shortcut buttons while maintaining functionality
+- Updated UI/UX improvements section with new ChatGPT-style sidebar design
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -47,9 +47,9 @@ This document explains the key features of Sage Faculty Twin and how they collec
 - Appointment scheduling and booking
 - Web search integration
 - Administrative controls and user/session management
-- **Version changelog modal interface** for release transparency
-- **Enhanced markdown table support** for better content presentation
-- **Improved answer evidence panel with retry mechanism** for better user experience
+- **Enhanced sidebar redesign with improved accessibility and reduced visual clutter**
+- **Seed chip implementation for better discoverability and user guidance**
+- **ChatGPT-style interface improvements for streamlined user experience**
 
 Each feature is described with its purpose, implementation highlights, and how it contributes to a responsive, policy-aware, and scalable academic assistant.
 
@@ -91,9 +91,9 @@ API --> Auth["Auth Utilities<br/>Admin/User sessions"]
 - Appointment scheduling and booking: Availability management with conflict detection and slot suggestions.
 - Web search integration: Bing-based search with query rewriting and result reranking.
 - Administrative features: Session-based admin/user controls, presence tracking, and operational visibility.
-- **Version changelog modal**: Clickable version badge opens a modal with concise release highlights for transparency.
-- **Enhanced markdown support**: Comprehensive markdown rendering including tables, lists, formatting, and safe link handling.
-- **Answer evidence panel**: Structured evidence display with retry mechanism for failed requests.
+- **Enhanced sidebar redesign**: ChatGPT-style interface with improved accessibility and reduced visual clutter through strategic button removal.
+- **Seed chip implementation**: Interactive question suggestions that improve discoverability while maintaining functionality.
+- **Improved user guidance**: Centered welcome greeting and contextual seed chips for better first-time user experience.
 
 **Section sources**
 - [api.py:170-256](file://src/sage_faculty_twin/api.py#L170-L256)
@@ -104,9 +104,9 @@ API --> Auth["Auth Utilities<br/>Admin/User sessions"]
 - [meeting.py:11-16](file://src/sage_faculty_twin/meeting.py#L11-L16)
 - [availability.py:11-26](file://src/sage_faculty_twin/availability.py#L11-L26)
 - [auth.py:16-17](file://src/sage_faculty_twin/auth.py#L16-L17)
-- [index.html:286-298](file://src/sage_faculty_twin/web/index.html#L286-L298)
-- [app.js:7835-7896](file://src/sage_faculty_twin/web/app.js#L7835-L7896)
-- [app.js:6949-6988](file://src/sage_faculty_twin/web/app.js#L6949-L6988)
+- [index.html:47-91](file://src/sage_faculty_twin/web/index.html#L47-L91)
+- [index.html:98-114](file://src/sage_faculty_twin/web/index.html#L98-L114)
+- [styles.css:5869-6035](file://src/sage_faculty_twin/web/styles.css#L5869-L6035)
 
 ## Architecture Overview
 The runtime architecture couples FastAPI endpoints with a Sage-based workflow engine. The workflow planner evaluates intent and selects a deterministic plan, which the service executes through retrieval, prompting, LLM inference, and post-answer actions. Knowledge and memory backends are abstracted behind unified interfaces. Optional web search augments grounding. Administrative controls and user sessions protect sensitive operations.
@@ -142,6 +142,77 @@ A-->>C : JSON + SSE deltas (when enabled)
 - [web_search.py:109-127](file://src/sage_faculty_twin/web_search.py#L109-L127)
 
 ## Detailed Component Analysis
+
+### Enhanced Sidebar Redesign with Improved Accessibility and Reduced Visual Clutter
+
+**Updated** The sidebar has undergone a comprehensive redesign inspired by ChatGPT's interface, focusing on improved accessibility and reduced visual complexity while maintaining full functionality.
+
+#### Sidebar Cleanup Implementation
+The new design removes three shortcut buttons from the sidebar while preserving their functionality through the new seed chip system:
+- **Removed buttons**: Settings, Anonymous Suggestions, and Homepage links
+- **Maintained functionality**: All removed features are accessible through the new seed chip system
+- **Reduced visual clutter**: Streamlined interface with cleaner layout
+- **Improved accessibility**: Better focus management and keyboard navigation
+
+#### ChatGPT-Style Sidebar Design
+The sidebar now features a modern, minimalist design with:
+- **Sidebar toggle button**: Prominent toggle in the topbar for easy access
+- **Rail-based layout**: Organized into logical sections (top, middle, bottom)
+- **Consistent spacing**: 2px gaps between all interactive elements
+- **Responsive design**: Collapses to icons-only when sidebar is minimized
+
+```mermaid
+flowchart TD
+Sidebar["Sidebar Rail"] --> Top["Top Section<br/>Brand + New Chat"]
+Sidebar --> Middle["Middle Section<br/>Quick Actions"]
+Sidebar --> Bottom["Bottom Section<br/>User Account"]
+Top --> Brand["Brand Button"]
+Top --> NewChat["New Chat Button"]
+Middle --> Actions["Action Buttons"]
+Bottom --> UserIcon["User Icon Button"]
+```
+
+**Diagram sources**
+- [index.html:47-91](file://src/sage_faculty_twin/web/index.html#L47-L91)
+- [styles.css:5869-5922](file://src/sage_faculty_twin/web/styles.css#L5869-L5922)
+
+**Section sources**
+- [index.html:47-91](file://src/sage_faculty_twin/web/index.html#L47-L91)
+- [styles.css:5869-5922](file://src/sage_faculty_twin/web/styles.css#L5869-L5922)
+- [styles.css:2828-2887](file://src/sage_faculty_twin/web/styles.css#L2828-L2887)
+
+### Seed Chip Implementation for Enhanced Discoverability
+
+**Updated** The new seed chip system provides contextual question suggestions that improve user discoverability while maintaining the functionality previously provided by the removed shortcut buttons.
+
+#### Seed Chip Features
+- **Interactive chips**: Three pre-defined question suggestions appear when chat is empty
+- **Context-aware**: Questions adapt to visitor profile and course context
+- **Visual design**: Rounded chips with hover effects and subtle animations
+- **Accessibility**: Proper ARIA labels and keyboard navigation support
+
+#### Seed Chip Implementation Details
+The seed chips are implemented as interactive buttons that automatically populate the chat input and submit the question:
+
+```mermaid
+sequenceDiagram
+participant U as "User"
+participant SC as "Seed Chip"
+participant CQ as "Chat Question Input"
+U->>SC : Click seed chip
+SC->>CQ : Set question value
+SC->>CQ : Trigger form submission
+CQ-->>U : Question submitted
+```
+
+**Diagram sources**
+- [app.js:686-695](file://src/sage_faculty_twin/web/app.js#L686-L695)
+- [index.html:98-114](file://src/sage_faculty_twin/web/index.html#L98-L114)
+
+**Section sources**
+- [index.html:98-114](file://src/sage_faculty_twin/web/index.html#L98-L114)
+- [app.js:686-695](file://src/sage_faculty_twin/web/app.js#L686-L695)
+- [styles.css:5950-6006](file://src/sage_faculty_twin/web/styles.css#L5950-L6006)
 
 ### Intelligent Chat Interface with Streaming Responses and Multi-modal Attachments
 - Streaming responses: When enabled, the server streams token deltas via Server-Sent Events and concludes with the final structured response. This improves perceived latency and UX during long answers.
@@ -487,6 +558,7 @@ AppJS --> Styles["styles.css"]
 - Backend selection: FAISS batching and ANN backends can accelerate retrieval; BM25 remains lightweight.
 - Concurrency: The planner's DAG groups post-answer stages to minimize tail latency while preserving determinism.
 - **Frontend optimizations**: Enhanced markdown rendering and modal interfaces designed for efficient DOM manipulation and memory usage.
+- **Sidebar performance**: Reduced DOM complexity through simplified layout and fewer interactive elements.
 
 ## Troubleshooting Guide
 - Streaming not observed: Verify DIGITAL_TWIN_STREAM_CHAT_ANSWER is enabled and upstream LLM supports chunked streaming.
@@ -496,6 +568,8 @@ AppJS --> Styles["styles.css"]
 - **Changelog modal issues**: Verify version badge click handler and modal CSS classes are properly loaded; check browser console for JavaScript errors.
 - **Markdown table rendering**: Ensure table syntax follows pipe-delimited format with proper header separation using dashes and pipes.
 - **Retry mechanism**: Last failed question is maintained in memory; verify JavaScript event handlers are properly attached to retry buttons.
+- **Sidebar accessibility**: If sidebar buttons are not accessible, ensure the sidebar toggle is functioning and the sidebar is expanded.
+- **Seed chip functionality**: If seed chips don't work, verify JavaScript event listeners are attached and the chat form is properly initialized.
 
 **Section sources**
 - [README.md:111-117](file://README.md#L111-L117)
@@ -505,6 +579,17 @@ AppJS --> Styles["styles.css"]
 - [index.html:286-298](file://src/sage_faculty_twin/web/index.html#L286-L298)
 - [app.js:7835-7856](file://src/sage_faculty_twin/web/app.js#L7835-L7856)
 - [app.js:6949-6988](file://src/sage_faculty_twin/web/app.js#L6949-L6988)
+- [app.js:686-695](file://src/sage_faculty_twin/web/app.js#L686-L695)
 
 ## Conclusion
-Sage Faculty Twin integrates an intelligent chat interface, robust workflow planning, multi-backend knowledge management, personalized memory systems, scheduling, and web search into a cohesive academic support platform. Administrative controls and session management ensure safe, auditable operations. The recent enhancements include a comprehensive version changelog modal for release transparency, enhanced markdown table support for better content presentation, and an improved answer evidence panel with retry mechanism for better user experience. The roadmap confirms the successful implementation of V3.1 LLM-Assisted JSON Planner, marking a significant milestone in the evolution toward governed dynamic workflow generation. Together, these features enable a responsive, policy-aligned, and scalable assistant tailored to a faculty member's needs.
+Sage Faculty Twin integrates an intelligent chat interface, robust workflow planning, multi-backend knowledge management, personalized memory systems, scheduling, and web search into a cohesive academic support platform. Administrative controls and session management ensure safe, auditable operations. 
+
+The recent enhancements represent a significant improvement in user experience through:
+- **Enhanced sidebar redesign**: Streamlined interface with improved accessibility and reduced visual clutter
+- **Seed chip implementation**: Interactive question suggestions that maintain functionality while improving discoverability
+- **ChatGPT-style interface**: Modern, minimalist design that focuses on core functionality
+- **Improved user guidance**: Centered welcome greeting and contextual seed chips for better first-time user experience
+
+These changes demonstrate the system's commitment to creating an intuitive, accessible interface that reduces cognitive load while preserving all essential functionality. The sidebar cleanup removes three shortcut buttons but maintains their functionality through the new seed chip system, resulting in a cleaner, more focused user interface. The seed chips provide contextual guidance and help users discover relevant questions, improving the overall user experience.
+
+The roadmap confirms the successful implementation of V3.1 LLM-Assisted JSON Planner, marking a significant milestone in the evolution toward governed dynamic workflow generation. Together, these features enable a responsive, policy-aligned, and scalable assistant tailored to a faculty member's needs, with particular emphasis on user experience and interface simplicity.

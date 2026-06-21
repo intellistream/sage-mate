@@ -1,0 +1,14 @@
+schema_version: 1
+module_path: configuration_system
+title: Configuration System
+scope: []
+source_files:
+    - src/sage_faculty_twin/config.py
+    - src/sage_faculty_twin/runtime_env.py
+    - .env.example
+    - tools/run_app_server.sh
+    - tools/lib/runtime_env.sh
+    - deploy/systemd/user/sage-faculty-twin-app.service
+    - pyproject.toml
+depends_on: []
+related_to: []

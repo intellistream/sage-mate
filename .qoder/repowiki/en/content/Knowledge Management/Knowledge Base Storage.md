@@ -15,14 +15,13 @@
 
 ## Update Summary
 **Changes Made**
-- Updated knowledge base with new entries and maintenance activities as part of Applied Changes: knowledge base management enhancements
-- Enhanced content rendering capabilities with comprehensive markdown table support in knowledge base ingestion
-- Improved academic paper ingestion pipeline with dedicated publication digest processing
-- Enhanced markdown normalization with table cell extraction and semantic preservation
-- Added specialized publication metadata parsing for research paper content
-- Improved knowledge base ingestion workflow for academic materials
-- Expanded knowledge base with recent research publications and academic materials
-- Enhanced document deduplication and metadata handling for improved search accuracy
+- Added documentation for new knowledge base documents: onboarding-first-month.json and research-directions-overview-2026.json
+- Updated knowledge base ingestion examples to include enhanced academic paper processing
+- Enhanced content rendering documentation with comprehensive markdown table support
+- Improved academic paper ingestion pipeline documentation with publication digest processing
+- Added specialized publication metadata parsing documentation for research paper content
+- Expanded knowledge base with recent research publications and academic materials documentation
+- Enhanced document deduplication and metadata handling documentation for improved search accuracy
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -49,6 +48,7 @@ This document explains the knowledge base storage system that powers multi-backe
 - Automatic backend migration from BM25 to SageVDB/SageANNs system with intelligent index type detection
 - **Enhanced Content Rendering**: Comprehensive markdown table support with semantic cell extraction
 - **Improved Academic Paper Ingestion**: Dedicated publication digest processing with metadata extraction
+- **New Knowledge Base Documents**: Enhanced AI assistant context with onboarding-first-month.json and research-directions-overview-2026.json
 - Practical ingestion and search workflows with improved accuracy and performance
 
 ## Project Structure
@@ -128,6 +128,7 @@ T5 --> KB
 - **Enhanced Content Rendering**: Comprehensive markdown table support with semantic cell extraction and preservation
 - **Improved Academic Paper Processing**: Dedicated publication digest pipeline with metadata extraction and research theme classification
 - **Advanced Ingestion Pipeline**: Specialized processing for academic papers, research summaries, and publication metadata
+- **New Knowledge Base Documents**: Enhanced AI assistant context with onboarding-first-month.json and research-directions-overview-2026.json
 
 Key responsibilities:
 - Persistence: Documents are stored as JSON under a configured directory and kept in-memory for fast iteration
@@ -138,6 +139,7 @@ Key responsibilities:
 - Backend Migration: Automatically migrates from BM25 to SageVDB/SageANNs system with FAISS preference
 - Model Caching Detection: Validates embedding model availability before enabling FAISS backend
 - **Enhanced Ingestion**: Processes academic papers with publication digests, metadata extraction, and table support
+- **New Document Integration**: Seamlessly incorporates onboarding and research direction documents for enhanced AI assistance
 
 **Section sources**
 - [knowledge_base.py](file://src/sage_faculty_twin/knowledge_base.py)
@@ -594,6 +596,7 @@ Persist --> End(["Ready"])
 - **Academic Paper Pages**: Specialized processing for individual paper content with research theme tagging
 - **Enhanced Markdown Normalization**: Table cell extraction and semantic preservation for improved searchability
 - **Stale Document Cleanup**: Intelligent source tracking and removal of outdated content
+- **New Document Integration**: Seamless incorporation of onboarding-first-month.json and research-directions-overview-2026.json
 
 ```mermaid
 flowchart TD
@@ -617,6 +620,36 @@ I --> J["Done"]
 - [knowledge_import.py](file://src/sage_faculty_twin/knowledge_import.py)
 - [knowledge_base.py](file://src/sage_faculty_twin/knowledge_base.py)
 
+### New Knowledge Base Documents
+The knowledge base now includes two important new documents that significantly enhance AI assistant context:
+
+**onboarding-first-month.json:**
+- Document ID: onboarding-first-month
+- Title: 新生手册：第一个月实用指南 (First Month Onboarding Guide)
+- Content Type: Practical guide for new students
+- Tags: onboarding, first-month, practical-guide, setup, milestones, tools, new-student
+- Source Name: onboarding-handbook
+- Metadata: domain=management, identity=pi, source_kind=synthesized, audience=lab_member, handbook_section=7
+- Created At: 2026-06-20T16:36:00Z
+
+**research-directions-overview-2026.json:**
+- Document ID: research-directions-overview-2026
+- Title: 课题组研究方向概述：从流处理到国产推理引擎 (Research Directions Overview: From Stream Processing to National Inference Engines)
+- Content Type: Research directions overview
+- Tags: research, directions, overview, stream-processing, llm-inference, memory-system, national-project
+- Source Name: private-materials:综合整理 (private-materials:Synthesis)
+- Metadata: domain=research, identity=pi, source_kind=synthesized, audience=lab_member
+- Created At: 2026-06-20T16:00:00Z
+
+These documents provide crucial context for AI assistants helping with:
+- Student onboarding and orientation processes
+- Research direction understanding and explanation
+- Technical context for stream processing, LLM inference, and national projects
+
+**Section sources**
+- [onboarding-first-month.json](file://data/knowledge_base/onboarding-first-month.json)
+- [research-directions-overview-2026.json](file://data/knowledge_base/research-directions-overview-2026.json)
+
 ## Dependency Analysis
 - LocalKnowledgeStore depends on:
   - AppSettings for backend and embedding configuration with automatic migration support
@@ -626,6 +659,7 @@ I --> J["Done"]
 - Embedding strategies depend on external packages (numpy, sentence-transformers)
 - Ingestion utilities depend on LocalKnowledgeStore and models with enhanced academic paper processing
 - **Enhanced Dependencies**: Additional requirements for academic paper processing (advanced tokenizers, metadata extraction)
+- **New Document Dependencies**: Enhanced AI assistant context through onboarding and research direction documents
 
 ```mermaid
 graph LR
@@ -642,6 +676,7 @@ Import["knowledge_import.py"] --> Store
 Import --> EnhancedIngestion
 EnhancedIngestion --> TableSupport["Table Processing<br/>Cell Extraction"]
 EnhancedIngestion --> MetadataExtraction["Publication Metadata<br/>Research Theme Classification"]
+NewDocs["New Knowledge Base Documents<br/>Onboarding & Research Directions"] --> Store
 ```
 
 **Diagram sources**
@@ -707,7 +742,12 @@ EnhancedIngestion --> MetadataExtraction["Publication Metadata<br/>Research Them
   - Efficient table cell extraction improves search accuracy
   - Batch processing for publication digests minimizes latency
 
-**Updated** Enhanced performance considerations now include hybrid search benefits, removed k-limit caps, advanced scoring optimizations, model caching validation, and enhanced academic paper processing capabilities
+- **New Document Performance Benefits:**
+  - Enhanced AI assistant context reduces query complexity and improves response quality
+  - Structured onboarding and research direction documents improve search relevance
+  - Reduced ambiguity in student queries through clear contextual information
+
+**Updated** Enhanced performance considerations now include hybrid search benefits, removed k-limit caps, advanced scoring optimizations, model caching validation, enhanced academic paper processing capabilities, and new knowledge base document performance benefits
 
 **Section sources**
 - [knowledge_base.py](file://src/sage_faculty_twin/knowledge_base.py)
@@ -767,7 +807,12 @@ Common issues and resolutions:
   - **Publication Metadata Extraction**: Ensure proper metadata formatting in academic papers
   - **Ingestion Pipeline Failures**: Check file paths and content structure for academic materials
 
-**Updated** Added troubleshooting guidance for enhanced hybrid search, removed k-limit caps, advanced scoring algorithms, model caching validation, and enhanced academic paper processing capabilities
+- **New Document Integration Issues:**
+  - **Document Loading Failures**: Verify JSON format and required fields for onboarding and research direction documents
+  - **Metadata Extraction Problems**: Ensure proper source_name and metadata fields for new documents
+  - **Search Relevance Issues**: Check tags and content structure for optimal search performance
+
+**Updated** Added troubleshooting guidance for enhanced hybrid search, removed k-limit caps, advanced scoring algorithms, model caching validation, enhanced academic paper processing capabilities, and new knowledge base document integration issues
 
 **Section sources**
 - [knowledge_base.py](file://src/sage_faculty_twin/knowledge_base.py)
@@ -778,9 +823,9 @@ Common issues and resolutions:
 - [conftest.py](file://tests/conftest.py)
 
 ## Conclusion
-The knowledge base storage system now offers a sophisticated, multi-backend architecture with enhanced hybrid search capabilities and improved backend validation. The recent enhancements include advanced token-overlap plus tag-boost scoring, profile-based relevance calculation, unlimited search operations without k-limit caps, and an enhanced backend selection system with model caching detection. The system now features comprehensive markdown table support, specialized academic paper processing pipelines, and enhanced content rendering capabilities. The hybrid approach combining sagevdb candidate recall with precise lexical scoring provides superior accuracy for technical queries while maintaining excellent performance. By leveraging local advanced scoring, dense retrieval with SageVDB, and hybrid FAISS/BM25 with Neuromem, it scales from small deployments to large knowledge bases while delivering exceptional search quality and user experience. The enhanced model caching detection system ensures reliable backend selection and prevents runtime model downloads, making the system more robust and production-ready. The specialized academic paper processing pipeline enables efficient ingestion and search of research publications, making it particularly valuable for academic and research environments.
+The knowledge base storage system now offers a sophisticated, multi-backend architecture with enhanced hybrid search capabilities and improved backend validation. The recent enhancements include advanced token-overlap plus tag-boost scoring, profile-based relevance calculation, unlimited search operations without k-limit caps, and an enhanced backend selection system with model caching detection. The system now features comprehensive markdown table support, specialized academic paper processing pipelines, and enhanced content rendering capabilities. The hybrid approach combining sagevdb candidate recall with precise lexical scoring provides superior accuracy for technical queries while maintaining excellent performance. By leveraging local advanced scoring, dense retrieval with SageVDB, and hybrid FAISS/BM25 with Neuromem, it scales from small deployments to large knowledge bases while delivering exceptional search quality and user experience. The enhanced model caching detection system ensures reliable backend selection and prevents runtime model downloads, making the system more robust and production-ready. The specialized academic paper processing pipeline enables efficient ingestion and search of research publications, making it particularly valuable for academic and research environments. The addition of onboarding-first-month.json and research-directions-overview-2026.json documents significantly enhances AI assistant context, providing structured guidance for student onboarding and comprehensive research direction understanding. These new documents improve query resolution accuracy and reduce ambiguity in student questions, contributing to more effective AI-assisted learning and research support.
 
-**Updated** Enhanced conclusion reflecting the successful implementation of hybrid search, advanced scoring algorithms, performance optimizations, model caching validation, and enhanced academic paper processing capabilities
+**Updated** Enhanced conclusion reflecting the successful implementation of hybrid search, advanced scoring algorithms, performance optimizations, model caching validation, enhanced academic paper processing capabilities, and the integration of new knowledge base documents for improved AI assistant context
 
 ## Appendices
 
@@ -819,6 +864,11 @@ The knowledge base storage system now offers a sophisticated, multi-backend arch
 **Table Support in Knowledge Base:**
 - Leverage enhanced markdown table processing to extract and render tabular content from academic papers, research summaries, and structured documents.
 
+**New Knowledge Base Document Integration:**
+- Incorporate onboarding-first-month.json and research-directions-overview-2026.json documents for enhanced AI assistant context
+- Utilize structured metadata and tags for improved search relevance and query resolution
+- Leverage specialized content for student onboarding and research direction queries
+
 **Section sources**
 - [knowledge_import.py](file://src/sage_faculty_twin/knowledge_import.py)
 - [knowledge_base.py](file://src/sage_faculty_twin/knowledge_base.py)
@@ -827,3 +877,5 @@ The knowledge base storage system now offers a sophisticated, multi-backend arch
 - [test_sagevdb_knowledge_store.py](file://tests/test_sagevdb_knowledge_store.py)
 - [test_bm25_backend_config.py](file://tests/test_bm25_backend_config.py)
 - [conftest.py](file://tests/conftest.py)
+- [onboarding-first-month.json](file://data/knowledge_base/onboarding-first-month.json)
+- [research-directions-overview-2026.json](file://data/knowledge_base/research-directions-overview-2026.json)

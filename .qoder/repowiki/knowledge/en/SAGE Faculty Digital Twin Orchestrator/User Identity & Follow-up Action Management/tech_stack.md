@@ -1,0 +1,2 @@
+- **Password Hashing**: Uses `hashlib.scrypt` with a fixed cost factor (n=2^14) for secure password storage.
+- **Session Management**: Implements custom HMAC-SHA256 signed cookies for stateless session tracking, avoiding external JWT libraries.

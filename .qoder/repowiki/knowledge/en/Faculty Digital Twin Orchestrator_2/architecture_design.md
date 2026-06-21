@@ -1,0 +1,6 @@
+- **Entry Point & API**: `api.py` exposes a FastAPI application (`llm_app`) with a `LazyDigitalTwinService` proxy to defer heavy initialization. It handles HTTP requests, multipart file uploads, and SSE streaming via `WorkflowEventBroker`.
+- **Workflow Orchestration**: `service.py` (`FacultyTwinWorkflowSupport`) implements a linear, stage-based pipeline (bootstrap → intent → booking → retrieval → prompt → LLM → memory persist). Each stage appends `WorkflowTraceStep` objects for observability.
+- **Deterministic Planning**: `workflow_planner.py` (`DeterministicWorkflowPlanner`) generates a `PlanSpec` based on heuristic intent classification (e.g., `_looks_like_research_question`). Plans are validated against `WorkflowPolicy` before execution.
+- **LLM Interaction**: `llm_client.py` (`VllmChatClient`) manages communication with vLLM-HUST, featuring semantic caching, streaming SSE support, intent classification, and DeltaKV session continuity hints.
+- **Data Persistence**: Modular stores (e.g., `memory_store.py`, `knowledge_base.py`, `escalation_store.py`) handle JSON-file or Neuromem-backed persistence for conversations, artifacts, and operational queues.
+- **Configuration**: `config.py` uses `pydantic-settings` to load environment variables prefixed with `DIGITAL_TWIN_`, governing model endpoints, retrieval thresholds, and feature flags.

@@ -1,0 +1,4 @@
+- Administrative endpoints are protected by a `require_admin_session` dependency that validates session tokens from cookies before executing handler logic.
+- Workflow execution steps emit structured `WorkflowTraceStep` objects via a `trace_callback` hook, enabling real-time UI updates through the SSE broker.
+- Configuration is centralized in `config.py` using `pydantic-settings`, with all environment variables prefixed by `DIGITAL_TWIN_`.
+- Service methods return Pydantic model instances (defined in `models.py`) to ensure consistent API response schemas and validation.

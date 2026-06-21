@@ -2,66 +2,73 @@
 schema_version: 1
 locale: en-US
 branch: main
-exported_at: "2026-06-20T15:31:56Z"
+nodes_managed: true
+exported_at: "2026-06-21T08:17:07Z"
 modules:
     "":
-        dir_name: SAGE Faculty Digital Twin Orchestrator
-        title: SAGE Faculty Digital Twin Orchestrator
+        dir_name: Faculty Digital Twin Orchestrator_2
+        title: Faculty Digital Twin Orchestrator
         scope: []
         source_files: []
         children: []
         depends_on: []
         related_to: []
     app_source:
-        dir_name: Faculty Digital Twin Core Service
-        title: Faculty Digital Twin Core Service
+        dir_name: Faculty Digital Twin Service
+        title: Faculty Digital Twin Service
         scope:
             - src/sage_faculty_twin/
         source_files: []
         children: []
         depends_on: []
         related_to:
-            - path: runtime_data
             - path: deployment
-            - path: tests
-    decisions:
-        dir_name: Decisions
-        title: Decisions
+            - path: runtime_data
+    build_system:
+        dir_name: Build, Deployment, and Runtime Orchestration
+        title: Build, Deployment, and Runtime Orchestration
         scope: []
-        source_files: []
-        children:
-            - decisions/06bcc83493f0_239b8dda5c26
-            - decisions/ed17f66e46eb_5013a4035153
-            - decisions/06bcc83493f0_acbb4660e197
-        depends_on: []
-        related_to: []
-    decisions/06bcc83493f0_239b8dda5c26:
-        dir_name: Optimize AgentKV miss-path via cache-capturing baseline
-        title: Optimize AgentKV miss-path via cache-capturing baseline
-        scope: []
-        source_files: []
+        source_files:
+            - pyproject.toml
+            - quickstart.sh
+            - manage.sh
+            - .github/workflows/ci.yml
+            - tools/lib/runtime_env.sh
+            - deploy/systemd/user/sage-faculty-twin-app.service
         children: []
         depends_on: []
         related_to: []
-    decisions/06bcc83493f0_acbb4660e197:
-        dir_name: Adopt rolling-maintenance workload for DeltaKV evaluation
-        title: Adopt rolling-maintenance workload for DeltaKV evaluation
+    configuration_system:
+        dir_name: Configuration System
+        title: Configuration System
         scope: []
-        source_files: []
+        source_files:
+            - src/sage_faculty_twin/config.py
+            - src/sage_faculty_twin/runtime_env.py
+            - .env.example
+            - tools/run_app_server.sh
+            - tools/lib/runtime_env.sh
+            - deploy/systemd/user/sage-faculty-twin-app.service
+            - pyproject.toml
         children: []
         depends_on: []
         related_to: []
-    decisions/ed17f66e46eb_5013a4035153:
-        dir_name: Introduce pre-planner Skill Router for specialized agent flows
-        title: Introduce pre-planner Skill Router for specialized agent flows
+    dependency_management:
+        dir_name: Python Dependency Management via pyproject.toml and Sibling Checkouts
+        title: Python Dependency Management via pyproject.toml and Sibling Checkouts
         scope: []
-        source_files: []
+        source_files:
+            - pyproject.toml
+            - quickstart.sh
+            - tools/run_app_server.sh
+            - CONTRIBUTING.md
+            - docs/deployment.md
         children: []
         depends_on: []
         related_to: []
     deployment:
-        dir_name: Systemd Service Deployment Configuration
-        title: Systemd Service Deployment Configuration
+        dir_name: Systemd Service Orchestration
+        title: Systemd Service Orchestration
         scope:
             - deploy/
         source_files: []
@@ -69,7 +76,6 @@ modules:
         depends_on: []
         related_to:
             - path: app_source
-            - path: docs
     docs:
         dir_name: Product Documentation & Deployment Operations
         title: Product Documentation & Deployment Operations
@@ -78,11 +84,50 @@ modules:
         source_files: []
         children: []
         depends_on: []
-        related_to:
-            - path: deployment
+        related_to: []
+    error_handling:
+        dir_name: Error Handling — Custom Exceptions, HTTPException Propagation, and Retry Logic
+        title: Error Handling — Custom Exceptions, HTTPException Propagation, and Retry Logic
+        scope: []
+        source_files:
+            - src/sage_faculty_twin/llm_client.py
+            - src/sage_faculty_twin/notifications.py
+            - src/sage_faculty_twin/api.py
+            - src/sage_faculty_twin/service.py
+            - src/sage_faculty_twin/knowledge_base.py
+            - src/sage_faculty_twin/config.py
+        children: []
+        depends_on: []
+        related_to: []
+    frontend_style:
+        dir_name: Vanilla CSS Design System with Glassmorphism
+        title: Vanilla CSS Design System with Glassmorphism
+        scope: []
+        source_files:
+            - src/sage_faculty_twin/web/styles.css
+            - src/sage_faculty_twin/web/index.html
+            - src/sage_faculty_twin/web/app.js
+        children: []
+        depends_on: []
+        related_to: []
+    logging_system:
+        dir_name: Standard Library Logging with Module-Level Loggers
+        title: Standard Library Logging with Module-Level Loggers
+        scope: []
+        source_files:
+            - src/sage_faculty_twin/service.py
+            - src/sage_faculty_twin/llm_client.py
+            - src/sage_faculty_twin/capability_plugins.py
+            - src/sage_faculty_twin/skill_router.py
+            - src/sage_faculty_twin/skill_runner.py
+            - src/sage_faculty_twin/skill_tools.py
+            - tools/run_app_server.sh
+        children: []
+        depends_on: []
+        related_to: []
     runtime_data:
-        dir_name: Runtime State & Memory Persistence
-        title: Runtime State & Memory Persistence
+        dir_name: User Identity & Follow-up Action Management
+        title: User Identity & Follow-up Action Management
         scope:
             - data/
         source_files: []
@@ -91,12 +136,11 @@ modules:
         related_to:
             - path: app_source
     tests:
-        dir_name: Digital Twin Quality Assurance & Resilience
-        title: Digital Twin Quality Assurance & Resilience
+        dir_name: Faculty Digital Twin Integration & Regression Testing
+        title: Faculty Digital Twin Integration & Regression Testing
         scope:
             - tests/
         source_files: []
         children: []
         depends_on: []
-        related_to:
-            - path: app_source
+        related_to: []

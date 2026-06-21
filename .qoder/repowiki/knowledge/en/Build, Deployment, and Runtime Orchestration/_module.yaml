@@ -1,0 +1,13 @@
+schema_version: 1
+module_path: build_system
+title: Build, Deployment, and Runtime Orchestration
+scope: []
+source_files:
+    - pyproject.toml
+    - quickstart.sh
+    - manage.sh
+    - .github/workflows/ci.yml
+    - tools/lib/runtime_env.sh
+    - deploy/systemd/user/sage-faculty-twin-app.service
+depends_on: []
+related_to: []

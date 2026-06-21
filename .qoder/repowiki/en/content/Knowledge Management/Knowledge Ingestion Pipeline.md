@@ -9,15 +9,19 @@
 - [ingest_paper_writing_knowledge.py](file://tools/ingest_paper_writing_knowledge.py)
 - [ingest_weekly_schedules.py](file://tools/ingest_weekly_schedules.py)
 - [ingest_wiki.py](file://tools/ingest_wiki.py)
+- [sync_wiki_kb.sh](file://tools/sync_wiki_kb.sh)
+- [sage-faculty-twin-wiki-sync.service](file://deploy/systemd/user/sage-faculty-twin-wiki-sync.service)
+- [sage-faculty-twin-wiki-sync.timer](file://deploy/systemd/user/sage-faculty-twin-wiki-sync.timer)
 - [test_knowledge_base.py](file://tests/test_knowledge_base.py)
 </cite>
 
 ## Update Summary
 **Changes Made**
-- Updated metadata preservation documentation to reflect critical bug fix in metadata handling
-- Enhanced wiki-link graph metadata documentation with proper metadata preservation details
-- Added comprehensive coverage of metadata normalization and preservation mechanisms
-- Updated validation rules section to include metadata preservation testing
+- Enhanced bidirectional link graph construction documentation to reflect symmetric edge creation for improved search results
+- Added comprehensive documentation for automatic wiki content synchronization through systemd timers with 30-minute intervals
+- Updated link graph construction section to include bidirectional edge implementation details
+- Added new section covering automatic wiki synchronization infrastructure
+- Enhanced troubleshooting guide with systemd timer configuration guidance
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -31,7 +35,7 @@
 9. [Conclusion](#conclusion)
 
 ## Introduction
-This document describes the knowledge ingestion pipeline that transforms heterogeneous content (Markdown, PDFs, Office documents, structured data, and Docusaurus wiki content) into a searchable knowledge base. It covers document processing workflows, content extraction, preprocessing, validation, duplicate detection, normalization, categorization, and integration with external knowledge sources including wiki-link graphs. The pipeline ensures proper metadata preservation for maintaining cross-references and relationships between knowledge sources, with comprehensive validation through automated testing.
+This document describes the knowledge ingestion pipeline that transforms heterogeneous content (Markdown, PDFs, Office documents, structured data, and Docusaurus wiki content) into a searchable knowledge base. It covers document processing workflows, content extraction, preprocessing, validation, duplicate detection, normalization, categorization, and integration with external knowledge sources including wiki-link graphs. The pipeline ensures proper metadata preservation for maintaining cross-references and relationships between knowledge sources, with comprehensive validation through automated testing. Recent enhancements include bidirectional link graph construction for improved search results and automatic wiki content synchronization through systemd timers.
 
 ## Project Structure
 The ingestion pipeline spans several modules:
@@ -40,6 +44,7 @@ The ingestion pipeline spans several modules:
 - Data models and validation: [models.py](file://src/sage_faculty_twin/models.py)
 - Configuration and environment: [config.py](file://src/sage_faculty_twin/config.py)
 - Example ingestion tools: [ingest_paper_writing_knowledge.py](file://tools/ingest_paper_writing_knowledge.py), [ingest_weekly_schedules.py](file://tools/ingest_weekly_schedules.py), [ingest_wiki.py](file://tools/ingest_wiki.py)
+- Automatic synchronization: [sync_wiki_kb.sh](file://tools/sync_wiki_kb.sh), [sage-faculty-twin-wiki-sync.service](file://deploy/systemd/user/sage-faculty-twin-wiki-sync.service), [sage-faculty-twin-wiki-sync.timer](file://deploy/systemd/user/sage-faculty-twin-wiki-sync.timer)
 
 ```mermaid
 graph TB
@@ -49,8 +54,11 @@ D["config.py<br/>AppSettings"] --> B
 E["ingest_paper_writing_knowledge.py<br/>Bulk ingestion tool"] --> B
 F["ingest_weekly_schedules.py<br/>Manual ingestion tool"] --> B
 G["ingest_wiki.py<br/>Docusaurus wiki ingestion"] --> B
-B --> H["Knowledge Backend<br/>sagevdb/neuromem"]
-B --> I["Link Graph<br/>wiki-link retrieval"]
+H["sync_wiki_kb.sh<br/>Auto sync script"] --> B
+I["sage-faculty-twin-wiki-sync.service<br/>Systemd service"] --> H
+J["sage-faculty-twin-wiki-sync.timer<br/>30-min timer"] --> I
+B --> K["Knowledge Backend<br/>sagevdb/neuromem"]
+B --> L["Link Graph<br/>Bidirectional wiki-link retrieval"]
 ```
 
 **Diagram sources**
@@ -61,6 +69,9 @@ B --> I["Link Graph<br/>wiki-link retrieval"]
 - [ingest_paper_writing_knowledge.py:227-273](file://tools/ingest_paper_writing_knowledge.py#L227-L273)
 - [ingest_weekly_schedules.py:115-159](file://tools/ingest_weekly_schedules.py#L115-L159)
 - [ingest_wiki.py:91-171](file://tools/ingest_wiki.py#L91-L171)
+- [sync_wiki_kb.sh:1-57](file://tools/sync_wiki_kb.sh#L1-L57)
+- [sage-faculty-twin-wiki-sync.service:1-10](file://deploy/systemd/user/sage-faculty-twin-wiki-sync.service#L1-L10)
+- [sage-faculty-twin-wiki-sync.timer:1-12](file://deploy/systemd/user/sage-faculty-twin-wiki-sync.timer#L1-L12)
 
 **Section sources**
 - [knowledge_import.py:1-113](file://src/sage_faculty_twin/knowledge_import.py#L1-L113)
@@ -70,24 +81,31 @@ B --> I["Link Graph<br/>wiki-link retrieval"]
 - [ingest_paper_writing_knowledge.py:1-273](file://tools/ingest_paper_writing_knowledge.py#L1-L273)
 - [ingest_weekly_schedules.py:1-159](file://tools/ingest_weekly_schedules.py#L1-L159)
 - [ingest_wiki.py:1-171](file://tools/ingest_wiki.py#L1-L171)
+- [sync_wiki_kb.sh:1-57](file://tools/sync_wiki_kb.sh#L1-L57)
+- [sage-faculty-twin-wiki-sync.service:1-10](file://deploy/systemd/user/sage-faculty-twin-wiki-sync.service#L1-L10)
+- [sage-faculty-twin-wiki-sync.timer:1-12](file://deploy/systemd/user/sage-faculty-twin-wiki-sync.timer#L1-L12)
 
 ## Core Components
 - Content ingestion and preprocessing: Builds KnowledgeDocumentCreate payloads from Markdown, PDFs, DOCX/PPTX, and generic text resources; normalizes content; splits into chunks; infers metadata and tags.
-- **Wiki-link graph integration**: Parses Docusaurus markdown files, extracts frontmatter and inter-page links, resolves relative links to source names, and creates link graph metadata for post-retrieval expansion with proper metadata preservation.
+- **Bidirectional wiki-link graph integration**: Parses Docusaurus markdown files, extracts frontmatter and inter-page links, resolves relative links to source names, creates symmetric edges for improved search results, and generates link graph metadata for post-retrieval expansion with proper metadata preservation.
 - Knowledge storage: Upserts documents, deduplicates by source_name, manages indexes, and supports multiple backends (sagevdb, neuromem).
-- **Link graph construction**: Maintains adjacency list from document metadata for wiki-link retrieval and post-retrieval expansion, ensuring metadata integrity is preserved throughout the process.
+- **Enhanced link graph construction**: Maintains bidirectional adjacency list from document metadata for wiki-link retrieval and post-retrieval expansion, ensuring metadata integrity is preserved throughout the process with symmetric edge creation.
 - Validation: Pydantic models enforce field constraints and normalize metadata, with comprehensive testing for metadata preservation.
 - Configuration: Centralized settings for knowledge base location, backend selection, embedding models, and retrieval parameters.
 - Example ingestion tools: Automated scripts for paper-writing lessons, weekly schedules, and Docusaurus wiki content.
+- **Automatic wiki synchronization**: Systemd-based automation for periodic wiki content updates with 30-minute intervals and boot-time synchronization.
 
 **Section sources**
 - [knowledge_import.py:116-126](file://src/sage_faculty_twin/knowledge_import.py#L116-L126)
 - [knowledge_base.py:167-207](file://src/sage_faculty_twin/knowledge_base.py#L167-L207)
-- [knowledge_base.py:1150-1179](file://src/sage_faculty_twin/knowledge_base.py#L1150-L1179)
+- [knowledge_base.py:1155-1197](file://src/sage_faculty_twin/knowledge_base.py#L1155-L1197)
 - [models.py:319-340](file://src/sage_faculty_twin/models.py#L319-L340)
 - [config.py:63-70](file://src/sage_faculty_twin/config.py#L63-L70)
 - [ingest_paper_writing_knowledge.py:181-224](file://tools/ingest_paper_writing_knowledge.py#L181-L224)
 - [ingest_wiki.py:26-34](file://tools/ingest_wiki.py#L26-L34)
+- [sync_wiki_kb.sh:1-57](file://tools/sync_wiki_kb.sh#L1-L57)
+- [sage-faculty-twin-wiki-sync.service:1-10](file://deploy/systemd/user/sage-faculty-twin-wiki-sync.service#L1-L10)
+- [sage-faculty-twin-wiki-sync.timer:1-12](file://deploy/systemd/user/sage-faculty-twin-wiki-sync.timer#L1-L12)
 
 ## Architecture Overview
 The ingestion pipeline follows a staged process:
@@ -97,7 +115,7 @@ The ingestion pipeline follows a staged process:
 4. Payload creation: Build KnowledgeDocumentCreate objects with title, content, tags, source_name, and metadata including link graph information.
 5. Duplicate detection and upsert: Compare against existing documents by source_name; remove duplicates; persist to disk and rebuild indexes.
 6. Indexing and retrieval: Initialize chosen backend (sagevdb or neuromem) and build indexes.
-7. **Link graph maintenance**: Construct adjacency list from linked_source_names metadata for post-retrieval expansion, ensuring metadata integrity is maintained.
+7. **Enhanced link graph maintenance**: Construct bidirectional adjacency list from linked_source_names metadata for post-retrieval expansion, ensuring metadata integrity is maintained with symmetric edge creation.
 
 ```mermaid
 sequenceDiagram
@@ -107,14 +125,17 @@ participant Import as "knowledge_import.py"
 participant Store as "LocalKnowledgeStore"
 participant FS as "Disk JSON"
 participant VDB as "Knowledge Backend"
+participant Timer as "Systemd Timer"
 Tool->>WikiParser : Parse Docusaurus markdown files
 WikiParser->>WikiParser : Extract frontmatter & wiki links
 WikiParser->>Store : upsert_document(payload with link metadata)
-Store->>Store : Build link graph from metadata
+Store->>Store : Build bidirectional link graph from metadata
 Store->>FS : Write JSON document with preserved metadata
 Store->>VDB : Add/update index (if enabled)
 Store-->>Tool : (record, created_or_updated)
 Tool->>Store : rebuild_indexes()
+Note over Timer,VDB : 30-minute interval synchronization
+Timer->>Store : Automatic wiki sync
 ```
 
 **Diagram sources**
@@ -123,6 +144,7 @@ Tool->>Store : rebuild_indexes()
 - [knowledge_base.py:167-207](file://src/sage_faculty_twin/knowledge_base.py#L167-L207)
 - [knowledge_base.py:249-268](file://src/sage_faculty_twin/knowledge_base.py#L249-L268)
 - [knowledge_base.py:270-271](file://src/sage_faculty_twin/knowledge_base.py#L270-L271)
+- [sage-faculty-twin-wiki-sync.timer:4-8](file://deploy/systemd/user/sage-faculty-twin-wiki-sync.timer#L4-L8)
 
 ## Detailed Component Analysis
 
@@ -203,35 +225,77 @@ Upsert --> End(["Complete"])
 - [knowledge_import.py:393-429](file://src/sage_faculty_twin/knowledge_import.py#L393-L429)
 - [knowledge_import.py:432-469](file://src/sage_faculty_twin/knowledge_import.py#L432-L469)
 
-### Wiki-Link Graph Construction and Expansion
+### Enhanced Bidirectional Link Graph Construction and Expansion
 
-**Updated** Enhanced documentation to reflect critical metadata preservation improvements
+**Updated** Enhanced documentation to reflect bidirectional link graph construction with symmetric edge creation
 
-The knowledge base now includes sophisticated wiki-link graph functionality with improved metadata handling:
+The knowledge base now includes sophisticated bidirectional wiki-link graph functionality with improved search results:
 
-- **Link Graph Construction**: The `_rebuild_link_graph()` method constructs an adjacency list from document metadata containing `linked_source_names`. Each document's metadata stores pipe-separated source_names that represent inter-page links resolved during ingestion, with proper metadata preservation ensuring cross-references maintain integrity.
-- **Post-Retrieval Expansion**: The `_expand_hits_with_links()` method performs 1-hop link expansion, following outgoing links from initial search results to inject linked documents with reduced scores, while preserving all metadata throughout the expansion process.
-- **Automatic Link Resolution**: During ingestion, relative wiki links are automatically resolved to absolute source_names and stored as metadata for later graph construction, with comprehensive validation ensuring metadata integrity.
+- **Bidirectional Link Graph Construction**: The `_rebuild_link_graph()` method constructs a bidirectional adjacency list from document metadata containing `linked_source_names`. Each document's metadata stores pipe-separated source_names that represent inter-page links resolved during ingestion. The implementation creates symmetric edges (both A→B and B→A) to ensure comprehensive search coverage, with proper metadata preservation ensuring cross-references maintain integrity.
+- **Post-Retrieval Expansion**: The `_expand_hits_with_links()` method performs 1-hop link expansion, following outgoing links from initial search results to inject linked documents with reduced scores (50% of parent hit's score, minimum 1.0), while preserving all metadata throughout the expansion process.
+- **Automatic Link Resolution**: During ingestion, relative wiki links are automatically resolved to absolute source_names and stored as metadata for later bidirectional graph construction, with comprehensive validation ensuring metadata integrity.
 
 ```mermaid
 flowchart TD
 A["Document with linked_source_names"] --> B["Metadata Preservation"]
 B --> C["Source Name to ID Mapping"]
-C --> D["Adjacency List Construction"]
-D --> E["Link Graph Storage"]
-E --> F["Post-Retrieval Expansion"]
-F --> G["Score Reduction for Linked Docs"]
-G --> H["Metadata Integrity Maintenance"]
+C --> D["Forward Edge Creation (A→B)"]
+D --> E["Reverse Edge Creation (B→A)"]
+E --> F["Bidirectional Link Graph Storage"]
+F --> G["Post-Retrieval Expansion"]
+G --> H["Score Reduction for Linked Docs"]
+H --> I["Metadata Integrity Maintenance"]
 ```
 
 **Diagram sources**
-- [knowledge_base.py:1151-1179](file://src/sage_faculty_twin/knowledge_base.py#L1151-L1179)
-- [knowledge_base.py:1181-1234](file://src/sage_faculty_twin/knowledge_base.py#L1181-L1234)
+- [knowledge_base.py:1155-1197](file://src/sage_faculty_twin/knowledge_base.py#L1155-L1197)
+- [knowledge_base.py:1199-1252](file://src/sage_faculty_twin/knowledge_base.py#L1199-L1252)
 
 **Section sources**
-- [knowledge_base.py:1149-1179](file://src/sage_faculty_twin/knowledge_base.py#L1149-L1179)
-- [knowledge_base.py:1181-1234](file://src/sage_faculty_twin/knowledge_base.py#L1181-L1234)
+- [knowledge_base.py:1155-1197](file://src/sage_faculty_twin/knowledge_base.py#L1155-L1197)
+- [knowledge_base.py:1199-1252](file://src/sage_faculty_twin/knowledge_base.py#L1199-L1252)
 - [ingest_wiki.py:134-136](file://tools/ingest_wiki.py#L134-L136)
+
+### Automatic Wiki Content Synchronization Infrastructure
+
+**New** Added comprehensive documentation for automatic wiki synchronization capabilities
+
+The system now includes automated wiki content synchronization through systemd infrastructure:
+
+- **Systemd Service**: The `sage-faculty-twin-wiki-sync.service` runs the `sync_wiki_kb.sh` script as a one-shot service, ensuring network connectivity before execution and running from the repository root directory.
+- **30-Minute Timer**: The `sage-faculty-twin-wiki-sync.timer` triggers synchronization every 30 minutes, with boot-time delay of 5 minutes and persistent operation support.
+- **Idempotent Script**: The `sync_wiki_kb.sh` script pulls latest wiki content, detects changes, and re-ingests only when updates are available, maintaining log files and cleaning up old logs.
+- **Integration Flow**: Automatic synchronization seamlessly integrates with the existing ingestion pipeline, maintaining bidirectional link graph construction and metadata preservation.
+
+```mermaid
+sequenceDiagram
+participant Timer as "Systemd Timer"
+participant Service as "Wiki Sync Service"
+participant Script as "sync_wiki_kb.sh"
+participant Git as "Git Repository"
+participant Ingest as "ingest_wiki.py"
+Timer->>Service : Trigger every 30 minutes
+Service->>Script : Execute one-shot command
+Script->>Git : Pull latest wiki content
+Git-->>Script : Return status
+Script->>Ingest : Run wiki ingestion
+Ingest->>Store : Upsert documents with bidirectional links
+Store->>Store : Rebuild link graph with symmetric edges
+Script-->>Service : Log completion
+Service-->>Timer : Service complete
+```
+
+**Diagram sources**
+- [sage-faculty-twin-wiki-sync.timer:4-8](file://deploy/systemd/user/sage-faculty-twin-wiki-sync.timer#L4-L8)
+- [sage-faculty-twin-wiki-sync.service:6-9](file://deploy/systemd/user/sage-faculty-twin-wiki-sync.service#L6-L9)
+- [sync_wiki_kb.sh:25-48](file://tools/sync_wiki_kb.sh#L25-L48)
+- [ingest_wiki.py:155-167](file://tools/ingest_wiki.py#L155-L167)
+
+**Section sources**
+- [sage-faculty-twin-wiki-sync.service:1-10](file://deploy/systemd/user/sage-faculty-twin-wiki-sync.service#L1-L10)
+- [sage-faculty-twin-wiki-sync.timer:1-12](file://deploy/systemd/user/sage-faculty-twin-wiki-sync.timer#L1-L12)
+- [sync_wiki_kb.sh:1-57](file://tools/sync_wiki_kb.sh#L1-L57)
+- [ingest_wiki.py:155-167](file://tools/ingest_wiki.py#L155-L167)
 
 ### Ingestion Validation Rules
 - Pydantic models enforce field constraints:
@@ -278,7 +342,7 @@ G --> H["Metadata Integrity Maintenance"]
 #### Bulk Document Uploads
 - Paper-writing lessons: Automated ingestion of lecture materials with inline content and external files, tagging with course identifiers and ordinal numbering.
 - Weekly schedules: Bulk ingestion of team member schedules with metadata indicating domain/identity/source kind.
-- **Docusaurus wiki**: Automated ingestion of wiki pages with automatic link resolution and graph metadata creation, with comprehensive metadata preservation.
+- **Docusaurus wiki**: Automated ingestion of wiki pages with automatic link resolution and bidirectional graph metadata creation, with comprehensive metadata preservation.
 
 ```mermaid
 sequenceDiagram
@@ -288,16 +352,16 @@ participant FS as "Disk JSON"
 Script->>Script : Parse wiki markdown files
 Script->>Script : Extract frontmatter & links
 Script->>Store : upsert_document(payload with link metadata)
-Store->>FS : Persist JSON with link graph metadata
+Store->>FS : Persist JSON with bidirectional link graph metadata
 Script->>Store : rebuild_indexes()
-Script->>Store : _rebuild_link_graph()
+Script->>Store : _rebuild_link_graph() with symmetric edges
 ```
 
 **Diagram sources**
 - [ingest_wiki.py:105-152](file://tools/ingest_wiki.py#L105-L152)
 - [knowledge_base.py:167-207](file://src/sage_faculty_twin/knowledge_base.py#L167-L207)
 - [knowledge_base.py:270-271](file://src/sage_faculty_twin/knowledge_base.py#L270-L271)
-- [knowledge_base.py:1151-1179](file://src/sage_faculty_twin/knowledge_base.py#L1151-L1179)
+- [knowledge_base.py:1155-1197](file://src/sage_faculty_twin/knowledge_base.py#L1155-L1197)
 
 **Section sources**
 - [ingest_paper_writing_knowledge.py:181-224](file://tools/ingest_paper_writing_knowledge.py#L181-L224)
@@ -307,7 +371,7 @@ Script->>Store : _rebuild_link_graph()
 
 #### Automated Content Parsing
 - Homepage ingestion orchestrator aggregates payloads from multiple sources (profiles, news, systems, awards, publications, teaching materials).
-- **Wiki ingestion orchestrator**: Automatically discovers and processes Docusaurus wiki markdown files, extracting frontmatter and resolving inter-page links, with proper metadata preservation.
+- **Wiki ingestion orchestrator**: Automatically discovers and processes Docusaurus wiki markdown files, extracting frontmatter and resolving inter-page links, with proper metadata preservation and bidirectional edge creation.
 - Automatic chunking ensures each payload fits within configured limits and maintains contextual continuity.
 
 **Section sources**
@@ -334,19 +398,19 @@ Script->>Store : _rebuild_link_graph()
 - **Wiki source naming**: Standardizes wiki file paths to "wiki:category/path" format for consistent linking, with metadata preservation maintained.
 - Manual ingestion: Tools write JSON directly to knowledge base directory; indexes rebuilt on next start.
 - API-driven ingestion: Full knowledge store API with embeddings and indexes when sentence-transformers is available.
-- **Link graph integration**: Wiki-link metadata automatically participates in the knowledge graph for enhanced retrieval, with comprehensive metadata preservation.
+- **Enhanced link graph integration**: Wiki-link metadata automatically participates in the bidirectional knowledge graph for enhanced retrieval, with comprehensive metadata preservation.
 
 **Section sources**
 - [knowledge_import.py:148-158](file://src/sage_faculty_twin/knowledge_import.py#L148-L158)
 - [ingest_weekly_schedules.py:76-85](file://tools/ingest_weekly_schedules.py#L76-L85)
 - [ingest_weekly_schedules.py:115-154](file://tools/ingest_weekly_schedules.py#L115-L154)
 - [ingest_wiki.py:79-88](file://tools/ingest_wiki.py#L79-L88)
-- [knowledge_base.py:1149-1179](file://src/sage_faculty_twin/knowledge_base.py#L1149-L1179)
+- [knowledge_base.py:1155-1197](file://src/sage_faculty_twin/knowledge_base.py#L1155-L1197)
 
 ### Batch Processing Capabilities
 - Chunked ingestion: Documents are split into manageable parts with overlap to preserve context across boundaries.
 - Batched embeddings (neuromem FAISS): Precomputes vectors for all documents in a single batch to accelerate indexing.
-- **Wiki batch processing**: Multiple wiki pages processed in batch with automatic link graph reconstruction, with metadata preservation maintained throughout.
+- **Enhanced wiki batch processing**: Multiple wiki pages processed in batch with automatic bidirectional link graph reconstruction, with metadata preservation maintained throughout.
 
 **Section sources**
 - [knowledge_import.py:956-1009](file://src/sage_faculty_twin/knowledge_import.py#L956-L1009)
@@ -359,7 +423,8 @@ Script->>Store : _rebuild_link_graph()
 - Backend initialization failures: Clear error messages indicating missing packages or invalid configurations.
 - Runtime resilience: Rebuild directories if missing; remove duplicates after load.
 - **Wiki link resolution**: Gracefully handles unresolved relative links; continues processing even if some links fail to resolve, with metadata preservation maintained.
-- **Metadata preservation resilience**: Comprehensive validation ensures metadata integrity is maintained even in edge cases.
+- **Enhanced metadata preservation resilience**: Comprehensive validation ensures metadata integrity is maintained even in edge cases, with bidirectional edge creation providing robust search coverage.
+- **Systemd synchronization resilience**: Automatic wiki sync handles git pull failures gracefully and continues with local content, with comprehensive logging and error reporting.
 
 **Section sources**
 - [knowledge_import.py:853-860](file://src/sage_faculty_twin/knowledge_import.py#L853-L860)
@@ -367,12 +432,13 @@ Script->>Store : _rebuild_link_graph()
 - [knowledge_base.py:422-463](file://src/sage_faculty_twin/knowledge_base.py#L422-L463)
 - [knowledge_base.py:338-352](file://src/sage_faculty_twin/knowledge_base.py#L338-L352)
 - [ingest_wiki.py:67-71](file://tools/ingest_wiki.py#L67-L71)
+- [sync_wiki_kb.sh:30-38](file://tools/sync_wiki_kb.sh#L30-L38)
 
 ### Content Formatting Standards
 - Titles: Derived from headings or filenames; numeric prefixes stripped; section-specific titles appended.
 - Tags: Deduplicated; enriched with inferred domains/material types; course/ordinal metadata encoded as tags.
 - Metadata: Inferred from tags and content; explicit metadata merged with inferred values, with comprehensive preservation testing.
-- **Wiki metadata**: Includes wiki_url, wiki_category, wiki_authors, wiki_date, and linked_source_names for graph construction, with proper metadata preservation.
+- **Enhanced wiki metadata**: Includes wiki_url, wiki_category, wiki_authors, wiki_date, and linked_source_names for bidirectional graph construction, with proper metadata preservation.
 
 **Section sources**
 - [knowledge_import.py:1070-1071](file://src/sage_faculty_twin/knowledge_import.py#L1070-L1071)
@@ -385,11 +451,11 @@ Script->>Store : _rebuild_link_graph()
 - Course identification: Maps aliases to course IDs; enriches metadata with course_id, with comprehensive validation.
 - Material type classification: Tutorial, lecture, experiment, paper-digest, overview, profile.
 - Audience targeting: Supports public, undergraduate, graduate, lab_member, manager, admin visibility.
-- **Wiki categorization**: Automatic category mapping from wiki file paths; supports achievements, tutorials, tech-notes, standards, resources, industry-docs, with metadata preservation testing.
+- **Enhanced wiki categorization**: Automatic category mapping from wiki file paths; supports achievements, tutorials, tech-notes, standards, resources, industry-docs, with metadata preservation testing and bidirectional link graph construction.
 
 **Section sources**
 - [knowledge_base.py:1402-1466](file://src/sage_faculty_twin/knowledge_base.py#L1402-L1466)
-- [knowledge_base.py:1148-1186](file://src/sage_faculty_twin/knowledge_base.py#L1148-L1186)
+- [knowledge_base.py:1155-1197](file://src/sage_faculty_twin/knowledge_base.py#L1155-L1197)
 - [knowledge_base.py:1500-1540](file://src/sage_faculty_twin/knowledge_base.py#L1500-L1540)
 - [ingest_wiki.py:26-34](file://tools/ingest_wiki.py#L26-L34)
 
@@ -397,8 +463,9 @@ Script->>Store : _rebuild_link_graph()
 The ingestion pipeline exhibits clear module separation:
 - knowledge_import.py depends on knowledge_base.py for upsert operations and on models.py for payload structures.
 - knowledge_base.py depends on config.py for backend configuration and embedding settings.
-- **ingest_wiki.py depends on knowledge_base.py and models.py for wiki content processing and link graph metadata creation, with comprehensive metadata preservation.**
+- **ingest_wiki.py depends on knowledge_base.py and models.py for wiki content processing and bidirectional link graph metadata creation, with comprehensive metadata preservation.**
 - Example ingestion tools depend on knowledge_base.py and models.py.
+- **Systemd infrastructure depends on sync_wiki_kb.sh for automated wiki synchronization.**
 
 ```mermaid
 graph LR
@@ -410,6 +477,10 @@ KB --> IW["ingest_wiki.py"]
 ToolsPW["ingest_paper_writing_knowledge.py"] --> KB
 ToolsWS["ingest_weekly_schedules.py"] --> KB
 IW --> Models
+IW --> KB
+Sync["sync_wiki_kb.sh"] --> IW
+Service["sage-faculty-twin-wiki-sync.service"] --> Sync
+Timer["sage-faculty-twin-wiki-sync.timer"] --> Service
 ```
 
 **Diagram sources**
@@ -420,6 +491,9 @@ IW --> Models
 - [ingest_paper_writing_knowledge.py:15-17](file://tools/ingest_paper_writing_knowledge.py#L15-L17)
 - [ingest_weekly_schedules.py:23-28](file://tools/ingest_weekly_schedules.py#L23-L28)
 - [ingest_wiki.py:19-21](file://tools/ingest_wiki.py#L19-L21)
+- [sync_wiki_kb.sh:8](file://tools/sync_wiki_kb.sh#L8)
+- [sage-faculty-twin-wiki-sync.service:9](file://deploy/systemd/user/sage-faculty-twin-wiki-sync.service#L9)
+- [sage-faculty-twin-wiki-sync.timer:6](file://deploy/systemd/user/sage-faculty-twin-wiki-sync.timer#L6)
 
 **Section sources**
 - [knowledge_import.py:12-14](file://src/sage_faculty_twin/knowledge_import.py#L12-L14)
@@ -429,14 +503,18 @@ IW --> Models
 - [ingest_paper_writing_knowledge.py:15-17](file://tools/ingest_paper_writing_knowledge.py#L15-L17)
 - [ingest_weekly_schedules.py:23-28](file://tools/ingest_weekly_schedules.py#L23-L28)
 - [ingest_wiki.py:19-21](file://tools/ingest_wiki.py#L19-L21)
+- [sync_wiki_kb.sh:8](file://tools/sync_wiki_kb.sh#L8)
+- [sage-faculty-twin-wiki-sync.service:9](file://deploy/systemd/user/sage-faculty-twin-wiki-sync.service#L9)
+- [sage-faculty-twin-wiki-sync.timer:6](file://deploy/systemd/user/sage-faculty-twin-wiki-sync.timer#L6)
 
 ## Performance Considerations
 - Chunking with overlap improves retrieval accuracy without dramatically increasing storage; tune max_chars and overlap target for balance.
 - Batched embeddings for FAISS reduce per-document encoding overhead; ensure sufficient memory for large corpora.
 - Backend selection impacts latency and accuracy; BM25 vs dense retrieval trade-offs should align with use cases.
 - Deduplication reduces redundant indexing; consider disabling rebuild_indexes during bulk loads and rebuilding once at the end.
-- **Link graph construction**: Efficient adjacency list building from metadata; minimal performance impact on search operations, with metadata preservation maintained.
-- **Post-retrieval expansion**: Configurable limit (default 3) prevents excessive expansion; linked documents receive reduced scores to maintain relevance hierarchy, with metadata integrity preserved.
+- **Enhanced link graph construction**: Efficient bidirectional adjacency list building from metadata with symmetric edge creation; minimal performance impact on search operations, with metadata preservation maintained.
+- **Post-retrieval expansion**: Configurable limit (default 3) prevents excessive expansion; linked documents receive reduced scores (50%) to maintain relevance hierarchy, with metadata integrity preserved.
+- **Automatic synchronization**: 30-minute intervals balance freshness with resource usage; boot-time delay prevents immediate startup conflicts.
 
 ## Troubleshooting Guide
 - Missing pdftotext: Install system binary or install pypdf to enable fallback extraction.
@@ -444,14 +522,17 @@ IW --> Models
 - Empty or unreadable content: Confirm file encodings and content presence; scripts skip empty files.
 - Backend initialization errors: Check environment variables and package availability; consult error messages for missing dependencies.
 - **Wiki link resolution failures**: Relative links that cannot be resolved are gracefully ignored; verify wiki file structure and paths, with metadata preservation validation.
-- **Link graph construction warnings**: Documents with invalid source_name references are skipped; check metadata format consistency, with comprehensive metadata validation.
+- **Enhanced link graph construction warnings**: Documents with invalid source_name references are skipped; check metadata format consistency, with comprehensive metadata validation.
 - **Metadata preservation issues**: Automated tests ensure explicit metadata is properly preserved and returned; verify metadata format and validation rules.
+- **Systemd timer configuration**: Verify timer settings (OnBootSec=5min, OnUnitActiveSec=30min) and service execution permissions; check log files in logs/ directory.
+- **Wiki synchronization failures**: Review sync_wiki_kb.sh logs for git pull errors; script continues with local content if remote pull fails.
 
 **Section sources**
 - [knowledge_import.py:853-860](file://src/sage_faculty_twin/knowledge_import.py#L853-L860)
 - [knowledge_base.py:422-463](file://src/sage_faculty_twin/knowledge_base.py#L422-L463)
 - [ingest_paper_writing_knowledge.py:235-248](file://tools/ingest_paper_writing_knowledge.py#L235-L248)
 - [ingest_wiki.py:67-71](file://tools/ingest_wiki.py#L67-L71)
+- [sync_wiki_kb.sh:30-38](file://tools/sync_wiki_kb.sh#L30-L38)
 
 ## Conclusion
-The knowledge ingestion pipeline provides a robust, extensible framework for transforming diverse content into a structured, searchable knowledge base. It emphasizes normalization, chunking, metadata enrichment, and deduplication, while offering flexible backends and practical ingestion tools for both automated and manual workflows. The addition of wiki-link graph functionality enhances retrieval capabilities by leveraging internal document relationships, creating a more interconnected and contextually aware knowledge system. The recent metadata preservation improvements ensure that cross-references and relationships between knowledge sources are maintained with integrity, supported by comprehensive validation testing.
+The knowledge ingestion pipeline provides a robust, extensible framework for transforming diverse content into a structured, searchable knowledge base. It emphasizes normalization, chunking, metadata enrichment, and deduplication, while offering flexible backends and practical ingestion tools for both automated and manual workflows. The addition of bidirectional link graph functionality significantly enhances retrieval capabilities by leveraging internal document relationships, creating a more interconnected and contextually aware knowledge system with symmetric edge creation for improved search results. The recent automatic wiki synchronization infrastructure through systemd timers ensures continuous content freshness with 30-minute intervals and boot-time synchronization, maintaining comprehensive metadata preservation throughout the entire pipeline. The recent metadata preservation improvements ensure that cross-references and relationships between knowledge sources are maintained with integrity, supported by comprehensive validation testing and resilient error handling strategies.

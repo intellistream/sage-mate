@@ -1,5 +1,0 @@
-- **Benchmark Adapters**: Implements unified scoring and request building for CharacterEval, LaMP, and Memory Follow-up benchmarks, exporting standardized prediction envelopes and score reports (`test_benchmark_adapter.py`).
-- **Prompt Optimization**: Verifies soft-cap truncation logic for attachments, memory, and knowledge hits to maintain latency bounds, and tests deep-thinking policy enforcement (`test_prompt_soft_cap.py`, `test_deep_thinking_policy.py`).
-- **Store Resilience**: Ensures all JSON-based and SQLite-backed stores defensively recreate missing directories at runtime to prevent 500 errors during layout migrations (`test_store_resilience.py`).
-- **Operational Workflows**: Tests admin-facing endpoints for operations overviews, workbench task management, artifact drafts, and suggestion boards, ensuring proper RBAC and data aggregation (`test_operations_overview.py`, `test_suggestion_board.py`).
-- **Infrastructure Scripts**: Validates systemd service unit rendering and vLLM proxy/engine startup scripts for port conflicts and container availability (`test_systemd_service_scripts.py`).

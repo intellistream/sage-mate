@@ -1,0 +1,3 @@
+- Uses `secrets.compare_digest` for all sensitive string comparisons, including password hashes and invitation codes, to prevent timing attacks.
+- Persists data by writing individual JSON files named by UUID to dedicated directories, with in-memory dictionaries synchronized on every write operation.
+- Normalizes email addresses to lowercase and strips whitespace before storage or lookup to ensure case-insensitive uniqueness.

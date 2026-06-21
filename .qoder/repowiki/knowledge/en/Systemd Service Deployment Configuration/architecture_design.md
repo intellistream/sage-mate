@@ -1,4 +1,0 @@
-- The module consists exclusively of five systemd user service unit files located in `deploy/systemd/user/`.
-- Services are layered with explicit dependency chains: `sage-faculty-twin-site.service` requires the app service, and `sage-faculty-twin-tunnel.service` requires the site service, ensuring correct startup order.
-- Each unit delegates execution to shell scripts in the `tools/` directory (e.g., `run_app_server.sh`, `run_vllm_engine.sh`) via `ExecStart`, using placeholder variables like `__REPO_ROOT__` and `__PYTHON_BIN__` for environment-agnostic deployment.
-- The vLLM engine service includes a generous `TimeoutStartSec=600` to accommodate large model loading times, while other services use standard restart policies.

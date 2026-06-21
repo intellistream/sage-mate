@@ -1,0 +1,1 @@
+Uses `pytest` with `fastapi.testclient.TestClient` for API-level integration tests and `asyncio.run` for driving asynchronous service methods in unit contexts.

@@ -1,0 +1,2 @@
+- Service units consistently define `WorkingDirectory` as the repository root and use wrapper scripts in `tools/` for `ExecStart` rather than invoking binaries directly.
+- Network-dependent services explicitly declare `Wants=network-online.target` and `After=network-online.target` to prevent premature startup.

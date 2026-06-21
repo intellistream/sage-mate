@@ -1,1 +1,0 @@
-Introduce pre-planner Skill Router for specialized agent flows — Implement a `SkillRouter` that matches user questions against `trigger_patterns` in skill manifests.

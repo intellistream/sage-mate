@@ -1,5 +1,0 @@
-- **LLM Inference**: vLLM-HUST (custom fork) via OpenAI-compatible API.
-- **Vector/Search**: `sageVDB` (C++ backend) and `isage-neuromem` (FAISS/BM25 indexes).
-- **Embeddings**: `sentence-transformers` (BAAI/bge-small-zh-v1.5) for dense retrieval.
-- **Web Framework**: FastAPI with Pydantic models.
-- **Persistence**: SQLite (via `sqlite3`) for conversation metadata; JSON files for knowledge documents and drafts.

@@ -14,6 +14,7 @@
 - [models.py](file://src/sage_faculty_twin/models.py)
 - [llm_client.py](file://src/sage_faculty_twin/llm_client.py)
 - [vllm_openai_proxy.py](file://src/sage_faculty_twin/vllm_openai_proxy.py)
+- [knowledge_base.py](file://src/sage_faculty_twin/knowledge_base.py)
 - [run_qwen3_32b_service.sh](file://run_qwen3_32b_service.sh)
 - [run_vllm_openai_proxy.sh](file://tools/run_vllm_openai_proxy.sh)
 - [sage-faculty-twin-vllm-openai-proxy.service](file://deploy/systemd/user/sage-faculty-twin-vllm-openai-proxy.service)
@@ -22,11 +23,12 @@
 
 ## Update Summary
 **Changes Made**
-- Added documentation for enhanced mobile network resilience improvements with automatic retry logic for chat POST requests
-- Updated error messaging to display 'Network connection interrupted, retrying automatically...' instead of misleading messages
-- Documented critical bug fixes for _app_version and __version__ import issues in service.py and api.py
-- Enhanced LLM client retry mechanism documentation with exponential backoff strategy
-- Updated frontend error handling to support automatic retry messaging
+- Redesigned answer basis system with explicit design rules for deduplication, citation filtering, and safety-net mechanisms
+- Implemented comprehensive filtering of knowledge hits by canonical source groups
+- Added systematic deduplication by label/title/source combinations
+- Enhanced citation safety-net to prevent session context from appearing as visible basis items
+- Improved response quality by eliminating redundant citations and filtering generic index pages
+- Updated knowledge retrieval enhancement to support new filtering mechanisms
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -36,22 +38,24 @@
 5. [Detailed Component Analysis](#detailed-component-analysis)
 6. [Service Lifecycle and Management](#service-lifecycle-and-management)
 7. [Mobile Network Resilience](#mobile-network-resilience)
-8. [Dependency Analysis](#dependency-analysis)
-9. [Performance Considerations](#performance-considerations)
-10. [Troubleshooting Guide](#troubleshooting-guide)
-11. [Conclusion](#conclusion)
+8. [Answer Basis System Redesign](#answer-basis-system-redesign)
+9. [Dependency Analysis](#dependency-analysis)
+10. [Performance Considerations](#performance-considerations)
+11. [Troubleshooting Guide](#troubleshooting-guide)
+12. [Conclusion](#conclusion)
 
 ## Introduction
-This document explains the Sage Faculty Twin service layer architecture with a focus on the main service orchestrator, workflow context management, and inter-component communication patterns. It details the FacultyTwinWorkflowSupport class and its coordination across knowledge retrieval, memory management, booking workflows, and administrative functions. The architecture now includes enhanced service lifecycle management with consolidated Qwen3-32B service management through a unified script, improved graceful shutdown procedures, advanced PID detection logic, and comprehensive mobile network resilience features.
+This document explains the Sage Faculty Twin service layer architecture with a focus on the main service orchestrator, workflow context management, and inter-component communication patterns. It details the FacultyTwinWorkflowSupport class and its coordination across knowledge retrieval, memory management, booking workflows, and administrative functions. The architecture now includes enhanced service lifecycle management with consolidated Qwen3-32B service management through a unified script, improved graceful shutdown procedures, advanced PID detection logic, comprehensive mobile network resilience features, and a completely redesigned answer basis system with explicit design rules for deduplication, citation filtering, and safety-net mechanisms.
 
 ## Project Structure
-The service layer centers around a primary orchestrator that composes multiple subsystems, now enhanced with unified service management and robust error handling:
+The service layer centers around a primary orchestrator that composes multiple subsystems, now enhanced with unified service management, robust error handling, and a redesigned answer basis system:
 - Workflow orchestration and context: FacultyTwinWorkflowSupport and ChatWorkflowContext
 - Planning and policy: DeterministicWorkflowPlanner, WorkflowPolicy, and WorkflowSteps
 - Stores and services: Knowledge base, conversation memory, booking, notifications, user accounts, analytics
 - Runtime and configuration: AppSettings, ServiceRuntimeManager, and FastAPI endpoints
 - **Enhanced Service Management**: Unified Qwen3-32B service control with graceful shutdown and PID detection
 - **Mobile Network Resilience**: Automatic retry logic for transient network errors with exponential backoff
+- **Redesigned Answer Basis System**: Explicit design rules for deduplication, citation filtering, and safety-net mechanisms
 
 ```mermaid
 graph TB
@@ -86,6 +90,11 @@ subgraph "Network Resilience"
 RRL["Retry Logic<br/>Exponential Backoff"]
 EM["Enhanced Messaging<br/>Automatic Retry"]
 end
+subgraph "Answer Basis System"
+ABS["AnswerBasisBuilder<br/>Deduplication & Filtering"]
+CSG["Canonical Source Groups<br/>Source Grouping"]
+SN["Safety Net<br/>Session Context Filter"]
+end
 S --> Ctx
 S --> DP
 DP --> WFP
@@ -101,6 +110,9 @@ S --> MS
 S --> LLM
 S --> EML
 S --> WEB
+S --> ABS
+ABS --> CSG
+ABS --> SN
 SRM --> QSS
 SRM --> VOP
 LLM --> RRL
@@ -117,6 +129,8 @@ RRL --> EM
 - [vllm_openai_proxy.py:123-257](file://src/sage_faculty_twin/vllm_openai_proxy.py#L123-L257)
 - [llm_client.py:870-1069](file://src/sage_faculty_twin/llm_client.py#L870-L1069)
 - [config.py:24-26](file://src/sage_faculty_twin/config.py#L24-L26)
+- [service.py:4040-4127](file://src/sage_faculty_twin/service.py#L4040-L4127)
+- [knowledge_base.py:1885-1890](file://src/sage_faculty_twin/knowledge_base.py#L1885-L1890)
 
 **Section sources**
 - [service.py:581-634](file://src/sage_faculty_twin/service.py#L581-L634)
@@ -135,10 +149,11 @@ RRL --> EM
 - Subsystems: Knowledge base, conversation memory, artifact memory drafts, user accounts, escalations, follow-ups, suggestions, meetings, LLM client with retry logic, email notifier, and web search.
 - **Enhanced Service Management**: ServiceRuntimeManager with unified service control, run_qwen3_32b_service.sh for Qwen3-32B management, and vLLM OpenAI proxy for service endpoint exposure.
 - **Mobile Network Resilience**: Automatic retry mechanisms with exponential backoff for transient network errors, enhanced error messaging, and improved frontend retry handling.
+- **Redesigned Answer Basis System**: Comprehensive citation management with explicit design rules for deduplication, filtering, and safety-net mechanisms.
 
 Key responsibilities:
 - Bootstrap and intent classification
-- Knowledge and memory retrieval
+- Knowledge and memory retrieval with enhanced filtering
 - Prompt assembly with soft caps and truncation
 - LLM answer generation with retry logic (streaming optional)
 - Memory persistence and artifact draft creation
@@ -147,6 +162,7 @@ Key responsibilities:
 - Post-answer background tasks (memory consolidation, usefulness scoring, follow-up planning)
 - **Service lifecycle management**: Unified service control, graceful shutdown procedures, PID detection and management
 - **Network resilience**: Automatic retry for transient errors, enhanced error messaging, and frontend retry support
+- **Answer basis management**: Systematic deduplication, citation filtering, and safety-net mechanisms for improved response quality
 
 **Section sources**
 - [service.py:581-634](file://src/sage_faculty_twin/service.py#L581-L634)
@@ -163,7 +179,7 @@ Key responsibilities:
 - [run_qwen3_32b_service.sh:1-93](file://run_qwen3_32b_service.sh#L1-L93)
 
 ## Architecture Overview
-The service layer uses a deterministic planner to select a fixed sequence of steps per request, validated against a policy. The orchestrator coordinates subsystems and maintains a canonical trace of executed steps. Optional background post-answer stages run after the initial response is returned to improve throughput. The architecture now includes enhanced service lifecycle management with unified Qwen3-32B service control and comprehensive mobile network resilience features.
+The service layer uses a deterministic planner to select a fixed sequence of steps per request, validated against a policy. The orchestrator coordinates subsystems and maintains a canonical trace of executed steps. Optional background post-answer stages run after the initial response is returned to improve throughput. The architecture now includes enhanced service lifecycle management with unified Qwen3-32B service control, comprehensive mobile network resilience features, and a redesigned answer basis system with explicit design rules for deduplication, citation filtering, and safety-net mechanisms.
 
 ```mermaid
 sequenceDiagram
@@ -176,6 +192,7 @@ participant Steps as "WorkflowStepRegistry"
 participant SRM as "ServiceRuntimeManager"
 participant QSS as "run_qwen3_32b_service.sh"
 participant LLM as "VllmChatClient<br/>with Retry Logic"
+participant ABS as "AnswerBasisBuilder<br/>with Redesign"
 Client->>API : "POST /chat"
 API->>Orchestrator : "bootstrap_chat(ChatRequest)"
 Orchestrator->>Planner : "plan(WorkflowRequestContext)"
@@ -192,9 +209,13 @@ QSS->>QSS : "PID detection & graceful shutdown"
 Note over Client,API : Network Resilience
 API->>API : "Automatic Retry on Transient Errors"
 API->>API : "Enhanced Error Messaging"
+Note over ABS : Redesigned Answer Basis System
+ABS->>ABS : "Apply Deduplication Rules"
+ABS->>ABS : "Filter Generic Index Pages"
+ABS->>ABS : "Enforce Safety-Net Mechanisms"
 Orchestrator->>Orchestrator : "persist_memory()/consolidate_profile()"
 Orchestrator->>Orchestrator : "plan_follow_up_actions()/score_memory_usefulness()"
-Orchestrator-->>API : "ChatResponse"
+Orchestrator-->>API : "ChatResponse with Enhanced Citations"
 API-->>Client : "ChatResponse"
 ```
 
@@ -212,6 +233,7 @@ API-->>Client : "ChatResponse"
 - [service_runtime.py:19-48](file://src/sage_faculty_twin/service_runtime.py#L19-L48)
 - [run_qwen3_32b_service.sh:12-86](file://run_qwen3_32b_service.sh#L12-L86)
 - [llm_client.py:870-1069](file://src/sage_faculty_twin/llm_client.py#L870-L1069)
+- [service.py:4040-4127](file://src/sage_faculty_twin/service.py#L4040-L4127)
 
 ## Detailed Component Analysis
 
@@ -225,6 +247,9 @@ API-->>Client : "ChatResponse"
 - LLM answer: Calls LLM client with policy-driven parameters and automatic retry logic; supports streaming callbacks.
 - Persistence: Writes conversation exchanges and artifact memory drafts; consolidates long-term profiles.
 - Post-answer actions: Plans follow-ups and evaluates memory usefulness; renders final ChatResponse with canonical trace.
+- **Enhanced integration**: Seamless coordination with unified service management for Qwen3-32B model availability.
+- **Retry logic**: Integrated automatic retry mechanism for transient network errors during LLM operations.
+- **Answer basis integration**: Utilizes redesigned answer basis system for improved citation quality and reduced redundancy.
 
 Implementation highlights:
 - Canonical trace ordering ensures deterministic UI rendering even when steps run in parallel.
@@ -232,6 +257,7 @@ Implementation highlights:
 - Background post-answer stages can be enabled/disabled via environment flags to optimize latency.
 - **Enhanced integration**: Seamless coordination with unified service management for Qwen3-32B model availability.
 - **Retry logic**: Integrated automatic retry mechanism for transient network errors during LLM operations.
+- **Redesigned answer basis**: Systematic deduplication, filtering, and safety-net mechanisms improve response quality.
 
 **Section sources**
 - [service.py:581-634](file://src/sage_faculty_twin/service.py#L581-L634)
@@ -347,6 +373,7 @@ D --> |rejected| F["PlannerDecision.fallback"]
 - Environment-driven toggles: Flags control background post-answer execution, web search auto-trigger, and streaming answer behavior.
 - **Service integration**: VllmChatClient seamlessly integrates with the unified Qwen3-32B service management through the vLLM OpenAI proxy.
 - **Retry integration**: LLM client provides built-in retry logic with exponential backoff for transient network errors.
+- **Answer basis integration**: Redesigned answer basis system integrates seamlessly with the workflow execution pipeline.
 
 **Section sources**
 - [service.py:581-634](file://src/sage_faculty_twin/service.py#L581-L634)
@@ -403,7 +430,6 @@ G --> |Yes & Remaining| H["Check Alive Status"]
 H --> G
 G --> |No| I["Force Kill Remaining PIDs"]
 G --> |Remaining Empty| J["Exit Success"]
-I --> J
 ```
 
 **Diagram sources**
@@ -517,12 +543,79 @@ Example paths:
 - [llm_client.py:870-1069](file://src/sage_faculty_twin/llm_client.py#L870-L1069)
 - [web/app.js:4222-4249](file://src/sage_faculty_twin/web/app.js#L4222-L4249)
 
+## Answer Basis System Redesign
+
+### Comprehensive Redesign Overview
+The answer basis system has been completely redesigned with explicit design rules for deduplication, citation filtering, and safety-net mechanisms. This redesign eliminates redundant citations, improves response quality, and ensures systematic filtering of knowledge hits by canonical source groups.
+
+### Design Rules Implementation
+The redesigned `_build_answer_basis` method implements comprehensive design rules:
+
+1. **Knowledge Hits Deduplication**: Deduplicated by source group with maximum 3 items
+2. **Generic Index Page Filtering**: Filters out broad index/listing pages that add little value
+3. **Web Search Limitation**: Maximum 2 web search items
+4. **Memory Hit Prioritization**: Artifact and long-term profile memory only; short-term conversation memory never cited
+5. **Session Context Safety-Net**: Never cites session context as it's already visible in chat UI
+6. **Final Safety-Net**: Strips any item with basis_label "近期交流记录" regardless of origin
+
+### Canonical Source Group Filtering
+The system implements comprehensive filtering of knowledge hits by canonical source groups:
+
+- **Source Group Normalization**: Uses `_canonical_source_group` to normalize source names
+- **Duplicate Elimination**: Prevents multiple citations from the same source group
+- **Gap Draft Special Handling**: Treats knowledge gap drafts as special source groups
+- **Limit Enforcement**: Limits knowledge citations to 3 items maximum
+
+### Deduplication Mechanisms
+Multiple layers of deduplication ensure citation quality:
+
+1. **Source Group Level**: Prevents multiple items from the same source
+2. **Generic Index Filtering**: Removes broad listing pages
+3. **Cross-Reference Deduplication**: Removes duplicates by (label, title, source) key
+4. **Final Safety-Net**: Ensures session context never appears as visible citation
+
+### Citation Safety-Net Mechanisms
+Comprehensive safety-net mechanisms protect response quality:
+
+- **Session Context Prevention**: Never allows "近期交流记录" to appear as visible basis
+- **Implicit Reference Protection**: Short-term conversation memory is always implicit
+- **Quality Assurance**: Ensures only high-value citations are included
+- **UI Consistency**: Prevents redundant information already visible in chat interface
+
+### Implementation Details
+The redesigned system processes citations through a structured pipeline:
+
+1. **Admin-Added Knowledge**: Includes knowledge added in current turn
+2. **Knowledge Base Hits**: Processes with deduplication and filtering
+3. **Web Search Hits**: Limited to 2 items maximum
+4. **Memory Hits**: Prioritized artifact and long-term profile memory
+5. **Meeting Availability**: Only for booking workflows
+6. **Systematic Deduplication**: Removes duplicates by comprehensive key matching
+7. **Final Safety-Net**: Strips any remaining session context citations
+
+### Quality Improvements
+The redesigned answer basis system delivers significant quality improvements:
+
+- **Reduced Redundancy**: Systematic elimination of duplicate and redundant citations
+- **Enhanced Relevance**: Focus on high-value, specific sources rather than generic listings
+- **Improved User Experience**: Cleaner, more focused citations that complement visible chat context
+- **Better Response Quality**: More precise and valuable supporting evidence for answers
+
+**Section sources**
+- [service.py:4040-4127](file://src/sage_faculty_twin/service.py#L4040-L4127)
+- [service.py:4129-4137](file://src/sage_faculty_twin/service.py#L4129-L4137)
+- [service.py:4139-4158](file://src/sage_faculty_twin/service.py#L4139-L4158)
+- [service.py:4233-4251](file://src/sage_faculty_twin/service.py#L4233-L4251)
+- [knowledge_base.py:1885-1890](file://src/sage_faculty_twin/knowledge_base.py#L1885-L1890)
+- [models.py:82-86](file://src/sage_faculty_twin/models.py#L82-L86)
+
 ## Dependency Analysis
 - Coupling: FacultyTwinWorkflowSupport depends on many subsystems; however, it centralizes orchestration and minimizes cross-dependencies among subsystems.
 - Cohesion: Each method encapsulates a distinct workflow phase, improving maintainability.
 - External dependencies: LLM client, web search, email notifier, and stores are injected, enabling testability and pluggability.
 - **Enhanced Service Dependencies**: ServiceRuntimeManager integrates with unified service management scripts and systemd for comprehensive service lifecycle control.
 - **Network Resilience Dependencies**: LLM client retry logic integrates with configuration settings and provides exponential backoff for transient errors.
+- **Answer Basis Dependencies**: Redesigned answer basis system integrates with knowledge base filtering and canonical source grouping mechanisms.
 
 ```mermaid
 graph LR
@@ -540,6 +633,9 @@ Orchestrator --> MS["MeetingService"]
 Orchestrator --> LLM["VllmChatClient<br/>with Retry Logic"]
 Orchestrator --> EML["BookingEmailNotifier"]
 Orchestrator --> WEB["WebSearchClient"]
+Orchestrator --> ABS["AnswerBasisBuilder<br/>with Redesign"]
+ABS --> CSG["Canonical Source Groups"]
+ABS --> SN["Safety Net Mechanisms"]
 SRM["ServiceRuntimeManager"] --> QSS["run_qwen3_32b_service.sh"]
 SRM --> VOP["vLLM OpenAI Proxy"]
 QSS --> Container["Docker Container"]
@@ -557,6 +653,8 @@ Retry --> Config["Retry Configuration"]
 - [run_qwen3_32b_service.sh:10-10](file://run_qwen3_32b_service.sh#L10-L10)
 - [vllm_openai_proxy.py:123-257](file://src/sage_faculty_twin/vllm_openai_proxy.py#L123-L257)
 - [llm_client.py:870-1069](file://src/sage_faculty_twin/llm_client.py#L870-L1069)
+- [service.py:4040-4127](file://src/sage_faculty_twin/service.py#L4040-L4127)
+- [knowledge_base.py:1885-1890](file://src/sage_faculty_twin/knowledge_base.py#L1885-L1890)
 
 **Section sources**
 - [service.py:581-634](file://src/sage_faculty_twin/service.py#L581-L634)
@@ -576,6 +674,7 @@ Retry --> Config["Retry Configuration"]
 - **Service Management**: Unified service control reduces operational overhead and improves reliability through centralized management.
 - **Network Resilience**: Exponential backoff retry mechanism optimizes resource usage during transient failures.
 - **Mobile Optimization**: Enhanced error handling and retry logic improve user experience in variable network conditions.
+- **Answer Basis Efficiency**: Redesigned system reduces computational overhead through systematic filtering and deduplication.
 
 ## Troubleshooting Guide
 Common issues and strategies:
@@ -594,6 +693,11 @@ Common issues and strategies:
   - Excessive retry delays: Adjust retry backoff settings in configuration
   - Frontend error messaging: Verify JavaScript error handling and user feedback implementation
   - Connection interruption: Monitor workflow traces for retry attempt details
+- **Answer Basis Issues**:
+  - Missing citations: Verify knowledge retrieval and memory hit processing
+  - Unexpected citation filtering: Check canonical source group normalization and deduplication rules
+  - Safety-net violations: Ensure session context is properly handled as implicit reference
+  - Citation quality concerns: Review design rule enforcement and filtering mechanisms
 
 **Section sources**
 - [service.py:1894-1896](file://src/sage_faculty_twin/service.py#L1894-L1896)
@@ -605,6 +709,7 @@ Common issues and strategies:
 - [service_runtime.py:31-48](file://src/sage_faculty_twin/service_runtime.py#L31-L48)
 - [vllm_openai_proxy.py:157-169](file://src/sage_faculty_twin/vllm_openai_proxy.py#L157-L169)
 - [llm_client.py:870-1069](file://src/sage_faculty_twin/llm_client.py#L870-L1069)
+- [service.py:4040-4127](file://src/sage_faculty_twin/service.py#L4040-L4127)
 
 ## Conclusion
 The Sage Faculty Twin service layer combines deterministic planning with robust orchestration to deliver consistent, policy-aligned responses. FacultyTwinWorkflowSupport coordinates knowledge retrieval, memory management, booking workflows, and administrative functions while maintaining traceability and performance. The design emphasizes configurability, streaming, and background processing to balance responsiveness and completeness.
@@ -616,3 +721,5 @@ The Sage Faculty Twin service layer combines deterministic planning with robust 
 **Bug Fixes**: Critical bug fixes for _app_version and __version__ import issues in service.py and api.py ensure proper version handling and prevent import-related errors. These fixes contribute to the stability and reliability of the service layer architecture.
 
 **Knowledge Retrieval Enhancement**: The refactored retrieve_knowledge function demonstrates the commitment to continuous improvement, with consolidated trace operations and enhanced web search execution logic ensuring better clarity, maintainability, and reliability in the knowledge retrieval process.
+
+**Redesigned Answer Basis System**: The most significant enhancement is the completely redesigned answer basis system with explicit design rules for deduplication, citation filtering, and safety-net mechanisms. This system eliminates redundant citations, improves response quality, and ensures systematic filtering of knowledge hits by canonical source groups. The comprehensive safety-net mechanisms prevent session context from appearing as visible citations, while the systematic deduplication and filtering ensure cleaner, more focused responses that complement the visible chat interface.

@@ -1,1 +1,0 @@
-Adopt rolling-maintenance workload for DeltaKV evaluation — Shift evaluation to a multi-GPU topology using a 'rolling-maintenance' workload.

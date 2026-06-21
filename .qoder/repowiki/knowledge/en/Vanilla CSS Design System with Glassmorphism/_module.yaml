@@ -1,0 +1,10 @@
+schema_version: 1
+module_path: frontend_style
+title: Vanilla CSS Design System with Glassmorphism
+scope: []
+source_files:
+    - src/sage_faculty_twin/web/styles.css
+    - src/sage_faculty_twin/web/index.html
+    - src/sage_faculty_twin/web/app.js
+depends_on: []
+related_to: []

@@ -1,0 +1,12 @@
+schema_version: 1
+module_path: dependency_management
+title: Python Dependency Management via pyproject.toml and Sibling Checkouts
+scope: []
+source_files:
+    - pyproject.toml
+    - quickstart.sh
+    - tools/run_app_server.sh
+    - CONTRIBUTING.md
+    - docs/deployment.md
+depends_on: []
+related_to: []

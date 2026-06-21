@@ -1,1 +1,0 @@
-Uses `pytest` with `fastapi.testclient.TestClient` for API integration testing and `asyncio` for running async benchmark adapters in synchronous test contexts.

@@ -16,11 +16,11 @@
 
 ## Update Summary
 **Changes Made**
-- Added comprehensive documentation for the new chat_with_tools_sync method supporting OpenAI function-calling capabilities
-- Enhanced tool-calling architecture documentation with multi-step reasoning workflows
-- Updated skill system documentation to include function-calling integration patterns
-- Added detailed coverage of tool execution loops, parameter validation, and result handling
-- Expanded error handling documentation with tool-calling specific considerations
+- Added comprehensive documentation for the new DeltaKV session continuity feature with sophisticated session state management
+- Enhanced VllmChatClient with session key generation, restart detection through Prometheus metrics, and automatic KV state transfer annotations
+- Updated configuration section to include new kv_continuity_enabled and kv_continuity_session_prefix settings
+- Added detailed coverage of token usage tracking and session state persistence across vLLM restarts
+- Enhanced troubleshooting guide with DeltaKV-specific error handling and recovery mechanisms
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -31,26 +31,27 @@
 6. [Enhanced Error Handling and Recovery](#enhanced-error-handling-and-recovery)
 7. [Tool-Calling Architecture](#tool-calling-architecture)
 8. [Skill System Integration](#skill-system-integration)
-9. [Dependency Analysis](#dependency-analysis)
-10. [Performance Considerations](#performance-considerations)
-11. [Troubleshooting Guide](#troubleshooting-guide)
-12. [Conclusion](#conclusion)
-13. [Appendices](#appendices)
+9. [DeltaKV Session Continuity](#deltakv-session-continuity)
+10. [Dependency Analysis](#dependency-analysis)
+11. [Performance Considerations](#performance-considerations)
+12. [Troubleshooting Guide](#troubleshooting-guide)
+13. [Conclusion](#conclusion)
+14. [Appendices](#appendices)
 
 ## Introduction
 This document explains the LLM client architecture and the OpenAI-compatible proxy system used by the Sage Faculty Twin platform. It covers the client abstraction layer, connection pooling, request routing, streaming and caching, authentication, and performance optimization strategies. It also provides guidance for integrating new LLM providers, implementing fallback mechanisms, and monitoring latency, while maintaining compatibility with existing workflows.
 
-**Updated** Enhanced with comprehensive tool-calling support documentation covering the new chat_with_tools_sync method, multi-step reasoning workflows, and skill system integration for complex AI agent capabilities.
+**Updated** Enhanced with comprehensive DeltaKV session continuity support, featuring sophisticated session state management, restart detection through Prometheus metrics, token usage tracking, and automatic KV state transfer annotations for seamless conversation continuity across vLLM server restarts.
 
 ## Project Structure
-The system centers around a FastAPI application that orchestrates a deterministic workflow pipeline. The LLM client encapsulates HTTP communication with an OpenAI-compatible backend, including streaming, caching, and congestion-aware token shaping. An optional OpenAI-compatible proxy sits in front of the upstream LLM to enforce authentication and route requests. The enhanced architecture now supports sophisticated tool-calling capabilities for complex multi-step reasoning tasks.
+The system centers around a FastAPI application that orchestrates a deterministic workflow pipeline. The LLM client encapsulates HTTP communication with an OpenAI-compatible backend, including streaming, caching, and congestion-aware token shaping. An optional OpenAI-compatible proxy sits in front of the upstream LLM to enforce authentication and route requests. The enhanced architecture now supports sophisticated tool-calling capabilities for complex multi-step reasoning tasks and seamless session continuity through DeltaKV integration.
 
 ```mermaid
 graph TB
 subgraph "FastAPI Application"
 API["API Endpoints<br/>/chat, /health"]
 Service["DigitalTwinService<br/>orchestrates workflow"]
-LLMClient["VllmChatClient<br/>HTTP client + cache + metrics"]
+LLMClient["VllmChatClient<br/>HTTP client + cache + metrics + DeltaKV"]
 SkillRunner["SkillRunner<br/>manages tool-calling workflows"]
 end
 subgraph "Optional Proxy Layer"
@@ -61,6 +62,11 @@ subgraph "Tool System"
 SkillTools["SkillToolRegistry<br/>built-in tool handlers"]
 Skills["Skill Definitions<br/>function-calling schemas"]
 end
+subgraph "DeltaKV Integration"
+SessionAnchors["Session Anchors<br/>state persistence"]
+PrometheusMetrics["Prometheus Metrics<br/>restart detection"]
+KVTransfer["KV Transfer Annotations<br/>state continuity"]
+end
 API --> Service
 Service --> LLMClient
 Service --> SkillRunner
@@ -69,12 +75,15 @@ SkillRunner --> SkillTools
 SkillTools --> Skills
 LLMClient -. optional .-> ProxyApp
 ProxyApp --> Upstream
+LLMClient --> SessionAnchors
+SessionAnchors --> PrometheusMetrics
+SessionAnchors --> KVTransfer
 ```
 
 **Diagram sources**
 - [api.py:634-716](file://src/sage_faculty_twin/api.py#L634-L716)
-- [service.py:5319-5485](file://src/sage_faculty_twin/service.py#L5319-L5485)
-- [llm_client.py:84-155](file://src/sage_faculty_twin/llm_client.py#L84-L155)
+- [service.py:5530-5570](file://src/sage_faculty_twin/service.py#L5530-L5570)
+- [llm_client.py:290-375](file://src/sage_faculty_twin/llm_client.py#L290-L375)
 - [vllm_openai_proxy.py:123-257](file://src/sage_faculty_twin/vllm_openai_proxy.py#L123-L257)
 - [skill_runner.py:80-219](file://src/sage_faculty_twin/skill_runner.py#L80-L219)
 - [skill_tools.py:22-71](file://src/sage_faculty_twin/skill_tools.py#L22-L71)
@@ -82,20 +91,21 @@ ProxyApp --> Upstream
 
 **Section sources**
 - [api.py:90-116](file://src/sage_faculty_twin/api.py#L90-L116)
-- [service.py:5319-5485](file://src/sage_faculty_twin/service.py#L5319-L5485)
-- [llm_client.py:84-155](file://src/sage_faculty_twin/llm_client.py#L84-L155)
+- [service.py:5530-5570](file://src/sage_faculty_twin/service.py#L5530-L5570)
+- [llm_client.py:290-375](file://src/sage_faculty_twin/llm_client.py#L290-L375)
 - [vllm_openai_proxy.py:123-257](file://src/sage_faculty_twin/vllm_openai_proxy.py#L123-L257)
 - [skill_runner.py:80-219](file://src/sage_faculty_twin/skill_runner.py#L80-L219)
 - [skill_tools.py:22-71](file://src/sage_faculty_twin/skill_tools.py#L22-L71)
 - [skills.py:70-94](file://src/sage_faculty_twin/skills.py#L70-L94)
 
 ## Core Components
-- VllmChatClient: HTTP client wrapper for OpenAI-compatible LLM APIs with streaming, caching, metrics, and congestion-aware shaping. Now includes advanced tool-calling support through chat_with_tools_sync method.
+- VllmChatClient: HTTP client wrapper for OpenAI-compatible LLM APIs with streaming, caching, metrics, congestion-aware shaping, and **DeltaKV session continuity**. Now includes advanced tool-calling support through chat_with_tools_sync method and sophisticated session state management.
 - DigitalTwinService: Orchestrates the chat workflow, integrates retrieval, builds prompts, invokes the LLM, persists memory, and renders responses.
 - OpenAI-Compatible Proxy: Optional FastAPI proxy enforcing authentication and forwarding requests to the upstream LLM.
 - SkillRunner: Manages multi-turn tool-calling workflows with automatic tool execution and result processing.
 - SkillToolRegistry: Provides built-in tool handlers for knowledge search, memory retrieval, scheduling, and other capabilities.
 - API Layer: Exposes endpoints for chat, health, and administrative operations.
+- **DeltaKV Session Continuity**: Advanced session state management system that maintains conversation continuity across vLLM server restarts through stable session identifiers and automatic KV state transfer annotations.
 
 Key capabilities:
 - Streaming responses with incremental token delivery to SSE channels.
@@ -105,17 +115,18 @@ Key capabilities:
 - Structured tracing and telemetry for latency, throughput, and cache hit rates.
 - **Enhanced Error Handling**: Automatic detection and recovery from vLLM SSE error payloads with graceful fallback mechanisms.
 - **Advanced Tool-Calling**: Sophisticated function-calling support with multi-step reasoning workflows and automatic tool execution.
+- **Session Continuity**: Sophisticated session state management with restart detection, token usage tracking, and automatic KV state preservation across server restarts.
 
 **Section sources**
-- [llm_client.py:84-155](file://src/sage_faculty_twin/llm_client.py#L84-L155)
-- [service.py:5319-5485](file://src/sage_faculty_twin/service.py#L5319-L5485)
+- [llm_client.py:290-375](file://src/sage_faculty_twin/llm_client.py#L290-L375)
+- [service.py:5530-5570](file://src/sage_faculty_twin/service.py#L5530-L5570)
 - [vllm_openai_proxy.py:123-257](file://src/sage_faculty_twin/vllm_openai_proxy.py#L123-L257)
 - [api.py:634-716](file://src/sage_faculty_twin/api.py#L634-L716)
 - [skill_runner.py:80-219](file://src/sage_faculty_twin/skill_runner.py#L80-L219)
 - [skill_tools.py:22-71](file://src/sage_faculty_twin/skill_tools.py#L22-L71)
 
 ## Architecture Overview
-The request lifecycle flows from FastAPI endpoints through the service layer to the LLM client, optionally via the OpenAI-compatible proxy. The service constructs prompts, triggers LLM completion (optionally streaming), and executes post-answer stages asynchronously. The enhanced architecture now supports sophisticated tool-calling workflows where the LLM can request multiple tool executions across several turns.
+The request lifecycle flows from FastAPI endpoints through the service layer to the LLM client, optionally via the OpenAI-compatible proxy. The service constructs prompts, triggers LLM completion (optionally streaming), and executes post-answer stages asynchronously. The enhanced architecture now supports sophisticated tool-calling workflows where the LLM can request multiple tool executions across several turns, with seamless session continuity maintained through DeltaKV integration.
 
 ```mermaid
 sequenceDiagram
@@ -126,13 +137,17 @@ participant LLM as "VllmChatClient"
 participant SkillRunner as "SkillRunner"
 participant Proxy as "OpenAI Proxy"
 participant Upstream as "Upstream LLM"
+participant DeltaKV as "DeltaKV Connector"
 Client->>API : POST /chat (ChatRequest)
 API->>Service : answer(ChatRequest)
 Service->>Service : plan workflow, build prompt
 Service->>SkillRunner : execute tool-calling workflow
 SkillRunner->>LLM : chat_with_tools_sync(messages, tools)
-LLM->>Proxy : POST /chat/completions (tools enabled)
+LLM->>LLM : annotate_request_with_session_hints(payload)
+LLM->>Proxy : POST /chat/completions (tools + session hints)
 Proxy->>Upstream : forward with auth and tools
+Upstream->>DeltaKV : transfer KV state (if available)
+DeltaKV-->>Upstream : restore session state
 Upstream-->>Proxy : function call response
 Proxy-->>LLM : tool execution results
 LLM-->>SkillRunner : tool_calls + content
@@ -144,8 +159,9 @@ API-->>Client : ChatResponse
 
 **Diagram sources**
 - [api.py:634-716](file://src/sage_faculty_twin/api.py#L634-L716)
-- [service.py:5319-5485](file://src/sage_faculty_twin/service.py#L5319-L5485)
-- [llm_client.py:974-1065](file://src/sage_faculty_twin/llm_client.py#L974-L1065)
+- [service.py:5530-5570](file://src/sage_faculty_twin/service.py#L5530-L5570)
+- [llm_client.py:337-358](file://src/sage_faculty_twin/llm_client.py#L337-L358)
+- [llm_client.py:1070-1161](file://src/sage_faculty_twin/llm_client.py#L1070-L1161)
 - [skill_runner.py:84-178](file://src/sage_faculty_twin/skill_runner.py#L84-L178)
 - [vllm_openai_proxy.py:170-251](file://src/sage_faculty_twin/vllm_openai_proxy.py#L170-L251)
 
@@ -175,6 +191,11 @@ API-->>Client : ChatResponse
   - New chat_with_tools_sync method enables sophisticated function-calling workflows.
   - Automatic tool execution with parameter validation and result processing.
   - Multi-turn reasoning loops with automatic tool invocation cycles.
+- **DeltaKV Session Continuity**:
+  - Sophisticated session state management with persistent session anchors.
+  - Automatic restart detection through Prometheus metrics analysis.
+  - Stable session key generation for consistent KV state transfer.
+  - Token usage tracking and cumulative session statistics.
 
 ```mermaid
 classDiagram
@@ -186,11 +207,17 @@ class VllmChatClient {
 -_response_cache : OrderedDict
 -_metrics_lock
 -_cache_lock
++_session_kv_anchors : dict
 +answer_question_sync(system, user, token_callback?, ...)
 +chat_with_tools_sync(messages, tools, temperature?, max_tokens?, tool_choice?)
 +classify_interaction_intent_sync(question, course_context?, recent_session?)
 +generate_lucky_question_sync(...)
 +runtime_snapshot() dict
++_build_session_kv_key(user_id, conversation_id) str
++_record_session_turn(session_key, prompt_tokens, completion_tokens)
++_detect_vllm_restart() bool
++annotate_request_with_session_hints(payload, user_id?, conversation_id?) dict
++get_session_continuity_snapshot(user_id?, conversation_id?) dict
 -_request_chat_completion_stream(payload, token_callback)
 -_request_chat_completion_sync(payload) str
 -_apply_serving_policy_to_payload(payload, ...)
@@ -204,16 +231,16 @@ class VllmChatClient {
 ```
 
 **Diagram sources**
-- [llm_client.py:84-155](file://src/sage_faculty_twin/llm_client.py#L84-L155)
-- [llm_client.py:661-836](file://src/sage_faculty_twin/llm_client.py#L661-L836)
-- [llm_client.py:974-1065](file://src/sage_faculty_twin/llm_client.py#L974-L1065)
+- [llm_client.py:290-375](file://src/sage_faculty_twin/llm_client.py#L290-L375)
+- [llm_client.py:661-799](file://src/sage_faculty_twin/llm_client.py#L661-L799)
+- [llm_client.py:1070-1161](file://src/sage_faculty_twin/llm_client.py#L1070-L1161)
 - [llm_client.py:1204-1297](file://src/sage_faculty_twin/llm_client.py#L1204-L1297)
 - [llm_client.py:1507-1599](file://src/sage_faculty_twin/llm_client.py#L1507-L1599)
 
 **Section sources**
-- [llm_client.py:84-155](file://src/sage_faculty_twin/llm_client.py#L84-L155)
-- [llm_client.py:661-836](file://src/sage_faculty_twin/llm_client.py#L661-L836)
-- [llm_client.py:974-1065](file://src/sage_faculty_twin/llm_client.py#L974-L1065)
+- [llm_client.py:290-375](file://src/sage_faculty_twin/llm_client.py#L290-L375)
+- [llm_client.py:661-799](file://src/sage_faculty_twin/llm_client.py#L661-L799)
+- [llm_client.py:1070-1161](file://src/sage_faculty_twin/llm_client.py#L1070-L1161)
 - [llm_client.py:1204-1297](file://src/sage_faculty_twin/llm_client.py#L1204-L1297)
 - [llm_client.py:1507-1599](file://src/sage_faculty_twin/llm_client.py#L1507-L1599)
 
@@ -287,7 +314,7 @@ Broker-->>Browser : SSE answer_done
 **Diagram sources**
 - [api.py:634-716](file://src/sage_faculty_twin/api.py#L634-L716)
 - [api.py:170-256](file://src/sage_faculty_twin/api.py#L170-L256)
-- [service.py:5319-5485](file://src/sage_faculty_twin/service.py#L5319-L5485)
+- [service.py:5530-5570](file://src/sage_faculty_twin/service.py#L5530-L5570)
 
 **Section sources**
 - [api.py:634-716](file://src/sage_faculty_twin/api.py#L634-L716)
@@ -321,24 +348,25 @@ Render --> Done(["ChatResponse"])
 ```
 
 **Diagram sources**
-- [service.py:5319-5485](file://src/sage_faculty_twin/service.py#L5319-L5485)
+- [service.py:5530-5570](file://src/sage_faculty_twin/service.py#L5530-L5570)
 - [service.py:1354-1479](file://src/sage_faculty_twin/service.py#L1354-L1479)
 - [service.py:5000-5080](file://src/sage_faculty_twin/service.py#L5000-L5080)
 
 **Section sources**
-- [service.py:5319-5485](file://src/sage_faculty_twin/service.py#L5319-L5485)
+- [service.py:5530-5570](file://src/sage_faculty_twin/service.py#L5530-L5570)
 - [service.py:1354-1479](file://src/sage_faculty_twin/service.py#L1354-L1479)
 - [service.py:5000-5080](file://src/sage_faculty_twin/service.py#L5000-L5080)
 
 ### Configuration and Data Models
 - AppSettings:
   - Centralized configuration for model names, base URLs, timeouts, retries, cache sizes/ttl, policy thresholds, and feature flags.
+  - **New DeltaKV Settings**: kv_continuity_enabled (boolean) and kv_continuity_session_prefix (string) for session continuity configuration.
 - Models:
   - ChatRequest defines input schema with attachments and visitor profiles.
   - ChatResponse defines the final structured response shape.
 
 **Section sources**
-- [config.py:9-131](file://src/sage_faculty_twin/config.py#L9-L131)
+- [config.py:9-166](file://src/sage_faculty_twin/config.py#L9-L166)
 - [models.py:16-31](file://src/sage_faculty_twin/models.py#L16-L31)
 - [models.py:199-200](file://src/sage_faculty_twin/models.py#L199-L200)
 
@@ -445,7 +473,7 @@ FollowUpCall --> FinalAnswer["Return final answer"]
 ```
 
 **Diagram sources**
-- [llm_client.py:974-1065](file://src/sage_faculty_twin/llm_client.py#L974-L1065)
+- [llm_client.py:1070-1161](file://src/sage_faculty_twin/llm_client.py#L1070-L1161)
 - [skill_runner.py:84-178](file://src/sage_faculty_twin/skill_runner.py#L84-L178)
 
 #### Parameter Validation and Normalization
@@ -457,7 +485,7 @@ The method includes robust parameter validation and normalization:
 - **Error Handling**: Graceful fallback for malformed tool arguments
 
 **Section sources**
-- [llm_client.py:974-1065](file://src/sage_faculty_twin/llm_client.py#L974-L1065)
+- [llm_client.py:1070-1161](file://src/sage_faculty_twin/llm_client.py#L1070-L1161)
 - [skill_runner.py:84-178](file://src/sage_faculty_twin/skill_runner.py#L84-L178)
 
 ## Skill System Integration
@@ -538,6 +566,108 @@ def to_openai_tool(self) -> dict[str, Any]:
 - [skills.py:70-94](file://src/sage_faculty_twin/skills.py#L70-L94)
 - [skills.py:19-68](file://src/sage_faculty_twin/skills.py#L19-L68)
 
+## DeltaKV Session Continuity
+
+### Session Key Generation and Management
+The DeltaKV session continuity system provides sophisticated session state management for seamless conversation continuity across vLLM server restarts.
+
+#### Session Key Construction
+The system generates stable session identifiers using a configurable prefix combined with user and conversation identifiers:
+
+```python
+def _build_session_kv_key(self, user_id: str, conversation_id: str) -> str:
+    """Build a stable session identifier for DeltaKV KV anchoring."""
+    prefix = getattr(self._settings, "kv_continuity_session_prefix", "twin-session")
+    return f"{prefix}-{user_id}-{conversation_id}"
+```
+
+#### Session State Tracking
+The client maintains comprehensive session state information in memory:
+
+- **Turn Count**: Number of conversation turns completed
+- **Cumulative Tokens**: Total token usage across the session
+- **Last Request Timestamp**: Most recent request time for session aging
+- **KV Anchor Storage**: Thread-safe storage of session metadata
+
+#### Automatic Restart Detection
+The system monitors vLLM Prometheus metrics to detect server restarts and maintain session continuity:
+
+```mermaid
+flowchart TD
+Start(["Monitor vLLM Metrics"]) --> CheckRestart{"External Prefix Cache Queries == 0?"}
+CheckRestart --> |Yes| HasAnchors{"Session Anchors Exist?"}
+CheckRestart --> |No| NoRestart["No Restart Detected"]
+HasAnchors --> |Yes| RestartDetected["Restart Detected!"]
+HasAnchors --> |No| NoRestart
+RestartDetected --> TriggerRecovery["Initiate Session Recovery"]
+NoRestart --> ContinueSession["Continue Current Session"]
+TriggerRecovery --> RestoreState["Restore KV State from Anchors"]
+RestoreState --> ResumeContinuity["Resume Session Continuity"]
+```
+
+**Diagram sources**
+- [llm_client.py:320-335](file://src/sage_faculty_twin/llm_client.py#L320-L335)
+
+#### KV State Transfer Annotations
+When session continuity is enabled, the client automatically annotates requests with DeltaKV transfer parameters:
+
+```python
+def annotate_request_with_session_hints(
+    self,
+    payload: dict[str, Any],
+    *,
+    user_id: str = "anonymous",
+    conversation_id: str = "default",
+) -> dict[str, Any]:
+    """Annotate a vLLM chat-completion payload with DeltaKV session
+    continuity hints when ``kv_continuity_enabled`` is True.
+
+    The annotation adds a ``kv_transfer_params`` field containing the
+    ``logical_request_id`` set to a stable session key, enabling the
+    vLLM external prefix cache (via DeltaKV connector) to match against
+    previously transferred KV state.
+    """
+    if not getattr(self._settings, "kv_continuity_enabled", False):
+        return payload
+    session_key = self._build_session_kv_key(user_id, conversation_id)
+    payload["kv_transfer_params"] = {
+        "logical_request_id": session_key,
+    }
+    return payload
+```
+
+#### Session Continuity Snapshot
+The system provides diagnostic information about current session continuity state:
+
+```python
+def get_session_continuity_snapshot(
+    self, user_id: str = "anonymous", conversation_id: str = "default"
+) -> dict[str, Any]:
+    """Return the current session continuity state for diagnostics."""
+    session_key = self._build_session_kv_key(user_id, conversation_id)
+    anchor = self._session_kv_anchors.get(session_key)
+    return {
+        "session_key": session_key,
+        "kv_continuity_enabled": getattr(
+            self._settings, "kv_continuity_enabled", False
+        ),
+        "turn_count": anchor["turn_count"] if anchor else 0,
+        "cumulative_tokens": anchor["cumulative_tokens"] if anchor else 0,
+        "last_request_at": anchor["last_request_at"] if anchor else None,
+        "vllm_restart_detected": self._detect_vllm_restart(),
+    }
+```
+
+#### Configuration Parameters
+DeltaKV session continuity is controlled through two key configuration parameters:
+
+- **kv_continuity_enabled**: Boolean flag to enable/disable session continuity features
+- **kv_continuity_session_prefix**: String prefix for generating stable session identifiers
+
+**Section sources**
+- [llm_client.py:290-375](file://src/sage_faculty_twin/llm_client.py#L290-L375)
+- [config.py:149-162](file://src/sage_faculty_twin/config.py#L149-L162)
+
 ## Dependency Analysis
 The system exhibits layered dependencies:
 - API depends on DigitalTwinService.
@@ -545,6 +675,7 @@ The system exhibits layered dependencies:
 - VllmChatClient depends on AppSettings and httpx.
 - Optional proxy depends on environment configuration and upstream LLM.
 - **Enhanced Dependencies**: SkillRunner depends on SkillToolRegistry and manages tool execution loops.
+- **DeltaKV Dependencies**: VllmChatClient now depends on Prometheus metrics for restart detection and DeltaKV connector for state transfer.
 
 ```mermaid
 graph LR
@@ -558,13 +689,15 @@ Proxy --> Upstream["Upstream LLM"]
 SkillRunner["skill_runner.py"] --> LLM
 SkillRunner --> SkillTools["skill_tools.py"]
 SkillTools --> Skills["skills.py"]
+LLM --> Prometheus["Prometheus Metrics"]
+LLM --> DeltaKV["DeltaKV Connector"]
 ```
 
 **Diagram sources**
 - [api.py:90-116](file://src/sage_faculty_twin/api.py#L90-L116)
-- [service.py:5319-5485](file://src/sage_faculty_twin/service.py#L5319-L5485)
-- [llm_client.py:84-155](file://src/sage_faculty_twin/llm_client.py#L84-L155)
-- [config.py:9-131](file://src/sage_faculty_twin/config.py#L9-L131)
+- [service.py:5530-5570](file://src/sage_faculty_twin/service.py#L5530-L5570)
+- [llm_client.py:290-375](file://src/sage_faculty_twin/llm_client.py#L290-L375)
+- [config.py:9-166](file://src/sage_faculty_twin/config.py#L9-L166)
 - [vllm_openai_proxy.py:36-65](file://src/sage_faculty_twin/vllm_openai_proxy.py#L36-L65)
 - [skill_runner.py:80-219](file://src/sage_faculty_twin/skill_runner.py#L80-L219)
 - [skill_tools.py:22-71](file://src/sage_faculty_twin/skill_tools.py#L22-L71)
@@ -572,9 +705,9 @@ SkillTools --> Skills["skills.py"]
 
 **Section sources**
 - [api.py:90-116](file://src/sage_faculty_twin/api.py#L90-L116)
-- [service.py:5319-5485](file://src/sage_faculty_twin/service.py#L5319-L5485)
-- [llm_client.py:84-155](file://src/sage_faculty_twin/llm_client.py#L84-L155)
-- [config.py:9-131](file://src/sage_faculty_twin/config.py#L9-L131)
+- [service.py:5530-5570](file://src/sage_faculty_twin/service.py#L5530-L5570)
+- [llm_client.py:290-375](file://src/sage_faculty_twin/llm_client.py#L290-L375)
+- [config.py:9-166](file://src/sage_faculty_twin/config.py#L9-L166)
 - [vllm_openai_proxy.py:36-65](file://src/sage_faculty_twin/vllm_openai_proxy.py#L36-L65)
 - [skill_runner.py:80-219](file://src/sage_faculty_twin/skill_runner.py#L80-L219)
 - [skill_tools.py:22-71](file://src/sage_faculty_twin/skill_tools.py#L22-L71)
@@ -597,6 +730,11 @@ SkillTools --> Skills["skills.py"]
   - Automatic tool execution reduces latency by eliminating manual intervention.
   - Parameter validation prevents unnecessary retries due to malformed tool calls.
   - Multi-turn reasoning loops optimize for complex queries requiring multiple tool executions.
+- **DeltaKV Session Continuity**:
+  - Seamless conversation continuity across vLLM restarts eliminates session state loss.
+  - Automatic KV state transfer reduces cold start penalties for ongoing conversations.
+  - Prometheus-based restart detection ensures timely session recovery.
+  - Token usage tracking enables intelligent session state management and resource allocation.
 
 ## Troubleshooting Guide
 Common issues and remedies:
@@ -623,8 +761,14 @@ Common issues and remedies:
   - **Parameter Validation**: Ensure tool arguments match the expected schema defined in skill definitions
   - **Execution Failures**: Check tool handler implementations for proper error handling and JSON serialization
   - **Max Turn Limits**: Configure appropriate max_turns for complex multi-step workflows
+- **DeltaKV Session Continuity Issues**:
+  - **Session Not Restored**: Verify kv_continuity_enabled is set to True and Prometheus metrics are accessible
+  - **Restart Detection Failures**: Check vLLM Prometheus endpoint connectivity and metric exposure
+  - **KV State Transfer Errors**: Ensure DeltaKV connector is properly configured and logical_request_id matches session key format
+  - **Session Anchor Corruption**: Monitor session_kv_anchors memory usage and consider clearing stale sessions
+  - **Performance Impact**: DeltaKV features add minimal overhead but may increase memory usage for long-running sessions
 
-**Updated** Added comprehensive troubleshooting guidance for the new tool-calling architecture, including unknown tool errors, parameter validation issues, and execution failures.
+**Updated** Added comprehensive troubleshooting guidance for the new DeltaKV session continuity feature, including session restoration failures, restart detection problems, and KV state transfer issues.
 
 **Section sources**
 - [vllm_openai_proxy.py:36-65](file://src/sage_faculty_twin/vllm_openai_proxy.py#L36-L65)
@@ -633,15 +777,16 @@ Common issues and remedies:
 - [api.py:127-147](file://src/sage_faculty_twin/api.py#L127-L147)
 - [llm_client.py:53-67](file://src/sage_faculty_twin/llm_client.py#L53-L67)
 - [llm_client.py:695-714](file://src/sage_faculty_twin/llm_client.py#L695-L714)
+- [llm_client.py:290-375](file://src/sage_faculty_twin/llm_client.py#L290-L375)
 - [skill_runner.py:84-178](file://src/sage_faculty_twin/skill_runner.py#L84-L178)
 - [skill_tools.py:53-67](file://src/sage_faculty_twin/skill_tools.py#L53-L67)
 
 ## Conclusion
 The Sage Faculty Twin platform combines a robust LLM client with a deterministic workflow and optional OpenAI-compatible proxy to deliver responsive, scalable, and observable chat experiences. The client's streaming, caching, and congestion-aware shaping ensure consistent performance, while the proxy centralizes authentication and routing. 
 
-**Updated** The recent enhancements include comprehensive tool-calling support through the new chat_with_tools_sync method, sophisticated multi-step reasoning workflows, and seamless integration with the skill system. The enhanced architecture enables complex AI agent capabilities with automatic tool execution, parameter validation, and result processing. These improvements significantly expand the platform's ability to handle complex multi-step reasoning tasks while maintaining the same robust error handling and recovery mechanisms.
+**Updated** The recent enhancements include comprehensive DeltaKV session continuity support, featuring sophisticated session state management, restart detection through Prometheus metrics, token usage tracking, and automatic KV state transfer annotations. The enhanced architecture now provides seamless conversation continuity across vLLM server restarts while maintaining the same robust error handling and recovery mechanisms. The new tool-calling framework ensures that new providers benefit from the same sophisticated function-calling capabilities and automatic tool execution mechanisms.
 
-Extending support for new LLM providers involves adhering to the OpenAI-compatible interface, configuring the proxy, and wiring the client accordingly. The enhanced tool-calling framework ensures that new providers benefit from the same sophisticated function-calling capabilities and automatic tool execution mechanisms.
+Extending support for new LLM providers involves adhering to the OpenAI-compatible interface, configuring the proxy, and wiring the client accordingly. The enhanced tool-calling framework and DeltaKV session continuity features ensure that new providers benefit from the same advanced capabilities for complex AI agent workflows and seamless conversation management.
 
 ## Appendices
 
@@ -690,5 +835,20 @@ These parameters control the balance between tool-calling effectiveness and syst
 
 **Section sources**
 - [skill_runner.py:84-178](file://src/sage_faculty_twin/skill_runner.py#L84-L178)
-- [llm_client.py:974-1065](file://src/sage_faculty_twin/llm_client.py#L974-L1065)
+- [llm_client.py:1070-1161](file://src/sage_faculty_twin/llm_client.py#L1070-L1161)
 - [skills.py:86](file://src/sage_faculty_twin/skills.py#L86)
+
+### DeltaKV Session Continuity Configuration Parameters
+The system includes several configuration parameters that influence DeltaKV session continuity behavior:
+
+- **kv_continuity_enabled**: Boolean flag to enable/disable session continuity features
+- **kv_continuity_session_prefix**: String prefix for generating stable session identifiers
+- **Session Anchor Storage**: In-memory thread-safe storage of session metadata
+- **Token Usage Tracking**: Automatic accumulation of prompt and completion token counts
+- **Restart Detection**: Prometheus-based monitoring for vLLM server restarts
+
+These parameters control the balance between session continuity effectiveness and system resource usage, allowing administrators to optimize for their specific deployment requirements.
+
+**Section sources**
+- [config.py:149-162](file://src/sage_faculty_twin/config.py#L149-L162)
+- [llm_client.py:290-375](file://src/sage_faculty_twin/llm_client.py#L290-L375)

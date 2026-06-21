@@ -1,7 +1,0 @@
-- **Entry Point**: `api.py` exposes a FastAPI application with a `LazyDigitalTwinService` proxy to defer heavy initialization until the first request.
-- **Core Orchestrator**: `service.py` (`DigitalTwinService`) implements a linear, traceable chat pipeline (bootstrap → intent → retrieval → answer → persist) using `WorkflowTraceStep` for observability.
-- **Memory Layer**: `memory_store.py` (`NeuroMemConversationStore`) manages short-term conversation history and long-term student profiles using `sage.neuromem` collections with configurable index types (FAISS/BM25).
-- **Knowledge Layer**: `knowledge_base.py` (`LocalKnowledgeStore`) provides document storage and retrieval, supporting `sagevdb` (vector DB) or `neuromem` backends with wiki-link expansion.
-- **LLM Interface**: `llm_client.py` (`VllmChatClient`) handles communication with vLLM-HUST, featuring intent classification, streaming SSE support, and DeltaKV session continuity hints.
-- **Workflow Definition**: `workflow_steps.py` defines a registry of atomic steps (e.g., `retrieve_knowledge`, `answer_with_citations`) used by the planner.
-- **Configuration**: `config.py` uses `pydantic-settings` to manage environment-driven configuration for all subsystems.

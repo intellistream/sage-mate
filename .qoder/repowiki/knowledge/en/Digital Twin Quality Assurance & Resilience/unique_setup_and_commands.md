@@ -1,3 +1,0 @@
-- Run resilience tests to verify defensive `mkdir` behavior: `pytest tests/test_store_resilience.py`.
-- Validate systemd unit rendering: `pytest tests/test_systemd_service_scripts.py`.
-- Execute benchmark adapter logic: `pytest tests/test_benchmark_adapter.py`.

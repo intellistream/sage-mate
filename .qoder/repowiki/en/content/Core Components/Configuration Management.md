@@ -10,17 +10,20 @@
 - [llm_client.py](file://src/sage_faculty_twin/llm_client.py)
 - [knowledge_base.py](file://src/sage_faculty_twin/knowledge_base.py)
 - [memory_store.py](file://src/sage_faculty_twin/memory_store.py)
+- [service.py](file://src/sage_faculty_twin/service.py)
+- [user_store.py](file://src/sage_faculty_twin/user_store.py)
+- [models.py](file://src/sage_faculty_twin/models.py)
+- [app.js](file://src/sage_faculty_twin/web/app.js)
 - [deployment.md](file://docs/deployment.md)
 - [manage.sh](file://manage.sh)
 </cite>
 
 ## Update Summary
 **Changes Made**
-- Updated SageVDB backend configuration section to reflect new backend preferences and enhanced selection logic
-- Added comprehensive documentation for SageVDB-specific configuration fields
-- Enhanced backend selection logic documentation covering both knowledge base and conversation memory auto-selection
-- Updated BM25 backend configuration to reflect current implementation and defaults
-- Added new SageVDB ANN algorithm configuration options
+- Added comprehensive documentation for new lab member invitation code system with configurable codes and access gates
+- Updated configuration categories to include new invitation code settings and validation logic
+- Enhanced user authentication system with invitation code requirements for lab member registration
+- Added frontend integration for invitation code input in user registration and login flows
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -36,7 +39,7 @@
 ## Introduction
 This document explains the configuration management system in Sage Faculty Twin. It focuses on the AppSettings class, environment variable handling, configuration loading mechanisms, runtime environment detection, and how configuration values influence LLM settings, database and memory backends, web search parameters, and operational flags. It also covers configuration precedence, default values, validation, and best practices for managing sensitive configuration data.
 
-**Updated** The configuration system now includes enhanced SageVDB backend preferences and sophisticated backend selection logic that automatically chooses optimal backends based on environment capabilities and dependencies.
+**Updated** The configuration system now includes enhanced lab member invitation code management with configurable codes, access gates, and secure validation mechanisms. The system provides controlled access to lab member profiles through invitation code requirements and supports flexible enable/disable toggles for different operational scenarios.
 
 ## Project Structure
 The configuration system centers around a single Pydantic-based settings class that loads values from environment variables and .env files, and is consumed by services and clients across the application. Additional runtime checks ensure the environment is properly prepared for dependent libraries and services.
@@ -63,13 +66,13 @@ F --> E
 ```
 
 **Diagram sources**
-- [config.py:9-131](file://src/sage_faculty_twin/config.py#L9-L131)
+- [config.py:9-166](file://src/sage_faculty_twin/config.py#L9-L166)
 - [runtime_env.py:102-130](file://src/sage_faculty_twin/runtime_env.py#L102-L130)
 - [service_runtime.py:13-69](file://src/sage_faculty_twin/service_runtime.py#L13-L69)
 - [api.py:94-116](file://src/sage_faculty_twin/api.py#L94-L116)
 
 **Section sources**
-- [config.py:9-131](file://src/sage_faculty_twin/config.py#L9-L131)
+- [config.py:9-166](file://src/sage_faculty_twin/config.py#L9-L166)
 - [runtime_env.py:102-130](file://src/sage_faculty_twin/runtime_env.py#L102-L130)
 - [service_runtime.py:13-69](file://src/sage_faculty_twin/service_runtime.py#L13-L69)
 - [api.py:94-116](file://src/sage_faculty_twin/api.py#L94-L116)
@@ -87,11 +90,15 @@ Key configuration categories:
 - Operational storage: conversation memory, online presence, artifact drafts, knowledge gaps, escalations, follow-ups, operations task state, suggestions, user accounts, and workflow policy path.
 - Session and admin credentials: admin/manager usernames/passwords and session secrets/time-to-live.
 - Service orchestration: path to the service manager script used to control systemd user units.
+- **New**: Context digest management: rolling conversation compression with configurable thresholds and character limits.
+- **New**: DeltaKV session continuity: vLLM KV cache transfer support with custom session key prefixes.
+- **New**: Administrative access controls: enhanced security with configurable session management.
+- **New**: Lab member invitation system: gated registration with configurable invitation codes and access requirements.
 
-**Updated** Enhanced backend configuration with SageVDB preferences and automatic backend selection logic.
+**Updated** Enhanced backend configuration with SageVDB preferences and automatic backend selection logic, plus new operational features for conversation management, security, and controlled access through invitation codes.
 
 **Section sources**
-- [config.py:9-131](file://src/sage_faculty_twin/config.py#L9-L131)
+- [config.py:9-166](file://src/sage_faculty_twin/config.py#L9-L166)
 - [runtime_env.py:102-130](file://src/sage_faculty_twin/runtime_env.py#L102-L130)
 - [service_runtime.py:13-69](file://src/sage_faculty_twin/service_runtime.py#L13-L69)
 - [api.py:94-116](file://src/sage_faculty_twin/api.py#L94-L116)
@@ -115,7 +122,7 @@ Service-->>API : DigitalTwinService with AppSettings
 ```
 
 **Diagram sources**
-- [config.py:9-131](file://src/sage_faculty_twin/config.py#L9-L131)
+- [config.py:9-166](file://src/sage_faculty_twin/config.py#L9-L166)
 - [runtime_env.py:102-130](file://src/sage_faculty_twin/runtime_env.py#L102-L130)
 - [api.py:94-116](file://src/sage_faculty_twin/api.py#L94-L116)
 
@@ -135,8 +142,12 @@ Highlights:
 - Storage paths: conversation memory, online presence, drafts, escalations, follow-ups, operations task state, suggestions, user accounts, workflow policy path.
 - Sessions/admin: admin/manager credentials and session secrets/TTL.
 - Service manager script path.
+- **New**: Context digest management: enable flag, turn threshold, character limits, and digest storage directory.
+- **New**: DeltaKV session continuity: enable flag and custom session key prefix for vLLM KV cache transfer.
+- **New**: Administrative access controls: enhanced session management with configurable TTLs and secrets.
+- **New**: Lab member invitation system: invitation code and gating mechanism for controlled access.
 
-**Updated** Added comprehensive SageVDB backend configuration fields including embedding backend, model, dimension, backend type, and ANN algorithm settings.
+**Updated** Added comprehensive configuration fields for new operational features including context digest management, DeltaKV session continuity, administrative controls, and lab member access gating through invitation codes.
 
 Validation characteristics:
 - Numeric fields enforce inclusive min/max bounds.
@@ -144,7 +155,7 @@ Validation characteristics:
 - Paths are typed as Path for safe filesystem usage.
 
 **Section sources**
-- [config.py:9-131](file://src/sage_faculty_twin/config.py#L9-L131)
+- [config.py:9-166](file://src/sage_faculty_twin/config.py#L9-L166)
 
 ### Environment Variable Handling and Loading Mechanisms
 - Prefix and files: DIGITAL_TWIN_* variables are loaded from .env and ../SAGE/.env. The loader respects the order and last-writer wins for duplicates.
@@ -195,14 +206,20 @@ Version-related metadata is exposed by the service layer and includes stack comp
 - The LLM client constructs HTTP clients using these settings, including separate intent classification client when configured.
 - Model name auto-detection occurs when not explicitly set.
 
+**New**: DeltaKV session continuity integration:
+- When enabled, the LLM client builds stable session identifiers using configurable prefixes.
+- Requests are annotated with KV transfer parameters to enable vLLM external prefix cache matching.
+- Session continuity tracking monitors turn counts, token usage, and restart detection.
+
 Operational guidance:
 - Configure llm_base_url and api_key to match your inference endpoint.
 - Adjust llm_timeout_seconds and llm_retry_attempts according to network conditions and latency targets.
 - Use intent_llm_base_url/intent_model_name to route intent classification to a lighter model if desired.
+- Enable kv_continuity_enabled for improved vLLM KV cache utilization during server restarts.
 
 **Section sources**
 - [config.py:20-45](file://src/sage_faculty_twin/config.py#L20-L45)
-- [llm_client.py:68-96](file://src/sage_faculty_twin/llm_client.py#L68-L96)
+- [llm_client.py:290-375](file://src/sage_faculty_twin/llm_client.py#L290-L375)
 
 ### Database Connections and Knowledge Backends
 **Updated** Enhanced knowledge backend configuration with SageVDB preferences and automatic backend selection logic.
@@ -226,10 +243,100 @@ Best practices:
 
 **Section sources**
 - [config.py:63-70](file://src/sage_faculty_twin/config.py#L63-L70)
-- [config.py:115-119](file://src/sage_faculty_twin/config.py#L115-L119)
+- [config.py:115-120](file://src/sage_faculty_twin/config.py#L115-L120)
 - [knowledge_base.py:127-139](file://src/sage_faculty_twin/knowledge_base.py#L127-L139)
 - [knowledge_base.py:417-421](file://src/sage_faculty_twin/knowledge_base.py#L417-L421)
 - [memory_store.py:257-293](file://src/sage_faculty_twin/memory_store.py#L257-L293)
+
+### Context Digest Management System
+**New Feature**: Rolling conversation compression for improved memory efficiency and reduced token usage.
+
+- **context_digest_enabled**: Global switch to enable/disable conversation digest management.
+- **context_digest_turn_threshold**: Minimum number of new conversation turns required before triggering digest compression (default: 4).
+- **context_digest_max_chars**: Maximum character limit for generated digest summaries (default: 1500).
+- **context_digest_dir**: Persistent storage directory for conversation digest files.
+
+**Digest Processing Workflow**:
+1. Monitor conversation memory for new turns beyond the threshold.
+2. Collect recent conversation records and compare with existing digest.
+3. Generate compressed summary using LLM when threshold is reached.
+4. Persist digest to JSON files keyed by conversation ID.
+5. Fallback to simple concatenation if LLM summarization fails.
+
+**Integration Points**:
+- Automatic digest updates triggered by conversation workflow.
+- Manual compression endpoint for immediate digest generation.
+- Integration with prompt building to inject digest context without full history.
+
+Best practices:
+- Set turn_threshold based on conversation complexity and memory constraints.
+- Adjust max_chars to balance context preservation with token budget.
+- Monitor digest storage growth and implement cleanup policies as needed.
+
+**Section sources**
+- [config.py:125-131](file://src/sage_faculty_twin/config.py#L125-L131)
+- [service.py:1623-1672](file://src/sage_faculty_twin/service.py#L1623-L1672)
+- [service.py:1733-1785](file://src/sage_faculty_twin/service.py#L1733-L1785)
+- [memory_store.py:222-317](file://src/sage_faculty_twin/memory_store.py#L222-L317)
+
+### DeltaKV Session Continuity
+**New Feature**: Enhanced vLLM KV cache utilization through stable session identification and transfer.
+
+- **kv_continuity_enabled**: Enable DeltaKV-aware session continuity hints for improved cache utilization.
+- **kv_continuity_session_prefix**: Customizable prefix for stable session identifiers (default: "twin-session").
+
+**Session Key Generation**:
+- Stable session identifiers built as `{prefix}-{user_id}-{conversation_id}`.
+- Used to annotate vLLM chat-completion payloads with `kv_transfer_params`.
+- Enables external prefix cache matching after vLLM server restarts.
+
+**Continuity Tracking**:
+- Monitors session turn counts, cumulative token usage, and timestamps.
+- Detects vLLM restarts using Prometheus metrics and session anchor state.
+- Provides diagnostic snapshots for monitoring continuity effectiveness.
+
+**Benefits**:
+- Reduced KV cache misses after server restarts.
+- Improved response latency through cache state preservation.
+- Better resource utilization in distributed inference environments.
+
+**Section sources**
+- [config.py:149-162](file://src/sage_faculty_twin/config.py#L149-L162)
+- [llm_client.py:294-375](file://src/sage_faculty_twin/llm_client.py#L294-L375)
+
+### Lab Member Invitation System
+**New Feature**: Controlled access system for lab member registration with configurable invitation codes and security validation.
+
+- **lab_member_invitation_code**: Secret code required for lab_member registration (default: "SAGE-LAB-2026").
+- **lab_member_invitation_code_enabled**: Toggle to enable/disable invitation code requirement.
+
+**Registration Flow**:
+1. Users register with visitor profile initially.
+2. During upgrade, system validates provided invitation code against configured code.
+3. Successful validation upgrades user to lab_member profile.
+4. Code comparison uses secure constant-time comparison to prevent timing attacks.
+
+**Security Features**:
+- Secure code verification prevents brute force attacks.
+- Configurable enable/disable for flexible access control.
+- Audit trail maintained through user account persistence.
+
+**Configuration Options**:
+- Default invitation code: "SAGE-LAB-2026" - can be changed via environment variables
+- Enable/disable toggle: lab_member_invitation_code_enabled - controls whether code validation is enforced
+- Constant-time comparison: Uses secrets.compare_digest for secure code validation
+
+**Frontend Integration**:
+- Invitation code field available in user registration form
+- Optional invitation code field in user login form
+- Real-time validation and error messaging
+
+**Section sources**
+- [config.py:140-148](file://src/sage_faculty_twin/config.py#L140-L148)
+- [user_store.py:71-161](file://src/sage_faculty_twin/user_store.py#L71-L161)
+- [models.py:741-754](file://src/sage_faculty_twin/models.py#L741-L754)
+- [service.py:2914-2942](file://src/sage_faculty_twin/service.py#L2914-L2942)
+- [app.js:1035-1079](file://src/sage_faculty_twin/web/app.js#L1035-L1079)
 
 ### Web Search Parameters
 - Enable/disable web search globally.
@@ -266,7 +373,7 @@ Operational guidance:
 - Queue actions via systemd-run to decouple long-running operations from the immediate request lifecycle.
 
 **Section sources**
-- [config.py:120-120](file://src/sage_faculty_twin/config.py#L120-L120)
+- [config.py:121](file://src/sage_faculty_twin/config.py#L121)
 - [service_runtime.py:13-69](file://src/sage_faculty_twin/service_runtime.py#L13-L69)
 - [manage.sh:55-87](file://manage.sh#L55-L87)
 
@@ -274,12 +381,18 @@ Operational guidance:
 - Admin and manager usernames/passwords are configurable along with session secrets and TTLs.
 - Session TTLs are bounded to protect against excessively long-lived sessions.
 
+**Enhanced Security Controls**:
+- Separate admin and manager credentials with distinct privileges.
+- Configurable session secrets for enhanced security.
+- Reasonable TTL bounds to minimize exposure windows.
+
 Security guidance:
 - Change default passwords and secrets in production.
 - Keep session TTLs reasonable to minimize exposure windows.
+- Regularly review and rotate session secrets.
 
 **Section sources**
-- [config.py:121-128](file://src/sage_faculty_twin/config.py#L121-L128)
+- [config.py:132-139](file://src/sage_faculty_twin/config.py#L132-L139)
 
 ## Dependency Analysis
 Configuration consumers and their relationships:
@@ -292,27 +405,34 @@ Settings --> SRM["ServiceRuntimeManager"]
 Settings --> API["FastAPI App"]
 Settings --> KB["LocalKnowledgeStore"]
 Settings --> MS["NeuroMemConversationStore"]
+Settings --> CD["ConversationDigestStore"]
+Settings --> US["UserStore"]
 API --> LazySvc["LazyDigitalTwinService"]
 LazySvc --> Consumers["DigitalTwinService"]
 Runtime["bootstrap_runtime_env()"] --> API
 KB --> SageVDB["SageVDB Backend"]
 KB --> Neuromem["Neuromem Backend"]
 MS --> AutoSelect["Auto-Selection Logic"]
+CD --> DigestMgr["Digest Management"]
+US --> InvitationGate["Invitation Code Validation"]
+LLM --> DeltaKV["DeltaKV Continuity"]
 ```
 
 **Diagram sources**
-- [config.py:9-131](file://src/sage_faculty_twin/config.py#L9-L131)
-- [llm_client.py:68-96](file://src/sage_faculty_twin/llm_client.py#L68-L96)
+- [config.py:9-166](file://src/sage_faculty_twin/config.py#L9-L166)
+- [llm_client.py:290-375](file://src/sage_faculty_twin/llm_client.py#L290-L375)
 - [web_search.py:93-127](file://src/sage_faculty_twin/web_search.py#L93-L127)
 - [service_runtime.py:13-69](file://src/sage_faculty_twin/service_runtime.py#L13-L69)
 - [api.py:94-116](file://src/sage_faculty_twin/api.py#L94-L116)
 - [runtime_env.py:102-130](file://src/sage_faculty_twin/runtime_env.py#L102-L130)
 - [knowledge_base.py:127-148](file://src/sage_faculty_twin/knowledge_base.py#L127-L148)
 - [memory_store.py:257-293](file://src/sage_faculty_twin/memory_store.py#L257-L293)
+- [memory_store.py:255-317](file://src/sage_faculty_twin/memory_store.py#L255-L317)
+- [user_store.py:71-161](file://src/sage_faculty_twin/user_store.py#L71-L161)
 
 **Section sources**
-- [config.py:9-131](file://src/sage_faculty_twin/config.py#L9-L131)
-- [llm_client.py:68-96](file://src/sage_faculty_twin/llm_client.py#L68-L96)
+- [config.py:9-166](file://src/sage_faculty_twin/config.py#L9-L166)
+- [llm_client.py:290-375](file://src/sage_faculty_twin/llm_client.py#L290-L375)
 - [web_search.py:93-127](file://src/sage_faculty_twin/web_search.py#L93-L127)
 - [service_runtime.py:13-69](file://src/sage_faculty_twin/service_runtime.py#L13-L69)
 - [api.py:94-116](file://src/sage_faculty_twin/api.py#L94-L116)
@@ -324,6 +444,12 @@ MS --> AutoSelect["Auto-Selection Logic"]
 - Retrieval scale: control retrieval_top_k and embedding dimension to trade off relevance and speed.
 - Web search overhead: disable web_search_enabled or reduce web_search_max_results when not needed.
 - Memory tuning: adjust conversation memory neural parameters to stabilize long conversations without excessive resource usage.
+
+**New Performance Optimizations**:
+- **Context Digest Compression**: Reduces token usage by compressing conversation history, improving LLM response times and reducing costs.
+- **DeltaKV Continuity**: Minimizes KV cache misses after server restarts, improving inference latency and resource utilization.
+- **Selective Digest Triggering**: Configurable turn thresholds prevent unnecessary summarization overhead for short conversations.
+- **Secure Invitation Code Validation**: Constant-time comparison prevents timing attacks and maintains system security without performance degradation.
 
 **Updated** SageVDB backend performance considerations:
 - **ANN Algorithm Selection**: Choose appropriate ANN algorithms (faiss_hnsw) for large-scale vector search to optimize query performance.
@@ -347,7 +473,24 @@ Common configuration issues and resolutions:
   - Reference: [runtime_env.py:34-56](file://src/sage_faculty_twin/runtime_env.py#L34-L56)
 - Service control failures:
   - Verify the service manager script path and permissions. Use the script to inspect and control systemd user units.
-  - Reference: [config.py:120-120](file://src/sage_faculty_twin/config.py#L120-L120), [manage.sh:55-87](file://manage.sh#L55-L87)
+  - Reference: [config.py:121](file://src/sage_faculty_twin/config.py#L121), [manage.sh:55-87](file://manage.sh#L55-L87)
+
+**New Troubleshooting Scenarios**:
+- **Context Digest Issues**:
+  - Digest directory not writable: Verify `context_digest_dir` permissions and available disk space.
+  - Digest summarization failures: Check LLM connectivity and token limits; consider increasing `context_digest_max_chars`.
+  - Digest not triggering: Adjust `context_digest_turn_threshold` based on conversation patterns.
+
+- **DeltaKV Continuity Problems**:
+  - Session continuity not working: Verify `kv_continuity_enabled` and `kv_continuity_session_prefix` configuration.
+  - vLLM restart detection false positives: Check Prometheus metrics endpoint accessibility and server uptime monitoring.
+  - KV cache transfer failures: Ensure vLLM external prefix cache is properly configured and accessible.
+
+- **Lab Member Invitation Issues**:
+  - Invitation code not accepted: Verify `lab_member_invitation_code_enabled` and correct code matching.
+  - User upgrade failures: Check user store persistence and account state consistency.
+  - Frontend invitation code field not appearing: Ensure proper HTML element IDs and JavaScript event handlers are present.
+  - Security concerns: Invitation code validation uses constant-time comparison, preventing timing attacks.
 
 **Updated** SageVDB-specific troubleshooting:
 - **SageVDB Backend Not Available**: When knowledge_backend is set to "sagevdb" but sagevdb is not available, install isage-vdb or expose the local sageVDB checkout on PYTHONPATH.
@@ -359,14 +502,22 @@ Common configuration issues and resolutions:
 - [runtime_env.py:116-119](file://src/sage_faculty_twin/runtime_env.py#L116-L119)
 - [runtime_env.py:75-90](file://src/sage_faculty_twin/runtime_env.py#L75-L90)
 - [runtime_env.py:34-56](file://src/sage_faculty_twin/runtime_env.py#L34-L56)
-- [config.py:120-120](file://src/sage_faculty_twin/config.py#L120-L120)
+- [config.py:121](file://src/sage_faculty_twin/config.py#L121)
 - [manage.sh:55-87](file://manage.sh#L55-L87)
 - [knowledge_base.py:436-439](file://src/sage_faculty_twin/knowledge_base.py#L436-L439)
 - [knowledge_base.py:456-459](file://src/sage_faculty_twin/knowledge_base.py#L456-L459)
+- [service.py:1623-1672](file://src/sage_faculty_twin/service.py#L1623-L1672)
+- [llm_client.py:294-375](file://src/sage_faculty_twin/llm_client.py#L294-L375)
+- [user_store.py:71-161](file://src/sage_faculty_twin/user_store.py#L71-L161)
+- [models.py:741-754](file://src/sage_faculty_twin/models.py#L741-L754)
+- [service.py:2914-2942](file://src/sage_faculty_twin/service.py#L2914-L2942)
+- [app.js:1035-1079](file://src/sage_faculty_twin/web/app.js#L1035-L1079)
 
 ## Conclusion
 Sage Faculty Twin's configuration system combines a centralized Pydantic settings class with environment-driven loading and strict validation, ensuring reliable operation across diverse environments. Runtime environment checks further harden the system by validating optional dependencies and enforcing local policy preferences.
 
-**Updated** The system now features enhanced SageVDB backend preferences with comprehensive configuration options and sophisticated auto-selection logic that intelligently chooses optimal backends based on environment capabilities. This includes automatic backend selection for both knowledge bases and conversation memory, supporting both dense vector retrieval (faiss) and sparse lexical retrieval (bm25) with seamless fallback mechanisms.
+**Updated** The system now features enhanced SageVDB backend preferences with comprehensive configuration options and sophisticated auto-selection logic that intelligently chooses optimal backends based on environment capabilities. Additionally, the system includes new operational features for conversation management (context digest compression), improved inference performance (DeltaKV session continuity), enhanced security (administrative access controls), and controlled access (lab member invitation system with secure code validation).
 
-By following the guidance here—especially around environment variable precedence, sensitive data handling, and troubleshooting—the system can be safely tuned and operated at scale, leveraging the full power of modern vector databases and intelligent backend selection.
+The lab member invitation system provides robust access control through configurable invitation codes, secure validation mechanisms, and flexible enable/disable toggles. The system supports both registration and login flows with optional invitation code requirements, ensuring controlled access to lab member profiles while maintaining user experience and security.
+
+These new features provide operators with powerful tools to optimize performance, reduce costs, and improve user experience while maintaining strong security and reliability standards. By following the guidance here—especially around environment variable precedence, sensitive data handling, invitation code security, and troubleshooting—the system can be safely tuned and operated at scale, leveraging the full power of modern vector databases, intelligent backend selection, advanced operational features, and secure access control mechanisms.

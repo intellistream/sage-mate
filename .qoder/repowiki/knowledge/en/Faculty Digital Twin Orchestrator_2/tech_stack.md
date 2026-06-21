@@ -1,0 +1,4 @@
+- **LLM Backend**: vLLM-HUST (custom fork) for high-throughput inference with DeltaKV prefix caching.
+- **Memory Engine**: SAGE Neuromem (`isage-neuromem`) for neural continual memory and vector retrieval.
+- **Web Search**: Tavily API (`tavily-python`) for real-time grounding.
+- **PDF Processing**: `pypdf` for attachment text extraction.

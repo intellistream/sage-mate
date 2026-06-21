@@ -1,0 +1,1 @@
+Manages user registration, authentication, and session lifecycle alongside the queuing and dispatching of post-interaction follow-up actions.
