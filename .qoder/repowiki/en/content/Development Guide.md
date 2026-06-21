@@ -8,7 +8,7 @@
 - [quickstart.sh](file://quickstart.sh)
 - [manage.sh](file://manage.sh)
 - [run_app_server.sh](file://tools/run_app_server.sh)
-- [install_user_services.sh](file://tools/install_user_services.sh)
+- [conftest.py](file://tests/conftest.py)
 - [runtime_env.py](file://src/sage_faculty_twin/runtime_env.py)
 - [config.py](file://src/sage_faculty_twin/config.py)
 - [api.py](file://src/sage_faculty_twin/api.py)
@@ -16,7 +16,6 @@
 - [models.py](file://src/sage_faculty_twin/models.py)
 - [test_chat_streaming.py](file://tests/test_chat_streaming.py)
 - [test_workflow_policy.py](file://tests/test_workflow_policy.py)
-- [conftest.py](file://tests/conftest.py)
 - [test_knowledge_base.py](file://tests/test_knowledge_base.py)
 - [test_knowledge_import.py](file://tests/test_knowledge_import.py)
 - [test_sagevdb_knowledge_store.py](file://tests/test_sagevdb_knowledge_store.py)
@@ -27,11 +26,12 @@
 
 ## Update Summary
 **Changes Made**
-- Enhanced testing infrastructure with comprehensive network prevention system
-- Added model caching detection and automatic backend selection capabilities
-- Implemented pytest marker decorators for conditional test execution
-- Improved test bootstrap configuration with offline mode enforcement
-- Added automatic knowledge backend detection based on local cache availability
+- Enhanced testing infrastructure with comprehensive network prevention system using HF_HUB_OFFLINE and TRANSFORMERS_OFFLINE environment variables
+- Added intelligent model caching detection for sentence-transformers with automatic cache scanning and fallback mechanisms
+- Implemented automatic backend selection system that dynamically detects available knowledge backends (local, neuromem, sagevdb)
+- Added comprehensive pytest marker decorators for conditional test execution based on environment capabilities
+- Improved CI pipeline linting with streamlined job definitions and optimized testing processes
+- Enhanced runtime environment validation with automatic shared library linking for sageVDB
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -81,8 +81,7 @@ subgraph "Tooling"
 QS["quickstart.sh<br/>One-touch setup"]
 RUN["tools/run_app_server.sh<br/>Local server runner"]
 MAN["manage.sh<br/>Service management"]
-INST["tools/install_user_services.sh<br/>systemd user units"]
-end
+END
 API --> SVC
 API --> CFG
 API --> RTENV
@@ -105,7 +104,6 @@ QS --> RUN
 - [quickstart.sh](file://quickstart.sh)
 - [run_app_server.sh](file://tools/run_app_server.sh)
 - [manage.sh](file://manage.sh)
-- [install_user_services.sh](file://tools/install_user_services.sh)
 
 **Section sources**
 - [README.md](file://README.md)
@@ -373,6 +371,7 @@ Recommended testing approach:
 - Verify policy loading and planner acceptance with custom policy files
 - Leverage automatic backend detection for comprehensive testing across different environments
 - Use offline mode to ensure reproducible test results regardless of network conditions
+- Use the provided model caching detection to verify local availability before running embedding-based tests
 
 **Section sources**
 - [CONTRIBUTING.md](file://CONTRIBUTING.md)

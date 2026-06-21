@@ -1,4 +1,0 @@
-- **Web Framework**: FastAPI with Pydantic for request validation and data modeling.
-- **LLM Runtime**: vLLM-HUST (custom fork) accessed via OpenAI-compatible HTTP API, featuring DeltaKV connector support for external prefix cache continuity.
-- **Runtime Environment**: SAGE FlowNet (`sage.runtime.FlowNetEnvironment`) for distributed workflow execution context.
-- **Storage**: Local file-system based JSON stores and SQLite (via `neuromem` and `sageVDB` integrations) for vector search and conversation memory.

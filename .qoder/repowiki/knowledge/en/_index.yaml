@@ -3,7 +3,7 @@ schema_version: 1
 locale: en-US
 branch: main
 nodes_managed: true
-exported_at: "2026-06-21T08:49:50Z"
+exported_at: "2026-06-21T09:46:15Z"
 modules:
     "":
         dir_name: Faculty Digital Twin Orchestrator_2
@@ -14,8 +14,8 @@ modules:
         depends_on: []
         related_to: []
     app_source:
-        dir_name: Faculty Digital Twin Service
-        title: Faculty Digital Twin Service
+        dir_name: SAGE Faculty Twin API & Service Orchestration
+        title: SAGE Faculty Twin API & Service Orchestration
         scope:
             - src/sage_faculty_twin/
         source_files: []

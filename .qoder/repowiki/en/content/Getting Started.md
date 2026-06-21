@@ -16,14 +16,17 @@
 - [tools/start_all_services.sh](file://tools/start_all_services.sh)
 - [tools/run_app_server.sh](file://tools/run_app_server.sh)
 - [src/sage_faculty_twin/config.py](file://src/sage_faculty_twin/config.py)
+- [src/sage_faculty_twin/web/index.html](file://src/sage_faculty_twin/web/index.html)
+- [src/sage_faculty_twin/web/styles.css](file://src/sage_faculty_twin/web/styles.css)
+- [src/sage_faculty_twin/web/app.js](file://src/sage_faculty_twin/web/app.js)
 </cite>
 
 ## Update Summary
 **Changes Made**
-- Updated service management section to reflect consolidated run_qwen3_32b_service.sh replacing individual deployment scripts
-- Enhanced unified service management approach documentation
-- Added comprehensive coverage of the unified Qwen3-32B model service management
-- Updated deployment instructions to emphasize simplified service management commands
+- Updated mobile interface section to reflect enhanced mobile sidebar navigation system with new mobile-sidebar-btn and backdrop functionality
+- Added documentation for improved mobile responsiveness with sidebar toggle and backdrop overlay
+- Updated frontend asset version reference to show current version 20260621-v4.2.16
+- Enhanced mobile experience documentation with sidebar expansion controls and auto-closing behavior
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -34,10 +37,11 @@
 6. [Initial Deployment and Verification](#initial-deployment-and-verification)
 7. [Development vs Production Setups](#development-vs-production-setups)
 8. [Unified Service Management Commands](#unified-service-management-commands)
-9. [First API Calls and Basic Validation](#first-api-calls-and-basic-validation)
-10. [Troubleshooting Guide](#troubleshooting-guide)
-11. [Architecture Overview](#architecture-overview)
-12. [Conclusion](#conclusion)
+9. [Enhanced Mobile Interface Experience](#enhanced-mobile-interface-experience)
+10. [First API Calls and Basic Validation](#first-api-calls-and-basic-validation)
+11. [Troubleshooting Guide](#troubleshooting-guide)
+12. [Architecture Overview](#architecture-overview)
+13. [Conclusion](#conclusion)
 
 ## Introduction
 Sage Faculty Twin is a FastAPI-based digital twin application for a single instructor, integrating SAGE, NeuroMem, and an OpenAI-compatible LLM. It provides a 24/7 assistant with capabilities such as answering questions, managing schedules, and supporting web search and knowledge retrieval.
@@ -48,6 +52,7 @@ Key highlights:
 - Unified service management: simplified commands using consolidated run_qwen3_32b_service.sh for model service control.
 - Full-stack startup (including model service): use the provided start-all script.
 - Application default listener: 127.0.0.1:55601.
+- Enhanced mobile interface: improved sidebar navigation system with mobile-responsive design.
 
 ## Project Structure
 High-level layout relevant to getting started:
@@ -56,6 +61,7 @@ High-level layout relevant to getting started:
 - Systemd user services for app, site proxy, tunnel, and optional OpenAI-compatible proxy
 - Runtime configuration via .env and pydantic settings
 - FastAPI application entrypoint under src/sage_faculty_twin/api.py
+- Enhanced frontend with mobile-responsive sidebar navigation
 
 ```mermaid
 graph TB
@@ -79,6 +85,11 @@ subgraph "Application"
 API["src/sage_faculty_twin/api.py"]
 CONFIG["src/sage_faculty_twin/config.py"]
 end
+subgraph "Enhanced Frontend"
+INDEX["index.html v20260621-v4.2.16"]
+STYLES["styles.css + mobile sidebar"]
+APPJS["app.js + mobile navigation"]
+end
 QWEN --> START_ALL
 MANAGE --> APP
 MANAGE --> SITE
@@ -88,6 +99,8 @@ START_ALL --> INSTALL
 RUN_APP --> API
 API --> CONFIG
 CFG --> CONFIG
+INDEX --> STYLES
+INDEX --> APPJS
 ```
 
 **Diagram sources**
@@ -100,6 +113,9 @@ CFG --> CONFIG
 - [deploy/systemd/user/sage-faculty-twin-vllm-openai-proxy.service](file://deploy/systemd/user/sage-faculty-twin-vllm-openai-proxy.service)
 - [tools/run_app_server.sh](file://tools/run_app_server.sh)
 - [src/sage_faculty_twin/config.py](file://src/sage_faculty_twin/config.py)
+- [src/sage_faculty_twin/web/index.html](file://src/sage_faculty_twin/web/index.html)
+- [src/sage_faculty_twin/web/styles.css](file://src/sage_faculty_twin/web/styles.css)
+- [src/sage_faculty_twin/web/app.js](file://src/sage_faculty_twin/web/app.js)
 
 **Section sources**
 - [README.md](file://README.md)
@@ -271,6 +287,40 @@ Common management actions:
 - [deploy/systemd/user/sage-faculty-twin-tunnel.service](file://deploy/systemd/user/sage-faculty-twin-tunnel.service)
 - [deploy/systemd/user/sage-faculty-twin-vllm-openai-proxy.service](file://deploy/systemd/user/sage-faculty-twin-vllm-openai-proxy.service)
 
+## Enhanced Mobile Interface Experience
+**Updated** The application now features an enhanced mobile interface with improved sidebar navigation and responsive design.
+
+### Mobile Sidebar Navigation System
+The enhanced mobile interface includes a dedicated mobile sidebar toggle button and backdrop system:
+
+- **Mobile Toggle Button**: A prominent hamburger menu button appears on screens ≤ 720px wide
+- **Backdrop Overlay**: Semi-transparent overlay that darkens the background when sidebar is expanded
+- **Auto-Close Behavior**: Sidebar automatically closes when any navigation item is selected on mobile devices
+- **Z-Index Management**: Proper layering ensures sidebar appears above backdrop and other content
+
+### Key Mobile Features
+- **Responsive Breakpoint**: Mobile-specific styles activate at 720px width and below
+- **Smooth Transitions**: CSS transitions for opening/closing sidebar with backdrop fade effects
+- **Touch-Friendly Controls**: Large tap targets for easy mobile interaction
+- **Accessibility Support**: Proper ARIA labels and keyboard navigation support
+
+### Implementation Details
+The mobile sidebar system consists of three main components:
+1. **Toggle Button** (`#mobile-sidebar-toggle`): Triggers sidebar expansion
+2. **Backdrop** (`#sidebar-backdrop`): Provides dimming effect behind expanded sidebar
+3. **Auto-Close Logic**: Event listeners that automatically collapse sidebar on item selection
+
+### Mobile-Optimized Layout
+- Sidebar transforms from a persistent rail to a slide-out panel on small screens
+- Navigation items become larger touch targets optimized for mobile use
+- History list and user actions adapt to mobile screen constraints
+- Composer (chat input) maintains optimal positioning across screen sizes
+
+**Section sources**
+- [src/sage_faculty_twin/web/index.html](file://src/sage_faculty_twin/web/index.html)
+- [src/sage_faculty_twin/web/styles.css](file://src/sage_faculty_twin/web/styles.css)
+- [src/sage_faculty_twin/web/app.js](file://src/sage_faculty_twin/web/app.js)
+
 ## First API Calls and Basic Validation
 Example validations to perform after deployment:
 
@@ -326,6 +376,11 @@ Common issues and resolutions:
   - If the app is not yet listening on the configured port, run ./manage.sh restart or ./quickstart.sh --start.
   - The script warns if vllm-hust is not reachable and instructs to launch the model service locally or via Docker.
 
+- Mobile interface issues:
+  - Sidebar not responding: check that mobile-sidebar-toggle and sidebar-backdrop elements exist in index.html
+  - Touch events not working: verify app.js event listeners are properly attached
+  - Styles not applying: ensure styles.css version matches current frontend assets
+
 **Section sources**
 - [README.md](file://README.md)
 - [quickstart.sh](file://quickstart.sh)
@@ -339,6 +394,7 @@ The system comprises:
 - Local site proxy for development and static assets
 - Cloudflare tunnel for external exposure
 - Systemd user services for reliable, restart-on-failure operation
+- Enhanced mobile interface with responsive sidebar navigation
 
 ```mermaid
 sequenceDiagram
@@ -370,4 +426,6 @@ App-->>Client : SSE stream
 - [src/sage_faculty_twin/config.py](file://src/sage_faculty_twin/config.py)
 
 ## Conclusion
-You now have the essential steps to install, configure, and validate Sage Faculty Twin with unified service management. Use quickstart.sh for a streamlined setup, manage.sh for consolidated service lifecycle management, and run_qwen3_32b_service.sh for simplified model service control. The unified approach eliminates the complexity of managing multiple deployment scripts while maintaining full functionality. For production deployments, leverage systemd user services, optional proxies/tunnels, and the consolidated service management commands as needed.
+You now have the essential steps to install, configure, and validate Sage Faculty Twin with unified service management and enhanced mobile interface capabilities. Use quickstart.sh for a streamlined setup, manage.sh for consolidated service lifecycle management, and run_qwen3_32b_service.sh for simplified model service control. The unified approach eliminates the complexity of managing multiple deployment scripts while maintaining full functionality. 
+
+The enhanced mobile interface provides improved user experience on smaller screens with the new sidebar navigation system, backdrop overlay, and auto-closing behavior. For production deployments, leverage systemd user services, optional proxies/tunnels, and the consolidated service management commands as needed. The current frontend asset version (20260621-v4.2.16) reflects the latest mobile interface improvements and responsive design enhancements.

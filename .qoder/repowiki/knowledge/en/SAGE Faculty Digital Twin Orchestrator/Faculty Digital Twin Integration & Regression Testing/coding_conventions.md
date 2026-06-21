@@ -1,4 +1,3 @@
-- Tests use `tmp_path` fixtures to create isolated, ephemeral directories for all file-based stores (knowledge, memory, bookings) to ensure zero state leakage between test cases.
-- External dependencies like LLM clients and notification services are replaced with lightweight, purpose-built mock classes (e.g., `FailingLLMClient`, `RecordingNotifier`) injected directly into service instances.
-- Asynchronous service methods are executed synchronously within tests using `asyncio.run()` to simplify test flow and assertion logic without requiring an event loop fixture.
-- Resilience tests deliberately delete on-disk store directories after initialization to verify that write operations defensively recreate missing paths without raising exceptions.
+- Tests use specialized 'Stub' or 'Fake' classes (e.g., `_FastLLMClient`, `FakeRuntimeManager`) to replace external dependencies like LLM providers or system services.
+- Asynchronous service methods are wrapped in synchronous test functions using `asyncio.run()` or custom `driver` coroutines to manage event loops within the pytest context.
+- Stateful components (like `MeetingService` or `NeuroMemConversationStore`) are initialized with `tmp_path` fixtures to ensure each test runs against an isolated, ephemeral filesystem.

@@ -1,1 +1,0 @@
-Provides an AI-powered academic assistant for faculty-student interactions, featuring deterministic workflow planning, multi-source knowledge retrieval, and administrative operations management.

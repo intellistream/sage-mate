@@ -307,7 +307,6 @@ def test_chat_books_meeting_when_details_are_complete(tmp_path: Path) -> None:
     assert response.planner_comparison.deterministic_only_steps == [
         "detect_profile_context",
         "classify_intent",
-        "retrieve_recent_memory",
         "assemble_prompt_context",
         "answer_with_citations",
         "score_memory_usefulness",
@@ -316,7 +315,6 @@ def test_chat_books_meeting_when_details_are_complete(tmp_path: Path) -> None:
     assert response.planner_preview.planned_steps == [
         "detect_profile_context",
         "classify_intent",
-        "retrieve_recent_memory",
         "assemble_prompt_context",
         "answer_with_citations",
         "score_memory_usefulness",
@@ -840,7 +838,6 @@ def test_chat_surfaces_llm_shadow_planner_comparison_without_affecting_execution
     assert response.planner_comparison.shadow_only_steps == ["retrieve_knowledge"]
     assert response.planner_comparison.deterministic_only_steps == [
         "retrieve_hybrid_knowledge",
-        "retrieve_recent_memory",
         "score_memory_usefulness",
     ]
     persisted = service._planner_comparison_store.list_records(limit=1)
@@ -886,7 +883,6 @@ def test_chat_surfaces_artifact_aware_planner_preview_for_uploaded_follow_up(
         "detect_profile_context",
         "classify_intent",
         "retrieve_hybrid_knowledge",
-        "retrieve_recent_memory",
         "retrieve_artifact_memory",
         "retrieve_profile_memory",
         "assemble_prompt_context",

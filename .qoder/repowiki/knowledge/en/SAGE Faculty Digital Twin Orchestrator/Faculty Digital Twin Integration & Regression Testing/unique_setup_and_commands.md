@@ -1,2 +1,0 @@
-- **Offline Enforcement**: Tests require pre-cached embedding models (e.g., `BAAI/bge-small-zh-v1.5`) and set `HF_HUB_OFFLINE=1` to prevent network calls during collection.
-- **Runtime Bootstrap**: `conftest.py` dynamically prepends paths for `SAGE/src`, `sageVDB`, and `neuromem` if present, enabling local development testing without formal package installation.

@@ -1,6 +1,6 @@
 schema_version: 1
 module_path: app_source
-title: Faculty Digital Twin Service
+title: SAGE Faculty Twin API & Service Orchestration
 scope:
     - src/sage_faculty_twin/
 source_files: []
