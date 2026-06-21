@@ -61,6 +61,7 @@ class UserAccountRecord:
 
 class UserAccountStore:
     def __init__(self, settings: AppSettings) -> None:
+        self._settings = settings
         self._path = settings.user_account_store_dir
         self._path.mkdir(parents=True, exist_ok=True)
         self._records_by_id: dict[str, UserAccountRecord] = {}
@@ -68,7 +69,7 @@ class UserAccountStore:
         self._load_from_disk()
 
     def register_user(
-        self, *, name: str, email: str, visitor_profile: str, password: str
+        self, *, name: str, email: str, visitor_profile: str, password: str, invitation_code: str = ""
     ) -> UserAccountResponse:
         normalized_name = name.strip()
         normalized_email = self._normalize_email(email)
@@ -88,6 +89,20 @@ class UserAccountStore:
                 status_code=status.HTTP_409_CONFLICT, detail="该邮箱已注册，请直接登录。"
             )
 
+        # Validate invitation code for lab_member profile
+        if (
+            normalized_visitor_profile == "lab_member"
+            and self._settings.lab_member_invitation_code_enabled
+        ):
+            expected = self._settings.lab_member_invitation_code
+            if not secrets.compare_digest(
+                invitation_code.strip(), expected
+            ):
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="邀请码错误，请联系课题组老师获取。",
+                )
+
         now = datetime.now(UTC)
         salt = secrets.token_hex(16)
         record = UserAccountRecord(
@@ -105,7 +120,9 @@ class UserAccountStore:
         self._persist_record(record)
         return record.to_response()
 
-    def authenticate_user(self, *, email: str, password: str) -> UserAccountResponse:
+    def authenticate_user(
+        self, *, email: str, password: str, invitation_code: str = ""
+    ) -> UserAccountResponse:
         normalized_email = self._normalize_email(email)
         record = self._records_by_email.get(normalized_email)
         if record is None:
@@ -118,6 +135,29 @@ class UserAccountStore:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED, detail="用户邮箱或密码错误。"
             )
+
+        # Upgrade to lab_member if invitation code is provided and valid
+        if (
+            record.visitor_profile != "lab_member"
+            and invitation_code.strip()
+            and self._settings.lab_member_invitation_code_enabled
+        ):
+            expected_code = self._settings.lab_member_invitation_code
+            if secrets.compare_digest(invitation_code.strip(), expected_code):
+                record = UserAccountRecord(
+                    user_id=record.user_id,
+                    name=record.name,
+                    email=record.email,
+                    visitor_profile="lab_member",
+                    password_salt=record.password_salt,
+                    password_hash=record.password_hash,
+                    created_at=record.created_at,
+                    updated_at=datetime.now(UTC),
+                )
+                self._records_by_id[record.user_id] = record
+                self._records_by_email[record.email] = record
+                self._persist_record(record)
+
         return record.to_response()
 
     def get_user_by_id(self, user_id: str) -> UserAccountResponse | None:

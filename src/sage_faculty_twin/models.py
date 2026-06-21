@@ -745,11 +745,13 @@ class UserRegisterRequest(BaseModel):
         pattern="^(hust_undergraduate|paper_writing_student|lab_member|general_visitor)$"
     )
     password: str = Field(min_length=8, max_length=256)
+    invitation_code: str = Field(default="", max_length=128)
 
 
 class UserLoginRequest(BaseModel):
     email: str = Field(min_length=3, max_length=256)
     password: str = Field(min_length=1, max_length=256)
+    invitation_code: str = Field(default="", max_length=128)
 
 
 class UserAccountResponse(BaseModel):

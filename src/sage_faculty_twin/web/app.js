@@ -18,9 +18,14 @@ const historyList = document.getElementById("history-list");
 const historyRailToggleButton = document.getElementById("history-rail-toggle");
 const historyNewChatButton = document.getElementById("history-new-chat");
 const chatStream = document.getElementById("chat-stream");
+const chatShell = document.querySelector(".chat-shell");
 const modalOverlay = document.getElementById("modal-overlay");
 const settingsDrawer = document.getElementById("settings-drawer");
-const statusDrawer = document.getElementById("status-drawer");
+const statusView = document.getElementById("status-view");
+const settingsView = document.getElementById("settings-view");
+const settingsViewBody = document.getElementById("settings-view-body");
+const suggestionView = document.getElementById("suggestion-view");
+const suggestionViewBody = document.getElementById("suggestion-view-body");
 const identityModal = document.getElementById("identity-modal");
 const knowledgeModal = document.getElementById("knowledge-modal");
 const bookingModal = document.getElementById("booking-modal");
@@ -34,9 +39,12 @@ const questionAnalyticsModal = document.getElementById("question-analytics-modal
 const adminLoginModal = document.getElementById("admin-login-modal");
 const userRegisterModal = document.getElementById("user-register-modal");
 const userLoginModal = document.getElementById("user-login-modal");
+const authModal = document.getElementById("auth-modal");
 const adminLoginResponse = document.getElementById("admin-login-response");
 const userRegisterResponse = document.getElementById("user-register-response");
 const userLoginResponse = document.getElementById("user-login-response");
+const authLoginResponse = document.getElementById("auth-login-response");
+const authRegisterResponse = document.getElementById("auth-register-response");
 const userRegisterProfileInput = document.getElementById("user-register-profile");
 const bookingList = document.getElementById("booking-list");
 const bookingAdminResponse = document.getElementById("booking-admin-response");
@@ -662,8 +670,29 @@ topbarNewChatButton?.addEventListener("click", startFreshConversation);
 topbarActionsToggleButton?.addEventListener("click", toggleMobileTopbarActions);
 topbarActions?.addEventListener("click", handleTopbarActionsClick);
 historyNewChatButton?.addEventListener("click", () => {
+    closeDrawers();
     startFreshConversation();
 });
+
+// Sidebar toggle - uses existing history-rail-collapsed system
+document.getElementById("sidebar-toggle")?.addEventListener("click", () => {
+    document.body.classList.toggle("sidebar-expanded");
+});
+
+// Sidebar quick action buttons
+document.querySelectorAll(".sidebar-action-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+        const question = btn.dataset.seedQuestion;
+        if (question && chatQuestion) {
+            chatQuestion.value = question;
+            // Collapse sidebar after selecting
+            document.body.classList.remove("sidebar-expanded");
+            // Submit the question
+            chatForm?.requestSubmit();
+        }
+    });
+});
+
 luckyQuestionButton?.addEventListener("click", handleLuckyQuestionClick);
 composerUploadButton?.addEventListener("click", () => chatFileInput?.click());
 chatFileInput?.addEventListener("change", handleChatFileSelection);
@@ -707,14 +736,107 @@ document.getElementById("identity-admin-login")?.addEventListener("click", () =>
     openModal(adminLoginModal);
 });
 
+// --- Registration profile selector + invitation code toggle ---
+const registerProfileSelect = document.getElementById("user-register-profile-select");
+const registerInvitationLabel = document.getElementById("user-register-invitation-label");
+
+function syncRegisterInvitationVisibility() {
+    const profile = registerProfileSelect?.value || "general_visitor";
+    if (userRegisterProfileInput) {
+        userRegisterProfileInput.value = profile;
+    }
+    if (registerInvitationLabel) {
+        if (profile === "lab_member") {
+            registerInvitationLabel.classList.remove("hidden");
+        } else {
+            registerInvitationLabel.classList.add("hidden");
+        }
+    }
+}
+registerProfileSelect?.addEventListener("change", syncRegisterInvitationVisibility);
+
+// --- Identity modal: mandatory boot prompt ---
+document.getElementById("identity-auth")?.addEventListener("click", () => {
+    closeModals();
+    openModal(authModal);
+});
+document.getElementById("identity-guest")?.addEventListener("click", () => {
+    markVisitorIdentitySelected("general_visitor");
+    if (visitorProfileInput) visitorProfileInput.value = "general_visitor";
+    applyVisitorProfilePresentation({ syncCourseContext: true });
+    closeModals();
+    chatQuestion?.focus();
+});
+
+// --- Auth modal: tab switching ---
+document.querySelectorAll("[data-auth-tab]").forEach((tab) => {
+    tab.addEventListener("click", () => {
+        const targetTab = tab.dataset.authTab;
+        document.querySelectorAll("[data-auth-tab]").forEach((t) => t.classList.remove("active"));
+        document.querySelectorAll("[data-auth-panel]").forEach((p) => p.classList.remove("active"));
+        tab.classList.add("active");
+        document.querySelector(`[data-auth-panel="${targetTab}"]`)?.classList.add("active");
+    });
+});
+
+// --- Auth modal: login form ---
+document.getElementById("auth-login-form")?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    setInlineStatus(authLoginResponse, "正在登录...", "empty");
+    try {
+        await apiRequest("/auth/user/login", {
+            method: "POST",
+            body: JSON.stringify({
+                email: document.getElementById("auth-login-email").value,
+                password: document.getElementById("auth-login-password").value,
+                invitation_code: document.getElementById("auth-login-invitation-code").value,
+            }),
+        });
+        setInlineStatus(authLoginResponse, "登录成功！", "success");
+        await refreshUserSession();
+        closeModals();
+    } catch (error) {
+        setInlineStatus(authLoginResponse, error.message, "error");
+    }
+});
+
+// --- Auth modal: register form ---
+document.getElementById("auth-register-form")?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    setInlineStatus(authRegisterResponse, "正在注册...", "empty");
+    const invitationCode = document.getElementById("auth-register-invitation-code").value;
+    const visitorProfile = invitationCode.trim() ? "lab_member" : "general_visitor";
+    try {
+        await apiRequest("/auth/user/register", {
+            method: "POST",
+            body: JSON.stringify({
+                name: document.getElementById("auth-register-name").value,
+                email: document.getElementById("auth-register-email").value,
+                password: document.getElementById("auth-register-password").value,
+                visitor_profile: visitorProfile,
+                invitation_code: invitationCode,
+            }),
+        });
+        setInlineStatus(authRegisterResponse, "注册成功！", "success");
+        await refreshUserSession();
+        closeModals();
+    } catch (error) {
+        setInlineStatus(authRegisterResponse, error.message, "error");
+    }
+});
+
 document.getElementById("open-settings-drawer")?.addEventListener("click", openSettingsDrawer);
 document.getElementById("open-status-drawer")?.addEventListener("click", openStatusDrawer);
 topbarUserBadge?.addEventListener("click", openSettingsDrawer);
-document.querySelectorAll("[data-close-drawer]").forEach((button) => {
-    button.addEventListener("click", closeSettingsDrawer);
+// Use event delegation for close buttons (content may be moved into views)
+settingsViewBody?.addEventListener("click", (e) => {
+    if (e.target.closest("[data-close-drawer]")) closeSettingsDrawer();
 });
-document.querySelectorAll("[data-close-status-drawer]").forEach((button) => {
-    button.addEventListener("click", closeStatusDrawer);
+settingsView?.addEventListener("click", (e) => {
+    if (e.target.closest("[data-close-status-drawer]")) closeStatusDrawer();
+});
+suggestionViewBody?.addEventListener("click", (e) => {
+    if (e.target.closest("[data-close-modal]")) closeSuggestionView();
 });
 document.getElementById("open-user-register")?.addEventListener("click", () => {
     prepareUserRegistrationForm();
@@ -739,8 +861,8 @@ document.getElementById("open-booking").addEventListener("click", () => {
     openModal(bookingModal);
 });
 openSuggestionsButton?.addEventListener("click", async () => {
-    closeDrawer();
-    openModal(suggestionModal);
+    closeDrawers();
+    openSuggestionView();
     await loadSuggestionList();
 });
 document.getElementById("open-booking-list").addEventListener("click", async () => {
@@ -914,6 +1036,7 @@ userRegisterForm?.addEventListener("submit", async (event) => {
     event.preventDefault();
     setInlineStatus(userRegisterResponse, "正在创建账号...", "empty");
     try {
+        const invitationCodeInput = document.getElementById("user-register-invitation-code");
         await apiRequest("/auth/user/register", {
             method: "POST",
             body: JSON.stringify({
@@ -921,9 +1044,11 @@ userRegisterForm?.addEventListener("submit", async (event) => {
                 email: document.getElementById("user-register-email").value,
                 visitor_profile: userRegisterProfileInput?.value || "",
                 password: document.getElementById("user-register-password").value,
+                invitation_code: invitationCodeInput?.value || "",
             }),
         });
         document.getElementById("user-register-password").value = "";
+        if (invitationCodeInput) invitationCodeInput.value = "";
         setInlineStatus(userRegisterResponse, "账号已创建，当前已自动登录。", "success");
         await refreshUserSession();
         closeModals();
@@ -941,6 +1066,7 @@ userLoginForm?.addEventListener("submit", async (event) => {
             body: JSON.stringify({
                 email: document.getElementById("user-login-email").value,
                 password: document.getElementById("user-login-password").value,
+                invitation_code: document.getElementById("user-login-invitation-code")?.value || "",
             }),
         });
         document.getElementById("user-login-password").value = "";
@@ -1380,20 +1506,18 @@ function applyStoredVisitorProfile() {
 }
 
 function shouldPromptForVisitorIdentity() {
+    // Always show the identity prompt if user is not authenticated.
+    // Guests must re-select their identity each visit (their history is ephemeral).
     if (isAdminSession || isUserAuthenticated || !identityModal) {
         return false;
     }
-    try {
-        return globalThis.localStorage?.getItem(VISITOR_IDENTITY_SELECTED_KEY) !== "true";
-    } catch (error) {
-        return true;
-    }
+    return true;
 }
 
 function hasActiveOverlaySurface() {
     return [
         settingsDrawer,
-        statusDrawer,
+        statusView,
         identityModal,
         knowledgeModal,
         bookingModal,
@@ -1438,13 +1562,10 @@ function handleOutsideDrawerClick(event) {
     }
 
     if (
-        !document.body.classList.contains("history-rail-collapsed")
-        && !target.closest(".history-rail")
-        && !target.closest("#history-rail-toggle")
-        && !target.closest("#topbar-mobile-history-toggle")
-        && !target.closest("#topbar-history-toggle")
+        document.body.classList.contains("sidebar-expanded")
+        && !target.closest(".sidebar")
     ) {
-        setHistoryRailCollapsed(true);
+        document.body.classList.remove("sidebar-expanded");
     }
 
     if (isMobileTopbarActionsOpen() && topbarShell && !topbarShell.contains(target)) {
@@ -1452,18 +1573,27 @@ function handleOutsideDrawerClick(event) {
     }
 
     if (!isStatusDrawerClosed()) {
-        if (!statusDrawer?.contains(target) && !target.closest("#open-status-drawer")) {
+        if (!statusView?.contains(target) && !target.closest("#open-status-drawer")) {
             closeStatusDrawer();
         }
     }
 
     if (!isSettingsDrawerClosed()) {
         if (
-            !settingsDrawer?.contains(target)
+            !settingsView?.contains(target)
             && !target.closest("#open-settings-drawer")
             && !target.closest("#topbar-user-badge")
         ) {
             closeSettingsDrawer();
+        }
+    }
+
+    if (!isSuggestionViewClosed()) {
+        if (
+            !suggestionView?.contains(target)
+            && !target.closest("#open-suggestions")
+        ) {
+            closeSuggestionView();
         }
     }
 }
@@ -1585,9 +1715,9 @@ async function refreshStatus() {
         lastHealthyStatusAt = Date.now();
         applyBranding(data.owner_name, data.owner_role, data.homepage_public_url);
         renderPoweredByVersions(data);
-        statusPill.textContent = data.status === "ok" ? "服务正常" : `状态 ${data.status}`;
-        modelPill.textContent = data.model_name ? `模型 ${data.model_name}` : "连接已就绪";
-        knowledgePill.textContent = `知识库 ${data.knowledge_documents}`;
+        statusPill && (statusPill.textContent = data.status === "ok" ? "服务正常" : `状态 ${data.status}`);
+        modelPill && (modelPill.textContent = data.model_name ? `模型 ${data.model_name}` : "连接已就绪");
+        knowledgePill && (knowledgePill.textContent = `知识库 ${data.knowledge_documents}`);
         renderTopbarLiveStatus(data);
         renderOnlineOverview(data);
         renderLlmMetrics(data);
@@ -1599,9 +1729,9 @@ async function refreshStatus() {
             const cached = lastHealthyStatusSnapshot;
             applyBranding(cached.owner_name, cached.owner_role, cached.homepage_public_url);
             renderPoweredByVersions(cached);
-            statusPill.textContent = "服务延迟";
-            modelPill.textContent = cached.model_name ? `模型 ${cached.model_name}` : "连接较慢";
-            knowledgePill.textContent = `知识库 ${cached.knowledge_documents}`;
+            statusPill && (statusPill.textContent = "服务延迟");
+            modelPill && (modelPill.textContent = cached.model_name ? `模型 ${cached.model_name}` : "连接较慢");
+            knowledgePill && (knowledgePill.textContent = `知识库 ${cached.knowledge_documents}`);
             renderTopbarLiveStatus(cached);
             renderOnlineOverview(cached, "状态刷新较慢，当前显示最近一次成功快照。");
             renderLlmMetrics(cached);
@@ -1609,9 +1739,9 @@ async function refreshStatus() {
         }
         applyBranding(null, null, "");
         renderPoweredByVersions(null);
-        statusPill.textContent = "服务不可用";
-        modelPill.textContent = "连接状态未知";
-        knowledgePill.textContent = "知识库未知";
+        statusPill && (statusPill.textContent = "服务不可用");
+        modelPill && (modelPill.textContent = "连接状态未知");
+        knowledgePill && (knowledgePill.textContent = "知识库未知");
         renderTopbarLiveStatus(null);
         renderOnlineOverview(null, error.message);
         renderLlmMetrics(null);
@@ -1739,6 +1869,9 @@ function renderLlmMetrics(data) {
 }
 
 function renderTopbarLiveStatus(data) {
+    // Always update the in-chat status view
+    updateStatusDrawer(data);
+    // Skip topbar rendering if topbar elements were removed
     if (!topbarServiceStatus || !topbarUserCount || !topbarQuestionCount || !topbarModelStatus) {
         return;
     }
@@ -1763,6 +1896,60 @@ function renderTopbarLiveStatus(data) {
 function renderTopbarStatusSummary(text) {
     if (topbarStatusSummary) {
         topbarStatusSummary.textContent = text;
+    }
+}
+
+function updateStatusDrawer(data) {
+    const serviceEl = document.querySelector("#view-service-status .status-value");
+    const userEl = document.querySelector("#view-user-count .status-value");
+    const questionEl = document.querySelector("#view-question-count .status-value");
+    const modelEl = document.querySelector("#view-model-status .status-value");
+    const llmStatusEl = document.querySelector("#view-llm-status .status-value");
+    const llmLatencyEl = document.querySelector("#view-llm-latency .status-value");
+    const llmCacheEl = document.querySelector("#view-llm-cache .status-value");
+    const llmRpsEl = document.querySelector("#view-llm-rps .status-value");
+    if (!data) {
+        if (serviceEl) serviceEl.textContent = "不可用";
+        if (userEl) userEl.textContent = "--";
+        if (questionEl) questionEl.textContent = "--";
+        if (modelEl) modelEl.textContent = "未知";
+        if (llmStatusEl) llmStatusEl.textContent = "--";
+        if (llmLatencyEl) llmLatencyEl.textContent = "--";
+        if (llmCacheEl) llmCacheEl.textContent = "--";
+        if (llmRpsEl) llmRpsEl.textContent = "--";
+        return;
+    }
+    const modelSummary = buildModelRuntimeSummary(data);
+    if (serviceEl) serviceEl.textContent = data.status === "ok" ? "在线" : data.status;
+    if (userEl) userEl.textContent = formatCount(data.registered_user_accounts);
+    if (questionEl) questionEl.textContent = formatCount(data.conversation_memory_records);
+    if (modelEl) modelEl.textContent = modelSummary.headline;
+
+    // LLM metrics
+    const requestCount = toCountNumber(data.llm_request_count);
+    const avgLatency = Number(data.llm_avg_latency_ms || 0);
+    const cacheHitRate = Number(data.llm_app_cache_hit_rate || 0);
+    const rps = Number(data.llm_request_throughput_rps || 0);
+    const llmStatus = String(data.llm_status || "").toLowerCase();
+    if (llmStatusEl) {
+        if (llmStatus === "ok" || llmStatus === "healthy") {
+            llmStatusEl.textContent = requestCount > 0 ? "正常" : "空闲";
+        } else if (llmStatus === "error") {
+            llmStatusEl.textContent = "异常";
+        } else {
+            llmStatusEl.textContent = "空闲";
+        }
+    }
+    if (llmLatencyEl) {
+        llmLatencyEl.textContent = avgLatency > 0 && Number.isFinite(avgLatency)
+            ? (avgLatency >= 1000 ? `${(avgLatency / 1000).toFixed(1)}s` : `${Math.round(avgLatency)}ms`)
+            : "--";
+    }
+    if (llmCacheEl) {
+        llmCacheEl.textContent = requestCount > 0 ? `${(cacheHitRate * 100).toFixed(0)}%` : "--";
+    }
+    if (llmRpsEl) {
+        llmRpsEl.textContent = rps > 0 ? `${rps.toFixed(1)} req/s` : "--";
     }
 }
 
@@ -2031,7 +2218,7 @@ async function refreshSession() {
         const data = await apiRequest("/auth/session", { timeoutMs: 5000 });
         const isAdmin = Boolean(data.is_admin);
         isAdminSession = isAdmin;
-        modePill.textContent = isAdmin ? `管理员模式${data.username ? ` · ${data.username}` : ""}` : "普通用户模式";
+        modePill && (modePill.textContent = isAdmin ? `管理员模式${data.username ? ` · ${data.username}` : ""}` : "普通用户模式");
         drawerModeTitle.textContent = isAdmin ? "管理员模式" : "普通用户模式";
         adminAuthPanel.classList.toggle("hidden", isAdmin);
         adminSessionPanel.classList.toggle("hidden", !isAdmin);
@@ -2055,7 +2242,7 @@ async function refreshSession() {
         }
     } catch (error) {
         isAdminSession = false;
-        modePill.textContent = "普通用户模式";
+        modePill && (modePill.textContent = "普通用户模式");
         drawerModeTitle.textContent = "普通用户模式";
         adminAuthPanel.classList.remove("hidden");
         adminSessionPanel.classList.add("hidden");
@@ -2127,6 +2314,7 @@ function applyUserSession(session) {
         studentEmailInput.readOnly = true;
         applyVisitorProfilePresentation();
         switchConversationHistoryScope(resolveConversationHistoryStorageScope());
+        updateWelcomeGreeting();
         return;
     }
 
@@ -2151,6 +2339,7 @@ function applyUserSession(session) {
 
     applyVisitorProfilePresentation();
     switchConversationHistoryScope(resolveConversationHistoryStorageScope());
+    updateWelcomeGreeting();
 }
 
 async function loadManagedServices() {
@@ -3432,7 +3621,8 @@ async function handleOperationsQueueAction(event) {
         openModal(questionAnalyticsModal);
         await loadQuestionAnalytics();
     } else if (target === "anonymous_suggestions") {
-        openModal(suggestionModal);
+        closeModals();
+        openSuggestionView();
         await loadSuggestionList();
     }
 }
@@ -4296,6 +4486,50 @@ function renderBookingResponseStatus(element, bookingResponse, options = {}) {
     element.className = `inline-status inline-status-${state}`;
 }
 
+function updateChatEmptyState() {
+    if (!chatShell || !chatStream) return;
+    const userMessages = chatStream.querySelectorAll(".message-user");
+    if (userMessages.length === 0) {
+        chatShell.classList.add("chat-empty");
+    } else {
+        chatShell.classList.remove("chat-empty");
+    }
+}
+
+function updateWelcomeGreeting() {
+    const greetingText = document.getElementById("greeting-text");
+    const sidebarUserName = document.getElementById("sidebar-user-name");
+    const railUserAvatar = document.querySelector(".rail-user-avatar");
+    
+    if (isUserAuthenticated && currentUserAccountEmail) {
+        const name = studentNameInput?.value || topbarUserBadgeName?.textContent || "";
+        const firstName = name.split(/\s+/)[0] || "";
+        if (greetingText) {
+            if (firstName && firstName !== "guest") {
+                greetingText.textContent = `你好，${firstName}`;
+            } else {
+                greetingText.textContent = "你好";
+            }
+        }
+        const initial = (name || "?").trim().charAt(0).toUpperCase() || "U";
+        // Update rail avatar
+        if (railUserAvatar) {
+            railUserAvatar.textContent = initial;
+            railUserAvatar.style.background = "linear-gradient(135deg, #6366f1, #818cf8)";
+            railUserAvatar.style.color = "#fff";
+        }
+        if (sidebarUserName) sidebarUserName.textContent = name || "用户";
+    } else {
+        if (greetingText) greetingText.textContent = "你好";
+        if (railUserAvatar) {
+            railUserAvatar.textContent = "👤";
+            railUserAvatar.style.background = "rgba(0, 0, 0, 0.08)";
+            railUserAvatar.style.color = "rgba(0, 0, 0, 0.4)";
+        }
+        if (sidebarUserName) sidebarUserName.textContent = "访客模式";
+    }
+}
+
 function appendMessage(role, label, text, options = {}) {
     const article = document.createElement("article");
     const stateClass = options.state ? ` message-${options.state}` : "";
@@ -4333,6 +4567,7 @@ function appendMessage(role, label, text, options = {}) {
     chatStream.appendChild(article);
     syncConversationMode();
     chatStream.scrollTop = chatStream.scrollHeight;
+    updateChatEmptyState();
     return article;
 }
 
@@ -4473,6 +4708,7 @@ function resetConversationViewForHistoryScopeSwitch() {
     clearPendingChatAttachments();
     if (chatStream) {
         chatStream.innerHTML = initialChatStreamMarkup;
+        updateChatEmptyState();
     }
     syncIntroCardPresentation();
     syncConversationMode();
@@ -4895,6 +5131,7 @@ function startFreshConversation() {
     clearPendingChatAttachments();
     if (chatStream) {
         chatStream.innerHTML = initialChatStreamMarkup;
+        updateChatEmptyState();
     }
     syncIntroCardPresentation();
     renderConversationHistoryList();
@@ -6380,7 +6617,7 @@ function openWorkflowMobileSheet(mode = getStoredWorkflowMobileSheetMode()) {
     if (settingsDrawer && !settingsDrawer.classList.contains("hidden")) {
         closeSettingsDrawer();
     }
-    if (statusDrawer && !statusDrawer.classList.contains("hidden")) {
+    if (statusView && !statusView.hidden) {
         closeStatusDrawer();
     }
     setWorkflowMobileOpen(true);
@@ -7704,64 +7941,78 @@ function openSettingsDrawer() {
     closeWorkflowMobileSheet();
     closeMobileTopbarActions();
     closeStatusDrawer();
-    settingsDrawer.classList.remove("hidden");
-    settingsDrawer.setAttribute("aria-hidden", "false");
-    document.body.classList.add("drawer-pinned");
-    if (isDrawerOverlayViewport()) {
-        modalOverlay.classList.remove("hidden");
-    } else if (!hasVisibleOverlayModal()) {
-        modalOverlay.classList.add("hidden");
+    closeSuggestionView();
+    // Move settings-drawer DOM nodes into settings-view on first open (preserves event handlers)
+    if (settingsDrawer && settingsViewBody && !settingsViewBody.dataset.loaded) {
+        while (settingsDrawer.firstChild) {
+            settingsViewBody.appendChild(settingsDrawer.firstChild);
+        }
+        settingsViewBody.dataset.loaded = "true";
     }
-    syncFloatingWorkflowTriggerState();
+    settingsView?.removeAttribute("hidden");
+    chatShell?.classList.add("view-active");
 }
 
 function closeSettingsDrawer() {
-    settingsDrawer.classList.add("hidden");
-    settingsDrawer.setAttribute("aria-hidden", "true");
-    document.body.classList.remove("drawer-pinned");
-    if (!hasVisibleOverlayModal() && isStatusDrawerClosed()) {
-        modalOverlay.classList.add("hidden");
-    }
-    syncFloatingWorkflowTriggerState();
+    settingsView?.setAttribute("hidden", "");
+    chatShell?.classList.remove("view-active");
 }
 
 function openStatusDrawer() {
     closeWorkflowMobileSheet();
     closeMobileTopbarActions();
-    statusDrawer.classList.remove("hidden");
-    statusDrawer.setAttribute("aria-hidden", "false");
-    if (isDrawerOverlayViewport()) {
-        modalOverlay.classList.remove("hidden");
-    } else if (!hasVisibleOverlayModal() && isSettingsDrawerClosed()) {
-        modalOverlay.classList.add("hidden");
-    }
-    syncFloatingWorkflowTriggerState();
+    closeSettingsDrawer();
+    closeSuggestionView();
+    statusView?.removeAttribute("hidden");
+    chatShell?.classList.add("view-active");
 }
 
 function closeStatusDrawer() {
-    statusDrawer.classList.add("hidden");
-    statusDrawer.setAttribute("aria-hidden", "true");
-    if (!hasVisibleOverlayModal() && isSettingsDrawerClosed()) {
-        modalOverlay.classList.add("hidden");
+    statusView?.setAttribute("hidden", "");
+    chatShell?.classList.remove("view-active");
+}
+
+function openSuggestionView() {
+    closeWorkflowMobileSheet();
+    closeMobileTopbarActions();
+    closeSettingsDrawer();
+    closeStatusDrawer();
+    // Move suggestion-modal children into suggestion-view on first open (preserves event handlers)
+    if (suggestionModal && suggestionViewBody && !suggestionViewBody.dataset.loaded) {
+        while (suggestionModal.firstChild) {
+            suggestionViewBody.appendChild(suggestionModal.firstChild);
+        }
+        suggestionViewBody.dataset.loaded = "true";
     }
-    syncFloatingWorkflowTriggerState();
+    suggestionView?.removeAttribute("hidden");
+    chatShell?.classList.add("view-active");
+}
+
+function closeSuggestionView() {
+    suggestionView?.setAttribute("hidden", "");
+    chatShell?.classList.remove("view-active");
 }
 
 function closeDrawers() {
     closeSettingsDrawer();
     closeStatusDrawer();
+    closeSuggestionView();
 }
 
 function isSettingsDrawerClosed() {
-    return !settingsDrawer || settingsDrawer.classList.contains("hidden");
+    return !settingsView || settingsView.hidden;
 }
 
 function isStatusDrawerClosed() {
-    return !statusDrawer || statusDrawer.classList.contains("hidden");
+    return !statusView || statusView.hidden;
+}
+
+function isSuggestionViewClosed() {
+    return !suggestionView || suggestionView.hidden;
 }
 
 function areDrawersClosed() {
-    return isSettingsDrawerClosed() && isStatusDrawerClosed();
+    return isSettingsDrawerClosed() && isStatusDrawerClosed() && isSuggestionViewClosed();
 }
 
 function openDrawer() {

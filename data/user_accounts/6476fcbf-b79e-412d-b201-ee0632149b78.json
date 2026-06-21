@@ -1,0 +1,10 @@
+{
+  "user_id": "6476fcbf-b79e-412d-b201-ee0632149b78",
+  "name": "Test User",
+  "email": "test3@example.com",
+  "visitor_profile": "general_visitor",
+  "password_salt": "022a58b551ac3ac1dd4248cd64c00b9e",
+  "password_hash": "05c40315d1cd0627cbd28b8040f944e810dbf8e3fa24258128e93df3c23749eb9b94eadf861456d5f7b94bd7146a0a1c31199f3abfb61f4efac1edc560388133",
+  "created_at": "2026-06-20T17:26:30.821548+00:00",
+  "updated_at": "2026-06-20T17:26:30.821548+00:00"
+}

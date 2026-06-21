@@ -137,6 +137,15 @@ class AppSettings(BaseSettings):
     admin_session_ttl_seconds: int = Field(default=43200, ge=300, le=604800)
     user_session_secret: str = Field(default="change-me-user-session-secret")
     user_session_ttl_seconds: int = Field(default=2592000, ge=300, le=7776000)
+    # --- Lab member invitation gate ---
+    lab_member_invitation_code: str = Field(
+        default="SAGE-LAB-2026",
+        description="Invitation code required for lab_member registration.",
+    )
+    lab_member_invitation_code_enabled: bool = Field(
+        default=True,
+        description="When True, lab_member registration requires a valid invitation code.",
+    )
     # --- DeltaKV session continuity ---
     kv_continuity_enabled: bool = Field(
         default=False,

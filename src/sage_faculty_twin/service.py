@@ -2917,6 +2917,7 @@ class FacultyTwinWorkflowSupport:
             email=request.email,
             visitor_profile=request.visitor_profile,
             password=request.password,
+            invitation_code=request.invitation_code,
         )
         token = build_user_session_token(
             user_id=account.user_id, email=account.email, settings=self._settings
@@ -2927,7 +2928,11 @@ class FacultyTwinWorkflowSupport:
         )
 
     def login_user(self, request: UserLoginRequest) -> UserAuthWorkflowResult:
-        account = self._user_store.authenticate_user(email=request.email, password=request.password)
+        account = self._user_store.authenticate_user(
+            email=request.email,
+            password=request.password,
+            invitation_code=request.invitation_code,
+        )
         token = build_user_session_token(
             user_id=account.user_id, email=account.email, settings=self._settings
         )
