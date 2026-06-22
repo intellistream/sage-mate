@@ -6,8 +6,8 @@ nodes_managed: true
 exported_at: "2026-06-22T01:22:12Z"
 modules:
     "":
-        dir_name: Faculty Digital Twin Orchestrator
-        title: Faculty Digital Twin Orchestrator
+        dir_name: SAGE Faculty Digital Twin Orchestrator
+        title: SAGE Faculty Digital Twin Orchestrator
         scope: []
         source_files: []
         children: []

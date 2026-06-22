@@ -1,4 +1,0 @@
-- Lazy initialization of heavy service components using a thread-safe proxy (`LazyDigitalTwinService`) to defer resource-intensive setup until the first request.
-- Use of a canonical trace step order (`_CANONICAL_TRACE_ORDER`) to ensure deterministic workflow visualization, even when underlying DAG stages execute in parallel.
-- Consistent use of Pydantic models for all API request/response schemas and internal data structures, ensuring type safety and automatic documentation.
-- Implementation of soft caps and truncation strategies (e.g. `_PROMPT_SOFT_CAP`, `_truncate_attachment_text`) to manage context window limits and latency.

@@ -1,3 +1,0 @@
-- **Environment Setup**: Requires setting `DIGITAL_TWIN_` prefixed environment variables (via `.env` or shell) for LLM endpoints, API keys, and backend choices.
-- **Dependency Installation**: Specific extras like `[vdb]` for SageVDB/sentence-transformers or `[vdb-anns]` for Sage-ANNs must be installed via `pip install -e .[extra]`.
-- **Runtime Policy**: `runtime_env.py` bootstraps the environment, enforcing policy requirements before FastAPI initialization.

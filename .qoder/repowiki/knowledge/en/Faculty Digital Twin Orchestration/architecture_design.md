@@ -1,5 +1,0 @@
-- **Entry Point**: `api.py` defines the FastAPI application (`llm_app`), configuring CORS, static file serving, and routing HTTP requests to the `LazyDigitalTwinService`.
-- **Service Layer**: `service.py` implements `DigitalTwinService`, orchestrating complex chat workflows (intent classification, booking, knowledge retrieval, memory persistence) using a step-by-step trace mechanism.
-- **LLM Integration**: `llm_client.py` wraps vLLM endpoints for chat completions and intent classification, featuring streaming support, response caching, and DeltaKV session continuity hints.
-- **Data Stores**: Modular stores for conversation memory (`memory_store.py` using Neuromem/SQLite), knowledge base (`knowledge_base.py` with SageVDB/Neuromem backends), and operational data (escalations, follow-ups, user accounts).
-- **Configuration**: `config.py` uses Pydantic Settings to manage environment variables prefixed with `DIGITAL_TWIN_`, controlling everything from LLM endpoints to memory index types.

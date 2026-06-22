@@ -1,3 +1,0 @@
-- Workflow trace steps are appended using `_append_trace` with consistent keys (e.g., `bootstrap`, `interaction_understand`) to enable canonical ordering and UI rendering.
-- LLM client methods provide both synchronous (`_sync`) and asynchronous (`async`) variants, with the async version delegating to the sync version via `asyncio.to_thread`.
-- Configuration settings are accessed via a global `settings` instance of `AppSettings`, with environment variables prefixed by `DIGITAL_TWIN_`.

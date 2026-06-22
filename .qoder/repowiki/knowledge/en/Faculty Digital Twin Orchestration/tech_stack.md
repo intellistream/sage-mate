@@ -1,5 +1,0 @@
-- **Web Framework**: FastAPI with Uvicorn (implied by ASGI).
-- **LLM Backend**: vLLM (specifically `vllm-hust`) for chat completions and intent classification.
-- **Vector/Search Backends**: SageVDB (with Sage-ANNs or FAISS) and Neuromem (with FAISS or BM25) for knowledge and memory retrieval.
-- **Embedding Models**: Sentence Transformers (e.g. `BAAI/bge-small-zh-v1.5`, `all-MiniLM-L6-v2`) for dense retrieval.
-- **Persistence**: SQLite for conversation metadata, JSON files for knowledge documents and operational records.
