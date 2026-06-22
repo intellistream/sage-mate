@@ -4,12 +4,14 @@
 **Referenced Files in This Document**
 - [README.md](file://README.md)
 - [pyproject.toml](file://pyproject.toml)
+- [CHANGELOG.md](file://CHANGELOG.md)
 - [src/sage_faculty_twin/__init__.py](file://src/sage_faculty_twin/__init__.py)
 - [src/sage_faculty_twin/api.py](file://src/sage_faculty_twin/api.py)
 - [src/sage_faculty_twin/service.py](file://src/sage_faculty_twin/service.py)
 - [src/sage_faculty_twin/config.py](file://src/sage_faculty_twin/config.py)
 - [src/sage_faculty_twin/models.py](file://src/sage_faculty_twin/models.py)
 - [src/sage_faculty_twin/workflow_planner.py](file://src/sage_faculty_twin/workflow_planner.py)
+- [src/sage_faculty_twin/workflow_policy.py](file://src/sage_faculty_twin/workflow_policy.py)
 - [src/sage_faculty_twin/knowledge_base.py](file://src/sage_faculty_twin/knowledge_base.py)
 - [src/sage_faculty_twin/meeting.py](file://src/sage_faculty_twin/meeting.py)
 - [src/sage_faculty_twin/light_agent.py](file://src/sage_faculty_twin/light_agent.py)
@@ -18,6 +20,8 @@
 - [src/sage_faculty_twin/persona.py](file://src/sage_faculty_twin/persona.py)
 - [src/sage_faculty_twin/memory_store.py](file://src/sage_faculty_twin/memory_store.py)
 - [src/sage_faculty_twin/service_runtime.py](file://src/sage_faculty_twin/service_runtime.py)
+- [src/sage_faculty_twin/auth.py](file://src/sage_faculty_twin/auth.py)
+- [src/sage_faculty_twin/history_auth.py](file://src/sage_faculty_twin/history_auth.py)
 - [manage.sh](file://manage.sh)
 - [tools/install_user_services.sh](file://tools/install_user_services.sh)
 - [tools/start_all_services.sh](file://tools/start_all_services.sh)
@@ -29,46 +33,59 @@
 
 ## Update Summary
 **Changes Made**
-- Updated deployment section to reflect consolidated service management approach using unified `manage.sh` commands
-- Streamlined command examples in deployment instructions for improved clarity
-- Enhanced service management documentation with unified systemd service handling
-- Added comprehensive coverage of the consolidated service architecture
+- Updated version information from 4.3.1 to 4.3.2 reflecting substantial feature additions
+- Enhanced security guardrails documentation with improved authentication and authorization systems
+- Documented enhanced onboarding system with improved user registration and session management
+- Added comprehensive coverage of new data structures and improved validation systems
+- Updated deployment section to reflect consolidated service management approach
 
 ## Table of Contents
 1. [Introduction](#introduction)
 2. [Project Structure](#project-structure)
 3. [Core Components](#core-components)
 4. [Architecture Overview](#architecture-overview)
-5. [Deployment and Service Management](#deployment-and-service-management)
-6. [Detailed Component Analysis](#detailed-component-analysis)
-7. [Dependency Analysis](#dependency-analysis)
-8. [Performance Considerations](#performance-considerations)
-9. [Troubleshooting Guide](#troubleshooting-guide)
-10. [Conclusion](#conclusion)
+5. [Enhanced Security Guardrails](#enhanced-security-guardrails)
+6. [Improved Onboarding System](#improved-onboarding-system)
+7. [New Data Structures and Validation](#new-data-structures-and-validation)
+8. [Deployment and Service Management](#deployment-and-service-management)
+9. [Detailed Component Analysis](#detailed-component-analysis)
+10. [Technology Stack Overview](#technology-stack-overview)
+11. [Performance Considerations](#performance-considerations)
+12. [Troubleshooting Guide](#troubleshooting-guide)
+13. [Conclusion](#conclusion)
 
 ## Introduction
-Sage Faculty Twin is an academic digital assistant platform designed for individual faculty members. It leverages FastAPI, the SAGE framework, and vLLM-compatible inference to deliver an AI-powered chat experience, integrated workflow orchestration, and knowledge management. The system supports 24/7 availability, intelligent scheduling, and personalized student guidance, enabling faculty to maintain consistent support without manual intervention.
+Sage Faculty Twin is an academic digital assistant platform designed for individual faculty members. Version 4.3.2 introduces substantial enhancements including strengthened security guardrails, improved onboarding system, and new data structures. The platform leverages FastAPI, the SAGE framework, and vLLM-compatible inference to deliver an AI-powered chat experience, integrated workflow orchestration, and knowledge management. The system supports 24/7 availability, intelligent scheduling, and personalized student guidance, enabling faculty to maintain consistent support without manual intervention.
 
 Key characteristics:
 - Academic-first design: tailored for faculty-student interactions in higher education contexts.
 - AI-driven orchestration: intent classification, retrieval-augmented generation, and guided workflows.
 - Knowledge-centric: curated knowledge base with optional web search augmentation.
+- Enhanced security: comprehensive authentication, authorization, and session management.
+- Improved onboarding: streamlined user registration, profile management, and access control.
 - Operational visibility: live workflow tracing, metrics, and administrative controls.
 - Unified service management: consolidated deployment and management through systemd user services.
 
+**Section sources**
+- [pyproject.toml:7](file://pyproject.toml#L7)
+- [CHANGELOG.md:1-321](file://CHANGELOG.md#L1-L321)
+
 ## Project Structure
-The repository is organized around a FastAPI application that exposes REST endpoints and an embedded static frontend. Supporting modules encapsulate configuration, workflow planning, LLM integration, knowledge stores, meeting scheduling, and memory persistence. The system now features a consolidated service management approach using systemd user services.
+The repository is organized around a FastAPI application that exposes REST endpoints and an embedded static frontend. Supporting modules encapsulate configuration, workflow planning, LLM integration, knowledge stores, meeting scheduling, memory persistence, and enhanced security systems. The system now features a consolidated service management approach using systemd user services with improved authentication and authorization mechanisms.
 
 ```mermaid
 graph TB
 subgraph "Application Layer"
 API["FastAPI App<br/>src/sage_faculty_twin/api.py"]
 Service["Service Orchestrator<br/>src/sage_faculty_twin/service.py"]
+Auth["Authentication & Authorization<br/>src/sage_faculty_twin/auth.py"]
+HistoryAuth["History Access Control<br/>src/sage_faculty_twin/history_auth.py"]
 end
 subgraph "Core Modules"
 Config["Settings & Environment<br/>src/sage_faculty_twin/config.py"]
-Models["Pydantic Models<br/>src/sage_faculty_twin/models.py"]
+Models["Enhanced Pydantic Models<br/>src/sage_faculty_twin/models.py"]
 Planner["Workflow Planner<br/>src/sage_faculty_twin/workflow_planner.py"]
+Policy["Security Policy Engine<br/>src/sage_faculty_twin/workflow_policy.py"]
 Persona["System Prompt Builder<br/>src/sage_faculty_twin/persona.py"]
 Runtime["Service Runtime Manager<br/>src/sage_faculty_twin/service_runtime.py"]
 end
@@ -90,6 +107,8 @@ Starter["All-in-One Starter<br/>tools/start_all_services.sh"]
 end
 API --> Service
 Service --> Planner
+Service --> Auth
+Service --> HistoryAuth
 Service --> LLM
 Service --> KB
 Service --> Web
@@ -108,9 +127,12 @@ Starter --> Systemd
 **Diagram sources**
 - [src/sage_faculty_twin/api.py](file://src/sage_faculty_twin/api.py)
 - [src/sage_faculty_twin/service.py](file://src/sage_faculty_twin/service.py)
+- [src/sage_faculty_twin/auth.py](file://src/sage_faculty_twin/auth.py)
+- [src/sage_faculty_twin/history_auth.py](file://src/sage_faculty_twin/history_auth.py)
 - [src/sage_faculty_twin/config.py](file://src/sage_faculty_twin/config.py)
 - [src/sage_faculty_twin/models.py](file://src/sage_faculty_twin/models.py)
 - [src/sage_faculty_twin/workflow_planner.py](file://src/sage_faculty_twin/workflow_planner.py)
+- [src/sage_faculty_twin/workflow_policy.py](file://src/sage_faculty_twin/workflow_policy.py)
 - [src/sage_faculty_twin/persona.py](file://src/sage_faculty_twin/persona.py)
 - [src/sage_faculty_twin/llm_client.py](file://src/sage_faculty_twin/llm_client.py)
 - [src/sage_faculty_twin/knowledge_base.py](file://src/sage_faculty_twin/knowledge_base.py)
@@ -136,9 +158,11 @@ Starter --> Systemd
 
 ## Core Components
 - FastAPI Application: Exposes endpoints for chat, availability, knowledge management, user/admin sessions, and operational dashboards. It also serves a static frontend and manages streaming workflow events.
+- Enhanced Authentication System: Comprehensive authentication and authorization with secure session management, admin role-based access control, and user registration capabilities.
 - Service Orchestrator: Implements the end-to-end chat workflow, integrating intent understanding, retrieval, LLM answering, memory persistence, follow-up planning, and scheduling.
 - Configuration: Centralized settings for LLM endpoints, retrieval backends, web search, availability, and operational policies.
 - Workflow Planner: Builds deterministic plans from intent and policy, with optional shadow planning and fallback templates.
+- Enhanced Security Policy: Enforces evidence source restrictions, consent requirements, and side effect governance.
 - Knowledge Base: Local JSON documents with pluggable backends (Neuromem, sageVDB) and optional embedding-based retrieval.
 - LLM Client: Manages OpenAI-compatible API calls, caching, metrics, and streaming token callbacks.
 - Meeting Service: Handles booking requests, conflict detection, and availability checks against weekly schedules.
@@ -149,9 +173,11 @@ Starter --> Systemd
 
 **Section sources**
 - [src/sage_faculty_twin/api.py](file://src/sage_faculty_twin/api.py)
+- [src/sage_faculty_twin/auth.py](file://src/sage_faculty_twin/auth.py)
 - [src/sage_faculty_twin/service.py](file://src/sage_faculty_twin/service.py)
 - [src/sage_faculty_twin/config.py](file://src/sage_faculty_twin/config.py)
 - [src/sage_faculty_twin/workflow_planner.py](file://src/sage_faculty_twin/workflow_planner.py)
+- [src/sage_faculty_twin/workflow_policy.py](file://src/sage_faculty_twin/workflow_policy.py)
 - [src/sage_faculty_twin/knowledge_base.py](file://src/sage_faculty_twin/knowledge_base.py)
 - [src/sage_faculty_twin/llm_client.py](file://src/sage_faculty_twin/llm_client.py)
 - [src/sage_faculty_twin/meeting.py](file://src/sage_faculty_twin/meeting.py)
@@ -161,19 +187,22 @@ Starter --> Systemd
 - [src/sage_faculty_twin/service_runtime.py](file://src/sage_faculty_twin/service_runtime.py)
 
 ## Architecture Overview
-The system integrates AI, retrieval, and operational workflows behind a FastAPI interface. The service orchestrator coordinates:
+The system integrates AI, retrieval, and operational workflows behind a FastAPI interface with enhanced security measures. The service orchestrator coordinates:
 - Intent classification and domain routing
 - Retrieval from conversation memory, knowledge base, and optionally web search
 - LLM answer generation with streaming support
 - Post-answer actions: memory persistence, profile consolidation, follow-up planning, and usefulness scoring
+- Enhanced security: authentication, authorization, session management, and access control
 - Administrative controls and operational dashboards
 
 ```mermaid
 sequenceDiagram
 participant U as "User"
+participant AUTH as "Authentication Layer"
 participant API as "FastAPI /chat"
 participant SVC as "Service Orchestrator"
 participant PLN as "Workflow Planner"
+participant POL as "Security Policy"
 participant INT as "Intent Classifier"
 participant RET as "Retrievers"
 participant LLM as "LLM Client"
@@ -181,8 +210,11 @@ participant MEM as "Memory Stores"
 participant KBS as "Knowledge Base"
 participant WSR as "Web Search"
 participant MTS as "Meeting Service"
-U->>API : Submit question (with optional attachments)
+U->>AUTH : Login/Register (with validation)
+AUTH->>API : Secure session established
 API->>SVC : Parse request and validate
+SVC->>POL : Enforce security policy
+POL-->>SVC : Policy compliance verified
 SVC->>PLN : Build plan (deterministic or shadow)
 SVC->>INT : Classify intent and scopes
 SVC->>RET : Retrieve conversation memory and knowledge
@@ -196,13 +228,190 @@ API-->>U : Streamed answer + structured response
 
 **Diagram sources**
 - [src/sage_faculty_twin/api.py](file://src/sage_faculty_twin/api.py)
+- [src/sage_faculty_twin/auth.py](file://src/sage_faculty_twin/auth.py)
 - [src/sage_faculty_twin/service.py](file://src/sage_faculty_twin/service.py)
 - [src/sage_faculty_twin/workflow_planner.py](file://src/sage_faculty_twin/workflow_planner.py)
+- [src/sage_faculty_twin/workflow_policy.py](file://src/sage_faculty_twin/workflow_policy.py)
 - [src/sage_faculty_twin/llm_client.py](file://src/sage_faculty_twin/llm_client.py)
 - [src/sage_faculty_twin/knowledge_base.py](file://src/sage_faculty_twin/knowledge_base.py)
 - [src/sage_faculty_twin/web_search.py](file://src/sage_faculty_twin/web_search.py)
 - [src/sage_faculty_twin/memory_store.py](file://src/sage_faculty_twin/memory_store.py)
 - [src/sage_faculty_twin/meeting.py](file://src/sage_faculty_twin/meeting.py)
+
+## Enhanced Security Guardrails
+
+### Authentication and Authorization Framework
+Version 4.3.2 introduces comprehensive security enhancements including improved authentication, authorization, and session management systems.
+
+#### Admin Authentication System
+The system implements a robust admin authentication framework with secure token-based sessions:
+- HMAC-signed JWT-like tokens with expiration handling
+- Role-based access control (super_admin, manager)
+- Secure cookie management with httponly and samesite protection
+- Time-based token validation and nonce verification
+
+#### User Registration and Session Management
+Enhanced user registration system with comprehensive validation:
+- Visitor profile-based access control
+- Invitation code support for controlled enrollment
+- Password strength requirements and validation
+- Session lifecycle management with TTL enforcement
+
+#### History Access Control
+Secure access control for historical conversation data:
+- Email-based ownership verification
+- Requested vs. authenticated email validation
+- Unauthorized access prevention with clear error messaging
+
+```mermaid
+classDiagram
+class AdminSessionToken {
++build_admin_session_token(username, role) str
++decode_admin_session_token(token) dict
++validate_token_expiration() bool
++verify_signature(secret) bool
+}
+class UserSessionToken {
++build_user_session_token(user_id, email) str
++decode_user_session_token(token) dict
++validate_session_expiry() bool
++secure_cookie_settings() void
+}
+class HistoryAccessControl {
++resolve_authenticated_history_email(is_authenticated, account_email, requested_email) str
++validate_email_ownership() bool
++raise_access_denied() HTTPException
+}
+class SecurityPolicyEngine {
++enforce_evidence_sources(sources) bool
++validate_consent_requirements(consent) bool
++check_forbidden_sources(sources) bool
++calculate_risk_level(side_effect) str
+}
+AdminSessionToken --> SecurityPolicyEngine : "supports"
+UserSessionToken --> HistoryAccessControl : "integrates with"
+HistoryAccessControl --> SecurityPolicyEngine : "validates"
+```
+
+**Diagram sources**
+- [src/sage_faculty_twin/auth.py](file://src/sage_faculty_twin/auth.py)
+- [src/sage_faculty_twin/history_auth.py](file://src/sage_faculty_twin/history_auth.py)
+- [src/sage_faculty_twin/workflow_policy.py](file://src/sage_faculty_twin/workflow_policy.py)
+
+**Section sources**
+- [src/sage_faculty_twin/auth.py:1-214](file://src/sage_faculty_twin/auth.py#L1-L214)
+- [src/sage_faculty_twin/history_auth.py:1-27](file://src/sage_faculty_twin/history_auth.py#L1-L27)
+- [src/sage_faculty_twin/workflow_policy.py:173-214](file://src/sage_faculty_twin/workflow_policy.py#L173-L214)
+
+## Improved Onboarding System
+
+### Enhanced User Registration Flow
+Version 4.3.2 introduces significant improvements to the user onboarding experience with streamlined registration and profile management.
+
+#### Registration Endpoint Enhancements
+The user registration system now includes comprehensive validation and improved user experience:
+- Visitor profile selection (hust_undergraduate, paper_writing_student, lab_member, general_visitor)
+- Invitation code support for controlled access
+- Password validation and strength requirements
+- Automated session establishment upon successful registration
+
+#### Profile-Based Access Control
+Enhanced visitor profile system enables fine-grained access control:
+- Differentiated content access based on user roles
+- Context-aware responses tailored to academic levels
+- Profile synchronization across sessions
+- Consent-based data collection for personalized experiences
+
+#### Session Management Improvements
+Streamlined session management with enhanced security:
+- Automatic login after successful registration
+- Session persistence across browser restarts
+- Graceful handling of expired sessions
+- Clear session status reporting
+
+```mermaid
+flowchart TD
+Start(["User Registration"]) --> Validate["Validate Registration Data"]
+Validate --> Profile["Select Visitor Profile"]
+Profile --> Consent["Collect Consent & Preferences"]
+Consent --> Create["Create User Account"]
+Create --> Session["Establish Secure Session"]
+Session --> Welcome["Welcome User"]
+Welcome --> Dashboard["Access Dashboard"]
+Validate --> |Invalid Data| Error["Show Validation Errors"]
+Error --> Validate
+Profile --> |Invalid Profile| Error
+Profile --> |Valid Profile| Consent
+Consent --> |Missing Consent| Error
+Consent --> |Valid Consent| Create
+```
+
+**Diagram sources**
+- [src/sage_faculty_twin/auth.py](file://src/sage_faculty_twin/auth.py)
+- [src/sage_faculty_twin/models.py](file://src/sage_faculty_twin/models.py)
+
+**Section sources**
+- [src/sage_faculty_twin/auth.py:102-117](file://src/sage_faculty_twin/auth.py#L102-L117)
+- [src/sage_faculty_twin/models.py:741-778](file://src/sage_faculty_twin/models.py#L741-L778)
+
+## New Data Structures and Validation
+
+### Enhanced Model Definitions
+Version 4.3.2 introduces comprehensive data validation and new model structures supporting the enhanced security and onboarding features.
+
+#### Improved Request Models
+Enhanced validation for all request types with stricter field constraints:
+- Visitor profile validation with regex patterns
+- Email address validation and normalization
+- Password strength requirements
+- Invitation code validation and verification
+
+#### Security-Aware Data Models
+New data structures supporting enhanced security features:
+- Admin session response with role-based permissions
+- User account response with profile information
+- Security policy validation results
+- Evidence source restriction enforcement
+
+#### Enhanced Response Models
+Comprehensive response models supporting the expanded feature set:
+- Detailed workflow plan previews with validation results
+- Security policy compliance indicators
+- Enhanced error reporting with specific validation failures
+- Improved audit trail information
+
+```mermaid
+classDiagram
+class EnhancedRequestModels {
++ChatRequest : visitor_profile validation
++UserRegisterRequest : password validation
++UserLoginRequest : invitation code support
++AdminLoginRequest : credential verification
+}
+class SecurityDataModels {
++AdminSessionResponse : role-based access
++UserAccountResponse : profile information
++SecurityPolicyResult : compliance validation
++EvidenceSourceRestriction : source validation
+}
+class EnhancedResponseModels {
++WorkflowPlanPreview : detailed validation
++SecurityComplianceReport : policy results
++EnhancedErrorResponse : specific failures
++AuditTrailEntry : compliance tracking
+}
+EnhancedRequestModels --> SecurityDataModels : "supports"
+SecurityDataModels --> EnhancedResponseModels : "generates"
+```
+
+**Diagram sources**
+- [src/sage_faculty_twin/models.py](file://src/sage_faculty_twin/models.py)
+- [src/sage_faculty_twin/auth.py](file://src/sage_faculty_twin/auth.py)
+
+**Section sources**
+- [src/sage_faculty_twin/models.py:16-31](file://src/sage_faculty_twin/models.py#L16-L31)
+- [src/sage_faculty_twin/models.py:741-778](file://src/sage_faculty_twin/models.py#L741-L778)
+- [src/sage_faculty_twin/models.py:149-173](file://src/sage_faculty_twin/models.py#L149-L173)
 
 ## Deployment and Service Management
 
@@ -331,7 +540,8 @@ The chat pipeline transforms raw queries into structured answers with traceabili
 ```mermaid
 flowchart TD
 Start(["POST /chat"]) --> Parse["Parse Request<br/>Validate & Extract Attachments"]
-Parse --> Plan["Build Workflow Plan<br/>Deterministic/Shadow"]
+Parse --> Auth["Authenticate & Authorize"]
+Auth --> Plan["Build Workflow Plan<br/>Deterministic/Shadow"]
 Plan --> Intent["Classify Intent & Scopes"]
 Intent --> Retrieve["Retrieve Memory + Knowledge + Web Search"]
 Retrieve --> Prompt["Assemble Prompt<br/>Soft Cap & Truncation"]
@@ -363,6 +573,11 @@ class DeterministicWorkflowPlanner {
 +evaluate_plan(plan, context) PlannerDecision
 +evaluate_shadow_candidate(candidate, context) PlannerDecision
 }
+class SecurityPolicyEngine {
++validate_plan_compliance(plan, context) PolicyValidationResult
++enforce_evidence_restrictions(sources) bool
++check_consent_requirements(consent) bool
+}
 class PlannerDecision {
 +plan PlanSpec
 +accepted bool
@@ -381,14 +596,17 @@ class PlanSpec {
 +fallback_template string
 }
 DeterministicWorkflowPlanner --> PlannerDecision : "produces"
+SecurityPolicyEngine --> PlannerDecision : "validates"
 PlannerDecision --> PlanSpec : "wraps"
 ```
 
 **Diagram sources**
 - [src/sage_faculty_twin/workflow_planner.py](file://src/sage_faculty_twin/workflow_planner.py)
+- [src/sage_faculty_twin/workflow_policy.py](file://src/sage_faculty_twin/workflow_policy.py)
 
 **Section sources**
 - [src/sage_faculty_twin/workflow_planner.py](file://src/sage_faculty_twin/workflow_planner.py)
+- [src/sage_faculty_twin/workflow_policy.py](file://src/sage_faculty_twin/workflow_policy.py)
 
 ### Knowledge Management
 The knowledge base supports ingestion, upsert, and retrieval across backends. It normalizes metadata and maintains document records with review status and freshness indicators.
@@ -418,6 +636,8 @@ class KnowledgeDocumentRecord {
 +created_at datetime
 +review_status string
 +freshness_status string
++reviewed_at datetime
++reviewable bool
 }
 LocalKnowledgeStore --> KnowledgeDocumentCreate : "accepts"
 LocalKnowledgeStore --> KnowledgeDocumentRecord : "returns"
@@ -511,58 +731,18 @@ ServiceRuntimeManager --> ServiceControlResponse : "returns"
 **Section sources**
 - [src/sage_faculty_twin/service_runtime.py](file://src/sage_faculty_twin/service_runtime.py)
 
-### Technology Stack Overview
-- Backend: FastAPI, Pydantic, Pydantic Settings
+## Technology Stack Overview
+- Backend: FastAPI 0.115.0+, Pydantic 2.9.0+, Pydantic Settings 2.5.0+
 - AI/LLM: OpenAI-compatible API via vLLM (via vllm-hust), with optional intent model
 - Retrieval: Local knowledge base with Neuromem or sageVDB backends; optional web search
 - Storage: SQLite-backed conversation memory; JSON-based knowledge and artifacts
+- Security: HMAC-signed session tokens, role-based access control, secure cookie management
 - Frontend: Static SPA served by FastAPI
 - DevOps: Unified systemd units managed through `manage.sh`, tunneling, and startup scripts
 
 **Section sources**
 - [pyproject.toml](file://pyproject.toml)
 - [README.md](file://README.md)
-
-## Dependency Analysis
-Internal dependencies emphasize separation of concerns:
-- API depends on Service, which composes Planner, LLM Client, Knowledge Base, Memory Stores, Meeting Service, and Lightweight Action Planner.
-- Configuration drives all components via strongly typed settings.
-- Models define contracts across modules.
-- Service Runtime Manager provides unified control over all system services.
-
-```mermaid
-graph LR
-API["api.py"] --> SVC["service.py"]
-SVC --> CFG["config.py"]
-SVC --> MOD["models.py"]
-SVC --> PLN["workflow_planner.py"]
-SVC --> LLM["llm_client.py"]
-SVC --> KB["knowledge_base.py"]
-SVC --> MS["memory_store.py"]
-SVC --> MTG["meeting.py"]
-SVC --> AG["light_agent.py"]
-SVC --> PNA["persona.py"]
-SVC --> WSR["web_search.py"]
-SVC --> SRM["service_runtime.py"]
-```
-
-**Diagram sources**
-- [src/sage_faculty_twin/api.py](file://src/sage_faculty_twin/api.py)
-- [src/sage_faculty_twin/service.py](file://src/sage_faculty_twin/service.py)
-- [src/sage_faculty_twin/config.py](file://src/sage_faculty_twin/config.py)
-- [src/sage_faculty_twin/models.py](file://src/sage_faculty_twin/models.py)
-- [src/sage_faculty_twin/workflow_planner.py](file://src/sage_faculty_twin/workflow_planner.py)
-- [src/sage_faculty_twin/llm_client.py](file://src/sage_faculty_twin/llm_client.py)
-- [src/sage_faculty_twin/knowledge_base.py](file://src/sage_faculty_twin/knowledge_base.py)
-- [src/sage_faculty_twin/memory_store.py](file://src/sage_faculty_twin/memory_store.py)
-- [src/sage_faculty_twin/meeting.py](file://src/sage_faculty_twin/meeting.py)
-- [src/sage_faculty_twin/light_agent.py](file://src/sage_faculty_twin/light_agent.py)
-- [src/sage_faculty_twin/persona.py](file://src/sage_faculty_twin/persona.py)
-- [src/sage_faculty_twin/web_search.py](file://src/sage_faculty_twin/web_search.py)
-- [src/sage_faculty_twin/service_runtime.py](file://src/sage_faculty_twin/service_runtime.py)
-
-**Section sources**
-- [src/sage_faculty_twin/service.py](file://src/sage_faculty_twin/service.py)
 
 ## Performance Considerations
 - Streaming and Keepalive: SSE keepalive mitigates proxy timeouts during long LLM decodes; streaming tokens improve perceived latency.
@@ -571,6 +751,7 @@ SVC --> SRM["service_runtime.py"]
 - Backpressure and Metrics: Built-in throughput and latency metrics enable tuning of concurrency and timeouts.
 - Retrieval Efficiency: Top-K selection and backend-specific embeddings optimize retrieval quality and speed.
 - Unified Service Management: Consolidated service control reduces operational overhead and improves reliability.
+- Enhanced Security: Session token validation and policy enforcement add minimal overhead while providing comprehensive protection.
 
 ## Troubleshooting Guide
 Common issues and resolutions:
@@ -581,6 +762,8 @@ Common issues and resolutions:
 - Health and versions: Use /health, /stack/versions, and /stack/hardware endpoints for diagnostics.
 - Service management: Use `./manage.sh status` to check all services and `./manage.sh restart` to restart services.
 - Systemd user services: Ensure `systemctl --user` is available and properly configured for service management.
+- Authentication issues: Verify session cookies are being set correctly and not blocked by browser privacy settings.
+- Authorization errors: Check admin credentials and ensure proper role assignment in configuration.
 
 **Section sources**
 - [README.md](file://README.md)
@@ -588,8 +771,8 @@ Common issues and resolutions:
 - [manage.sh](file://manage.sh)
 
 ## Conclusion
-Sage Faculty Twin delivers a robust, extensible academic digital assistant that blends AI, retrieval, and operational workflows. Its modular architecture, strong typing, and streaming-first design enable 24/7 support, intelligent scheduling, and personalized guidance—transforming how faculty engage with students while maintaining control and transparency.
+Sage Faculty Twin 4.3.2 delivers a robust, extensible academic digital assistant that blends AI, retrieval, and operational workflows with enhanced security and improved user experience. The substantial feature additions including strengthened security guardrails, improved onboarding system, and new data structures position it as a leading solution for modern academic institutions seeking to enhance student support and engagement while maintaining rigorous security standards.
 
 The unified service management approach represented by the consolidated `manage.sh` interface and systemd user services provides a streamlined deployment experience that reduces complexity while maintaining flexibility. This approach ensures consistent service operation across different environments and simplifies maintenance and troubleshooting.
 
-The system's comprehensive feature set, including AI-powered chat, workflow orchestration, knowledge management, intelligent scheduling, and personalized guidance, positions it as a transformative solution for modern academic institutions seeking to enhance student support and engagement.
+The system's comprehensive feature set, including AI-powered chat, workflow orchestration, knowledge management, intelligent scheduling, personalized guidance, enhanced security, and improved onboarding, transforms how faculty engage with students while maintaining control, transparency, and security. Version 4.3.2 represents a significant advancement in both functionality and security posture, making it an ideal choice for institutions prioritizing both innovation and safety in their academic support systems.

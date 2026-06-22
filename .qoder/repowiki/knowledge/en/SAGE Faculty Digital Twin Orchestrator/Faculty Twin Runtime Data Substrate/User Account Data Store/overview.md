@@ -1,1 +1,0 @@
-Persists user account records as individual JSON files using UUID filenames for direct lookup.

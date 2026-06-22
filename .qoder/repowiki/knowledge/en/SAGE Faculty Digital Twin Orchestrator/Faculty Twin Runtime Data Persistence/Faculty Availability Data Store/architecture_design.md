@@ -1,0 +1,3 @@
+- Data is organized into a flat file structure with a `current_week.json` for active data and a `history/` directory for archived weekly records.
+- Each JSON file follows a consistent schema containing `week_of`, `timezone`, and an array of `days` with time `windows`.
+- The module serves as a passive data source, relying on external processes to read and write these JSON files.

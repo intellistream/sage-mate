@@ -95,6 +95,42 @@
             <div id="sidebar-backdrop" class="sidebar-backdrop" aria-hidden="true"></div>
 
             <section class="chat-shell chat-empty">
+                <div id="onboarding-card" class="onboarding-card hidden" aria-hidden="true">
+                    <div class="onboarding-head">
+                        <span class="onboarding-badge">新手引导</span>
+                        <div class="onboarding-progress">
+                            <div class="onboarding-progress-bar" id="onboarding-progress-bar"></div>
+                        </div>
+                        <span class="onboarding-step-label" id="onboarding-step-label">1 / 7</span>
+                    </div>
+                    <div class="onboarding-body">
+                        <p class="onboarding-step-copy" id="onboarding-step-copy"></p>
+                        <div class="onboarding-question-card" id="onboarding-question-card">
+                            <p class="onboarding-question-text" id="onboarding-question-text"></p>
+                            <p class="onboarding-question-hint" id="onboarding-question-hint"></p>
+                        </div>
+                        <button type="button" class="onboarding-random-btn hidden" id="onboarding-random-btn">
+                            <span aria-hidden="true">🎲</span> 随机生成一个示例问题
+                        </button>
+                        <p class="onboarding-cta" id="onboarding-cta">在下方输入框写下你的回答，提交后会获得反馈 ↓</p>
+                    </div>
+                    <div class="onboarding-nav">
+                        <button type="button" class="ghost-button onboarding-back-btn hidden" id="onboarding-back-btn">
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+                            上一步
+                        </button>
+                        <button type="button" class="ghost-button onboarding-next-btn" id="onboarding-next-btn">下一步</button>
+                        <button type="button" class="ghost-button onboarding-skip-btn" id="onboarding-skip-btn">跳过引导</button>
+                    </div>
+                    <div class="onboarding-done hidden" id="onboarding-done">
+                        <p class="onboarding-done-title">引导完成！</p>
+                        <p class="onboarding-done-copy">现在可以自由提问了，也可以在下方点击推荐问题快速开始。</p>
+                        <label class="onboarding-dismiss-label">
+                            <input type="checkbox" id="onboarding-dismiss-checkbox" />
+                            <span>不再自动弹出新手引导</span>
+                        </label>
+                    </div>
+                </div>
                 <div id="chat-stream" class="chat-stream">
                     <div id="welcome-greeting" class="welcome-greeting hidden">
                         <h1 id="greeting-text" class="greeting-text">你好</h1>
@@ -102,42 +138,6 @@
                     <div id="seed-chips" class="seed-chips hidden">
                         <p class="seed-chips-label">可以试试这些问题：</p>
                         <div id="seed-chips-list" class="seed-chips-list">
-                        </div>
-                    </div>
-                    <div id="onboarding-card" class="onboarding-card hidden" aria-hidden="true">
-                        <div class="onboarding-head">
-                            <span class="onboarding-badge">新手引导</span>
-                            <div class="onboarding-progress">
-                                <div class="onboarding-progress-bar" id="onboarding-progress-bar"></div>
-                            </div>
-                            <span class="onboarding-step-label" id="onboarding-step-label">1 / 7</span>
-                        </div>
-                        <div class="onboarding-body">
-                            <p class="onboarding-step-copy" id="onboarding-step-copy"></p>
-                            <div class="onboarding-question-card" id="onboarding-question-card">
-                                <p class="onboarding-question-text" id="onboarding-question-text"></p>
-                                <p class="onboarding-question-hint" id="onboarding-question-hint"></p>
-                            </div>
-                            <button type="button" class="onboarding-random-btn hidden" id="onboarding-random-btn">
-                                <span aria-hidden="true">🎲</span> 随机生成一个示例问题
-                            </button>
-                            <p class="onboarding-cta" id="onboarding-cta">在下方输入框写下你的回答，提交后会获得反馈 ↓</p>
-                        </div>
-                        <div class="onboarding-nav">
-                            <button type="button" class="ghost-button onboarding-back-btn hidden" id="onboarding-back-btn">
-                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
-                                上一步
-                            </button>
-                            <button type="button" class="ghost-button onboarding-next-btn" id="onboarding-next-btn">下一步</button>
-                            <button type="button" class="ghost-button onboarding-skip-btn" id="onboarding-skip-btn">跳过引导</button>
-                        </div>
-                        <div class="onboarding-done hidden" id="onboarding-done">
-                            <p class="onboarding-done-title">引导完成！</p>
-                            <p class="onboarding-done-copy">现在可以自由提问了，也可以在下方点击推荐问题快速开始。</p>
-                            <label class="onboarding-dismiss-label">
-                                <input type="checkbox" id="onboarding-dismiss-checkbox" />
-                                <span>不再自动弹出新手引导</span>
-                            </label>
                         </div>
                     </div>
                 </div>

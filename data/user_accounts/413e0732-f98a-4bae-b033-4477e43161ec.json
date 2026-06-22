@@ -1,0 +1,10 @@
+{
+  "user_id": "413e0732-f98a-4bae-b033-4477e43161ec",
+  "name": "刘俊",
+  "email": "iliujun@msn.com",
+  "visitor_profile": "lab_member",
+  "password_salt": "d4815a1a6ce92ced6e3ac4818f74b65c",
+  "password_hash": "8c5d2dbd510ae8c33d999131e04b5229e1f1ac4b26177f43e3a54d9e669cdb157bd02415bcb2f4019344e276a0d63d763b091cbae931b0d3f8d5e9cd5035ee52",
+  "created_at": "2026-06-22T02:19:13.847191+00:00",
+  "updated_at": "2026-06-22T02:19:13.847191+00:00"
+}

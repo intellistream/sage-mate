@@ -1,4 +1,0 @@
-- UUIDs are used as both the primary key (`action_id`) and the filename for each record.
-- Email content is structured as an array of strings (`lines`) rather than a single HTML or Markdown block.
-- Timestamps are stored in ISO 8601 format with timezone offsets (e.g., `+00:00`).
-- Action types are categorized using snake_case identifiers like `todo_review` and `post_meeting_summary`.

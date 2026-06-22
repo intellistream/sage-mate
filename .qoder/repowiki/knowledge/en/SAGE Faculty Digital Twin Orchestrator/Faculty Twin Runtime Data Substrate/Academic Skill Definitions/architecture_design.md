@@ -1,4 +1,0 @@
-- The module consists of five static JSON files (`course_advising.json`, `meeting_prep.json`, etc.) acting as declarative skill definitions.
-- Each file defines a `skill_id`, natural language `trigger_patterns` for intent recognition, and LLM `system_prompt`/`user_prompt_template` for behavior control.
-- Skills declare available `tools` with specific `handler` mappings (e.g., `knowledge_search`, `memory_search`) to bridge LLM actions with backend services.
-- Inter-skill dependencies are managed via the `composes_with` field, enabling modular composition of complex academic workflows.

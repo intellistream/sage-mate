@@ -1,3 +1,0 @@
-- Plan steps are constructed as `PlanStepSpec` objects derived from `WorkflowStepDefinition` in the registry, ensuring consistent input/output contracts.
-- Risk levels are computed by aggregating the strongest side-effect across all steps using `strongest_side_effect_to_risk_level`.
-- Evidence contracts are dynamically built based on context availability (e.g., `include_profile_memory`, `include_artifact_memory`) to restrict allowed data sources.

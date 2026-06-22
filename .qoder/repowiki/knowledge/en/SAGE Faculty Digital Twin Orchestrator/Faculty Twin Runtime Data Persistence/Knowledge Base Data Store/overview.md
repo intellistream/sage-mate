@@ -1,0 +1,1 @@
+A flat-file JSON repository storing structured knowledge artifacts for the SAGE faculty twin system, including research papers, technical wikis, and onboarding guides.

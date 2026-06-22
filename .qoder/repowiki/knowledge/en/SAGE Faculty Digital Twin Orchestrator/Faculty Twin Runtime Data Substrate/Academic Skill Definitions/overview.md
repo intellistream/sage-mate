@@ -1,1 +1,0 @@
-Defines JSON-based skill configurations for academic advising, meeting preparation, and research mentoring tasks.

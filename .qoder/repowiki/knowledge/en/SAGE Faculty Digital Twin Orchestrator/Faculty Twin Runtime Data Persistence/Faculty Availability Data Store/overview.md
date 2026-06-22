@@ -1,0 +1,1 @@
+Stores historical and current weekly faculty availability schedules as static JSON files.

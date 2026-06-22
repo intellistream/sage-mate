@@ -1,0 +1,10 @@
+{
+  "user_id": "3df753a0-93ca-4524-9b20-4e576c958d60",
+  "name": "kimmozhang",
+  "email": "995496585@qq.com",
+  "visitor_profile": "lab_member",
+  "password_salt": "efa18f5764b6ce864bd1e527be8a73b5",
+  "password_hash": "17168c59479f311be49f6b6a0f24e0d447a19ae2ffed6c38509d16fcfbf3e85b39d236efffa4fb452692072a89d90b10c640ffec81845eff21909acb46747193",
+  "created_at": "2026-06-22T03:01:52.448950+00:00",
+  "updated_at": "2026-06-22T03:01:52.448950+00:00"
+}

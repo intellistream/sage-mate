@@ -1,1 +1,0 @@
-Stores structured JSON records for automated post-meeting follow-up actions, including todo reviews and meeting summaries.

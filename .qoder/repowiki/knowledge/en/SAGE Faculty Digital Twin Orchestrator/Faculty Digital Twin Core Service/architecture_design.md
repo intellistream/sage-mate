@@ -1,0 +1,5 @@
+- **API Layer**: `api.py` exposes a FastAPI application with lazy-initialized service injection (`LazyDigitalTwinService`) and SSE-based workflow event streaming (`WorkflowEventBroker`).
+- **Service Orchestration**: `service.py` implements the core `DigitalTwinService`, coordinating chat workflows via a DAG pipeline (`_CHAT_PIPELINE_STAGE_COUNT`) and managing state for bookings, memory, and knowledge.
+- **Planning Engine**: `workflow_planner.py` contains `DeterministicWorkflowPlanner`, which maps user queries to `PlanSpec` objects using heuristic intent classification and plugin-based step injection.
+- **Policy Enforcement**: `workflow_policy.py` defines `WorkflowPolicy` and `WorkflowPolicyValidator` to validate plans against risk levels, latency budgets, and evidence contracts before execution.
+- **Data Modeling**: Uses Pydantic v2 models (`PlanSpec`, `EvidenceContract`) with `extra='forbid'` to ensure strict data integrity across planning and execution boundaries.

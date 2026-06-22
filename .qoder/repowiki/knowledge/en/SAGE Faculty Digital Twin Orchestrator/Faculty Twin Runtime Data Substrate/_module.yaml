@@ -1,9 +1,0 @@
-schema_version: 1
-module_path: runtime_data
-title: Faculty Twin Runtime Data Substrate
-scope:
-    - data/
-source_files: []
-depends_on: []
-related_to:
-    - path: docs

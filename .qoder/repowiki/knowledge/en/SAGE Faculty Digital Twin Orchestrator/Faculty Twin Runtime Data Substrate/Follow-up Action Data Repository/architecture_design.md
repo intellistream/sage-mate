@@ -1,4 +1,0 @@
-- The module consists exclusively of static JSON data files stored in a flat directory structure.
-- Each file represents a single follow-up action entity, identified by a UUID filename matching the internal `action_id` field.
-- The data schema includes fields for booking linkage (`booking_id`), student details (`student_name`, `student_email`), action metadata (`action_type`, `title`, `detail`, `subject`), email content (`lines`), and lifecycle status (`status`, `due_at`, `created_at`, `sent_at`).
-- There is no executable code, build manifest, or interface definition within this scope; it serves purely as a file-based data repository for the application's follow-up logic.

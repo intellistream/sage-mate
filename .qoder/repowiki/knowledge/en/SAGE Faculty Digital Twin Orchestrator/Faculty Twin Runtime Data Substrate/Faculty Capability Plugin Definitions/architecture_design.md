@@ -1,4 +1,0 @@
-- The module consists of five static JSON configuration files, each representing a distinct 'capability plugin' (e.g., `course_advising.json`, `meeting_prep.json`).
-- Each plugin defines a linear execution pipeline via a `steps` array, where every step specifies `required_inputs`, `produces_outputs`, `timeout_budget_ms`, and `retry_policy`.
-- Steps are categorized by side effects (`none` for retrieval/analysis, `draft_write` for final output generation) and traceability keys (`trace_key`).
-- The structure enforces a consistent interface for the runtime engine to orchestrate retrieval-augmented generation (RAG) and drafting tasks across different academic scenarios.

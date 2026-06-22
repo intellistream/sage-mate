@@ -1,1 +1,0 @@
-Uses Pydantic v2 for strict data modeling (`PlanSpec`, `EvidenceContract`) with `extra='forbid'` to ensure plan integrity.

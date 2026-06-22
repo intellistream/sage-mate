@@ -1,3 +1,0 @@
-- Flat file storage: Each user account is stored as a separate JSON file within the `data/user_accounts/` directory.
-- Identity-based naming: Files are named using the `user_id` (UUID) to enable direct access without indexing.
-- Schema consistency: All records share a uniform structure including `user_id`, `name`, `email`, `visitor_profile`, `password_salt`, `password_hash`, and timestamps.

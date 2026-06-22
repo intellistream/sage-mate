@@ -21,6 +21,8 @@
 - Integrated account management as in-chat view instead of separate modal
 - Implemented seed chips functionality moved from sidebar to clickable chips above composer
 - Enhanced visitor profile system with profile-aware seed chip generation
+- Added comprehensive user account management system with structured JSON data format
+- Improved data organization with enhanced security credentials and timestamp management
 
 ## Table of Contents
 1. [Introduction](#introduction)

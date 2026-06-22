@@ -1,3 +1,0 @@
-- Each plugin step explicitly declares input/output dependencies using `required_inputs` and `produces_outputs` fields to enable deterministic workflow orchestration.
-- Retrieval steps consistently use `side_effect: 'none'` and `retry_policy: 'idempotent'` or `'none'`, while final drafting steps use `side_effect: 'draft_write'` and `retry_policy: 'none'`.
-- Every step includes a `trace_key` field prefixed with `plugin_` to facilitate observability and debugging of specific workflow stages.

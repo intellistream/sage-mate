@@ -1,3 +1,0 @@
-- User IDs are used as filenames with a `.json` extension for direct record retrieval.
-- Passwords are stored using a salted hash mechanism with separate `password_salt` and `password_hash` fields.
-- Timestamps for `created_at` and `updated_at` are recorded in ISO 8601 format with UTC offset.

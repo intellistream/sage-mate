@@ -1,0 +1,2 @@
+- Digest files use a consistent schema with `conversation_id`, `digest_text`, `turns_summarized`, and `updated_at` fields.
+- Feedback entries are stored as individual JSON files named by their `exchange_id` UUID, containing `rating`, `resolved`, and `needs_human_followup` flags.

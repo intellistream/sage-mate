@@ -1,0 +1,4 @@
+- Data is organized into flat-file JSON stores for digests and feedback, SQLite databases for structured metrics (`planner_metrics.sqlite3`, `planner_comparisons.sqlite3`) and core memory (`memory_store.sqlite3`).
+- Vector/keyword search capabilities are provided via BM25 indexes stored in `collections/` subdirectories (`conversation-memory`, `conversation-profile-memory`), each with `index_metadata.json` and `raw_data.json`.
+- Digests in `digests/` serve as pre-computed summaries of conversation turns, identified by unique conversation IDs (e.g., `conv-greeting`, `conv-booking`).
+- Feedback records in `feedback/` track user ratings and resolution status for specific conversation exchanges, using UUID-named JSON files.

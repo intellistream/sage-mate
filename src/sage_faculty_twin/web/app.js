@@ -1040,12 +1040,29 @@ function restartOnboarding() {
 
 
 
+// --- iOS Safari touch fix for buttons inside overflow:auto containers ---
+// iOS Safari sometimes swallows click events on elements inside scrolling containers.
+// Bind touchend as a fallback to ensure taps always trigger the handler.
+function addTapListener(element, handler) {
+    if (!element) return;
+    let touched = false;
+    element.addEventListener("touchend", (e) => {
+        touched = true;
+        e.preventDefault();
+        handler(e);
+    });
+    element.addEventListener("click", (e) => {
+        if (touched) { touched = false; return; }
+        handler(e);
+    });
+}
+
 // --- Onboarding button event listeners ---
-document.getElementById("onboarding-back-btn")?.addEventListener("click", goBackOnboarding);
-document.getElementById("onboarding-next-btn")?.addEventListener("click", advanceOnboarding);
-document.getElementById("onboarding-skip-btn")?.addEventListener("click", skipOnboarding);
+addTapListener(document.getElementById("onboarding-back-btn"), goBackOnboarding);
+addTapListener(document.getElementById("onboarding-next-btn"), advanceOnboarding);
+addTapListener(document.getElementById("onboarding-skip-btn"), skipOnboarding);
 document.getElementById("open-onboarding-help")?.addEventListener("click", restartOnboarding);
-document.getElementById("onboarding-random-btn")?.addEventListener("click", async () => {
+addTapListener(document.getElementById("onboarding-random-btn"), async () => {
     const btn = document.getElementById("onboarding-random-btn");
     if (!btn) return;
     const originalHtml = btn.innerHTML;

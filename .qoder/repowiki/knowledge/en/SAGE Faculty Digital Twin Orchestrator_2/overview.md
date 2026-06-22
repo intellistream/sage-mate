@@ -1,1 +1,0 @@
-Provides a FastAPI-based interface and core service logic for an academic digital twin, handling chat workflows, knowledge retrieval, memory management, and administrative operations.

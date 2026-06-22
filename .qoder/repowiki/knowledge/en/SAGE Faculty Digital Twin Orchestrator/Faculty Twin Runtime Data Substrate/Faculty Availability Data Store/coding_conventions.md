@@ -1,2 +1,0 @@
-- Availability records use a standardized JSON structure with `week_of` (ISO date), `timezone` (IANA name), and `days` array.
-- Daily availability entries include a `date` field, a list of `windows` (start/end times), and an optional `note`.
