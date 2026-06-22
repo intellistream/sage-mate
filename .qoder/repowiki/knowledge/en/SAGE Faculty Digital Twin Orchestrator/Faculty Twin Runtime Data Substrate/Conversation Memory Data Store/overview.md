@@ -1,0 +1,1 @@
+Persists conversation digests, user feedback, planner metrics, and BM25-indexed memory collections for retrieval-augmented generation contexts.

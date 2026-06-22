@@ -14,16 +14,17 @@
 - [styles.css](file://src/sage_faculty_twin/web/styles.css)
 - [onboarding-first-month.json](file://data/knowledge_base/onboarding-first-month.json)
 - [4a05e39e-61c2-44c5-93b7-64679cf48511.json](file://data/user_accounts/4a05e39e-61c2-44c5-93b7-64679cf48511.json)
+- [llm_client.py](file://src/sage_faculty_twin/llm_client.py)
 </cite>
 
 ## Update Summary
 **Changes Made**
-- Enhanced onboarding system with new 'don't show again' checkbox mechanism (ONBOARDING_DISMISSED_KEY)
-- Added help button (#open-onboarding-help) for manual restart functionality
-- Implemented 5-second auto-hide delay with user preference respect
-- Introduced restartOnboarding() function for manual onboarding restart
-- Updated onboarding completion logic to respect dismissal preferences
-- Improved user control and preference management
+- Enhanced onboarding system with onboarding_step parameter for contextual question generation
+- Improved question generation with coaching templates and LLM integration
+- Enhanced UI with sticky positioning and loading states for better user experience
+- Added contextual coaching through onboarding_step parameter in /lucky-question endpoint
+- Implemented loading states with spinner animations and visual feedback
+- Refined auto-hide mechanism with 5-second countdown and user preference respect
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -43,7 +44,7 @@ The User Onboarding System is a comprehensive framework designed to seamlessly i
 
 The system supports multiple user profiles including general visitors, students, and lab members, each with distinct permissions and capabilities. It leverages advanced session management, secure password handling, and intelligent knowledge-based guidance to create a personalized user journey from first visit to full platform utilization.
 
-**Updated** Enhanced with improved user control mechanisms, preference persistence, and manual restart capabilities for better user experience.
+**Updated** Enhanced with improved user control mechanisms, preference persistence, manual restart capabilities, contextual coaching through onboarding_step parameter, enhanced UI with sticky positioning and loading states, and intelligent question generation with coaching templates.
 
 ## System Architecture
 
@@ -55,16 +56,22 @@ subgraph "Presentation Layer"
 UI[Web Interface]
 Mobile[Mobile Interface]
 HelpButton[Help Button #open-onboarding-help]
+DiceButton[Dice Emoji Button 🎲]
+HintPanel[Rotating Hint Panel]
+OnboardingRandomBtn[Onboarding Random Button]
+LoadingSpinner[Loading Spinner Animation]
 end
 subgraph "API Layer"
 AuthAPI[Authentication API]
 UserAPI[User Management API]
 OnboardingAPI[Onboarding API]
+LuckyQuestionAPI[Lucky Question API]
 end
 subgraph "Business Logic Layer"
 AuthService[Authentication Service]
 UserStore[User Store Service]
 OnboardingService[Onboarding Service]
+LLMClient[LLM Client Service]
 SessionManager[Session Manager]
 LocalStorage[Local Storage Manager]
 end
@@ -74,20 +81,30 @@ KnowledgeBase[(Knowledge Base)]
 SessionStore[(Session Storage)]
 DismissedPrefs[(Dismissed Preferences)]
 CompletedPrefs[(Completed Preferences)]
+LuckyQuestionHistory[(Lucky Question History)]
+OnboardingStepContext[(Onboarding Step Context)]
 end
 UI --> AuthAPI
 Mobile --> AuthAPI
 HelpButton --> OnboardingService
+DiceButton --> LuckyQuestionAPI
+HintPanel --> OnboardingService
+OnboardingRandomBtn --> LuckyQuestionAPI
+LoadingSpinner --> OnboardingRandomBtn
 AuthAPI --> AuthService
 UserAPI --> UserStore
 OnboardingAPI --> OnboardingService
+LuckyQuestionAPI --> LLMClient
 AuthService --> SessionManager
 UserStore --> UserDatabase
 OnboardingService --> KnowledgeBase
+LLMClient --> KnowledgeBase
+LLMClient --> OnboardingStepContext
 SessionManager --> SessionStore
 OnboardingService --> LocalStorage
 LocalStorage --> DismissedPrefs
 LocalStorage --> CompletedPrefs
+LocalStorage --> LuckyQuestionHistory
 ```
 
 **Diagram sources**
@@ -95,8 +112,9 @@ LocalStorage --> CompletedPrefs
 - [auth.py:45-86](file://src/sage_faculty_twin/auth.py#L45-L86)
 - [user_store.py:62-122](file://src/sage_faculty_twin/user_store.py#L62-L122)
 - [app.js:652-654](file://src/sage_faculty_twin/web/app.js#L652-L654)
+- [llm_client.py:588-623](file://src/sage_faculty_twin/llm_client.py#L588-L623)
 
-The architecture ensures scalability through lazy initialization of services and efficient resource management. The modular design allows for easy maintenance and extension of onboarding features, with enhanced preference management and user control mechanisms.
+The architecture ensures scalability through lazy initialization of services and efficient resource management. The modular design allows for easy maintenance and extension of onboarding features, with enhanced preference management, user control mechanisms, intelligent question generation capabilities, and contextual coaching through onboarding_step parameter integration.
 
 **Section sources**
 - [api.py:92-136](file://src/sage_faculty_twin/api.py#L92-L136)
@@ -140,7 +158,7 @@ The registration flow includes comprehensive input validation, duplicate prevent
 
 ## Enhanced Onboarding Experience
 
-The onboarding system provides an interactive guided tour tailored to different user profiles, ensuring new users can quickly understand and utilize the platform effectively. The system now includes enhanced user control mechanisms and preference management:
+The onboarding system provides an interactive guided tour tailored to different user profiles, ensuring new users can quickly understand and utilize the platform effectively. The system now includes enhanced user control mechanisms, rotating hint panels, contextual coaching through onboarding_step parameter, and dice emoji-powered random question generation:
 
 ```mermaid
 flowchart TD
@@ -160,10 +178,20 @@ IsDismissed --> |No| CheckProgress
 CheckProgress --> |Not Completed| ShowStep[Display Step Card]
 CheckProgress --> |Completed| SkipOnboarding
 ShowStep --> RenderQuestion[Render Question Template]
-RenderQuestion --> UserResponse[User Provides Response]
+RenderQuestion --> ShowHintPanel[Show Rotating Hint Panel]
+ShowHintPanel --> HintFade[Hint Panel with Fade Transitions]
+HintFade --> OnboardingRandomBtn[Show Onboarding Random Button]
+OnboardingRandomBtn --> ShowLoadingSpinner[Show Loading Spinner Animation]
+ShowLoadingSpinner --> GenerateContextualQuestion[Generate Contextual Question]
+GenerateContextualQuestion --> IncludeOnboardingStep[Include onboarding_step Parameter]
+IncludeOnboardingStep --> LLMGeneration[LLM-Powered Generation with Coaching Templates]
+LLMGeneration --> StaticFallback[Static Question Pool Fallback]
+StaticFallback --> FillQuestion[Fill Question Input]
+FillQuestion --> UserResponse[User Provides Response]
 UserResponse --> ValidateResponse{Validate Response}
 ValidateResponse --> |Correct| NextStep[Advance to Next Step]
 ValidateResponse --> |Incorrect| ShowHint[Show Hint]
+ShowHint --> HintFade
 ShowHint --> UserResponse
 NextStep --> MoreSteps{More Steps?}
 MoreSteps --> |Yes| ShowStep
@@ -185,15 +213,19 @@ EnableFeatures --> End([Access Granted])
 - [app.js:795-807](file://src/sage_faculty_twin/web/app.js#L795-L807)
 - [app.js:825-856](file://src/sage_faculty_twin/web/app.js#L825-L856)
 - [index.html:119-154](file://src/sage_faculty_twin/web/index.html#L119-L154)
+- [app.js:887-903](file://src/sage_faculty_twin/web/app.js#L887-L903)
+- [app.js:1050-1113](file://src/sage_faculty_twin/web/app.js#L1050-L1113)
 
-**Updated** The onboarding experience now includes enhanced user control with a 'don't show again' checkbox, 5-second auto-hide delay, manual restart capability via help button, and improved preference management through localStorage keys ONBOARDING_COMPLETED_KEY and ONBOARDING_DISMISSED_KEY.
+**Updated** The onboarding experience now includes enhanced user control with a 'don't show again' checkbox, 5-second auto-hide delay, manual restart capability via help button, rotating hint panels with fade transitions, dice emoji-powered random question generation, contextual coaching through onboarding_step parameter, intelligent question generation powered by both LLM and static question pools, and enhanced UI with sticky positioning and loading states.
 
-The onboarding experience is dynamically generated based on the user's visitor profile and includes progress tracking, step-by-step guidance, automatic completion detection, and respectful handling of user preferences. Users can now manually restart onboarding, choose to dismiss future prompts, and have granular control over their onboarding experience.
+The onboarding experience is dynamically generated based on the user's visitor profile and includes progress tracking, step-by-step guidance, automatic completion detection, and respectful handling of user preferences. Users can now manually restart onboarding, choose to dismiss future prompts, have granular control over their onboarding experience, benefit from intelligent question generation powered by both LLM and static question pools, and receive contextual coaching through the onboarding_step parameter integration.
 
 **Section sources**
 - [app.js:652-693](file://src/sage_faculty_twin/web/app.js#L652-L693)
 - [app.js:795-890](file://src/sage_faculty_twin/web/app.js#L795-L890)
 - [index.html:119-154](file://src/sage_faculty_twin/web/index.html#L119-L154)
+- [app.js:887-903](file://src/sage_faculty_twin/web/app.js#L887-L903)
+- [app.js:1050-1113](file://src/sage_faculty_twin/web/app.js#L1050-L1113)
 
 ## Authentication System
 
@@ -280,9 +312,13 @@ LocalStorage[(Browser LocalStorage)]
 OnboardingPrefs[Onboarding Preferences]
 CompletionPrefs[Completion Status]
 DismissalPrefs[Dismissal Preferences]
+LuckyQuestionHistory[Lucky Question History]
+OnboardingStepContext[Onboarding Step Context]
 LocalStorage --> OnboardingPrefs
 OnboardingPrefs --> CompletionPrefs
 OnboardingPrefs --> DismissalPrefs
+OnboardingPrefs --> LuckyQuestionHistory
+OnboardingPrefs --> OnboardingStepContext
 end
 UserData --> UserAccounts
 OnboardingDocs --> KB
@@ -294,7 +330,7 @@ ResearchDocs --> KB
 - [config.py:63](file://src/sage_faculty_twin/config.py#L63)
 - [app.js:652-654](file://src/sage_faculty_twin/web/app.js#L652-L654)
 
-User accounts are stored as individual JSON files in the user_accounts directory, allowing for efficient individual record access and updates. The knowledge base contains structured documents that guide the onboarding process and provide contextual information. Onboarding preferences are now managed through browser localStorage with separate keys for completion status and dismissal preferences.
+User accounts are stored as individual JSON files in the user_accounts directory, allowing for efficient individual record access and updates. The knowledge base contains structured documents that guide the onboarding process and provide contextual information. Onboarding preferences are now managed through browser localStorage with separate keys for completion status, dismissal preferences, lucky question history, and onboarding step context.
 
 **Section sources**
 - [config.py:86](file://src/sage_faculty_twin/config.py#L86)
@@ -347,13 +383,28 @@ The User Onboarding System implements multiple layers of security to protect use
 - Separate keys for completion and dismissal preferences
 - Automatic cleanup of temporary onboarding data
 - Respectful handling of user preferences and choices
+- Lucky question history tracking with automatic rotation
+- Onboarding step context preservation for coaching
 
-**Updated** Enhanced security measures now include proper handling of user preferences and choices, with graceful error handling for localStorage operations and respectful management of user consent.
+### Enhanced Security Measures
+- **Updated** Proper handling of user preferences and choices with graceful error handling for localStorage operations
+- **Updated** Respectful management of user consent through explicit dismissal preferences
+- **Updated** Secure LLM integration with fallback mechanisms for question generation
+- **Updated** Intelligent question generation with repetition prevention and context awareness
+- **Updated** Contextual coaching through onboarding_step parameter with enhanced privacy controls
+- **Updated** Loading state management with spinner animations and visual feedback
+
+### Contextual Coaching Security
+- **Updated** Secure transmission of onboarding_step parameter via HTTPS
+- **Updated** Privacy-preserving context handling with minimal data exposure
+- **Updated** Rate limiting and timeout protection for LLM API calls
+- **Updated** Graceful fallback to static question pools when LLM services are unavailable
 
 **Section sources**
 - [user_store.py:188-196](file://src/sage_faculty_twin/user_store.py#L188-L196)
 - [auth.py:182-214](file://src/sage_faculty_twin/auth.py#L182-L214)
 - [app.js:678-693](file://src/sage_faculty_twin/web/app.js#L678-L693)
+- [llm_client.py:588-623](file://src/sage_faculty_twin/llm_client.py#L588-L623)
 
 ## Troubleshooting Guide
 
@@ -387,6 +438,18 @@ The User Onboarding System implements multiple layers of security to protect use
 - **Cause**: User has previously completed onboarding or dismissed future prompts
 - **Solution**: Use the help button (#open-onboarding-help) to manually restart onboarding, or clear localStorage preferences
 
+**Problem**: Rotating hint panels not working
+- **Cause**: JavaScript errors in hint rotation logic or missing hint elements
+- **Solution**: Check browser console for errors, verify hint panel elements exist, or clear browser data
+
+**Problem**: Onboarding random button 🎲 not generating questions
+- **Cause**: LLM API unavailability or localStorage restrictions
+- **Solution**: Check network connectivity, verify localStorage is enabled, or use static fallback pool
+
+**Problem**: Loading spinner animation not showing
+- **Cause**: CSS styling issues or JavaScript errors in loading state management
+- **Solution**: Check browser console for errors, verify loading spinner CSS classes, or clear browser cache
+
 **Problem**: 'Don't show again' checkbox not working
 - **Cause**: Browser localStorage restrictions or JavaScript errors
 - **Solution**: Check browser console for errors, verify localStorage is enabled, or clear browser data
@@ -403,20 +466,33 @@ The User Onboarding System implements multiple layers of security to protect use
 - **Cause**: Existing completion/dismissal preferences for previous profile
 - **Solution**: Use resetOnboardingForNewProfile() function or manually clear localStorage keys
 
+**Problem**: LLM-powered question generation failing
+- **Cause**: Network timeout or API error during question generation
+- **Solution**: Check network connectivity, verify LLM service availability, or rely on static fallback pool
+
+**Problem**: Contextual coaching not working
+- **Cause**: Missing onboarding_step parameter or LLM integration issues
+- **Solution**: Verify onboarding_step parameter is included in API requests, check LLM service health, or use static fallback
+
+**Problem**: Sticky positioning issues
+- **Cause**: CSS positioning conflicts or viewport constraints
+- **Solution**: Check CSS positioning properties, verify viewport dimensions, or adjust responsive breakpoints
+
 **Section sources**
 - [user_store.py:92-105](file://src/sage_faculty_twin/user_store.py#L92-L105)
 - [auth.py:158-172](file://src/sage_faculty_twin/auth.py#L158-L172)
 - [app.js:869-890](file://src/sage_faculty_twin/web/app.js#L869-L890)
 - [index.html:62-66](file://src/sage_faculty_twin/web/index.html#L62-L66)
+- [llm_client.py:588-623](file://src/sage_faculty_twin/llm_client.py#L588-L623)
 
 ## Conclusion
 
 The User Onboarding System represents a comprehensive solution for managing user integration and engagement in the SAGE Faculty Twin platform. Its modular architecture, robust security measures, and personalized user experience create a solid foundation for long-term user retention and satisfaction.
 
-**Updated** Key enhancements include improved user control mechanisms, preference management through localStorage, manual restart capabilities, and respectful handling of user choices. The system now provides granular control over onboarding experience with the ability to dismiss future prompts, manually restart onboarding, and maintain user preferences across sessions.
+**Updated** Key enhancements include improved user control mechanisms, preference management through localStorage, manual restart capabilities, rotating hint panels with fade transitions, dice emoji-powered random question generation, contextual coaching through onboarding_step parameter, enhanced UI with sticky positioning and loading states, intelligent question generation through both LLM-powered and static question pools, and sophisticated coaching templates for better user guidance.
 
-The system's strengths include its flexible profile-based approach, secure authentication mechanisms, adaptive onboarding experience, and enhanced user preference management. The implementation demonstrates best practices in web application development, including proper separation of concerns, comprehensive error handling, scalable data management, and user-centric design principles.
+The system's strengths include its flexible profile-based approach, secure authentication mechanisms, adaptive onboarding experience with rotating hint panels, enhanced user preference management, intelligent question generation with contextual coaching, and comprehensive UI enhancements with loading states and visual feedback. The implementation demonstrates best practices in web application development, including proper separation of concerns, comprehensive error handling, scalable data management, user-centric design principles, graceful fallback mechanisms, and enhanced accessibility features.
 
-Future enhancements could include expanded user profile types, enhanced analytics for onboarding effectiveness, integration with external identity providers, and additional customization options for onboarding content. The current architecture provides a strong foundation for these improvements while maintaining backward compatibility and system stability.
+Future enhancements could include expanded user profile types, enhanced analytics for onboarding effectiveness, integration with external identity providers, additional customization options for onboarding content, advanced AI-powered guidance systems with real-time coaching, and enhanced mobile-responsive design with improved touch interactions. The current architecture provides a strong foundation for these improvements while maintaining backward compatibility and system stability.
 
-The enhanced onboarding system now offers users meaningful control over their experience while maintaining the system's core objectives of effective user education and platform adoption.
+The enhanced onboarding system now offers users meaningful control over their experience while maintaining the system's core objectives of effective user education and platform adoption. The combination of rotating hint panels, dice emoji-powered question generation, contextual coaching through onboarding_step parameter, intelligent guidance mechanics, and enhanced UI with loading states creates a more engaging, effective, and accessible onboarding experience that respects user preferences and provides multiple pathways to success.

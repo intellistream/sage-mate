@@ -1,1 +1,0 @@
-Manages user identity selection, authentication flows, and profile-based context initialization for the faculty twin application.

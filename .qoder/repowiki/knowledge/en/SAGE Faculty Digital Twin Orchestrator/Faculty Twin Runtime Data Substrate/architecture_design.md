@@ -1,0 +1,3 @@
+- Enforces a schema-less, directory-isolated storage pattern where child modules persist state as individual UUID-keyed or semantically named files, relying on external application logic for cross-domain aggregation.
+- Utilizes a hybrid persistence strategy, combining flat-file JSON for human-readable configuration and transactional records with embedded SQLite databases for high-volume planner metrics and memory indexing.
+- Decouples data domains (availability, skills, knowledge, accounts) into independent directory trees, ensuring that changes to one domain's structure do not impact the integrity or accessibility of others.

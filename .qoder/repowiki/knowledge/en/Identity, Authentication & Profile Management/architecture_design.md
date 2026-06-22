@@ -1,6 +1,0 @@
-- **Entry Point**: The `identity-modal` in `index.html` serves as the mandatory boot prompt for unauthenticated users, offering 'Register/Login' or 'Guest' paths.
-- **State Management**: `app.js` maintains identity state via `VISITOR_PROFILE_STORAGE_KEY` and `VISITOR_IDENTITY_SELECTED_KEY` in `localStorage`, ensuring persistence across sessions for guests.
-- **Profile Configuration**: A central `VISITOR_PROFILE_CONFIGS` object in `app.js` defines behavior (labels, default contexts, quick actions) for four distinct roles: `general_visitor`, `hust_undergraduate`, `paper_writing_student`, and `lab_member`.
-- **Integration**: Identity selection directly influences the chat composer's default context (`courseContextInput`) and seed questions, creating a personalized initial experience.
-- **Authentication Flow**: Registered users authenticate via `auth-modal` (tabbed login/register), which calls `/auth/user/login` or `/auth/user/register` APIs and updates the session via `refreshUserSession()`.
-- **Backend Storage**: User accounts are persisted as individual JSON files in a configurable directory via `UserAccountStore`, using `scrypt` for password hashing and HMAC-signed cookies for session management in `auth.py`.

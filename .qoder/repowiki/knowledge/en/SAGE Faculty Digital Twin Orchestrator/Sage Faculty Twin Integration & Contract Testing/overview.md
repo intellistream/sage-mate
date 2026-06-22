@@ -1,0 +1,1 @@
+Validates end-to-end agentic workflows, frontend-backend contracts, and infrastructure resilience for the faculty digital twin system.

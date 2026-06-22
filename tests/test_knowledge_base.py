@@ -1185,7 +1185,7 @@ def test_vamos_question_set_prioritizes_vamos_research_materials(tmp_path: Path)
         ]
 
         for question in question_set:
-            hits = store.search(question, top_k=3)
+            hits = store.search(question, top_k=3, visitor_profile="lab_member")
             assert hits
             assert hits[0].source_name == "workspace/vamos/proposal"
             assert "vamos" in hits[0].title.lower() or "slo" in hits[0].excerpt.lower()

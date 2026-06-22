@@ -1,0 +1,1 @@
+Defines structured, multi-step workflows for faculty mentoring tasks such as course advising, meeting preparation, and thesis review.

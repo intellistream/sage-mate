@@ -1,0 +1,1 @@
+pytest for test orchestration; httpx for async HTTP mocking; FastAPI TestClient for API integration tests; SQLite and NeuroMem/SageVDB for persistent storage validation.

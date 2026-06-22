@@ -1,1 +1,0 @@
-Orchestrates a FastAPI-based academic digital twin service integrating LLM-driven chat, knowledge retrieval, session management, and administrative operations.

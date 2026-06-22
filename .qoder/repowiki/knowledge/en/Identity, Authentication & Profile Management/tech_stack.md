@@ -1,1 +1,0 @@
-Uses `scrypt` for password hashing and HMAC-SHA256 signed cookies for stateless session management in `auth.py`.

@@ -1,0 +1,3 @@
+- Use of UUIDv4 strings as primary `document_id` for programmatic records to ensure global uniqueness and avoid collision during concurrent ingestion.
+- Inclusion of a `source_name` field in metadata to trace the original origin of the content, such as specific wiki URLs or homepage markdown paths.
+- Tagging artifacts with domain-specific labels (e.g., `research`, `wiki`, `onboarding`) and audience identifiers (e.g., `lab_member`) to facilitate targeted retrieval.

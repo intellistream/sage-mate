@@ -1,0 +1,1 @@
+Orchestrates a unified, file-system-native persistence layer for the faculty twin system, decoupling domain-specific state through isolated JSON and SQLite stores.

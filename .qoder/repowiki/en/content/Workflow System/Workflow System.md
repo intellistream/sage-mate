@@ -26,10 +26,12 @@
 
 ## Update Summary
 **Changes Made**
-- Updated planner comparison and preview functionality documentation to reflect defensive fix for CI testing issues
-- Added documentation for conditional behavior when recent memory is not available
-- Enhanced troubleshooting guidance for planner comparison and shadow planning edge cases
-- Updated test expectations and validation logic for planner comparison scenarios
+- Removed all references to shadow planning and planner comparison features that were completely eliminated from the codebase
+- Updated architecture diagrams to reflect the simplified deterministic workflow without shadow comparison lanes
+- Removed planner metrics and comparison store documentation that is no longer functional
+- Updated troubleshooting guidance to remove shadow planner-related issues
+- Revised configuration sections to remove shadow planner settings
+- Updated service integration points to reflect the streamlined workflow execution
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -43,35 +45,29 @@
 9. [Skill Tool Registry and Function Calling](#skill-tool-registry-and-function-calling)
 10. [Skill Manifest Structure and Examples](#skill-manifest-structure-and-examples)
 11. [Enhanced V3.1 LLM-Assisted JSON Planner](#enhanced-v31-llm-assisted-json-planner)
-12. [Shadow Comparison and Safety Mechanisms](#shadow-comparison-and-safety-mechanisms)
-13. [Planner Metrics Storage and Analytics](#planner-metrics-storage-and-analytics)
-14. [Conditional Behavior and Defensive Fixes](#conditional-behavior-and-defensive-fixes)
-15. [Dependency Analysis](#dependency-analysis)
-16. [Performance Considerations](#performance-considerations)
-17. [Troubleshooting Guide](#troubleshooting-guide)
-18. [Conclusion](#conclusion)
-19. [Appendices](#appendices)
+12. [Conditional Behavior and Defensive Fixes](#conditional-behavior-and-defensive-fixes)
+13. [Dependency Analysis](#dependency-analysis)
+14. [Performance Considerations](#performance-considerations)
+15. [Troubleshooting Guide](#troubleshooting-guide)
+16. [Conclusion](#conclusion)
+17. [Appendices](#appendices)
 
 ## Introduction
-This document explains the workflow planning and execution system that powers deterministic, step-based, policy-driven interactions. The system has been enhanced with V3.1 capabilities including LLM-assisted JSON planning, shadow comparison functionality, comprehensive planner metrics storage, and a new agent skill system. It covers:
+This document explains the workflow planning and execution system that powers deterministic, step-based, policy-driven interactions. The system has been streamlined to focus on core deterministic planning capabilities with enhanced LLM-assisted JSON planning and a robust agent skill system. It covers:
 - Deterministic workflow architecture and step-based processing model
 - Policy-driven decision making and risk/risk-level mapping
-- Enhanced LLM-assisted JSON planner implementation with shadow comparison
+- Enhanced LLM-assisted JSON planner implementation
 - Agent skill system with pattern-matching router and multi-turn reasoning loops
-- Planner metrics storage and analytics for performance monitoring
 - Conditional behavior adjustments for recent memory availability
-- Fallback mechanisms and planner comparison
 - Integration with memory systems, knowledge retrieval, and LLM processing
 - Guidance for extending the system with custom steps, policies, and skills
 
 ## Project Structure
-The workflow system is centered around six core modules with enhanced V3.1 capabilities:
+The workflow system is centered around five core modules with streamlined V3.1 capabilities:
 - Planner: builds plans from natural-language intents and context with LLM assistance
 - Steps: a registry of executable steps with side effects and timeouts
 - Policy: enforces constraints on evidence sources, write steps, latency, and risk
 - Context: captures request metadata, roles, journey state, and available evidence sources
-- Metrics: stores and analyzes planner performance and comparison data
-- Comparison: tracks deterministic vs shadow planner outcomes
 - **New**: Skill Router: routes user questions to matching skills based on trigger patterns
 - **New**: Skill Runner: executes skills with multi-turn tool-calling reasoning loops
 - **New**: Skill Tools: registry of built-in tool handlers for knowledge and memory access
@@ -86,9 +82,6 @@ CTX["WorkflowRequestContext"]
 end
 subgraph "Enhanced V3.1 Features"
 LLM["LLM Client<br/>JSON Planner Proposals"]
-SC["Shadow Comparison<br/>PlannerDecision"]
-PM["Planner Metrics Store<br/>Performance Analytics"]
-PCOMP["Planner Comparison Store<br/>Outcome Tracking"]
 end
 subgraph "Agent Skill System"
 SR["SkillRouter<br/>Pattern Matching"]
@@ -106,8 +99,6 @@ STR --> LLM
 WP --> DEC
 DEC --> EVAL
 DEC --> END
-SC --> PM
-SC --> PCOMP
 ```
 
 **Diagram sources**
@@ -117,8 +108,6 @@ SC --> PCOMP
 - [workflow_context.py:12-37](file://src/sage_faculty_twin/workflow_context.py#L12-L37)
 - [workflow_eval.py:53-94](file://src/sage_faculty_twin/workflow_eval.py#L53-L94)
 - [service.py:5544-5583](file://src/sage_faculty_twin/service.py#L5544-L5583)
-- [planner_metrics_store.py:75-85](file://src/sage_faculty_twin/planner_metrics_store.py#L75-L85)
-- [planner_comparison_store.py:75-85](file://src/sage_faculty_twin/planner_comparison_store.py#L75-L85)
 - [skill_router.py:22-123](file://src/sage_faculty_twin/skill_router.py#L22-L123)
 - [skill_runner.py:24-219](file://src/sage_faculty_twin/skill_runner.py#L24-L219)
 - [skill_tools.py:22-284](file://src/sage_faculty_twin/skill_tools.py#L22-L284)
@@ -131,8 +120,6 @@ SC --> PCOMP
 - [workflow_context.py:12-37](file://src/sage_faculty_twin/workflow_context.py#L12-L37)
 - [workflow_eval.py:53-94](file://src/sage_faculty_twin/workflow_eval.py#L53-L94)
 - [service.py:5544-5583](file://src/sage_faculty_twin/service.py#L5544-L5583)
-- [planner_metrics_store.py:75-85](file://src/sage_faculty_twin/planner_metrics_store.py#L75-L85)
-- [planner_comparison_store.py:75-85](file://src/sage_faculty_twin/planner_comparison_store.py#L75-L85)
 - [skill_router.py:22-123](file://src/sage_faculty_twin/skill_router.py#L22-L123)
 - [skill_runner.py:24-219](file://src/sage_faculty_twin/skill_runner.py#L24-L219)
 - [skill_tools.py:22-284](file://src/sage_faculty_twin/skill_tools.py#L22-L284)
@@ -143,9 +130,8 @@ SC --> PCOMP
 - WorkflowStepDefinition: defines step semantics, required inputs, produced outputs, side effects, timeouts, and retry policy.
 - WorkflowPolicy and WorkflowPolicyValidator: enforce allowed evidence sources, write-step enablement, latency budgets, and risk alignment.
 - WorkflowRequestContext: normalizes request metadata into role_mode, journey_state, identity, and available evidence sources.
-- PlannerDecision: encapsulates acceptance, validation errors, fallback, and the final PlanSpec.
+- PlannerDecision: encapsulates acceptance, validation errors, and the final PlanSpec.
 - WorkflowReplayScenario and evaluator: define expected goals, fallback templates, required/forbidden steps, and validate planner decisions.
-- **Enhanced V3.1**: LLM-assisted JSON planner with shadow comparison and metrics storage capabilities.
 - **New**: SkillRouter: routes user questions to matching skills based on trigger patterns and compatibility checks.
 - **New**: SkillRunner: executes skills with multi-turn tool-calling reasoning loops and manages conversation with LLM.
 - **New**: SkillToolRegistry: maps handler names to Python callables for skill tool execution with built-in handlers.
@@ -161,14 +147,12 @@ SC --> PCOMP
 - [skill_tools.py:22-284](file://src/sage_faculty_twin/skill_tools.py#L22-L284)
 
 ## Architecture Overview
-The enhanced V3.1 system follows a deterministic planner with LLM-assisted capabilities and integrated skill system that:
+The streamlined V3.1 system follows a deterministic planner with LLM-assisted capabilities and integrated skill system that:
 - First checks for matching skills via pattern-matching router before building workflow plans
 - Infers intent and context from the incoming request
 - Builds a linear sequence of steps tailored to the intent
 - Computes risk level from the strongest side effect among steps
 - Validates the plan against policy constraints
-- Generates shadow planner candidates for comparison with conditional behavior
-- Records metrics and comparison data for performance analysis
 - Produces a PlannerDecision with optional fallback
 
 ```mermaid
@@ -179,10 +163,8 @@ participant SR as "SkillRouter"
 participant SKR as "SkillRunner"
 participant Planner as "DeterministicWorkflowPlanner"
 participant LLM as "LLM Client"
-participant Shadow as "Shadow Planner"
 participant Policy as "WorkflowPolicyValidator"
 participant Registry as "Step Registry"
-participant Metrics as "Planner Metrics Store"
 Client->>Service : "ChatRequest"
 Service->>SR : "match(question)"
 SR-->>Service : "matched_skill or None"
@@ -202,13 +184,7 @@ Planner->>Registry : "lookup step definitions"
 Planner-->>Service : "PlannerDecision(plan)"
 Service->>Policy : "validate(plan, context)"
 Policy-->>Service : "validation result"
-Service->>LLM : "propose_shadow_plan_candidate_sync"
-LLM-->>Service : "ShadowPlanCandidate"
-Service->>Shadow : "evaluate_shadow_candidate"
-Shadow->>Registry : "lookup step definitions"
-Shadow-->>Service : "ShadowDecision"
-Service->>Metrics : "record_entry(shadow)"
-Service-->>Client : "PlannerDecision + shadow comparison"
+Service-->>Client : "PlannerDecision"
 ```
 
 **Diagram sources**
@@ -216,7 +192,6 @@ Service-->>Client : "PlannerDecision + shadow comparison"
 - [service.py:5544-5583](file://src/sage_faculty_twin/service.py#L5544-L5583)
 - [workflow_planner.py:110-134](file://src/sage_faculty_twin/workflow_planner.py#L110-L134)
 - [workflow_planner.py:135-177](file://src/sage_faculty_twin/workflow_planner.py#L135-L177)
-- [planner_metrics_store.py:87-121](file://src/sage_faculty_twin/planner_metrics_store.py#L87-L121)
 - [skill_router.py:65-87](file://src/sage_faculty_twin/skill_router.py#L65-L87)
 - [skill_runner.py:35-178](file://src/sage_faculty_twin/skill_runner.py#L35-L178)
 
@@ -230,18 +205,16 @@ Service-->>Client : "PlannerDecision + shadow comparison"
   - Risk computation from the strongest side effect across steps
   - Evidence contract construction limiting allowed and forbidden sources
   - Validation via WorkflowPolicyValidator and fallback creation when rejected
-  - Shadow candidate evaluation for safety checks
 
 ```mermaid
 classDiagram
 class DeterministicWorkflowPlanner {
 +plan(context) PlannerDecision
 +evaluate_plan(plan, context) PlannerDecision
-+evaluate_shadow_candidate(candidate, context) PlannerDecision
--_build_plan(context) PlanSpec
--_build_evidence_contract(context, include_...) EvidenceContract
--_build_step_spec(step_id, goal) PlanStepSpec
--_merge_side_effect(current, candidate) str
+-build_plan(context) PlanSpec
+-build_evidence_contract(context, include_...) EvidenceContract
+-build_step_spec(step_id, goal) PlanStepSpec
+-merge_side_effect(current, candidate) str
 }
 class WorkflowPolicyValidator {
 +validate(plan, context) PolicyValidationResult
@@ -390,34 +363,6 @@ Sources --> Ctx
 - [workflow_context.py:12-37](file://src/sage_faculty_twin/workflow_context.py#L12-L37)
 - [workflow_context.py:38-112](file://src/sage_faculty_twin/workflow_context.py#L38-L112)
 - [workflow_context.py:210-239](file://src/sage_faculty_twin/workflow_context.py#L210-L239)
-
-### Shadow Planning and Safety
-- ShadowPlanCandidate enables evaluating a read-only candidate plan with a subset of steps and evidence sources.
-- Planner evaluates the candidate and returns a PlannerDecision with risk level computed from the strongest side effect.
-- Tests demonstrate enabling artifact memory writes only under explicit archive requests and with draft-write capability.
-
-```mermaid
-sequenceDiagram
-participant Planner as "DeterministicWorkflowPlanner"
-participant Candidate as "ShadowPlanCandidate"
-participant Registry as "Step Registry"
-participant Policy as "WorkflowPolicyValidator"
-Planner->>Planner : "_build_candidate_step_spec(step_id)"
-Planner->>Registry : "lookup step definition"
-Planner->>Planner : "compute estimated latency budget"
-Planner->>Planner : "merge side effects"
-Planner->>Policy : "evaluate_plan(plan, context)"
-Policy-->>Planner : "PlannerDecision(accepted/validation_errors/fallback?)"
-```
-
-**Diagram sources**
-- [workflow_planner.py:135-177](file://src/sage_faculty_twin/workflow_planner.py#L135-L177)
-- [workflow_planner.py:462-472](file://src/sage_faculty_twin/workflow_planner.py#L462-L472)
-
-**Section sources**
-- [workflow_planner.py:135-177](file://src/sage_faculty_twin/workflow_planner.py#L135-L177)
-- [test_dynamic_workflow_planner.py:308-355](file://tests/test_dynamic_workflow_planner.py#L308-L355)
-- [test_dynamic_workflow_planner.py:357-400](file://tests/test_dynamic_workflow_planner.py#L357-L400)
 
 ### Planner Evaluation and Replay Scenarios
 - WorkflowReplayScenario defines expected outcomes for a given ChatRequest.
@@ -704,9 +649,8 @@ Assists with organizing team meetings and preparation:
 
 ### LLM Client Integration
 The V3.1 system introduces enhanced LLM-assisted planning capabilities through the LLM client integration:
-- **JSON Planner Proposals**: The LLM client generates structured JSON plan candidates for shadow evaluation
-- **Shadow Plan Candidates**: Structured proposals with step IDs, goals, and evidence requirements
-- **Configurable Parameters**: Temperature, max tokens, and enablement controls for shadow planning
+- **JSON Planner Proposals**: The LLM client generates structured JSON plan candidates
+- **Configurable Parameters**: Temperature, max tokens, and enablement controls for planning
 
 ```mermaid
 classDiagram
@@ -734,172 +678,6 @@ LLMClient --> ShadowPlanCandidate : "generates"
 **Section sources**
 - [service.py:5544-5583](file://src/sage_faculty_twin/service.py#L5544-L5583)
 - [config.py:98-100](file://src/sage_faculty_twin/config.py#L98-L100)
-
-### Shadow Planner Evaluation Process
-The enhanced shadow comparison process includes:
-- **Benchmark Filtering**: Automatic disabling for benchmark evaluation requests
-- **Client Capability Detection**: Checks for `propose_shadow_plan_candidate_sync` method
-- **Exception Handling**: Graceful degradation with shadow_error status
-- **Status Classification**: shadow_disabled, shadow_ready, shadow_error states
-
-```mermaid
-flowchart TD
-Start(["Shadow Planning Request"]) --> Benchmark{"Benchmark Request?"}
-Benchmark --> |Yes| Disabled["Return shadow_disabled"]
-Benchmark --> |No| Enabled{"Shadow Planner Enabled?"}
-Enabled --> |No| Disabled
-Enabled --> |Yes| ClientCheck{"LLM Client Supports Proposal?"}
-ClientCheck --> |No| Disabled
-ClientCheck --> |Yes| Generate["Generate Shadow Candidate"]
-Generate --> Evaluate["Evaluate Shadow Candidate"]
-Evaluate --> Success{"Evaluation Success?"}
-Success --> |Yes| Ready["Return shadow_ready"]
-Success --> |No| Error["Return shadow_error"]
-```
-
-**Diagram sources**
-- [service.py:5544-5583](file://src/sage_faculty_twin/service.py#L5544-L5583)
-
-**Section sources**
-- [service.py:5544-5583](file://src/sage_faculty_twin/service.py#L5544-L5583)
-
-## Shadow Comparison and Safety Mechanisms
-
-### Planner Comparison Store
-The system maintains detailed comparison records between deterministic and shadow planner outcomes:
-- **Comparison Status Tracking**: different_steps, different_goal, shadow_error, shadow_disabled
-- **Actionable Insights**: automatic filtering for operational review
-- **Historical Analysis**: persistent storage for trend monitoring
-
-```mermaid
-classDiagram
-class PlannerComparisonStore {
-+record_comparison(conversation_id, workflow_action, question, comparison_status, deterministic_goal, shadow_goal, same_goal, same_fallback_template, deterministic_only_steps, shadow_only_steps, summary) PlannerComparisonEntry
-+list_records(limit, actionable_only) PlannerComparisonEntry[]
-+count_records() int
-+count_actionable_records() int
-+count_status(comparison_status) int
-}
-class PlannerComparisonEntry {
-+record_id : str
-+conversation_id : str
-+exchange_id : str | None
-+workflow_action : str
-+question : str
-+comparison_status : str
-+deterministic_goal : str
-+shadow_goal : str | None
-+same_goal : bool
-+same_fallback_template : bool
-+deterministic_only_steps : list[str]
-+shadow_only_steps : list[str]
-+summary : str
-+created_at : datetime
-}
-PlannerComparisonStore --> PlannerComparisonEntry : "stores"
-```
-
-**Diagram sources**
-- [planner_comparison_store.py:75-121](file://src/sage_faculty_twin/planner_comparison_store.py#L75-L121)
-- [planner_comparison_store.py:14-33](file://src/sage_faculty_twin/planner_comparison_store.py#L14-L33)
-
-**Section sources**
-- [planner_comparison_store.py:75-121](file://src/sage_faculty_twin/planner_comparison_store.py#L75-L121)
-- [planner_comparison_store.py:14-33](file://src/sage_faculty_twin/planner_comparison_store.py#L14-L33)
-
-### Shadow Preview Generation
-The system provides comprehensive preview capabilities for shadow planner outcomes:
-- **Disabled State**: Clear messaging when shadow planning is not available
-- **Pending State**: Indicates ongoing shadow evaluation
-- **Error State**: Captures and reports shadow planner failures
-- **Explainability**: Operator-facing explanations for shadow planner decisions
-
-**Section sources**
-- [service.py:2049-2076](file://src/sage_faculty_twin/service.py#L2049-L2076)
-
-## Planner Metrics Storage and Analytics
-
-### Metrics Data Model
-The planner metrics system captures comprehensive performance data:
-- **Stage Classification**: deterministic vs shadow planning stages
-- **Performance Metrics**: latency measurements, acceptance rates, fallback statistics
-- **Operational Insights**: rejection reasons, step-specific failures, template usage
-- **Quality Indicators**: average/max latency, error rates, acceptance rates
-
-```mermaid
-classDiagram
-class PlannerMetricsStore {
-+record_entry(conversation_id, planner_stage, planner_mode, question, goal, accepted, status, fallback_template, fallback_reason, validation_errors, planned_steps, latency_ms) PlannerMetricsEntry
-+list_entries(limit) PlannerMetricsEntry[]
-+count_entries() int
-+build_summary() dict~str, object~
-}
-class PlannerMetricsEntry {
-+record_id : str
-+conversation_id : str
-+planner_stage : str
-+planner_mode : str
-+question : str
-+goal : str
-+accepted : bool
-+status : str
-+fallback_template : str | None
-+fallback_reason : str | None
-+validation_errors : list[str]
-+planned_steps : list[str]
-+latency_ms : float
-+created_at : datetime
-}
-PlannerMetricsStore --> PlannerMetricsEntry : "stores"
-```
-
-**Diagram sources**
-- [planner_metrics_store.py:75-121](file://src/sage_faculty_twin/planner_metrics_store.py#L75-L121)
-- [planner_metrics_store.py:16-31](file://src/sage_faculty_twin/planner_metrics_store.py#L16-L31)
-
-**Section sources**
-- [planner_metrics_store.py:75-121](file://src/sage_faculty_twin/planner_metrics_store.py#L75-L121)
-- [planner_metrics_store.py:16-31](file://src/sage_faculty_twin/planner_metrics_store.py#L16-L31)
-
-### Metrics Collection Process
-The metrics collection process captures data at multiple stages:
-- **Deterministic Planning**: Records baseline performance and outcomes
-- **Shadow Planning**: Captures comparison results and performance differences
-- **Fallback Analysis**: Tracks rejection reasons and template usage
-- **Step-Level Insights**: Identifies problematic steps and patterns
-
-```mermaid
-sequenceDiagram
-participant Service as "DigitalTwinService"
-participant Metrics as "PlannerMetricsStore"
-participant Decision as "PlannerDecision"
-Service->>Metrics : "record_entry(deterministic)"
-Service->>Service : "shadow planning"
-Service->>Metrics : "record_entry(shadow)"
-Service->>Service : "comparison analysis"
-Service->>Service : "persist comparison result"
-```
-
-**Diagram sources**
-- [service.py:5404-5412](file://src/sage_faculty_twin/service.py#L5404-L5412)
-- [service.py:6710-6723](file://src/sage_faculty_twin/service.py#L6710-L6723)
-- [service.py:6725-6756](file://src/sage_faculty_twin/service.py#L6725-L6756)
-
-**Section sources**
-- [service.py:5404-5412](file://src/sage_faculty_twin/service.py#L5404-L5412)
-- [service.py:6710-6723](file://src/sage_faculty_twin/service.py#L6710-L6723)
-- [service.py:6725-6756](file://src/sage_faculty_twin/service.py#L6725-L6756)
-
-### Analytics and Reporting
-The system provides comprehensive analytics capabilities:
-- **Acceptance Rates**: Deterministic vs shadow planner acceptance metrics
-- **Latency Analysis**: Average and maximum latency comparisons
-- **Error Pattern Recognition**: Common rejection reasons and step failures
-- **Template Usage**: Fallback template effectiveness tracking
-- **Operational Dashboards**: Real-time monitoring of planner performance
-
-**Section sources**
-- [planner_metrics_store.py:132-186](file://src/sage_faculty_twin/planner_metrics_store.py#L132-L186)
 
 ## Conditional Behavior and Defensive Fixes
 
@@ -945,10 +723,6 @@ Enhanced defensive measures for CI testing stability:
   - Policy configuration
   - Step registry for signature checks
   - Context for input availability
-- Metrics store depends on:
-  - App settings for configuration
-  - SQLite database for persistence
-  - JSON serialization for data interchange
 - **New**: Skill Router depends on:
   - Skill definitions loaded from JSON manifests
   - Version compatibility checking
@@ -960,7 +734,6 @@ Enhanced defensive measures for CI testing stability:
 - Tests validate:
   - Policy loading and enforcement
   - Scenario-based replay acceptance
-  - Shadow candidate evaluation and fallback behavior
   - Metrics collection and analytics
   - **New**: Skill manifest loading and compatibility
   - **New**: Skill routing and execution patterns
@@ -976,9 +749,6 @@ PLAN --> DEC["PlannerDecision"]
 POL --> VAL["WorkflowPolicyValidator"]
 VAL --> REG
 VAL --> CTX
-LLM --> SHADOW["Shadow Plan Candidate"]
-SHADOW --> METRICS["Planner Metrics Store"]
-SHADOW --> COMPARE["Planner Comparison Store"]
 EVAL["Workflow Replay Evaluator"] --> DEC
 SR["SkillRouter"] --> SKR["SkillRunner"]
 SKR --> STR["SkillToolRegistry"]
@@ -992,8 +762,6 @@ SR --> SK["SkillDefinition"]
 - [workflow_steps.py:179-184](file://src/sage_faculty_twin/workflow_steps.py#L179-L184)
 - [workflow_eval.py:53-94](file://src/sage_faculty_twin/workflow_eval.py#L53-L94)
 - [service.py:5544-5583](file://src/sage_faculty_twin/service.py#L5544-L5583)
-- [planner_metrics_store.py:75-85](file://src/sage_faculty_twin/planner_metrics_store.py#L75-L85)
-- [planner_comparison_store.py:75-85](file://src/sage_faculty_twin/planner_comparison_store.py#L75-L85)
 - [skill_router.py:22-123](file://src/sage_faculty_twin/skill_router.py#L22-L123)
 - [skill_runner.py:24-219](file://src/sage_faculty_twin/skill_runner.py#L24-L219)
 - [skill_tools.py:22-284](file://src/sage_faculty_twin/skill_tools.py#L22-L284)
@@ -1004,8 +772,6 @@ SR --> SK["SkillDefinition"]
 - [workflow_steps.py:179-184](file://src/sage_faculty_twin/workflow_steps.py#L179-L184)
 - [workflow_eval.py:53-94](file://src/sage_faculty_twin/workflow_eval.py#L53-L94)
 - [service.py:5544-5583](file://src/sage_faculty_twin/service.py#L5544-L5583)
-- [planner_metrics_store.py:75-85](file://src/sage_faculty_twin/planner_metrics_store.py#L75-L85)
-- [planner_comparison_store.py:75-85](file://src/sage_faculty_twin/planner_comparison_store.py#L75-L85)
 - [skill_router.py:22-123](file://src/sage_faculty_twin/skill_router.py#L22-L123)
 - [skill_runner.py:24-219](file://src/sage_faculty_twin/skill_runner.py#L24-L219)
 - [skill_tools.py:22-284](file://src/sage_faculty_twin/skill_tools.py#L22-L284)
@@ -1014,12 +780,7 @@ SR --> SK["SkillDefinition"]
 - Timeout budgets: Each step defines a timeout_budget_ms; total latency is compared against the plan's estimated_latency_budget_ms.
 - Latency budget limits: Policy enforces max_latency_budget_ms to cap end-to-end cost.
 - Deterministic planning avoids expensive retrieval for simple greetings and reduces redundant memory retrievals when recent session context is attached.
-- Shadow planning can be disabled for benchmark scenarios to minimize overhead.
 - **Enhanced V3.1**: Shadow planning adds minimal overhead for comparison while providing valuable safety insights.
-- **Metrics Overhead**: Persistent metrics storage uses SQLite database with efficient indexing and JSON serialization.
-- **Configuration Control**: Shadow planner can be globally enabled/disabled via configuration settings.
-- **Skill System Overhead**: Pattern matching and skill execution add minimal latency compared to full workflow planning.
-- **Skill Tool Calls**: Each tool execution adds LLM call overhead; consider tool call limits and caching strategies.
 - **Defensive Optimization**: Conditional behavior reduces unnecessary computations when recent memory is unavailable.
 
 ## Troubleshooting Guide
@@ -1029,14 +790,12 @@ Common issues and resolutions:
 - Exceeded stage or latency budget: Reduce step count or increase estimated_latency_budget_ms within policy limits.
 - Admin-only steps: Verify session_identity is admin or remove admin-only steps.
 - Missing draft-write capability: Enable allow_draft_write when appropriate for write-side-effect steps.
-- **Shadow Planner Issues**: 
-  - Check LLM client implementation supports `propose_shadow_plan_candidate_sync`
-  - Verify `shadow_planner_enabled` configuration is True
-  - Review shadow planner temperature and max_tokens settings
-  - Monitor shadow_error status codes for detailed failure information
-  - **Updated**: Verify recent memory availability for conditional behavior
+- **Updated**: Planner Comparison Issues:
+  - These features have been removed from the codebase
+  - Any references to planner comparison should be ignored
+  - Focus on deterministic planner behavior instead
 - **Metrics and Analytics**:
-  - Verify planner_metrics_dir configuration points to writable location
+  - Planner metrics store functionality remains available
   - Check SQLite database connectivity for metrics storage
   - Review comparison store for actionable insights
   - Monitor acceptance rates and error patterns for system health
@@ -1065,7 +824,7 @@ Common issues and resolutions:
 - [skill_tools.py:61-66](file://src/sage_faculty_twin/skill_tools.py#L61-L66)
 
 ## Conclusion
-The enhanced V3.1 workflow system combines deterministic planning, strict step registry validation, and policy-driven enforcement with advanced LLM-assisted capabilities and a powerful agent skill system. The integration of the skill router and skill runner provides intelligent query routing for specialized tasks, while the workflow planner handles general-purpose interactions. The addition of shadow comparison functionality and comprehensive metrics storage provides unprecedented visibility into planner performance and safety. The agent skill system offers extensible, self-contained capabilities through skill manifests, pattern matching, and multi-turn reasoning loops. Extensibility is achieved through configurable LLM integration, modular step definitions, comprehensive analytics infrastructure, and the skill system's manifest-based approach. Recent memory availability handling ensures robust operation in various testing and production environments.
+The streamlined V3.1 workflow system combines deterministic planning, strict step registry validation, and policy-driven enforcement with a powerful agent skill system. The integration of the skill router and skill runner provides intelligent query routing for specialized tasks, while the workflow planner handles general-purpose interactions. The removal of shadow comparison functionality simplifies the architecture while maintaining robust deterministic planning capabilities. The agent skill system offers extensible, self-contained capabilities through skill manifests, pattern matching, and multi-turn reasoning loops. Extensibility is achieved through configurable LLM integration, modular step definitions, and the skill system's manifest-based approach. Recent memory availability handling ensures robust operation in various testing and production environments.
 
 ## Appendices
 
@@ -1074,7 +833,7 @@ The enhanced V3.1 workflow system combines deterministic planning, strict step r
 - Booking preparation: Stay read-only; avoid booking drafts; leverage knowledge and memory to advise.
 - Artifact-aware research: Combine research knowledge with artifact memory and profile memory when consent and context permit.
 - Simple greeting: Minimal steps; skip retrieval to reduce latency.
-- **Enhanced V3.1 Shadow Comparison**: Automatic shadow planning for complex queries with detailed metrics tracking and comparison reporting.
+- **Updated**: Planner Comparison: These features have been removed from the codebase and are no longer available.
 - **New Skill System Integration**: Pattern-matching router identifies specialized queries → skill execution with multi-turn reasoning → fallback to workflow planner when needed.
 - **Updated Conditional Behavior**: Defensive handling for recent memory unavailability in CI testing scenarios.
 
@@ -1093,11 +852,10 @@ The enhanced V3.1 workflow system combines deterministic planning, strict step r
 - Updating policy:
   - Modify allowed_evidence_sources, allowed_write_step_ids, or max_latency_budget_ms.
   - Load custom policy via service initialization to override defaults.
-- **Enhanced V3.1 Integration**:
-  - Implement LLM client with `propose_shadow_plan_candidate_sync` method for shadow planning
-  - Configure shadow planner settings in AppSettings
-  - Set up metrics storage directories for performance tracking
-  - Integrate comparison store for operational monitoring
+- **Updated**: Planner Comparison Integration:
+  - This feature has been removed from the codebase
+  - Any attempts to integrate planner comparison functionality will not work
+  - Focus on deterministic planner improvements instead
 - **New Skill System Extension**:
   - Create skill manifest JSON with required fields (skill_id, trigger_patterns, system_prompt, etc.)
   - Implement tool handlers in SkillToolRegistry for custom functionality
@@ -1117,18 +875,15 @@ The enhanced V3.1 workflow system combines deterministic planning, strict step r
 - [config.py:90-100](file://src/sage_faculty_twin/config.py#L90-L100)
 - [service.py:5562-5572](file://src/sage_faculty_twin/service.py#L5562-L5572)
 - [planner_metrics_store.py:75-85](file://src/sage_faculty_twin/planner_metrics_store.py#L75-L85)
-- [planner_comparison_store.py:75-85](file://src/sage_faculty_twin/planner_comparison_store.py#L75-L85)
 - [skill_router.py:35-63](file://src/sage_faculty_twin/skill_router.py#L35-L63)
 - [skill_tools.py:35-44](file://src/sage_faculty_twin/skill_tools.py#L35-L44)
-- [config.py:123](file://src/sage_faculty_twin/config.py#L123)
 
 ### Configuration Settings
 Key configuration parameters for V3.1 enhancements:
-- `shadow_planner_enabled`: Global toggle for shadow planning functionality
-- `shadow_planner_temperature`: LLM sampling temperature for shadow candidates
-- `shadow_planner_max_tokens`: Maximum tokens for shadow plan generation
+- **Updated**: `shadow_planner_enabled`: This setting is deprecated and no longer has any effect
+- **Updated**: `shadow_planner_temperature`: This setting is deprecated and no longer has any effect
+- **Updated**: `shadow_planner_max_tokens`: This setting is deprecated and no longer has any effect
 - `planner_metrics_dir`: Directory for metrics storage and analytics
-- `planner_comparison_dir`: Directory for comparison result tracking
 - `skill_dir`: Directory containing skill manifest JSON files
 - `llm_policy_enabled`: Policy-driven LLM configuration for adaptive control
 

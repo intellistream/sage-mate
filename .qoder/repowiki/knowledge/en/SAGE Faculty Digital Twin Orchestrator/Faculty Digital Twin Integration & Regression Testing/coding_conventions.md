@@ -1,3 +1,0 @@
-- Tests use specialized 'Stub' or 'Fake' classes (e.g., `_FastLLMClient`, `FakeRuntimeManager`) to replace external dependencies like LLM providers or system services.
-- Asynchronous service methods are wrapped in synchronous test functions using `asyncio.run()` or custom `driver` coroutines to manage event loops within the pytest context.
-- Stateful components (like `MeetingService` or `NeuroMemConversationStore`) are initialized with `tmp_path` fixtures to ensure each test runs against an isolated, ephemeral filesystem.

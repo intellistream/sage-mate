@@ -1,0 +1,12 @@
+schema_version: 1
+module_path: tests
+title: Sage Faculty Twin Integration & Contract Testing
+scope:
+    - tests/
+source_files: []
+depends_on: []
+related_to:
+    - path: app_source
+    - path: docs
+    - path: runtime_data/conversation_memory
+    - path: runtime_data/knowledge_base

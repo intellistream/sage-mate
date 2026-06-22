@@ -1,0 +1,1 @@
+Uses BM25 for keyword-based search indexing within file-based collections; SQLite for relational storage of planner metrics and conversation state.

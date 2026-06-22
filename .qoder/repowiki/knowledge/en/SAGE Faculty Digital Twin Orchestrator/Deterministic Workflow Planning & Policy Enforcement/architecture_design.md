@@ -1,0 +1,5 @@
+- **Core Planner**: `DeterministicWorkflowPlanner` acts as the central orchestrator, consuming `WorkflowRequestContext` to produce a `PlanSpec` via `_build_plan`.
+- **Policy Layer**: Integrates `WorkflowPolicy` and `WorkflowPolicyValidator` to validate plans against risk levels (e.g., `read_only`, `admin_only`) and side-effects before acceptance.
+- **Step Registry**: Relies on `get_default_step_registry()` from `workflow_steps` to resolve step definitions, inputs, outputs, and timeout budgets.
+- **Intent Routing**: Uses a chain of heuristic helpers (e.g., `_looks_like_booking_request`, `_looks_like_research_question`) to classify queries and select predefined step sequences (e.g., `retrieve_hybrid_knowledge` -> `answer_with_citations`).
+- **Plugin System**: Supports dynamic step injection via `_plugin_steps_for`, allowing domain-specific plugins (e.g., `meeting_prep`, `thesis_review`) to add read-only or draft-write steps to the base plan.

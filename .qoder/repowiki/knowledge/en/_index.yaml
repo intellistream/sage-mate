@@ -3,7 +3,7 @@ schema_version: 1
 locale: en-US
 branch: main
 nodes_managed: true
-exported_at: "2026-06-21T13:48:33Z"
+exported_at: "2026-06-21T17:20:12Z"
 modules:
     "":
         dir_name: Faculty Digital Twin Orchestrator
@@ -14,8 +14,8 @@ modules:
         depends_on: []
         related_to: []
     app_source:
-        dir_name: Academic Digital Twin Orchestration
-        title: Academic Digital Twin Orchestration
+        dir_name: Deterministic Workflow Planning & Policy Enforcement
+        title: Deterministic Workflow Planning & Policy Enforcement
         scope:
             - src/sage_faculty_twin/
         source_files: []
@@ -23,7 +23,13 @@ modules:
         depends_on: []
         related_to:
             - path: deployment
-            - path: runtime_data
+            - path: runtime_data/availability
+            - path: runtime_data/capability_plugins
+            - path: runtime_data/conversation_memory
+            - path: runtime_data/follow_up_actions
+            - path: runtime_data/knowledge_base
+            - path: runtime_data/skills
+            - path: runtime_data/user_accounts
             - path: tests
     build_system:
         dir_name: Build, Deployment, and Runtime Orchestration
@@ -77,6 +83,7 @@ modules:
         depends_on: []
         related_to:
             - path: app_source
+            - path: docs
     docs:
         dir_name: Product Documentation & Deployment Operations
         title: Product Documentation & Deployment Operations
@@ -85,7 +92,10 @@ modules:
         source_files: []
         children: []
         depends_on: []
-        related_to: []
+        related_to:
+            - path: deployment
+            - path: runtime_data
+            - path: tests
     error_handling:
         dir_name: Error Handling — Custom Exceptions, HTTPException Propagation, and Retry Logic
         title: Error Handling — Custom Exceptions, HTTPException Propagation, and Retry Logic
@@ -127,18 +137,97 @@ modules:
         depends_on: []
         related_to: []
     runtime_data:
-        dir_name: Runtime Data & Knowledge Persistence
-        title: Runtime Data & Knowledge Persistence
+        dir_name: Faculty Twin Runtime Data Substrate
+        title: Faculty Twin Runtime Data Substrate
         scope:
             - data/
+        source_files: []
+        children:
+            - runtime_data/availability
+            - runtime_data/capability_plugins
+            - runtime_data/conversation_memory
+            - runtime_data/follow_up_actions
+            - runtime_data/knowledge_base
+            - runtime_data/skills
+            - runtime_data/user_accounts
+        depends_on: []
+        related_to:
+            - path: docs
+    runtime_data/availability:
+        dir_name: Faculty Availability Data Store
+        title: Faculty Availability Data Store
+        scope:
+            - data/availability/
+        source_files: []
+        children: []
+        depends_on: []
+        related_to:
+            - path: app_source
+    runtime_data/capability_plugins:
+        dir_name: Faculty Capability Plugin Definitions
+        title: Faculty Capability Plugin Definitions
+        scope:
+            - data/capability_plugins/
+        source_files: []
+        children: []
+        depends_on: []
+        related_to:
+            - path: app_source
+    runtime_data/conversation_memory:
+        dir_name: Conversation Memory Data Store
+        title: Conversation Memory Data Store
+        scope:
+            - data/conversation_memory/
+        source_files: []
+        children: []
+        depends_on: []
+        related_to:
+            - path: app_source
+            - path: tests
+    runtime_data/follow_up_actions:
+        dir_name: Follow-up Action Data Repository
+        title: Follow-up Action Data Repository
+        scope:
+            - data/follow_up_actions/
+        source_files: []
+        children: []
+        depends_on: []
+        related_to:
+            - path: app_source
+    runtime_data/knowledge_base:
+        dir_name: Knowledge Base Data Store
+        title: Knowledge Base Data Store
+        scope:
+            - data/knowledge_base/
+        source_files: []
+        children: []
+        depends_on: []
+        related_to:
+            - path: app_source
+            - path: tests
+    runtime_data/skills:
+        dir_name: Academic Skill Definitions
+        title: Academic Skill Definitions
+        scope:
+            - data/skills/
+        source_files: []
+        children: []
+        depends_on: []
+        related_to:
+            - path: app_source
+    runtime_data/user_accounts:
+        dir_name: User Account Data Store
+        title: User Account Data Store
+        scope:
+            - data/user_accounts/
         source_files: []
         children: []
         depends_on: []
         related_to:
             - path: app_source
     tests:
-        dir_name: Faculty Digital Twin Integration & Regression Testing
-        title: Faculty Digital Twin Integration & Regression Testing
+        dir_name: Sage Faculty Twin Integration & Contract Testing
+        title: Sage Faculty Twin Integration & Contract Testing
         scope:
             - tests/
         source_files: []
@@ -146,3 +235,6 @@ modules:
         depends_on: []
         related_to:
             - path: app_source
+            - path: docs
+            - path: runtime_data/conversation_memory
+            - path: runtime_data/knowledge_base

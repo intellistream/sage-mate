@@ -1,3 +1,0 @@
-- Uses UUIDs as primary identifiers for filenames in large collections like `knowledge_base` and `user_accounts` to ensure uniqueness and avoid naming collisions.
-- Structures capability plugins with a standardized manifest schema including `steps`, `timeout_budget_ms`, and `retry_policy` to enforce consistent execution semantics.
-- Embeds audience targeting and domain metadata in knowledge base entries (e.g., `audience: lab_member`) to support context-aware retrieval and access control.

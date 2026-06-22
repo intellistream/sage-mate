@@ -10,24 +10,35 @@
 - [test_admin_auth.py](file://tests/test_admin_auth.py)
 </cite>
 
+## Update Summary
+**Changes Made**
+- Added new system monitoring endpoints documentation for /stack/versions and /stack/hardware
+- Enhanced troubleshooting guide with monitoring and debugging capabilities
+- Updated system administration section with monitoring endpoint usage
+- Added application version exposure documentation
+
 ## Table of Contents
 1. [Introduction](#introduction)
 2. [Project Structure](#project-structure)
 3. [Core Components](#core-components)
 4. [Architecture Overview](#architecture-overview)
 5. [Detailed Component Analysis](#detailed-component-analysis)
-6. [Dependency Analysis](#dependency-analysis)
-7. [Performance Considerations](#performance-considerations)
-8. [Troubleshooting Guide](#troubleshooting-guide)
-9. [Conclusion](#conclusion)
+6. [System Monitoring and Debugging](#system-monitoring-and-debugging)
+7. [Dependency Analysis](#dependency-analysis)
+8. [Performance Considerations](#performance-considerations)
+9. [Troubleshooting Guide](#troubleshooting-guide)
+10. [Conclusion](#conclusion)
 
 ## Introduction
 This document provides comprehensive API documentation for knowledge base management endpoints. It covers CRUD operations for knowledge documents, review workflows, and related administrative capabilities. The focus areas include:
 - Document lifecycle: create, list, review, and delete
 - Review workflows: approval and stale marking
 - Knowledge gap management: draft creation and publishing
+- System monitoring and debugging endpoints for operational visibility
 - Administrative access requirements and security considerations
 - Examples of document ingestion, metadata handling, and review status tracking
+
+**Updated** Added system monitoring endpoints for application version exposure and hardware diagnostics to support operational management and debugging workflows.
 
 ## Project Structure
 The knowledge management functionality spans several modules:
@@ -47,6 +58,8 @@ Store --> Models
 Tests["Tests<br/>Behavioral Validation"] --> API
 Tests --> Service
 Tests --> Store
+Monitoring["Monitoring<br/>Stack Versions & Hardware"] --> API
+Monitoring --> Service
 ```
 
 **Diagram sources**
@@ -79,12 +92,17 @@ Key endpoints:
 - GET /knowledge/reviews/summary: Retrieve review statistics
 - GET /knowledge/search: Search knowledge with optional visitor/admin context
 
+**New** Monitoring endpoints:
+- GET /stack/versions: Expose application and stack component versions
+- GET /stack/hardware: Retrieve system hardware information (NPU/CPU/Memory)
+
 Administrative access:
 - All knowledge management endpoints require admin authentication via cookies and session validation.
 
 **Section sources**
 - [models.py:319-398](file://src/sage_faculty_twin/models.py#L319-L398)
 - [api.py:764-801](file://src/sage_faculty_twin/api.py#L764-L801)
+- [api.py:554-561](file://src/sage_faculty_twin/api.py#L554-L561)
 
 ## Architecture Overview
 The knowledge management flow integrates API endpoints, service orchestration, and the knowledge store. Administrative requests are validated before invoking service methods.
@@ -123,12 +141,17 @@ Service->>Store : delete_documents()
 Store-->>Service : deleted_count
 Service-->>API : KnowledgeDocumentActionResponse
 API-->>Client : 200 OK + KnowledgeDocumentActionResponse
+Client->>API : GET /stack/versions
+API->>Service : build_stack_versions_payload()
+Service-->>API : dict[str, str]
+API-->>Client : 200 OK + Version Information
 ```
 
 **Diagram sources**
 - [api.py:764-794](file://src/sage_faculty_twin/api.py#L764-L794)
 - [service.py:5654-5687](file://src/sage_faculty_twin/service.py#L5654-L5687)
 - [knowledge_base.py:141-268](file://src/sage_faculty_twin/knowledge_base.py#L141-L268)
+- [service.py:255-273](file://src/sage_faculty_twin/service.py#L255-L273)
 
 ## Detailed Component Analysis
 
@@ -248,6 +271,61 @@ While not part of the core /knowledge endpoints, knowledge gap management comple
 - [service.py:7050-7072](file://src/sage_faculty_twin/service.py#L7050-L7072)
 - [service.py:7075-7082](file://src/sage_faculty_twin/service.py#L7075-L7082)
 
+## System Monitoring and Debugging
+
+### Endpoint: GET /stack/versions
+Purpose: Expose application and stack component versions for operational monitoring.
+
+- Authentication: No authentication required
+- Response: Dictionary mapping component names to version strings
+- Supported components:
+  - app_version: Main application version
+  - stack_version_sage: SAGE framework version
+  - stack_version_neuromem: Neuromem library version
+  - stack_version_vllm_hust: vLLM-HUST version
+  - stack_version_sagevdb: sageVDB database version
+  - stack_version_sage_anns: sage-ANNs vector search version
+
+Usage scenarios:
+- Deployment verification and validation
+- Support ticket diagnostics
+- Automated monitoring and alerting systems
+- Development environment consistency checks
+
+**Section sources**
+- [api.py:554-556](file://src/sage_faculty_twin/api.py#L554-L556)
+- [service.py:255-273](file://src/sage_faculty_twin/service.py#L255-L273)
+
+### Endpoint: GET /stack/hardware
+Purpose: Retrieve system hardware information for capacity planning and diagnostics.
+
+- Authentication: No authentication required
+- Response: Dictionary containing hardware specifications
+- Supported metrics:
+  - npu: Ascend NPU device information (count × model)
+  - cpu: CPU model name and core count
+  - memory: Total system memory in GiB/TiB
+
+Hardware detection capabilities:
+- Automatic NPU discovery via npu-smi utility
+- CPU identification using lscpu or /proc/cpuinfo
+- Memory capacity extraction from /proc/meminfo
+
+**Section sources**
+- [api.py:559-561](file://src/sage_faculty_twin/api.py#L559-L561)
+- [service.py:276-353](file://src/sage_faculty_twin/service.py#L276-L353)
+
+### Presence Heartbeat Monitoring
+**New** The system includes online presence monitoring through heartbeat endpoints:
+
+- POST /presence/heartbeat: Records user presence and activity
+- Integrates with real-time monitoring dashboards
+- Supports operational visibility and user engagement tracking
+
+**Section sources**
+- [api.py:564-568](file://src/sage_faculty_twin/api.py#L564-L568)
+- [service.py:6778-6801](file://src/sage_faculty_twin/service.py#L6778-L6801)
+
 ## Dependency Analysis
 The knowledge management endpoints depend on:
 - API layer for routing and authentication
@@ -262,6 +340,8 @@ Service --> Store["knowledge_base.py"]
 API --> Models["models.py"]
 Service --> Models
 Store --> Models
+Monitoring["Monitoring Endpoints"] --> API
+Monitoring --> Service
 ```
 
 **Diagram sources**
@@ -280,6 +360,7 @@ Store --> Models
 - Index rebuilding: Adding/updating/deleting documents triggers index rebuilds when configured. Batch operations may benefit from disabling automatic rebuilds and triggering a single rebuild afterward.
 - Backend selection: Choose appropriate knowledge backend (local, sagevdb, neuromem) based on scale and performance needs.
 - Search limits: Use top_k parameters judiciously to balance relevance and performance.
+- Monitoring overhead: Stack version and hardware endpoints are lightweight and suitable for frequent polling in monitoring systems.
 
 ## Troubleshooting Guide
 Common issues and resolutions:
@@ -287,11 +368,19 @@ Common issues and resolutions:
 - Document not found: Confirm document_id exists and is accessible to the requesting admin role.
 - Metadata inconsistencies: Review document metadata synchronization during review operations.
 - Backend initialization: Confirm backend configuration (sagevdb/neuromem) and embedding settings.
+- Monitoring endpoint failures: Stack versions endpoint returns "unknown" for components not installed. Hardware endpoint may return empty if system utilities are unavailable.
+
+**New** Monitoring and debugging tips:
+- Use GET /stack/versions to verify deployment consistency across environments
+- Monitor hardware utilization through /stack/hardware endpoint integration
+- Track system health via presence heartbeat monitoring
+- Leverage version information for support ticket diagnostics
 
 Validation references:
 - Admin authentication and session handling
 - Document ingestion and metadata derivation
 - Review workflow and status transitions
+- Monitoring endpoint implementations
 
 **Section sources**
 - [test_admin_auth.py:690-729](file://tests/test_admin_auth.py#L690-L729)
@@ -300,4 +389,4 @@ Validation references:
 - [test_knowledge_base.py:369-447](file://tests/test_knowledge_base.py#L369-L447)
 
 ## Conclusion
-The knowledge management endpoints provide a robust foundation for document lifecycle operations, review workflows, and administrative oversight. By leveraging the documented models, endpoints, and security requirements, administrators can effectively manage knowledge assets, track review status, and maintain quality through metadata-driven workflows.
+The knowledge management endpoints provide a robust foundation for document lifecycle operations, review workflows, and administrative oversight. The addition of system monitoring endpoints enhances operational visibility with application version exposure and hardware diagnostics. By leveraging the documented models, endpoints, security requirements, and monitoring capabilities, administrators can effectively manage knowledge assets, track review status, maintain quality through metadata-driven workflows, and ensure optimal system performance through comprehensive monitoring and debugging support.

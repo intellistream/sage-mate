@@ -1,0 +1,5 @@
+- **Test Infrastructure**: Uses `conftest.py` to bootstrap runtime environments, manage optional dependencies (e.g., `sentence-transformers`, `sagevdb`), and enforce offline modes for embedding models.
+- **Agentic Workflow Validation**: `test_agentic_workflow.py` drives the `DigitalTwinService` with mocked LLM clients to verify deterministic planning, shadow planner comparisons, booking state machines, and memory persistence logic.
+- **Frontend-Backend Contract**: `test_frontend_contract.py` statically analyzes `app.js` and `index.html` to ensure DOM IDs used in API payloads exist, preventing 422 errors from UI drift.
+- **Infrastructure Resilience**: Tests like `test_workflow_sse_keepalive.py` and `test_chat_timeout.py` verify SSE heartbeat mechanisms and request budget guards against proxy timeouts (e.g., Cloudflare).
+- **Knowledge & Memory Stores**: `test_knowledge_base.py` and `test_memory_store.py` validate CRUD operations, metadata derivation, and migration logic for local JSON, SQLite, and vector backends (NeuroMem/SageVDB).

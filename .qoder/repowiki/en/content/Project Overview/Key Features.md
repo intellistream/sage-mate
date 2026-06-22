@@ -22,10 +22,11 @@
 
 ## Update Summary
 **Changes Made**
-- Updated sidebar redesign documentation to reflect enhanced user interface with improved accessibility and reduced visual clutter
-- Added comprehensive seed chip implementation documentation for improved discoverability
-- Enhanced sidebar cleanup explanation removing three shortcut buttons while maintaining functionality
-- Updated UI/UX improvements section with new ChatGPT-style sidebar design
+- Updated sidebar redesign documentation to reflect comprehensive ChatGPT-style interface with improved accessibility and reduced visual clutter
+- Added detailed seed chip implementation documentation with LLM-enhanced progressive content
+- Enhanced user guidance section with improved welcome greeting and contextual seed chips
+- Updated answer basis display system documentation with structured evidence panel
+- Revised sidebar cleanup explanation removing three shortcut buttons while maintaining functionality
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -47,9 +48,10 @@ This document explains the key features of Sage Faculty Twin and how they collec
 - Appointment scheduling and booking
 - Web search integration
 - Administrative controls and user/session management
-- **Enhanced sidebar redesign with improved accessibility and reduced visual clutter**
-- **Seed chip implementation for better discoverability and user guidance**
-- **ChatGPT-style interface improvements for streamlined user experience**
+- **Comprehensive sidebar redesign with ChatGPT-style interface and improved accessibility**
+- **Seed chip implementation with LLM-enhanced progressive content for better discoverability**
+- **Enhanced user guidance with contextual seed chips and improved welcome experience**
+- **Structured answer basis display system with evidence panel and retry mechanism**
 
 Each feature is described with its purpose, implementation highlights, and how it contributes to a responsive, policy-aware, and scalable academic assistant.
 
@@ -91,9 +93,10 @@ API --> Auth["Auth Utilities<br/>Admin/User sessions"]
 - Appointment scheduling and booking: Availability management with conflict detection and slot suggestions.
 - Web search integration: Bing-based search with query rewriting and result reranking.
 - Administrative features: Session-based admin/user controls, presence tracking, and operational visibility.
-- **Enhanced sidebar redesign**: ChatGPT-style interface with improved accessibility and reduced visual clutter through strategic button removal.
-- **Seed chip implementation**: Interactive question suggestions that improve discoverability while maintaining functionality.
-- **Improved user guidance**: Centered welcome greeting and contextual seed chips for better first-time user experience.
+- **Comprehensive sidebar redesign**: ChatGPT-style interface with improved accessibility and reduced visual clutter through strategic button removal.
+- **Seed chip implementation**: Interactive question suggestions with LLM-enhanced progressive content that improves discoverability while maintaining functionality.
+- **Enhanced user guidance**: Centered welcome greeting and contextual seed chips for better first-time user experience.
+- **Structured answer basis display**: Evidence panel showing retrieved knowledge, memory, and profile sources with retry functionality.
 
 **Section sources**
 - [api.py:170-256](file://src/sage_faculty_twin/api.py#L170-L256)
@@ -143,16 +146,16 @@ A-->>C : JSON + SSE deltas (when enabled)
 
 ## Detailed Component Analysis
 
-### Enhanced Sidebar Redesign with Improved Accessibility and Reduced Visual Clutter
+### Comprehensive Sidebar Redesign with ChatGPT-Style Interface
 
-**Updated** The sidebar has undergone a comprehensive redesign inspired by ChatGPT's interface, focusing on improved accessibility and reduced visual complexity while maintaining full functionality.
+**Updated** The sidebar has undergone a comprehensive redesign inspired by ChatGPT's interface, featuring a modern, minimalist design with improved accessibility and reduced visual complexity while maintaining full functionality.
 
 #### Sidebar Cleanup Implementation
 The new design removes three shortcut buttons from the sidebar while preserving their functionality through the new seed chip system:
 - **Removed buttons**: Settings, Anonymous Suggestions, and Homepage links
-- **Maintained functionality**: All removed features are accessible through the new seed chip system
-- **Reduced visual clutter**: Streamlined interface with cleaner layout
-- **Improved accessibility**: Better focus management and keyboard navigation
+- **Maintained functionality**: All removed features are accessible through the new seed chip system and sidebar navigation
+- **Reduced visual clutter**: Streamlined interface with cleaner layout and better focus management
+- **Improved accessibility**: Better keyboard navigation and screen reader support
 
 #### ChatGPT-Style Sidebar Design
 The sidebar now features a modern, minimalist design with:
@@ -160,6 +163,7 @@ The sidebar now features a modern, minimalist design with:
 - **Rail-based layout**: Organized into logical sections (top, middle, bottom)
 - **Consistent spacing**: 2px gaps between all interactive elements
 - **Responsive design**: Collapses to icons-only when sidebar is minimized
+- **Enhanced user experience**: Improved visual hierarchy and interaction patterns
 
 ```mermaid
 flowchart TD
@@ -181,13 +185,14 @@ Bottom --> UserIcon["User Icon Button"]
 - [styles.css:5869-5922](file://src/sage_faculty_twin/web/styles.css#L5869-L5922)
 - [styles.css:2828-2887](file://src/sage_faculty_twin/web/styles.css#L2828-L2887)
 
-### Seed Chip Implementation for Enhanced Discoverability
+### Seed Chip Implementation with LLM-Enhanced Progressive Content
 
-**Updated** The new seed chip system provides contextual question suggestions that improve user discoverability while maintaining the functionality previously provided by the removed shortcut buttons.
+**Updated** The new seed chip system provides contextual question suggestions with LLM-enhanced progressive content that improves user discoverability while maintaining the functionality previously provided by the removed shortcut buttons.
 
 #### Seed Chip Features
 - **Interactive chips**: Three pre-defined question suggestions appear when chat is empty
 - **Context-aware**: Questions adapt to visitor profile and course context
+- **LLM-enhanced**: Progressive enhancement replaces static chips with AI-generated content
 - **Visual design**: Rounded chips with hover effects and subtle animations
 - **Accessibility**: Proper ARIA labels and keyboard navigation support
 
@@ -213,6 +218,66 @@ CQ-->>U : Question submitted
 - [index.html:98-114](file://src/sage_faculty_twin/web/index.html#L98-L114)
 - [app.js:686-695](file://src/sage_faculty_twin/web/app.js#L686-L695)
 - [styles.css:5950-6006](file://src/sage_faculty_twin/web/styles.css#L5950-L6006)
+
+### Enhanced User Guidance with Contextual Seed Chips
+
+**Updated** The user guidance system now features improved welcome greeting and contextual seed chips that provide better first-time user experience and help users discover relevant questions.
+
+#### Welcome Greeting System
+- **Centered design**: Welcome greeting appears prominently when chat is empty
+- **Profile-aware**: Messages adapt to visitor profile and context
+- **Progressive enhancement**: Seed chips appear alongside welcome greeting
+- **Responsive behavior**: Automatically hides when user starts typing
+
+#### Seed Chip Pool Management
+The system maintains predefined question pools for different visitor profiles:
+- **General visitors**: Basic exploration questions about the faculty member
+- **HUST undergraduates**: Course-specific questions for computer science students
+- **Paper writing students**: Writing guidance aligned with course curriculum
+- **Lab members**: Research-focused questions for graduate students
+
+**Section sources**
+- [app.js:534-563](file://src/sage_faculty_twin/web/app.js#L534-L563)
+- [app.js:567-608](file://src/sage_faculty_twin/web/app.js#L567-L608)
+- [styles.css:6393-6483](file://src/sage_faculty_twin/web/styles.css#L6393-L6483)
+
+### Structured Answer Basis Display System
+
+**Updated** The answer basis display system now provides a structured evidence panel showing retrieved knowledge, memory, and profile sources used to generate the answer, along with retry functionality.
+
+#### Evidence Panel Features
+- **Structured display**: Shows knowledge, memory, and profile sources in organized panels
+- **Source attribution**: Links to original documents and contexts
+- **Retry mechanism**: Provides "重试" (retry) button for failed requests
+- **Error handling**: Displays retry button when requests fail and maintains last failed question context
+- **User experience**: Enables quick resubmission of failed queries without manual re-entry
+
+#### Answer Basis Implementation
+The system tracks and displays evidence for each answer:
+- **Knowledge sources**: Retrieved documents from local knowledge base
+- **Memory sources**: Relevant conversation and profile information
+- **Profile sources**: Student profile and context information
+- **Evidence scoring**: Quality and relevance indicators for each source
+
+```mermaid
+sequenceDiagram
+participant U as "User"
+participant AP as "Answer Panel"
+participant RB as "Retry Button"
+U->>AP : Submit question
+AP->>AP : Process request
+AP-->>U : Display error message
+AP->>RB : Show retry button
+U->>RB : Click retry
+RB->>AP : Restore last failed question
+AP->>AP : Resubmit request
+```
+
+**Diagram sources**
+- [app.js:6949-6988](file://src/sage_faculty_twin/web/app.js#L6949-L6988)
+
+**Section sources**
+- [app.js:6949-6988](file://src/sage_faculty_twin/web/app.js#L6949-L6988)
 
 ### Intelligent Chat Interface with Streaming Responses and Multi-modal Attachments
 - Streaming responses: When enabled, the server streams token deltas via Server-Sent Events and concludes with the final structured response. This improves perceived latency and UX during long answers.
@@ -559,6 +624,8 @@ AppJS --> Styles["styles.css"]
 - Concurrency: The planner's DAG groups post-answer stages to minimize tail latency while preserving determinism.
 - **Frontend optimizations**: Enhanced markdown rendering and modal interfaces designed for efficient DOM manipulation and memory usage.
 - **Sidebar performance**: Reduced DOM complexity through simplified layout and fewer interactive elements.
+- **Seed chip optimization**: LLM-enhanced chips use parallel async requests with timeouts to avoid blocking UI updates.
+- **Answer basis caching**: Evidence panel uses efficient DOM manipulation to update source lists without full page reloads.
 
 ## Troubleshooting Guide
 - Streaming not observed: Verify DIGITAL_TWIN_STREAM_CHAT_ANSWER is enabled and upstream LLM supports chunked streaming.
@@ -570,6 +637,8 @@ AppJS --> Styles["styles.css"]
 - **Retry mechanism**: Last failed question is maintained in memory; verify JavaScript event handlers are properly attached to retry buttons.
 - **Sidebar accessibility**: If sidebar buttons are not accessible, ensure the sidebar toggle is functioning and the sidebar is expanded.
 - **Seed chip functionality**: If seed chips don't work, verify JavaScript event listeners are attached and the chat form is properly initialized.
+- **Answer basis display**: If evidence panel doesn't show sources, check that answer_basis data is being passed correctly and DOM elements are present.
+- **LLM-enhanced chips**: If dynamic content replacement fails, verify API endpoints are accessible and response formats match expected structure.
 
 **Section sources**
 - [README.md:111-117](file://README.md#L111-L117)
@@ -580,16 +649,19 @@ AppJS --> Styles["styles.css"]
 - [app.js:7835-7856](file://src/sage_faculty_twin/web/app.js#L7835-L7856)
 - [app.js:6949-6988](file://src/sage_faculty_twin/web/app.js#L6949-L6988)
 - [app.js:686-695](file://src/sage_faculty_twin/web/app.js#L686-L695)
+- [app.js:534-563](file://src/sage_faculty_twin/web/app.js#L534-L563)
+- [app.js:567-608](file://src/sage_faculty_twin/web/app.js#L567-L608)
 
 ## Conclusion
 Sage Faculty Twin integrates an intelligent chat interface, robust workflow planning, multi-backend knowledge management, personalized memory systems, scheduling, and web search into a cohesive academic support platform. Administrative controls and session management ensure safe, auditable operations. 
 
 The recent enhancements represent a significant improvement in user experience through:
-- **Enhanced sidebar redesign**: Streamlined interface with improved accessibility and reduced visual clutter
-- **Seed chip implementation**: Interactive question suggestions that maintain functionality while improving discoverability
-- **ChatGPT-style interface**: Modern, minimalist design that focuses on core functionality
-- **Improved user guidance**: Centered welcome greeting and contextual seed chips for better first-time user experience
+- **Comprehensive sidebar redesign**: Streamlined ChatGPT-style interface with improved accessibility and reduced visual clutter
+- **Seed chip implementation**: Interactive question suggestions with LLM-enhanced progressive content that maintains functionality while improving discoverability
+- **Enhanced user guidance**: Centered welcome greeting and contextual seed chips for better first-time user experience
+- **Structured answer basis display**: Evidence panel with retry functionality that improves transparency and user confidence
+- **Improved user guidance**: Better contextual suggestions and progressive enhancement for diverse user profiles
 
-These changes demonstrate the system's commitment to creating an intuitive, accessible interface that reduces cognitive load while preserving all essential functionality. The sidebar cleanup removes three shortcut buttons but maintains their functionality through the new seed chip system, resulting in a cleaner, more focused user interface. The seed chips provide contextual guidance and help users discover relevant questions, improving the overall user experience.
+These changes demonstrate the system's commitment to creating an intuitive, accessible interface that reduces cognitive load while preserving all essential functionality. The sidebar cleanup removes three shortcut buttons but maintains their functionality through the new seed chip system, resulting in a cleaner, more focused user interface. The seed chips provide contextual guidance and help users discover relevant questions, improving the overall user experience. The LLM-enhanced progressive content ensures that seed chips remain fresh and relevant over time.
 
 The roadmap confirms the successful implementation of V3.1 LLM-Assisted JSON Planner, marking a significant milestone in the evolution toward governed dynamic workflow generation. Together, these features enable a responsive, policy-aligned, and scalable assistant tailored to a faculty member's needs, with particular emphasis on user experience and interface simplicity.

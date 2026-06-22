@@ -1,0 +1,3 @@
+- Use of specialized mock LLM clients (e.g., `IntentAwareLLMClient`, `FailingLLMClient`) to isolate and test specific workflow branches without real model inference.
+- Static analysis of frontend source files (`app.js`, `index.html`) using regex to enforce DOM ID consistency between UI and API payload construction.
+- Monkeypatching of service-level constants (e.g., `CHAT_SSE_KEEPALIVE_SECONDS`, `CHAT_REQUEST_TIMEOUT_SECONDS`) to accelerate time-dependent tests like keepalive heartbeats and timeout guards.

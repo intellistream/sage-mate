@@ -13,6 +13,13 @@
 - [README.md](file://README.md)
 </cite>
 
+## Update Summary
+**Changes Made**
+- Updated authentication requirements section to reflect strengthened security posture
+- Added documentation for admin-only endpoint protection
+- Enhanced security considerations for context compression operations
+- Updated troubleshooting guide with authentication-related issues
+
 ## Table of Contents
 1. [Introduction](#introduction)
 2. [Project Structure](#project-structure)
@@ -27,6 +34,8 @@
 
 ## Introduction
 This document provides comprehensive security documentation for the authentication and access control systems. It explains session management, role-based access control, admin authentication mechanisms, and user registration processes. It documents security best practices, token management, and audit logging. Implementation details include authentication middleware, session validation, and secure API access. Privacy considerations, data protection measures, and compliance requirements are addressed alongside guidance for securing deployment environments and managing user credentials safely.
+
+**Updated** Enhanced security posture with strengthened authentication requirements across all administrative endpoints, including the `/context/compress` endpoint which now requires admin authentication.
 
 ## Project Structure
 The authentication subsystem spans several modules:
@@ -95,6 +104,9 @@ A --> G
 - History access control: strict ownership validation for retrieving conversation history
 - Secure cookie attributes: HttpOnly, SameSite=Lax, configurable secure flag, path, and max-age
 - Configuration-driven secrets and TTLs for both admin and user sessions
+- **Enhanced endpoint protection**: All administrative endpoints now require proper authentication gates
+
+**Updated** Administrative endpoints including `/context/compress` now enforce admin authentication to prevent unauthorized access to privileged operations.
 
 Key implementation references:
 - Session token builders and validators
@@ -102,15 +114,19 @@ Key implementation references:
 - Admin credential validation and identity resolution
 - User registration and authentication flows
 - History access boundary enforcement
+- **Enhanced authentication gates for privileged endpoints**
 
 **Section sources**
 - [auth.py:20-214](file://src/sage_faculty_twin/auth.py#L20-L214)
 - [user_store.py:70-121](file://src/sage_faculty_twin/user_store.py#L70-L121)
 - [history_auth.py:6-27](file://src/sage_faculty_twin/history_auth.py#L6-L27)
 - [config.py:121-129](file://src/sage_faculty_twin/config.py#L121-L129)
+- [api.py:732-748](file://src/sage_faculty_twin/api.py#L732-L748)
 
 ## Architecture Overview
 The authentication architecture integrates API endpoints, session management, service workflows, and storage. Requests are validated against session cookies, normalized to canonical identities, and enforced against access policies.
+
+**Updated** All administrative operations now require proper authentication validation, with the `/context/compress` endpoint serving as a prime example of strengthened security controls.
 
 ```mermaid
 sequenceDiagram
@@ -140,6 +156,10 @@ Store-->>Svc : UserAccountResponse
 Svc-->>API : UserSessionResponse + token
 API->>Auth : set_user_session_cookie(response, token, settings)
 API-->>Client : 200 OK with Set-Cookie
+Client->>API : POST /context/compress
+API->>Svc : get_user_session(cookie)
+Svc-->>API : UserSessionResponse (should fail)
+API-->>Client : 401 Unauthorized (enhanced security)
 ```
 
 **Diagram sources**
@@ -147,6 +167,7 @@ API-->>Client : 200 OK with Set-Cookie
 - [auth.py:101-117](file://src/sage_faculty_twin/auth.py#L101-L117)
 - [service.py:29-37](file://src/sage_faculty_twin/service.py#L29-L37)
 - [user_store.py:70-106](file://src/sage_faculty_twin/user_store.py#L70-L106)
+- [api.py:732-748](file://src/sage_faculty_twin/api.py#L732-L748)
 
 ## Detailed Component Analysis
 
@@ -272,10 +293,14 @@ SetCookieU --> AuthOK["200 OK"]
 - [auth.py:44-54](file://src/sage_faculty_twin/auth.py#L44-L54)
 - [auth.py:72-82](file://src/sage_faculty_twin/auth.py#L72-L82)
 
-### Session Validation and Middleware
+### Enhanced Endpoint Authentication and Security Gates
+**Updated** All administrative endpoints now enforce proper authentication gates to prevent unauthorized access to privileged operations.
+
 - Protected routes depend on require_admin_session to enforce admin presence and identity normalization
 - User session endpoints support guest vs authenticated modes with account details when available
-- History access endpoints enforce that requested emails match the authenticated account’s normalized email
+- History access endpoints enforce that requested emails match the authenticated account's normalized email
+- **Enhanced security**: The `/context/compress` endpoint now properly validates admin authentication instead of user authentication
+- **Administrative operations**: All endpoints under `/knowledge`, `/memory`, `/analytics`, `/operations`, and `/admin` require admin authentication
 
 ```mermaid
 sequenceDiagram
@@ -293,17 +318,24 @@ API->>Svc : get_user_session(cookie)
 Svc-->>API : UserSessionResponse
 API->>History : resolve_authenticated_history_email(is_authenticated, account_email, requested_email)
 History-->>API : normalized email or raises 403
+Client->>API : POST /context/compress
+API->>Svc : get_user_session(cookie)
+Note over API,Svc : Should now properly validate admin authentication
+API-->>Client : 401 Unauthorized (if user tries to access admin-only endpoint)
 ```
 
 **Diagram sources**
+- [api.py:421-424](file://src/sage_faculty_twin/api.py#L421-L424)
 - [api.py:456-510](file://src/sage_faculty_twin/api.py#L456-L510)
 - [api.py:708-740](file://src/sage_faculty_twin/api.py#L708-L740)
+- [api.py:732-748](file://src/sage_faculty_twin/api.py#L732-L748)
 - [history_auth.py:6-27](file://src/sage_faculty_twin/history_auth.py#L6-L27)
 
 **Section sources**
 - [api.py:421-424](file://src/sage_faculty_twin/api.py#L421-L424)
 - [api.py:456-510](file://src/sage_faculty_twin/api.py#L456-L510)
 - [api.py:708-740](file://src/sage_faculty_twin/api.py#L708-L740)
+- [api.py:732-748](file://src/sage_faculty_twin/api.py#L732-L748)
 - [history_auth.py:6-27](file://src/sage_faculty_twin/history_auth.py#L6-L27)
 
 ### Token Management Best Practices
@@ -312,6 +344,7 @@ History-->>API : normalized email or raises 403
 - Short-lived tokens with exp checks and periodic renewal via cookie refresh
 - HttpOnly and SameSite=Lax cookies mitigate XSS and CSRF risks
 - Secure flag should be enabled in production HTTPS deployments
+- **Enhanced security**: All administrative endpoints now properly validate authentication tokens
 
 **Section sources**
 - [auth.py:163-172](file://src/sage_faculty_twin/auth.py#L163-L172)
@@ -326,14 +359,14 @@ History-->>API : normalized email or raises 403
   - Include timestamps, IP addresses, user identifiers, and outcomes
   - Retain logs per regulatory requirements and enable secure archival
   - Ensure logs are immutable and protected against tampering
-
-[No sources needed since this section provides general guidance]
+  - **Enhanced monitoring**: Track failed attempts to access administrative endpoints like `/context/compress`
 
 ### Privacy and Data Protection
 - User passwords are hashed with scrypt and stored with per-user salts
 - Email normalization ensures consistent matching and reduces ambiguity
-- History access is restricted to the authenticated user’s own data
+- History access is restricted to the authenticated user's own data
 - Cookie-based sessions avoid storing sensitive data in localStorage
+- **Enhanced protection**: Administrative operations are now properly isolated from user access
 
 **Section sources**
 - [user_store.py:148-156](file://src/sage_faculty_twin/user_store.py#L148-L156)
@@ -343,11 +376,14 @@ History-->>API : normalized email or raises 403
 - Protected endpoints use dependency injection to enforce admin sessions
 - CORS is configured for local development origins
 - Rate-limiting and input validation are handled by FastAPI and Pydantic models
+- **Enhanced security**: Administrative endpoints now properly enforce authentication gates
+- **Context compression protection**: The `/context/compress` endpoint now requires admin authentication
 
 **Section sources**
 - [api.py:461-477](file://src/sage_faculty_twin/api.py#L461-L477)
 - [api.py:79-87](file://src/sage_faculty_twin/api.py#L79-L87)
 - [models.py:728-783](file://src/sage_faculty_twin/models.py#L728-L783)
+- [api.py:732-748](file://src/sage_faculty_twin/api.py#L732-L748)
 
 ## Dependency Analysis
 The authentication system exhibits low coupling and clear separation of concerns:
@@ -390,8 +426,7 @@ API --> HISTORY["history_auth.py"]
 - Password hashing uses scrypt with tuned parameters for balanced cost and security
 - Cookie-based sessions avoid frequent server-side state maintenance
 - Consider rotating secrets periodically and refreshing tokens to minimize exposure windows
-
-[No sources needed since this section provides general guidance]
+- **Enhanced security**: Proper authentication gates add minimal overhead while significantly improving security posture
 
 ## Troubleshooting Guide
 Common issues and resolutions:
@@ -399,13 +434,16 @@ Common issues and resolutions:
 - 403 Forbidden on protected routes: missing or invalid admin session cookie
 - 401 Unauthorized on user login: email not found or password mismatch
 - 409 Conflict on registration: email already registered
-- History access denied: requested email differs from authenticated account’s normalized email
+- History access denied: requested email differs from authenticated account's normalized email
+- **Enhanced security issues**: 401 Unauthorized on `/context/compress`: user tried to access admin-only endpoint without proper authentication
+- **Endpoint protection**: 401 Unauthorized on administrative endpoints: verify admin session is present and valid
 
 Operational tips:
 - Verify session secrets and TTLs in configuration
 - Ensure cookies are being sent with HTTPS in production
 - Confirm SameSite and Secure flags align with deployment environment
 - Monitor for timing attack mitigations causing perceived delays
+- **Enhanced monitoring**: Track failed attempts to administrative endpoints for security analysis
 
 **Section sources**
 - [auth.py:158-172](file://src/sage_faculty_twin/auth.py#L158-L172)
@@ -413,11 +451,12 @@ Operational tips:
 - [user_store.py:108-121](file://src/sage_faculty_twin/user_store.py#L108-L121)
 - [user_store.py:86-89](file://src/sage_faculty_twin/user_store.py#L86-L89)
 - [history_auth.py:15-25](file://src/sage_faculty_twin/history_auth.py#L15-L25)
+- [api.py:732-748](file://src/sage_faculty_twin/api.py#L732-L748)
 
 ## Conclusion
-The authentication and access control system employs robust session management with signed, time-bound tokens, constant-time comparisons, and secure cookie attributes. Admin RBAC is enforced via normalized identities and dependency-based access checks. User credentials are securely hashed and stored, and history access is strictly scoped to authenticated owners. Deployment configurations should enable HTTPS and appropriate cookie flags for production. Additional audit logging and periodic secret rotation further strengthen security posture.
+The authentication and access control system employs robust session management with signed, time-bound tokens, constant-time comparisons, and secure cookie attributes. Admin RBAC is enforced via normalized identities and dependency-based access checks. User credentials are securely hashed and stored, and history access is strictly scoped to authenticated owners. 
 
-[No sources needed since this section summarizes without analyzing specific files]
+**Updated** The security posture has been significantly strengthened with enhanced authentication requirements across all administrative endpoints. The `/context/compress` endpoint now properly enforces admin authentication, preventing unauthorized access to privileged operations. Deployment configurations should enable HTTPS and appropriate cookie flags for production. Additional audit logging and periodic secret rotation further strengthen security posture.
 
 ## Appendices
 
@@ -428,6 +467,7 @@ The authentication and access control system employs robust session management w
 - Limit CORS to trusted origins only
 - Monitor authentication metrics and anomalies
 - Back up user account data securely
+- **Enhanced monitoring**: Track failed attempts to administrative endpoints
 
 **Section sources**
 - [auth.py:56-86](file://src/sage_faculty_twin/auth.py#L56-L86)
@@ -443,3 +483,17 @@ The authentication and access control system employs robust session management w
 - [config.py:121-129](file://src/sage_faculty_twin/config.py#L121-L129)
 - [models.py:733-744](file://src/sage_faculty_twin/models.py#L733-L744)
 - [README.md:57-102](file://README.md#L57-L102)
+
+### Administrative Endpoint Security Matrix
+**Updated** Enhanced security matrix for administrative endpoints:
+
+| Endpoint | Authentication Type | Purpose | Security Level |
+|----------|-------------------|---------|----------------|
+| `/context/compress` | Admin Authentication | Manual context compression | High |
+| `/knowledge/*` | Admin Authentication | Knowledge management | High |
+| `/memory/*` | Admin Authentication | Memory operations | High |
+| `/analytics/*` | Admin Authentication | Analytics reporting | High |
+| `/operations/*` | Admin Authentication | System operations | High |
+| `/admin/*` | Admin Authentication | Admin controls | High |
+| `/auth/admin/*` | Admin Authentication | Admin authentication | High |
+| `/auth/user/*` | User Authentication | User operations | Medium |

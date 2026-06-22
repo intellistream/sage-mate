@@ -16,6 +16,13 @@
 - [test_knowledge_import.py](file://tests/test_knowledge_import.py)
 </cite>
 
+## Update Summary
+**Changes Made**
+- Added comprehensive sensitive content filtering mechanism with automatic audience restriction
+- Implemented intelligent default audience inference for internal workspace sources and private materials
+- Enhanced document visibility controls with visitor/admin profile-based access management
+- Updated search functionality to enforce content access restrictions based on user roles
+
 ## Table of Contents
 1. [Introduction](#introduction)
 2. [Project Structure](#project-structure)
@@ -29,24 +36,26 @@
 10. [Appendices](#appendices)
 
 ## Introduction
-This document explains the knowledge management system that powers the digital faculty twin. It covers the multi-backend architecture supporting BM25 lexical search and semantic embeddings, the ingestion pipeline for diverse content types, hybrid retrieval mechanisms, the knowledge base implementation, document review workflows, and gap identification processes. Practical examples demonstrate content ingestion, search optimization, and knowledge maintenance. Integration with external knowledge sources, caching strategies, performance optimization techniques, and quality assurance processes are included.
+This document explains the knowledge management system that powers the digital faculty twin. It covers the multi-backend architecture supporting BM25 lexical search and semantic embeddings, the ingestion pipeline for diverse content types, hybrid retrieval mechanisms, the knowledge base implementation, document review workflows, and gap identification processes. **Updated** with the new sensitive content filtering mechanism featuring automatic audience restriction for internal workspace sources and private materials, plus intelligent default audience inference. Practical examples demonstrate content ingestion, search optimization, and knowledge maintenance. Integration with external knowledge sources, caching strategies, performance optimization techniques, and quality assurance processes are included.
 
 ## Project Structure
 The knowledge management system centers around:
 - Knowledge base storage and search (LocalKnowledgeStore)
 - Content ingestion from homepage materials and attachments
 - Hybrid retrieval combining lexical and dense embeddings
+- **Enhanced** document visibility and audience filtering controls
 - Review and gap identification workflows
 - Supporting models and configuration
 
 ```mermaid
 graph TB
 subgraph "Knowledge Management"
-KB["LocalKnowledgeStore<br/>BM25 + Embeddings"]
+KB["LocalKnowledgeStore<br/>BM25 + Embeddings<br/>+ Audience Filtering"]
 GI["Knowledge Import<br/>Homepage + Attachments"]
 WS["Web Search<br/>Bing + Ranking"]
 CFG["AppSettings<br/>Backends + Limits"]
 MODELS["Models<br/>Documents, Hits, Drafts"]
+AUDIENCE["Audience Control<br/>Visitor/Admin Profiles<br/>Default Inference"]
 end
 subgraph "Data"
 FS["Filesystem JSON<br/>knowledge_base/*.json"]
@@ -57,6 +66,7 @@ GI --> KB
 KB --> FS
 KB --> CFG
 KB --> MODELS
+KB --> AUDIENCE
 WS --> MODELS
 GAP --> MODELS
 ART --> MODELS
@@ -76,9 +86,10 @@ ART --> MODELS
 - [product-outline.md:1-35](file://docs/product-outline.md#L1-L35)
 
 ## Core Components
-- LocalKnowledgeStore: Multi-backend knowledge store supporting BM25, FAISS-based dense retrieval, and flat index search. Provides add/update/upsert/list/delete/search/rebuild capabilities.
+- LocalKnowledgeStore: Multi-backend knowledge store supporting BM25, FAISS-based dense retrieval, and flat index search. **Enhanced** with document visibility controls and audience filtering capabilities.
 - KnowledgeImport: Ingests homepage Markdown, PDFs, DOCX/PPTX, and attachments into KnowledgeDocumentCreate payloads, deduplicates by source, and rebuilds indexes efficiently.
 - WebSearchClient: Optional web search integration using Bing RSS/HTML with query rewriting and news-aware scoring.
+- **New** Audience Control System: Automatic default audience inference for sensitive content and visitor/admin profile-based access management.
 - Models: Typed Pydantic models for documents, search hits, reviews, and drafts.
 - Configuration: AppSettings defines backends (neuromem vs sagevdb), embedding backends, and retrieval parameters.
 - Draft Stores: KnowledgeGapDraftStore and ArtifactMemoryDraftStore for gap identification and artifact memory curation.
@@ -93,9 +104,15 @@ ART --> MODELS
 - [artifact_memory_draft_store.py:97-184](file://src/sage_faculty_twin/artifact_memory_draft_store.py#L97-L184)
 
 ## Architecture Overview
-The system supports two primary backends:
+The system supports two primary backends with **enhanced** security controls:
 - Neuromem: Lexical BM25 by default; optional FAISS dense index with sentence-transformers embeddings.
 - Sagevdb: Flat or ANN-based index with configurable distance metric and embedding backends (sentence-transformers or hashing).
+
+**New Security Architecture:**
+- Automatic audience restriction for internal workspace sources (`workspace/`)
+- Intelligent default audience inference for sensitive content types
+- Visitor/admin profile-based visibility controls
+- Document-level audience tagging and metadata processing
 
 Hybrid retrieval combines:
 - Lexical BM25 scoring for homepage materials and courseware
@@ -111,18 +128,25 @@ SAGE["Sagevdb Flat/ANN"]
 HASH["Hashing Embedder"]
 ST["Sentence-Transformers"]
 end
+subgraph "Security Controls"
+AUDIENCE["Audience Filtering<br/>Default Inference<br/>Visitor Profiles"]
+SENSITIVE["Sensitive Content Detection<br/>Workspace Prefixes<br/>Tag Heuristics"]
+end
 KB["LocalKnowledgeStore"]
 KB --> NEURO
 KB --> NEURO_E
 KB --> SAGE
+KB --> AUDIENCE
 SAGE --> HASH
 SAGE --> ST
+AUDIENCE --> SENSITIVE
 ```
 
 **Diagram sources**
 - [knowledge_base.py:18-118](file://src/sage_faculty_twin/knowledge_base.py#L18-L118)
 - [knowledge_base.py:422-521](file://src/sage_faculty_twin/knowledge_base.py#L422-L521)
 - [knowledge_base.py:756-800](file://src/sage_faculty_twin/knowledge_base.py#L756-L800)
+- [knowledge_base.py:1726-1786](file://src/sage_faculty_twin/knowledge_base.py#L1726-L1786)
 - [config.py:63-120](file://src/sage_faculty_twin/config.py#L63-L120)
 
 ## Detailed Component Analysis
@@ -147,9 +171,13 @@ SAGE --> ST
 sequenceDiagram
 participant Client as "Client"
 participant Store as "LocalKnowledgeStore"
+participant Filter as "Audience Filter"
 participant Backend as "Backend Engine"
 participant Embed as "Embedder"
-Client->>Store : search(query, top_k)
+Client->>Store : search(query, top_k, visitor_profile, admin_role)
+Store->>Filter : _document_is_visible_to_requester()
+Filter->>Filter : _infer_default_audience()
+Filter-->>Store : visibility_result
 alt Sagevdb
 Store->>Embed : encode(query)
 Store->>Backend : build_index/add/search
@@ -171,16 +199,83 @@ Store-->>Client : KnowledgeSearchHit[]
 - [knowledge_base.py:611-710](file://src/sage_faculty_twin/knowledge_base.py#L611-L710)
 - [knowledge_base.py:756-800](file://src/sage_faculty_twin/knowledge_base.py#L756-L800)
 - [knowledge_base.py:18-118](file://src/sage_faculty_twin/knowledge_base.py#L18-L118)
+- [knowledge_base.py:1772-1786](file://src/sage_faculty_twin/knowledge_base.py#L1772-L1786)
 
 **Section sources**
 - [knowledge_base.py:121-800](file://src/sage_faculty_twin/knowledge_base.py#L121-L800)
 - [config.py:63-120](file://src/sage_faculty_twin/config.py#L63-L120)
+
+### Sensitive Content Filtering and Audience Management
+
+**New** The system now implements comprehensive sensitive content filtering with automatic audience restriction:
+
+#### Default Audience Inference
+Documents without explicit audience tags automatically inherit appropriate visibility based on content characteristics:
+- Internal workspace sources (`workspace/` prefix) → `lab_member` audience
+- Private materials sources (`private-materials:` prefix) → `lab_member` audience  
+- Sensitive content indicators (proposal, roadmap, funding documents) → `lab_member` audience
+- All other documents → public visibility (allow-by-default)
+
+#### Visitor Profile-Based Access Control
+Different user roles have varying levels of access:
+- General visitor: public content only
+- Undergraduate: public + undergraduate content
+- Paper writing student: public + graduate content  
+- Lab member: public + undergraduate + graduate + lab_member content
+- Manager: extended access privileges
+- Super admin: full administrative access
+
+#### Document Visibility Determination
+The `_document_is_visible_to_requester()` function evaluates document accessibility:
+1. Check explicit audience tags in document metadata
+2. If none found, infer default audience from source characteristics
+3. Compare inferred audience against requester's allowed audiences
+4. Return boolean visibility result for final filtering
+
+```mermaid
+flowchart TD
+Start(["Document Processing"]) --> CheckExplicit["Check Explicit Audience Tags"]
+CheckExplicit --> HasExplicit{"Has Explicit Audience?"}
+HasExplicit --> |Yes| UseExplicit["Use Explicit Audience"]
+HasExplicit --> |No| InferDefault["Infer Default Audience"]
+InferDefault --> CheckSource["Check Source Characteristics"]
+CheckSource --> IsInternal{"Workspace/Private Materials?"}
+IsInternal --> |Yes| SetLabMember["Set Audience: lab_member"]
+IsInternal --> |No| CheckTags["Check Sensitive Tags"]
+CheckTags --> HasSensitive{"Contains Proposal/Roadmap?"}
+HasSensitive --> |Yes| SetLabMember
+HasSensitive --> |No| SetPublic["Set Audience: public"]
+UseExplicit --> CheckAllowed["Check Allowed Audiences"]
+SetLabMember --> CheckAllowed
+SetPublic --> CheckAllowed
+CheckAllowed --> Compare{"Allowed Audiences & Requester Profile"}
+Compare --> Visible{"Visible to Requester?"}
+Visible --> |Yes| Allow["Allow Document"]
+Visible --> |No| Deny["Deny Document"]
+Allow --> End(["Complete"])
+Deny --> End
+```
+
+**Diagram sources**
+- [knowledge_base.py:1726-1786](file://src/sage_faculty_twin/knowledge_base.py#L1726-L1786)
+- [knowledge_base.py:1684-1706](file://src/sage_faculty_twin/knowledge_base.py#L1684-L1706)
+- [knowledge_base.py:1709-1723](file://src/sage_faculty_twin/knowledge_base.py#L1709-L1723)
+
+**Section sources**
+- [knowledge_base.py:1726-1786](file://src/sage_faculty_twin/knowledge_base.py#L1726-L1786)
+- [knowledge_base.py:1684-1706](file://src/sage_faculty_twin/knowledge_base.py#L1684-L1706)
+- [knowledge_base.py:1709-1723](file://src/sage_faculty_twin/knowledge_base.py#L1709-L1723)
+- [test_knowledge_base.py:865-922](file://tests/test_knowledge_base.py#L865-L922)
 
 ### Knowledge Ingestion Pipeline
 - Homepage ingestion:
   - Parses Markdown sections, extracts metadata, infers tags and course info
   - Builds payloads for profile, news, systems, awards, resources, publications, and teaching materials
   - Extracts text from PDFs, DOCX, PPTX attachments
+- **Enhanced** metadata processing with audience inference:
+  - Automatically sets default audience for sensitive content types
+  - Normalizes audience labels and handles aliases
+  - Processes explicit audience tags from metadata and tags
 - Deduplication:
   - Removes stale documents by source_name and retains newest entries
 - Indexing:
@@ -191,7 +286,8 @@ flowchart TD
 Start(["Start Ingestion"]) --> Load["Load Homepage Contents"]
 Load --> BuildPayloads["Build Payloads<br/>Markdown + Attachments"]
 BuildPayloads --> Dedup["Find Stale Docs by Source"]
-Dedup --> Upsert["Upsert Documents<br/>add/update/upsert"]
+Dedup --> ProcessMetadata["Process Metadata<br/>+ Audience Inference"]
+ProcessMetadata --> Upsert["Upsert Documents<br/>add/update/upsert"]
 Upsert --> Rebuild{"Changed?"}
 Rebuild --> |Yes| Index["Rebuild Backend Indexes"]
 Rebuild --> |No| Skip["Skip Index Rebuild"]
@@ -203,6 +299,7 @@ Skip --> End
 - [knowledge_import.py:32-114](file://src/sage_faculty_twin/knowledge_import.py#L32-L114)
 - [knowledge_import.py:369-391](file://src/sage_faculty_twin/knowledge_import.py#L369-L391)
 - [knowledge_base.py:141-166](file://src/sage_faculty_twin/knowledge_base.py#L141-L166)
+- [knowledge_base.py:1582-1660](file://src/sage_faculty_twin/knowledge_base.py#L1582-L1660)
 
 **Section sources**
 - [knowledge_import.py:1-472](file://src/sage_faculty_twin/knowledge_import.py#L1-L472)
@@ -212,11 +309,13 @@ Skip --> End
 - Storage:
   - Documents persisted as JSON files under knowledge_base_dir
   - Metadata inferred for legacy records and synchronized on load
-- Visibility and audience filtering:
-  - Visitor/admin profiles control visibility of audience-tagged content
-- Search scoring:
+- **Enhanced** Search scoring:
   - Tokenization, query expansion, and lexical scoring
+  - **New** Document visibility filtering based on audience controls
   - Finalization with deduplication across adjacent chunks and preference heuristics
+- **New** Audience control integration:
+  - Visitor/admin profiles control visibility of audience-tagged content
+  - Automatic default audience inference for sensitive materials
 
 ```mermaid
 classDiagram
@@ -260,14 +359,22 @@ class KnowledgeSearchHit {
 +source_name
 +metadata
 }
+class AudienceControl {
++_infer_default_audience(document)
++_document_visibility_audiences(document)
++_allowed_audiences_for_requester(visitor_profile, admin_role)
++_document_is_visible_to_requester(document, visitor_profile, admin_role)
+}
 LocalKnowledgeStore --> KnowledgeDocumentCreate : "creates"
 LocalKnowledgeStore --> KnowledgeDocumentRecord : "persists"
 LocalKnowledgeStore --> KnowledgeSearchHit : "returns"
+LocalKnowledgeStore --> AudienceControl : "uses"
 ```
 
 **Diagram sources**
 - [knowledge_base.py:121-800](file://src/sage_faculty_twin/knowledge_base.py#L121-L800)
 - [models.py:319-412](file://src/sage_faculty_twin/models.py#L319-L412)
+- [knowledge_base.py:1726-1786](file://src/sage_faculty_twin/knowledge_base.py#L1726-L1786)
 
 **Section sources**
 - [knowledge_base.py:121-800](file://src/sage_faculty_twin/knowledge_base.py#L121-L800)
@@ -282,6 +389,7 @@ LocalKnowledgeStore --> KnowledgeSearchHit : "returns"
   - Tracks status and published document linkage
 - ArtifactMemoryDraftStore:
   - Manages artifact memory drafts with acceptance/rejection lifecycle
+- **Enhanced** with audience-aware content filtering ensuring sensitive materials are properly restricted during review processes
 
 ```mermaid
 stateDiagram-v2
@@ -306,14 +414,18 @@ Rejected --> [*]
 - Optional web search for current events and weather
 - Query rewriting and news-aware reranking with recency bonuses
 - Results integrated alongside knowledge hits
+- **Enhanced** with audience-aware filtering to ensure sensitive content remains appropriately restricted
 
 ```mermaid
 sequenceDiagram
 participant Client as "Client"
 participant WS as "WebSearchClient"
+participant Filter as "Audience Filter"
 participant Bing as "Bing API"
-Client->>WS : search(query, max_results)
-WS->>WS : rewrite_query_for_bing()
+Client->>WS : search(query, max_results, visitor_profile)
+WS->>Filter : apply_audience_filtering()
+Filter->>Filter : check_visibility_rules()
+Filter-->>WS : filtered_results
 WS->>Bing : RSS/HTML request
 Bing-->>WS : results
 WS->>WS : rerank_results()
@@ -332,8 +444,13 @@ WS-->>Client : WebSearchHit[]
   - knowledge_backend selects Neuromem or Sagevdb
   - neuromem_index_type selects bm25 or faiss
   - sagevdb_embedding_backend selects hashing or sentence-transformers
+- **Enhanced** audience control dependencies:
+  - Visitor profile mappings and allowed audience sets
+  - Default audience inference rules for sensitive content
+  - Document visibility evaluation functions
 - Cohesion and coupling:
   - LocalKnowledgeStore encapsulates backend-specific logic and embedding selection
+  - **New** Audience control logic integrated into search pipeline
   - KnowledgeImport is decoupled from backend and focuses on content extraction and deduplication
   - Models define stable interfaces for search results and document records
 
@@ -342,7 +459,11 @@ graph LR
 CFG["AppSettings"] --> KB["LocalKnowledgeStore"]
 KB --> EMB["Embedding Backends"]
 KB --> FS["knowledge_base/*.json"]
+KB --> AUDIENCE["Audience Control"]
+AUDIENCE --> VISIBILITY["Visibility Logic"]
+AUDIENCE --> INFERENCE["Default Inference"]
 GI["KnowledgeImport"] --> KB
+GI --> AUDIENCE
 WS["WebSearchClient"] --> MODELS["Models"]
 KB --> MODELS
 GI --> MODELS
@@ -351,6 +472,7 @@ GI --> MODELS
 **Diagram sources**
 - [config.py:63-120](file://src/sage_faculty_twin/config.py#L63-L120)
 - [knowledge_base.py:121-800](file://src/sage_faculty_twin/knowledge_base.py#L121-L800)
+- [knowledge_base.py:1726-1786](file://src/sage_faculty_twin/knowledge_base.py#L1726-L1786)
 - [knowledge_import.py:1-472](file://src/sage_faculty_twin/knowledge_import.py#L1-L472)
 - [models.py:319-412](file://src/sage_faculty_twin/models.py#L319-L412)
 - [web_search.py:93-444](file://src/sage_faculty_twin/web_search.py#L93-L444)
@@ -369,12 +491,14 @@ GI --> MODELS
 - Retrieval tuning:
   - retrieval_top_k controls result limits
   - Backend-specific search parameters (k/min/max) tuned per engine
+- **Enhanced** performance optimizations:
+  - Audience filtering applied after initial retrieval to minimize unnecessary processing
+  - Default audience inference cached for frequently accessed document types
+  - Visitor profile audience sets pre-computed for fast lookup
 - Caching:
   - LLM cache TTL and capacity configured centrally
 - Chunking and deduplication:
   - Adjacent courseware chunks deduplicated to reduce noise and improve relevance
-
-[No sources needed since this section provides general guidance]
 
 ## Troubleshooting Guide
 - Backend initialization errors:
@@ -384,20 +508,24 @@ GI --> MODELS
   - Ensure embedding model reports a dimension and matches configured dimension
 - Index rebuild failures:
   - Verify backend availability and correct backend selection
-- Audience visibility issues:
+- **New** Audience visibility issues:
   - Confirm visitor/admin roles and audience tags on documents
+  - Check default audience inference rules for sensitive content types
+  - Verify workspace source prefixes and private materials patterns
 - Ingestion anomalies:
   - Check stale document removal and payload duplication logic
+  - Validate audience metadata processing and normalization
 
 **Section sources**
 - [knowledge_base.py:422-464](file://src/sage_faculty_twin/knowledge_base.py#L422-L464)
 - [knowledge_base.py:522-560](file://src/sage_faculty_twin/knowledge_base.py#L522-L560)
 - [knowledge_base.py:721-737](file://src/sage_faculty_twin/knowledge_base.py#L721-L737)
+- [knowledge_base.py:1726-1786](file://src/sage_faculty_twin/knowledge_base.py#L1726-L1786)
 - [test_knowledge_base.py:118-141](file://tests/test_knowledge_base.py#L118-L141)
 - [test_knowledge_base.py:726-800](file://tests/test_knowledge_base.py#L726-L800)
 
 ## Conclusion
-The knowledge management system provides a robust, multi-backend architecture supporting both lexical and semantic retrieval, efficient ingestion from diverse sources, and integrated workflows for review and gap identification. Configuration-driven backends and embedding choices enable flexible deployment, while indexing strategies and chunking ensure high-quality, performant search results.
+The knowledge management system provides a robust, multi-backend architecture supporting both lexical and semantic retrieval, efficient ingestion from diverse sources, and integrated workflows for review and gap identification. **Enhanced** with comprehensive sensitive content filtering and automatic audience restriction, the system now provides fine-grained access control while maintaining high-quality, performant search results. The intelligent default audience inference ensures internal workspace sources and private materials are appropriately protected, while visitor/admin profile-based controls provide flexible access management across different user roles.
 
 ## Appendices
 
@@ -406,6 +534,7 @@ The knowledge management system provides a robust, multi-backend architecture su
 - Content ingestion
   - Homepage ingestion creates searchable documents and deduplicates by source
   - Attachments (PDF/DOCX/PPTX) are extracted and indexed as separate documents
+  - **New** Automatic audience inference for sensitive content types
   - Example ingestion and search coverage validated by tests
 
   **Section sources**
@@ -416,17 +545,20 @@ The knowledge management system provides a robust, multi-backend architecture su
 - Search optimization
   - Adjust retrieval_top_k and backend selection for domain-specific needs
   - Prefer FAISS for research-heavy domains; BM25 for homepage/courseware
-  - Use visitor/admin roles to enforce visibility and tailor results
+  - **New** Use visitor/admin roles to enforce visibility and tailor results
+  - Test cases demonstrate workspace source auto-restriction and public content allowance
 
   **Section sources**
   - [config.py:70-70](file://src/sage_faculty_twin/config.py#L70-L70)
   - [test_knowledge_base.py:679-724](file://tests/test_knowledge_base.py#L679-L724)
   - [test_knowledge_base.py:726-800](file://tests/test_knowledge_base.py#L726-L800)
+  - [test_knowledge_base.py:865-922](file://tests/test_knowledge_base.py#L865-L922)
 
 - Knowledge maintenance
   - Upsert preserves created_at and avoids redundant writes
   - Stale documents removed automatically during ingestion
   - Index rebuilds batched to minimize downtime
+  - **New** Audience metadata automatically processed and normalized during maintenance
 
   **Section sources**
   - [test_knowledge_base.py:36-57](file://tests/test_knowledge_base.py#L36-L57)
@@ -435,6 +567,7 @@ The knowledge management system provides a robust, multi-backend architecture su
 - Integration with external knowledge sources
   - Web search for current events and weather
   - Optional integration with calendar providers (planned)
+  - **Enhanced** with audience-aware filtering for external results
 
   **Section sources**
   - [web_search.py:93-444](file://src/sage_faculty_twin/web_search.py#L93-L444)
@@ -444,6 +577,7 @@ The knowledge management system provides a robust, multi-backend architecture su
   - LLM cache TTL and max entries configured centrally
   - Batched embedding encoding for FAISS index building
   - Deduplication of adjacent chunks reduces redundancy
+  - **New** Audience filtering optimized for minimal performance impact
 
   **Section sources**
   - [config.py:38-39](file://src/sage_faculty_twin/config.py#L38-L39)
@@ -454,8 +588,19 @@ The knowledge management system provides a robust, multi-backend architecture su
   - Review status derived from metadata/tags
   - Feedback-web gating and freshness tracking
   - Gap drafts and artifact memory drafts support continuous improvement
+  - **Enhanced** with audience-aware content filtering during review processes
 
   **Section sources**
   - [models.py:341-377](file://src/sage_faculty_twin/models.py#L341-L377)
   - [knowledge_gap_draft_store.py:100-186](file://src/sage_faculty_twin/knowledge_gap_draft_store.py#L100-L186)
   - [artifact_memory_draft_store.py:97-184](file://src/sage_faculty_twin/artifact_memory_draft_store.py#L97-L184)
+
+- **New** Sensitive content protection
+  - Automatic workspace source restriction for internal materials
+  - Intelligent default audience inference for sensitive content types
+  - Visitor/admin profile-based access control enforcement
+  - Comprehensive testing demonstrating proper content visibility controls
+
+  **Section sources**
+  - [knowledge_base.py:1726-1786](file://src/sage_faculty_twin/knowledge_base.py#L1726-L1786)
+  - [test_knowledge_base.py:865-922](file://tests/test_knowledge_base.py#L865-L922)

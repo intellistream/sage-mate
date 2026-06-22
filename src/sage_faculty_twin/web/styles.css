@@ -2641,9 +2641,6 @@ body.conversation-active .intro-card .message-body {
     border: 1.5px solid rgba(99, 102, 241, 0.15);
     box-shadow: 0 4px 20px rgba(99, 102, 241, 0.1);
     animation: onboarding-fade-in 0.3s ease;
-    position: sticky;
-    top: 0;
-    z-index: 10;
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
 }

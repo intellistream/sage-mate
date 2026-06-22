@@ -1,0 +1,1 @@
+Generates policy-compliant, intent-driven execution plans by mapping user queries to registered workflow steps and enforcing side-effect risk levels.

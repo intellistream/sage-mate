@@ -12,6 +12,13 @@
 - [README.md](file://README.md)
 </cite>
 
+## Update Summary
+**Changes Made**
+- Added authentication requirement section for context compression functionality
+- Updated context compression endpoint documentation to reflect mandatory user authentication
+- Enhanced security considerations for manual context compression operations
+- Added practical curl examples demonstrating authentication requirements
+
 ## Table of Contents
 1. [Introduction](#introduction)
 2. [Project Structure](#project-structure)
@@ -20,9 +27,10 @@
 5. [Detailed Component Analysis](#detailed-component-analysis)
 6. [Dependency Analysis](#dependency-analysis)
 7. [Performance Considerations](#performance-considerations)
-8. [Troubleshooting Guide](#troubleshooting-guide)
-9. [Conclusion](#conclusion)
-10. [Appendices](#appendices)
+8. [Security and Authentication](#security-and-authentication)
+9. [Troubleshooting Guide](#troubleshooting-guide)
+10. [Conclusion](#conclusion)
+11. [Appendices](#appendices)
 
 ## Introduction
 This document provides comprehensive API documentation for chat-related endpoints, focusing on:
@@ -30,6 +38,7 @@ This document provides comprehensive API documentation for chat-related endpoint
 - Attachment handling for PDFs and text-based files
 - Visitor profile adaptation based on authentication state
 - Deep thinking mode controls and web search toggles
+- **Enhanced authentication requirements for context compression functionality**
 - Authentication requirements, rate-limiting considerations, and error handling
 - Practical curl examples for common scenarios
 
@@ -69,12 +78,14 @@ API --> Broker
 - ChatResponse: canonical response schema produced by the service
 - WorkflowEventBroker: SSE publisher for streaming workflow events and answer deltas
 - DigitalTwinService.answer: orchestrates the chat pipeline and optionally streams deltas
+- **Context Compression Service**: manual conversation context compression with authentication requirements
 
 Key behaviors:
 - Streaming: controlled by DIGITAL_TWIN_STREAM_CHAT_ANSWER; when enabled, answer deltas are emitted as SSE events
 - Visitor profile: resolved from authenticated user session when present, otherwise from request
 - Attachments: parsed from multipart/form-data or JSON; supports PDF and text-like files with size/text limits
 - Timeouts: global chat request timeout enforced at the API boundary
+- **Context compression**: requires user authentication before allowing manual compression operations
 
 **Section sources**
 - [models.py:16-31](file://src/sage_faculty_twin/models.py#L16-L31)
@@ -82,6 +93,7 @@ Key behaviors:
 - [api.py:170-256](file://src/sage_faculty_twin/api.py#L170-L256)
 - [api.py:618-700](file://src/sage_faculty_twin/api.py#L618-L700)
 - [service.py:5338-5504](file://src/sage_faculty_twin/service.py#L5338-L5504)
+- [service.py:1734-1786](file://src/sage_faculty_twin/service.py#L1734-L1786)
 
 ## Architecture Overview
 The /chat endpoint integrates request parsing, validation, optional streaming, and the chat workflow execution.
@@ -186,6 +198,38 @@ Behavioral notes:
 - [models.py:16-31](file://src/sage_faculty_twin/models.py#L16-L31)
 - [models.py:199-221](file://src/sage_faculty_twin/models.py#L199-L221)
 
+### Endpoint: POST /context/compress
+- Method: POST
+- Path: /context/compress
+- Content Type: application/json
+- Authentication: **Required** - User session cookie (faculty_twin_user) must be present and valid
+- Purpose: Manually trigger context compression for a conversation
+- Request Body: JSON object containing conversation_id
+- Response: JSON object with compression results
+
+Authentication Requirements:
+- **Mandatory user authentication**: The endpoint explicitly checks for a valid user session
+- **401 Unauthorized**: Returned when user is not authenticated
+- **422 Unprocessable Entity**: Returned when conversation_id is missing or invalid
+
+Response Body Structure:
+- ok: boolean indicating success status
+- turns_compressed: number of conversation turns processed
+- total_turns: total turns in the updated digest
+- digest_chars: length of the resulting digest text
+- error: error message (when ok is false)
+
+Behavioral Notes:
+- Bypasses automatic threshold checking and immediately compresses all unsummarized turns
+- Supports up to 32 turns per compression operation
+- Requires context compression to be enabled in settings
+
+**Updated** Enhanced authentication requirements for manual context compression functionality
+
+**Section sources**
+- [api.py:734-750](file://src/sage_faculty_twin/api.py#L734-L750)
+- [service.py:1734-1786](file://src/sage_faculty_twin/service.py#L1734-L1786)
+
 ### Endpoint: GET /chat/workflow-events
 - Method: GET
 - Path: /chat/workflow-events
@@ -235,7 +279,7 @@ Validation and extraction:
 - [api.py:328-367](file://src/sage_faculty_twin/api.py#L328-L367)
 
 ### Visitor Profile Adaptation
-- If a user session exists (faculty_twin_user cookie), visitor_profile is overridden by the authenticated user’s profile
+- If a user session exists (faculty_twin_user cookie), visitor_profile is overridden by the authenticated user's profile
 - Otherwise, the visitor_profile from the request is used
 - This ensures personalized responses for logged-in users
 
@@ -341,11 +385,49 @@ SERVICE --> LLM
   - CHAT_REQUEST_TIMEOUT_SECONDS bounds total request time; exceeding it yields 504
 - Background post-answer execution:
   - Reduces critical-path latency by deferring memory persistence, profiling, follow-up planning, and usefulness scoring to background tasks
+- **Context compression performance**:
+  - Manual compression bypasses automatic thresholds for immediate processing
+  - Compression operations are optimized to process up to 32 turns per call
 
 **Section sources**
 - [api.py:136-147](file://src/sage_faculty_twin/api.py#L136-L147)
 - [api.py:127-129](file://src/sage_faculty_twin/api.py#L127-L129)
 - [service.py:5459-5504](file://src/sage_faculty_twin/service.py#L5459-L5504)
+- [service.py:1734-1786](file://src/sage_faculty_twin/service.py#L1734-L1786)
+
+## Security and Authentication
+
+### User Session Management
+The system implements robust session-based authentication for enhanced security:
+
+- **User Session Cookies**:
+  - Cookie name: faculty_twin_user
+  - Payload includes user_id and email
+  - TTL: 2592000 seconds (30 days)
+  - Secure cookie configuration with httponly and samesite protection
+
+- **Admin Session Management**:
+  - Cookie name: faculty_twin_admin
+  - Separate authentication flow for administrative functions
+  - Different TTL and security policies
+
+### Context Compression Authentication Requirements
+**Enhanced Security Measures**:
+- **Mandatory Authentication**: The /context/compress endpoint requires valid user authentication
+- **Explicit 401 Response**: Returns unauthorized status when user session is missing or invalid
+- **Session Validation**: Validates both presence and integrity of user session tokens
+- **Error Handling**: Clear error messages for authentication failures
+
+Authentication Flow:
+1. Client sends request with user session cookie
+2. API validates session token integrity
+3. If valid: proceeds with compression operation
+4. If invalid: returns 401 Unauthorized with localized error message
+
+**Section sources**
+- [auth.py:16-17](file://src/sage_faculty_twin/auth.py#L16-L17)
+- [auth.py:41-54](file://src/sage_faculty_twin/auth.py#L41-L54)
+- [api.py:734-750](file://src/sage_faculty_twin/api.py#L734-L750)
 
 ## Troubleshooting Guide
 Common issues and resolutions:
@@ -359,8 +441,12 @@ Common issues and resolutions:
   - Non-UTF-8 encoding or empty content
 - 400 Bad Request (Attachments count)
   - Too many attachments (>4)
+- 401 Unauthorized (Context Compression)
+  - **User authentication required**: Include valid faculty_twin_user cookie
+  - Session token expired or malformed
 - 422 Unprocessable Entity
   - Validation errors on ChatRequest fields
+  - **Missing conversation_id**: Provide valid conversation identifier
 - 504 Gateway Timeout
   - Exceeded CHAT_REQUEST_TIMEOUT_SECONDS
 - 500 Internal Server Error
@@ -370,16 +456,18 @@ Operational tips:
 - Enable streaming: set DIGITAL_TWIN_STREAM_CHAT_ANSWER=true and ensure upstream LLM supports chunked streaming
 - Verify environment variables for LLM base URL and API key
 - Confirm CORS and proxy settings if using Cloudflare tunnel
+- **Authentication**: Ensure user session cookies are properly set for context compression operations
 
 **Section sources**
 - [api.py:259-260](file://src/sage_faculty_twin/api.py#L259-L260)
 - [api.py:270-326](file://src/sage_faculty_twin/api.py#L270-L326)
 - [api.py:328-367](file://src/sage_faculty_twin/api.py#L328-L367)
 - [api.py:641-645](file://src/sage_faculty_twin/api.py#L641-L645)
+- [api.py:734-750](file://src/sage_faculty_twin/api.py#L734-L750)
 - [README.md:115-116](file://README.md#L115-L116)
 
 ## Conclusion
-The chat endpoints provide a robust, extensible foundation for conversational AI with strong typing, streaming capabilities, and flexible attachment handling. By leveraging authentication-aware visitor profiles, configurable deep thinking modes, and optional web search, the system supports diverse user needs while maintaining clear observability through SSE events.
+The chat endpoints provide a robust, extensible foundation for conversational AI with strong typing, streaming capabilities, and flexible attachment handling. By leveraging authentication-aware visitor profiles, configurable deep thinking modes, and optional web search, the system supports diverse user needs while maintaining clear observability through SSE events. **The enhanced authentication requirements for context compression functionality ensure secure access to advanced features while maintaining system integrity and user privacy.**
 
 ## Appendices
 
@@ -391,6 +479,12 @@ The chat endpoints provide a robust, extensible foundation for conversational AI
   - Response: ChatResponse
   - Notes: When request_id is provided, SSE events are available at /chat/workflow-events
 
+- POST /context/compress
+  - Body: JSON with conversation_id
+  - Authentication: Required (faculty_twin_user cookie)
+  - Response: JSON with compression results
+  - Notes: Manual context compression bypasses automatic thresholds
+
 - GET /chat/workflow-events
   - Query: request_id (required)
   - Response: Server-Sent Events stream
@@ -398,6 +492,7 @@ The chat endpoints provide a robust, extensible foundation for conversational AI
 
 **Section sources**
 - [api.py:618-700](file://src/sage_faculty_twin/api.py#L618-L700)
+- [api.py:734-750](file://src/sage_faculty_twin/api.py#L734-L750)
 - [api.py:597-609](file://src/sage_faculty_twin/api.py#L597-L609)
 
 ### Request/Response Schemas
@@ -412,19 +507,30 @@ The chat endpoints provide a robust, extensible foundation for conversational AI
 - ChatAttachment
   - Fields: file_name*, media_type*, text_content* (truncated), size_bytes?
 
+- ContextCompressionRequest
+  - Fields: conversation_id* (string)
+  - Validation: non-empty string required
+
+- ContextCompressionResponse
+  - Fields: ok*, turns_compressed*, total_turns*, digest_chars*
+  - Error cases: error* field with descriptive message
+
 **Section sources**
 - [models.py:16-31](file://src/sage_faculty_twin/models.py#L16-L31)
 - [models.py:9-14](file://src/sage_faculty_twin/models.py#L9-L14)
 - [models.py:199-221](file://src/sage_faculty_twin/models.py#L199-L221)
+- [service.py:1734-1786](file://src/sage_faculty_twin/service.py#L1734-L1786)
 
 ### Authentication and Cookies
 - Admin session cookie: faculty_twin_admin
 - User session cookie: faculty_twin_user
 - Visitor profile adaptation: uses user session when present
+- **Context compression requires user authentication**
 
 **Section sources**
 - [auth.py:16-17](file://src/sage_faculty_twin/auth.py#L16-L17)
 - [api.py:408-416](file://src/sage_faculty_twin/api.py#L408-L416)
+- [api.py:734-750](file://src/sage_faculty_twin/api.py#L734-L750)
 
 ### Environment Variables and Limits
 - DIGITAL_TWIN_STREAM_CHAT_ANSWER: enable streaming
@@ -432,10 +538,12 @@ The chat endpoints provide a robust, extensible foundation for conversational AI
 - DIGITAL_TWIN_CHAT_SSE_KEEPALIVE_SECONDS: SSE keepalive interval
 - Attachment limits: max 4 files, 5 MB each, 12,000 chars text content
 - Supported attachment types: PDF, TXT, MD, CSV, JSON, PY, YAML, LOG
+- **Context compression settings**: enabled by default, processes up to 32 turns per operation
 
 **Section sources**
 - [api.py:136-167](file://src/sage_faculty_twin/api.py#L136-L167)
 - [config.py:99-128](file://src/sage_faculty_twin/config.py#L99-L128)
+- [config.py:125-131](file://src/sage_faculty_twin/config.py#L125-L131)
 
 ### Practical curl Examples
 
@@ -474,7 +582,16 @@ The chat endpoints provide a robust, extensible foundation for conversational AI
   curl -N "http://127.0.0.1:55601/chat/workflow-events?request_id=req123"
   ```
 
+- **Context compression with authentication**
+  ```bash
+  curl -X POST http://127.0.0.1:55601/context/compress \
+    -H "Content-Type: application/json" \
+    -H "Cookie: faculty_twin_user=your_valid_session_token" \
+    -d '{"conversation_id":"valid-conversation-id-123"}'
+  ```
+
 **Section sources**
 - [README.md:50-55](file://README.md#L50-L55)
 - [api.py:618-700](file://src/sage_faculty_twin/api.py#L618-L700)
 - [api.py:597-609](file://src/sage_faculty_twin/api.py#L597-L609)
+- [api.py:734-750](file://src/sage_faculty_twin/api.py#L734-L750)

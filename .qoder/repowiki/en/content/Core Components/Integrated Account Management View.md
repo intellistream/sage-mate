@@ -10,15 +10,17 @@
 - [index.html](file://src/sage_faculty_twin/web/index.html)
 - [models.py](file://src/sage_faculty_twin/models.py)
 - [config.py](file://src/sage_faculty_twin/config.py)
+- [styles.css](file://src/sage_faculty_twin/web/styles.css)
 </cite>
 
 ## Update Summary
 **Changes Made**
-- Enhanced account view with comprehensive registration and login forms
-- Added new form handlers in app.js for user registration and login processes
-- Implemented proper error handling and success feedback mechanisms
-- Enhanced account view with prominent close button (#close-account-view)
-- Improved user interface elements for better user experience
+- Updated to reflect ChatGPT-style sidebar redesign with integrated account management
+- Removed redundant settings gear icon in favor of sidebar user avatar integration
+- Added new model name display in top bar status area
+- Integrated account management as in-chat view instead of separate modal
+- Implemented seed chips functionality moved from sidebar to clickable chips above composer
+- Enhanced visitor profile system with profile-aware seed chip generation
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -26,80 +28,79 @@
 3. [Core Components](#core-components)
 4. [Enhanced Visitor Profile System](#enhanced-visitor-profile-system)
 5. [Onboarding Integration Framework](#onboarding-integration-framework)
-6. [Account Management Implementation](#account-management-implementation)
-7. [Session Management](#session-management)
-8. [User Authentication Flow](#user-authentication-flow)
-9. [Frontend Integration](#frontend-integration)
-10. [Security Considerations](#security-considerations)
-11. [Data Storage](#data-storage)
-12. [Testing Infrastructure](#testing-infrastructure)
-13. [Troubleshooting Guide](#troubleshooting-guide)
-14. [Conclusion](#conclusion)
+6. [Integrated Account Management](#integrated-account-management)
+7. [Sidebar Redesign and Navigation](#sidebar-redesign-and-navigation)
+8. [Seed Chips Implementation](#seed-chips-implementation)
+9. [Top Bar Model Name Display](#top-bar-model-name-display)
+10. [Session Management](#session-management)
+11. [User Authentication Flow](#user-authentication-flow)
+12. [Frontend Integration](#frontend-integration)
+13. [Security Considerations](#security-considerations)
+14. [Data Storage](#data-storage)
+15. [Testing Infrastructure](#testing-infrastructure)
+16. [Troubleshooting Guide](#troubleshooting-guide)
+17. [Conclusion](#conclusion)
 
 ## Introduction
 
-The Integrated Account Management View is a comprehensive user authentication and session management system built into the SAGE Faculty Twin platform. This system provides seamless user registration, login, and session persistence capabilities while maintaining robust security standards and user experience.
+The Integrated Account Management View represents a comprehensive transformation of the SAGE Faculty Twin platform's user interface and authentication system. This system introduces a ChatGPT-style sidebar redesign that integrates account management directly into the main chat interface, removing redundant navigation elements while enhancing user experience through streamlined workflows.
 
-The system integrates tightly with the frontend application through a modern JavaScript interface that supports tabbed account management views, real-time session updates, and responsive design patterns. It leverages a layered architecture with clear separation of concerns between authentication logic, session management, and user data storage.
+The redesigned system maintains robust security standards and user experience while implementing modern interface patterns. The integration of account management as an in-chat view eliminates the need for separate modals and provides a more cohesive user journey from authentication to productive interaction.
 
-**Updated** The system now includes comprehensive registration and login forms within the account view, featuring new form handlers in app.js for user registration and login processes with proper error handling and success feedback mechanisms. The account view has been enhanced with a prominent close button (#close-account-view) and improved user interface elements for better user experience.
+**Updated** The system now features a ChatGPT-inspired sidebar redesign where the user avatar in the sidebar rail serves as the primary entry point for settings and account management, replacing the previous settings gear icon. Account registration and login are now presented as tabbed in-chat views that can be dismissed without page reload, and seed chips containing pre-filled questions have been moved from the sidebar to clickable chips positioned above the message composer.
 
 ## System Architecture
 
-The Integrated Account Management View follows a multi-layered architecture that ensures scalability, security, and maintainability:
+The Integrated Account Management View follows a modernized multi-layered architecture optimized for the new sidebar design:
 
 ```mermaid
 graph TB
-subgraph "Frontend Layer"
-A[Web Interface]
-B[Account Management View]
-C[Session Management]
-D[Visitor Profile Selection]
-E[Onboarding Integration]
-F[Registration Forms]
-G[Login Forms]
-H[Form Handlers]
-I[Error Handling]
-J[Success Feedback]
+subgraph "Modernized Frontend Layer"
+A[Chat Interface]
+B[Integrated Account View]
+C[Settings Drawer Integration]
+D[Sidebar User Avatar]
+E[Seed Chips System]
+F[Top Bar Model Display]
+G[Responsive Navigation]
 end
 subgraph "API Layer"
-K[FastAPI Endpoints]
-L[Authentication Routes]
-M[Session Handlers]
-N[Visitor Profile Validation]
-O[Onboarding Guidance]
+H[FastAPI Endpoints]
+I[Authentication Routes]
+J[Session Handlers]
+K[Profile Management]
+L[Onboarding Integration]
 end
 subgraph "Service Layer"
-P[DigitalTwinService]
-Q[User Authentication Service]
-R[Session Validation]
-S[Invitation Code Verification]
-T[Profile Configuration Management]
+M[DigitalTwinService]
+N[User Authentication Service]
+O[Session Validation]
+P[Profile Configuration]
+Q[Seed Chip Generation]
 end
 subgraph "Data Layer"
-U[User Store]
-V[Session Storage]
-W[Configuration Management]
-X[Visitor Profile Registry]
-Y[Onboarding State Tracking]
+R[User Store]
+S[Session Storage]
+T[Profile Registry]
+U[Seed Chip Pool]
+V[Onboarding State]
 end
-A --> K
-B --> K
-F --> H
-G --> H
-H --> K
-I --> J
+A --> H
+B --> H
+D --> C
+E --> G
+F --> A
+H --> M
+I --> N
+J --> O
 K --> P
 L --> Q
 M --> R
-N --> S
-O --> T
-P --> U
+N --> R
+O --> S
+P --> T
 Q --> U
 R --> V
-S --> W
-T --> X
-U --> Y
 ```
 
 **Diagram sources**
@@ -111,7 +112,7 @@ U --> Y
 
 ### Authentication Module
 
-The authentication module provides the foundation for secure user management through cookie-based session tokens:
+The authentication module provides secure user management through cookie-based session tokens with enhanced integration for the new sidebar design:
 
 ```mermaid
 classDiagram
@@ -152,7 +153,7 @@ AuthModule --> CookieHandler : uses
 
 ### User Store Management
 
-The user store manages persistent user data with secure password hashing and validation:
+The user store manages persistent user data with secure password hashing and enhanced profile configuration:
 
 ```mermaid
 classDiagram
@@ -196,7 +197,7 @@ UserAccountStore --> UserAccountRecord : manages
 
 ### Visitor Profile Configuration
 
-The system now supports four distinct visitor profiles with comprehensive configuration and presentation:
+The system now supports four distinct visitor profiles with comprehensive configuration and profile-aware seed chip generation:
 
 ```mermaid
 classDiagram
@@ -208,8 +209,14 @@ class VisitorProfileConfig {
 +drawerHint : string
 +introLines : list[string]
 +quickActions : list[QuickAction]
++seedChips : list[SeedChip]
 }
 class QuickAction {
++label : string
++question : string
++context : string
+}
+class SeedChip {
 +label : string
 +question : string
 +context : string
@@ -227,40 +234,45 @@ class OnboardingStep {
 +context : string
 }
 VisitorProfileConfig --> QuickAction : contains
+VisitorProfileConfig --> SeedChip : generates
 OnboardingFramework --> OnboardingStep : contains
 ```
 
 **Diagram sources**
 - [app.js:398-463](file://src/sage_faculty_twin/web/app.js#L398-L463)
 - [app.js:496-589](file://src/sage_faculty_twin/web/app.js#L496-L589)
+- [app.js:534-563](file://src/sage_faculty_twin/web/app.js#L534-L563)
 
-The visitor profile system includes:
+The visitor profile system includes profile-aware seed chip generation with different content strategies:
 
-| Profile Type | Access Level | Key Features | Onboarding Complexity |
-|--------------|--------------|-------------|----------------------|
-| `general_visitor` | Basic | Public access with basic guidance | Minimal |
-| `hust_undergraduate` | Course Access | Course-specific context and condensed onboarding | Medium |
-| `paper_writing_student` | Writing Access | Thesis writing guidance with seven-step framework | High |
-| `lab_member` | Full Access | Comprehensive research guidance with full onboarding | Highest |
+| Profile Type | Seed Chip Count | Content Strategy | Availability |
+|--------------|----------------|------------------|--------------|
+| `general_visitor` | 3 randomized | Public research questions | Always |
+| `hust_undergraduate` | 3 course-specific | Lab experiment questions | Always |
+| `paper_writing_student` | 3 writing-focused | Thesis writing guidance | Always |
+| `lab_member` | 3 research-oriented | Advanced research questions | Invitation code required |
 
 **Section sources**
 - [app.js:398-463](file://src/sage_faculty_twin/web/app.js#L398-L463)
 - [app.js:496-589](file://src/sage_faculty_twin/web/app.js#L496-L589)
+- [app.js:534-563](file://src/sage_faculty_twin/web/app.js#L534-L563)
 
 ### Visitor Profile Presentation System
 
-The frontend implements dynamic presentation based on visitor profiles:
+The frontend implements dynamic presentation based on visitor profiles with enhanced sidebar integration:
 
 ```mermaid
 sequenceDiagram
 participant User as User
-participant IdentityModal as IdentityModal
+participant Sidebar as Sidebar
 participant ProfileConfig as ProfileConfig
+participant SeedChips as SeedChips
 participant Presentation as Presentation
-User->>IdentityModal : Open Identity Selection
-IdentityModal->>ProfileConfig : Get Profile Configuration
-ProfileConfig->>Presentation : Apply Profile Settings
-Presentation->>User : Update UI with Profile-specific Content
+User->>Sidebar : Click User Avatar
+Sidebar->>ProfileConfig : Get Profile Configuration
+ProfileConfig->>SeedChips : Generate Profile-Aware Chips
+SeedChips->>Presentation : Render Seed Chips
+Presentation->>User : Update UI with Profile-Specific Content
 User->>Presentation : Start Conversation
 Presentation->>Presentation : Apply Profile Context
 ```
@@ -268,16 +280,18 @@ Presentation->>Presentation : Apply Profile Context
 **Diagram sources**
 - [app.js:1839-1874](file://src/sage_faculty_twin/web/app.js#L1839-L1874)
 - [app.js:2047-2071](file://src/sage_faculty_twin/web/app.js#L2047-L2071)
+- [app.js:534-563](file://src/sage_faculty_twin/web/app.js#L534-L563)
 
 **Section sources**
 - [app.js:1839-1874](file://src/sage_faculty_twin/web/app.js#L1839-L1874)
 - [app.js:2047-2071](file://src/sage_faculty_twin/web/app.js#L2047-L2071)
+- [app.js:534-563](file://src/sage_faculty_twin/web/app.js#L534-L563)
 
 ## Onboarding Integration Framework
 
 ### Seven-Step Research Question Framework
 
-The system implements a comprehensive onboarding framework with different approaches for various user types:
+The system implements a comprehensive onboarding framework with different approaches for various user types and profile-aware seed chip generation:
 
 ```mermaid
 flowchart TD
@@ -312,28 +326,27 @@ BStep2 --> Completion
 
 ### Profile-Specific Quick Actions
 
-Each visitor profile provides tailored quick actions and guidance:
+Each visitor profile provides tailored quick actions and guidance with enhanced integration into the sidebar redesign:
 
 **Section sources**
 - [app.js:464-494](file://src/sage_faculty_twin/web/app.js#L464-L494)
 
-## Account Management Implementation
+## Integrated Account Management
 
-### Frontend Account View
+### In-Chat Account View Implementation
 
-The frontend implements a sophisticated account management interface with tabbed navigation and modal integration:
+**Updated** The system now implements integrated account management as an in-chat view that replaces the previous separate modal approach:
 
 ```mermaid
 sequenceDiagram
 participant User as User
 participant Sidebar as Sidebar
 participant AccountView as AccountView
-participant Modal as Modal
+participant SettingsDrawer as SettingsDrawer
 participant API as API Layer
-User->>Sidebar : Click Account Icon
-Sidebar->>AccountView : openAccountView()
-AccountView->>Modal : Initialize Register/Login Forms
-Modal->>AccountView : Load Form Content
+User->>Sidebar : Click User Avatar
+Sidebar->>SettingsDrawer : openSettingsDrawer()
+SettingsDrawer->>AccountView : Initialize Account Tabs
 AccountView->>AccountView : switchAccountTab(register)
 User->>AccountView : Fill Registration Form
 AccountView->>API : POST /auth/user/register
@@ -345,21 +358,21 @@ AccountView->>User : Show User Dashboard
 ```
 
 **Diagram sources**
-- [app.js:8529-8553](file://src/sage_faculty_twin/web/app.js#L8529-L8553)
+- [app.js:1466-1469](file://src/sage_faculty_twin/web/app.js#L1466-L1469)
 - [api.py:512-516](file://src/sage_faculty_twin/api.py#L512-L516)
 
-The account management view consists of two primary tabs:
+The integrated account management view consists of two primary tabs within the chat interface:
 
-1. **Registration Tab**: Allows new users to create accounts with validation
-2. **Login Tab**: Provides authentication for existing users
+1. **Registration Tab**: Allows new users to create accounts with visitor profile selection and invitation code validation
+2. **Login Tab**: Provides authentication for existing users with optional invitation code upgrade
 
 **Section sources**
-- [app.js:8529-8553](file://src/sage_faculty_twin/web/app.js#L8529-L8553)
-- [index.html:229-249](file://src/sage_faculty_twin/web/index.html#L229-L249)
+- [app.js:1466-1469](file://src/sage_faculty_twin/web/app.js#L1466-L1469)
+- [index.html:217-237](file://src/sage_faculty_twin/web/index.html#L217-L237)
 
 ### Backend API Endpoints
 
-The backend exposes comprehensive authentication endpoints:
+The backend exposes comprehensive authentication endpoints with enhanced integration:
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|
@@ -394,14 +407,16 @@ Handler->>Handler : Close Account View
 ```
 
 **Diagram sources**
-- [app.js:1274-1319](file://src/sage_faculty_twin/web/app.js#L1274-L1319)
+- [app.js:1472-1495](file://src/sage_faculty_twin/web/app.js#L1472-L1495)
+- [app.js:1498-1517](file://src/sage_faculty_twin/web/app.js#L1498-L1517)
 
 **Section sources**
-- [app.js:1274-1319](file://src/sage_faculty_twin/web/app.js#L1274-L1319)
+- [app.js:1472-1495](file://src/sage_faculty_twin/web/app.js#L1472-L1495)
+- [app.js:1498-1517](file://src/sage_faculty_twin/web/app.js#L1498-L1517)
 
 ### Enhanced Close Button Functionality
 
-**Updated** The account view now features a prominent close button (#close-account-view) with improved user interface elements:
+**Updated** The account view now features a prominent close button with improved user interface elements:
 
 ```mermaid
 sequenceDiagram
@@ -415,18 +430,175 @@ AccountView->>AccountView : Remove Active Class
 ```
 
 **Diagram sources**
-- [app.js:1334-1335](file://src/sage_faculty_twin/web/app.js#L1334-L1335)
-- [index.html:231-234](file://src/sage_faculty_twin/web/index.html#L231-L234)
+- [app.js:1533](file://src/sage_faculty_twin/web/app.js#L1533)
+- [index.html:220-222](file://src/sage_faculty_twin/web/index.html#L220-L222)
 
 **Section sources**
-- [app.js:1334-1335](file://src/sage_faculty_twin/web/app.js#L1334-L1335)
-- [index.html:231-234](file://src/sage_faculty_twin/web/index.html#L231-L234)
+- [app.js:1533](file://src/sage_faculty_twin/web/app.js#L1533)
+- [index.html:220-222](file://src/sage_faculty_twin/web/index.html#L220-L222)
+
+## Sidebar Redesign and Navigation
+
+### ChatGPT-Style Sidebar Implementation
+
+**Updated** The system now features a ChatGPT-inspired sidebar redesign where the user avatar serves as the primary navigation element:
+
+```mermaid
+graph LR
+subgraph "Sidebar Rail"
+A[Brand Logo]
+B[New Chat Button]
+C[Utility Buttons]
+D[Status]
+E[System Info]
+F[User Avatar Button]
+end
+subgraph "Settings Integration"
+G[Settings Drawer]
+H[Account Management]
+I[Profile Configuration]
+J[Visitor Settings]
+end
+F --> G
+G --> H
+G --> I
+G --> J
+```
+
+**Diagram sources**
+- [index.html:50-95](file://src/sage_faculty_twin/web/index.html#L50-L95)
+- [app.js:1466-1469](file://src/sage_faculty_twin/web/app.js#L1466-L1469)
+
+The sidebar redesign removes the redundant settings gear icon and consolidates all settings functions into the integrated account management view:
+
+- **User Avatar Button** (`#sidebar-user-icon`): Primary entry point for settings and account management
+- **Brand Logo**: Maintains brand identity and navigation
+- **Utility Buttons**: System status, suggestions, and external links
+- **User Badge**: Top bar user badge for authenticated users
+
+**Section sources**
+- [index.html:50-95](file://src/sage_faculty_twin/web/index.html#L50-L95)
+- [app.js:1466-1469](file://src/sage_faculty_twin/web/app.js#L1466-L1469)
+
+### Settings Drawer Integration
+
+**Updated** The settings drawer is now integrated with the sidebar user avatar and provides consolidated access to all user management functions:
+
+```mermaid
+sequenceDiagram
+participant User as User
+participant Sidebar as Sidebar
+participant SettingsDrawer as Settings Drawer
+participant AccountView as Account View
+User->>Sidebar : Click User Avatar
+Sidebar->>SettingsDrawer : openSettingsDrawer()
+SettingsDrawer->>SettingsDrawer : Load User Session Data
+SettingsDrawer->>AccountView : Initialize Account Tabs
+SettingsDrawer->>SettingsDrawer : Show Profile Configuration
+```
+
+**Diagram sources**
+- [app.js:1466-1469](file://src/sage_faculty_twin/web/app.js#L1466-L1469)
+- [index.html:433-546](file://src/sage_faculty_twin/web/index.html#L433-L546)
+
+**Section sources**
+- [app.js:1466-1469](file://src/sage_faculty_twin/web/app.js#L1466-L1469)
+- [index.html:433-546](file://src/sage_faculty_twin/web/index.html#L433-L546)
+
+## Seed Chips Implementation
+
+### Pre-Filled Questions System
+
+**Updated** Seed chips have been moved from the sidebar to clickable chips positioned above the message composer, providing immediate access to profile-aware questions:
+
+```mermaid
+flowchart TD
+Start([Page Load]) --> ProfileDetection["Detect Visitor Profile"]
+ProfileDetection --> ChipGeneration["Generate Profile-Aware Seed Chips"]
+ChipGeneration --> StaticRender["Render Static Seed Chips"]
+StaticRender --> LLMEnhancement["Enhance with LLM-Generated Chips"]
+LLMEnhancement --> DynamicReplacement["Replace Some Chips Dynamically"]
+DynamicReplacement --> InteractiveUsage["User Interaction"]
+InteractiveUsage --> QuestionFilling["Fill Composer with Selected Question"]
+QuestionFilling --> EnhancedExperience["Improved User Experience"]
+```
+
+**Diagram sources**
+- [app.js:534-563](file://src/sage_faculty_twin/web/app.js#L534-L563)
+- [app.js:567-608](file://src/sage_faculty_twin/web/app.js#L567-L608)
+
+The seed chips system provides profile-aware question suggestions with the following characteristics:
+
+- **Static Chips**: Three randomly selected questions from profile-specific pools
+- **Dynamic Enhancement**: Two LLM-generated chips that replace static ones after initial render
+- **Interactive Behavior**: Clicking chips automatically fills the message composer
+- **Context Preservation**: Each chip carries associated context for better conversation quality
+
+**Section sources**
+- [app.js:534-563](file://src/sage_faculty_twin/web/app.js#L534-L563)
+- [app.js:567-608](file://src/sage_faculty_twin/web/app.js#L567-L608)
+
+### Profile-Specific Seed Chip Pools
+
+The system maintains separate seed chip pools for each visitor profile:
+
+| Profile Type | Static Chips | Dynamic Enhancement | Purpose |
+|--------------|--------------|-------------------|---------|
+| `general_visitor` | 3 public research questions | Randomized | General exploration |
+| `hust_undergraduate` | 3 course-specific questions | Lab experiment prompts | Academic support |
+| `paper_writing_student` | 3 writing-focused questions | Thesis guidance | Academic writing |
+| `lab_member` | 3 advanced research questions | Research project prompts | Professional development |
+
+**Section sources**
+- [app.js:612-639](file://src/sage_faculty_twin/web/app.js#L612-L639)
+
+## Top Bar Model Name Display
+
+### Model Information Integration
+
+**Updated** The top bar now displays model information in the status area, providing users with visibility into the AI model being used:
+
+```mermaid
+graph LR
+subgraph "Top Bar Structure"
+A[Brand Identity]
+B[Model Status Display]
+C[User Badge]
+end
+subgraph "Model Information"
+D[Model Name]
+E[Model Status]
+F[Service Status]
+G[User Count]
+H[Question Count]
+end
+A --> D
+B --> E
+C --> F
+D --> G
+E --> H
+```
+
+**Diagram sources**
+- [index.html:25-47](file://src/sage_faculty_twin/web/index.html#L25-L47)
+- [app.js:1-12](file://src/sage_faculty_twin/web/app.js#L1-L12)
+
+The top bar model display includes:
+
+- **Brand Identity**: SAGE Faculty Twin branding with assistant name
+- **Model Status**: Current AI model information and status
+- **Service Metrics**: User count, question count, and system status
+- **User Badge**: Authenticated user information display
+
+**Section sources**
+- [index.html:25-47](file://src/sage_faculty_twin/web/index.html#L25-L47)
+- [app.js:1-12](file://src/sage_faculty_twin/web/app.js#L1-L12)
 
 ## Session Management
 
 ### Cookie-Based Authentication
 
-The system implements secure cookie-based session management with configurable expiration:
+The system implements secure cookie-based session management with enhanced integration for the new sidebar design:
 
 ```mermaid
 flowchart TD
@@ -457,7 +629,7 @@ Session validation occurs on each request through middleware that checks cookie 
 
 ### Registration Process
 
-The registration process follows a secure multi-step validation and storage workflow:
+The registration process follows a secure multi-step validation and storage workflow with enhanced profile integration:
 
 ```mermaid
 sequenceDiagram
@@ -487,7 +659,7 @@ API-->>Client : UserSessionResponse with Session Token
 
 ### Login Process
 
-The login process validates credentials and establishes authenticated sessions:
+The login process validates credentials and establishes authenticated sessions with enhanced user experience:
 
 **Section sources**
 - [user_store.py:123-161](file://src/sage_faculty_twin/user_store.py#L123-L161)
@@ -497,34 +669,37 @@ The login process validates credentials and establishes authenticated sessions:
 
 ### Responsive Design Implementation
 
-The account management view integrates seamlessly with the responsive frontend architecture:
+**Updated** The account management view integrates seamlessly with the responsive frontend architecture and new sidebar design:
 
 ```mermaid
 graph LR
 subgraph "Desktop Layout"
 A[Main Chat Interface]
-B[Account View Panel]
+B[Integrated Account View]
 C[Settings Drawer]
 D[Status Panel]
+E[Sidebar User Avatar]
 end
 subgraph "Mobile Layout"
-E[Bottom Sheet View]
-F[Modal Forms]
-G[Responsive Navigation]
+F[Bottom Sheet View]
+G[Modal Forms]
+H[Responsive Navigation]
 end
-B --> |Tabs| H[Register/Login Forms]
-H --> I[Form Validation]
-I --> J[API Communication]
-J --> K[Session Updates]
+B --> |Tabs| I[Register/Login Forms]
+I --> J[Form Validation]
+J --> K[API Communication]
+K --> L[Session Updates]
+E --> |Click| C
+C --> |Settings| B
 ```
 
 **Diagram sources**
-- [app.js:8529-8553](file://src/sage_faculty_twin/web/app.js#L8529-L8553)
-- [index.html:229-249](file://src/sage_faculty_twin/web/index.html#L229-L249)
+- [app.js:1466-1469](file://src/sage_faculty_twin/web/app.js#L1466-L1469)
+- [index.html:217-237](file://src/sage_faculty_twin/web/index.html#L217-L237)
 
 ### Real-time Session Updates
 
-The frontend maintains real-time synchronization of user session states:
+The frontend maintains real-time synchronization of user session states with enhanced sidebar integration:
 
 **Section sources**
 - [app.js:8181-8189](file://src/sage_faculty_twin/web/app.js#L8181-L8189)
@@ -532,7 +707,7 @@ The frontend maintains real-time synchronization of user session states:
 
 ### Enhanced Form Handling
 
-**Updated** The system now includes comprehensive form handling with proper validation and feedback:
+**Updated** The system now includes comprehensive form handling with proper validation and feedback for the integrated account management:
 
 ```mermaid
 sequenceDiagram
@@ -555,10 +730,12 @@ Form->>Form : Update UI State
 ```
 
 **Diagram sources**
-- [app.js:1274-1319](file://src/sage_faculty_twin/web/app.js#L1274-L1319)
+- [app.js:1472-1495](file://src/sage_faculty_twin/web/app.js#L1472-L1495)
+- [app.js:1498-1517](file://src/sage_faculty_twin/web/app.js#L1498-L1517)
 
 **Section sources**
-- [app.js:1274-1319](file://src/sage_faculty_twin/web/app.js#L1274-L1319)
+- [app.js:1472-1495](file://src/sage_faculty_twin/web/app.js#L1472-L1495)
+- [app.js:1498-1517](file://src/sage_faculty_twin/web/app.js#L1498-L1517)
 
 ## Security Considerations
 
@@ -573,7 +750,7 @@ The system implements industry-standard password hashing using scrypt with confi
 
 ### Session Security
 
-Cookie-based sessions provide secure, stateless authentication:
+Cookie-based sessions provide secure, stateless authentication with enhanced integration:
 
 - **HttpOnly Cookies**: Prevents XSS attacks
 - **SameSite Protection**: CSRF mitigation
@@ -648,20 +825,20 @@ The storage system ensures data integrity through:
 
 ### Lab Member Account Provisioning
 
-The system includes dedicated support for lab member accounts as part of the testing infrastructure:
+The system includes dedicated support for lab member accounts as part of the testing infrastructure with enhanced profile validation:
 
-**Updated** The testing infrastructure now includes provisioned lab member accounts with controlled access through invitation codes and comprehensive visitor profile support.
+**Updated** The testing infrastructure now includes provisioned lab member accounts with controlled access through invitation codes and comprehensive visitor profile support, integrated with the new seed chip system.
 
 #### Visitor Profile System
 
-The system supports four distinct visitor profiles with different access levels:
+The system supports four distinct visitor profiles with different access levels and enhanced seed chip integration:
 
-| Profile Type | Access Level | Description | Invitation Code Required |
-|--------------|--------------|-------------|-------------------------|
-| `general_visitor` | Basic | Public access for general visitors | No |
-| `hust_undergraduate` | Course Access | Access to undergraduate course materials | No |
-| `paper_writing_student` | Writing Access | Access to thesis writing resources | No |
-| `lab_member` | Full Access | Complete research system access | Yes |
+| Profile Type | Access Level | Description | Invitation Code Required | Seed Chip Availability |
+|--------------|--------------|-------------|-------------------------|----------------------|
+| `general_visitor` | Basic | Public access for general visitors | No | Always |
+| `hust_undergraduate` | Course Access | Access to undergraduate course materials | No | Always |
+| `paper_writing_student` | Writing Access | Access to thesis writing resources | No | Always |
+| `lab_member` | Full Access | Complete research system access | Yes | Always |
 
 #### Invitation Code Validation
 
@@ -684,15 +861,15 @@ ReturnError --> End
 
 #### Test Account Examples
 
-The testing infrastructure includes pre-provisioned lab member accounts:
+The testing infrastructure includes pre-provisioned lab member accounts with enhanced profile awareness:
 
-- **Test Account 1**: `8e5a47f9-49e8-4132-b983-dff1314a6d05` - Lab User
-- **Test Account 2**: `01215b72-6871-483f-8799-d8f0a6d909df` - Lab User  
-- Additional lab member accounts for comprehensive testing
+- **Test Account 1**: `8e5a47f9-49e8-4132-b983-dff1314a6d05` - Lab User with profile-aware seed chips
+- **Test Account 2**: `01215b72-6871-483f-8799-d8f0a6d909df` - Lab User with enhanced onboarding
+- Additional lab member accounts for comprehensive testing with profile-specific seed chip generation
 
 #### Onboarding Integration Testing
 
-The system includes comprehensive onboarding integration testing:
+The system includes comprehensive onboarding integration testing with profile-aware seed chip generation and enhanced user experience flows.
 
 **Section sources**
 - [user_store.py:92-104](file://src/sage_faculty_twin/user_store.py#L92-L104)
@@ -737,6 +914,16 @@ The system includes comprehensive onboarding integration testing:
 - **Solution**: Verify inline status elements exist and function is defined
 - **Debug Steps**: Check HTML structure, verify setInlineStatus function implementation
 
+**Issue**: Seed chips not appearing
+- **Cause**: Missing seed chip container or profile detection issues
+- **Solution**: Verify seed chip container exists and profile is detected
+- **Debug Steps**: Check `#seed-chips` element, verify profile configuration
+
+**Issue**: Sidebar user avatar not responding
+- **Cause**: Missing event listeners or DOM elements
+- **Solution**: Verify event listener attachment and element existence
+- **Debug Steps**: Check `#sidebar-user-icon` element, verify event handler registration
+
 ### Performance Optimization
 
 **Recommendations**:
@@ -745,6 +932,7 @@ The system includes comprehensive onboarding integration testing:
 - Optimize password hashing parameters for deployment environment
 - Monitor session storage growth and implement cleanup policies
 - Cache frequently accessed profile configurations
+- Optimize seed chip generation for better performance
 
 **Section sources**
 - [user_store.py:78-90](file://src/sage_faculty_twin/user_store.py#L78-L90)
@@ -752,21 +940,21 @@ The system includes comprehensive onboarding integration testing:
 
 ## Conclusion
 
-The Integrated Account Management View represents a comprehensive solution for user authentication and session management in the SAGE Faculty Twin platform. The system successfully balances security, usability, and performance through its layered architecture and robust implementation patterns.
+The Integrated Account Management View represents a comprehensive transformation of the SAGE Faculty Twin platform's user interface and authentication system. The ChatGPT-style sidebar redesign successfully integrates account management directly into the main chat interface, removing redundant navigation elements while enhancing user experience through streamlined workflows.
 
-Key strengths include:
-- **Security**: Industry-standard password hashing and cookie-based authentication
-- **Scalability**: Modular design supporting future expansion
-- **Usability**: Intuitive frontend interface with responsive design
-- **Visitor Profiles**: Comprehensive visitor profile system with personalized experiences
-- **Onboarding**: Structured onboarding framework tailored to different user types
-- **Testing Infrastructure**: Dedicated support for lab member accounts and invitation code validation
-- **Maintainability**: Clear separation of concerns and comprehensive error handling
-- **Enhanced Forms**: Comprehensive registration and login forms with proper validation
-- **Improved UI**: Enhanced user interface elements and feedback mechanisms
+Key strengths of the redesigned system include:
+- **Modern Interface**: ChatGPT-inspired sidebar with integrated user avatar navigation
+- **Streamlined Authentication**: In-chat account management eliminates separate modals
+- **Enhanced User Experience**: Profile-aware seed chips provide immediate value
+- **Improved Accessibility**: Single-entry-point principle reduces cognitive load
+- **Robust Security**: Maintains industry-standard authentication and session management
+- **Flexible Architecture**: Supports future enhancements and additional profile types
+- **Performance Optimization**: Efficient seed chip generation and profile detection
 
-The system provides a solid foundation for user management while maintaining flexibility for future enhancements and integration with additional authentication providers or advanced security features.
+The integration of account management as an in-chat view provides a more cohesive user journey from authentication to productive interaction, while the removal of the redundant settings gear icon simplifies the interface and reduces clutter. The new model name display in the top bar enhances transparency about the AI services being used.
 
-**Updated** The enhancement of the visitor profile system with comprehensive onboarding integration and invitation code validation significantly improves the platform's ability to support diverse user types and controlled access scenarios. The addition of structured onboarding workflows, particularly for lab members and paper writing students, demonstrates the system's commitment to providing personalized user experiences while maintaining security and access control.
+The comprehensive seed chip system with profile-aware question generation significantly improves the user experience by providing immediately actionable content tailored to each visitor's role and context. This enhancement demonstrates the system's commitment to providing personalized user experiences while maintaining security and access control.
 
-The comprehensive registration and login forms with proper error handling and success feedback mechanisms represent a significant improvement in user experience, making the account management process more intuitive and reliable. The prominent close button and enhanced UI elements contribute to a more polished and professional user interface.
+The system provides a solid foundation for user management while maintaining flexibility for future enhancements and integration with additional authentication providers or advanced security features. The successful implementation of the sidebar redesign showcases the platform's ability to evolve its interface while preserving core functionality and user experience.
+
+**Updated** The comprehensive sidebar redesign with integrated account management, removal of the settings gear icon, and new model name display in the top bar represents a significant advancement in user interface design. The transformation from separate modals to integrated in-chat views, combined with profile-aware seed chips and streamlined navigation, creates a more intuitive and efficient user experience that aligns with modern web application patterns while maintaining the platform's educational and research focus.

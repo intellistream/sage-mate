@@ -1,1 +1,0 @@
-Validates the end-to-end behavior of the faculty digital twin, including agentic workflows, SSE streaming, plugin architecture, and administrative controls.

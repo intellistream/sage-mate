@@ -7,10 +7,23 @@
 - [workflow_planner.py](file://src/sage_faculty_twin/workflow_planner.py)
 - [workflow_context.py](file://src/sage_faculty_twin/workflow_context.py)
 - [workflow_eval.py](file://src/sage_faculty_twin/workflow_eval.py)
+- [planner_comparison_store.py](file://src/sage_faculty_twin/planner_comparison_store.py)
+- [config.py](file://src/sage_faculty_twin/config.py)
+- [service.py](file://src/sage_faculty_twin/service.py)
+- [models.py](file://src/sage_faculty_twin/models.py)
+- [app.js](file://src/sage_faculty_twin/web/app.js)
 - [test_workflow_policy.py](file://tests/test_workflow_policy.py)
 - [test_workflow_eval.py](file://tests/test_workflow_eval.py)
 - [test_agentic_workflow.py](file://tests/test_agentic_workflow.py)
 </cite>
+
+## Update Summary
+**Changes Made**
+- Removed shadow planning and workflow comparison panel references from documentation
+- Updated architecture overview to reflect simplified workflow system without shadow planning
+- Removed planner comparison store documentation as it's no longer actively used
+- Updated troubleshooting guide to remove shadow planning-related issues
+- Simplified performance considerations to focus on single-path planning
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -25,12 +38,12 @@
 10. [Appendices](#appendices)
 
 ## Introduction
-This document explains how to extend the workflow system with custom steps and policies. It covers the workflow step registry pattern, step definition interfaces, execution context management, policy evaluation mechanisms, shadow planning integration, and fallback strategy implementation. It also provides practical guidance for building custom workflow steps, implementing conditional branching logic, adding custom decision-making processes, managing step dependencies, propagating errors, and monitoring performance for custom extensions.
+This document explains how to extend the workflow system with custom steps and policies. The workflow system now operates with a simplified single-path planning approach, eliminating the previous shadow planning and comparison panel functionality. It covers the workflow step registry pattern, step definition interfaces, execution context management, policy evaluation mechanisms, and fallback strategy implementation. It also provides practical guidance for building custom workflow steps, implementing conditional branching logic, adding custom decision-making processes, managing step dependencies, propagating errors, and monitoring performance for custom extensions.
 
 ## Project Structure
 The workflow system is organized around four core modules:
 - Step definitions and registry: define reusable workflow steps and their metadata
-- Planner: builds deterministic plans and evaluates shadow candidates
+- Planner: builds deterministic plans and evaluates them against policy constraints
 - Policy: validates plans against organizational constraints and risk controls
 - Context: encapsulates request state and environment signals
 
@@ -74,7 +87,6 @@ TESTS --> PLANNER
   - Provides a copy of the default registry for safe extension
 - Planner
   - Builds deterministic plans from request context
-  - Evaluates shadow plan candidates and computes risk levels
   - Enforces evidence contracts and fallback templates
 - Policy and Validator
   - Validates plans against configured constraints (stage counts, latency budgets, evidence sources, admin-only steps)
@@ -93,7 +105,7 @@ TESTS --> PLANNER
 - [workflow_eval.py:13-95](file://src/sage_faculty_twin/workflow_eval.py#L13-L95)
 
 ## Architecture Overview
-The workflow system orchestrates planning, policy validation, and execution preview. The planner constructs a linear sequence of steps from context, then the validator checks compliance with policy constraints. Shadow planning can propose alternative sequences for comparison.
+The workflow system orchestrates planning, policy validation, and execution preview. The planner constructs a linear sequence of steps from context, then the validator checks compliance with policy constraints. The system now operates with a simplified single-path approach without shadow planning or comparison panels.
 
 ```mermaid
 sequenceDiagram
@@ -162,18 +174,13 @@ Registry --> WorkflowStepDefinition : "contains"
 **Section sources**
 - [workflow_steps.py:9-184](file://src/sage_faculty_twin/workflow_steps.py#L9-L184)
 
-### Planner Decision Logic and Shadow Planning
+### Planner Decision Logic
 - Deterministic Planning
   - Builds a linear sequence of steps based on intent detection and context signals
   - Assembles evidence contracts and computes risk levels from step side effects
   - Produces a plan with fallback template and explain-to-operator guidance
-- Shadow Planning
-  - Evaluates candidate step sequences independently
-  - Merges side effects to compute risk and constructs a shadow plan
-  - Returns a decision indicating acceptance or fallback reasons
 - Fallback Strategy
   - When policy validation fails, a fallback template and concise reason are attached
-  - Comparison results surface differences between deterministic and shadow plans
 
 ```mermaid
 flowchart TD
@@ -265,40 +272,6 @@ class WorkflowRequestContext {
 **Section sources**
 - [workflow_context.py:12-262](file://src/sage_faculty_twin/workflow_context.py#L12-L262)
 
-### Shadow Planning Integration and Fallback Implementation
-- Shadow Candidate Evaluation
-  - Planner converts candidate step IDs into step specs and computes risk
-  - Constructs a shadow plan with evidence contract and fallback template
-- Fallback Attachment
-  - When validation fails, the planner attaches a fallback template and a concise reason
-- Planner Comparison
-  - Tests demonstrate shadow disabled vs enabled modes and comparison outcomes
-
-```mermaid
-sequenceDiagram
-participant Planner as "DeterministicWorkflowPlanner"
-participant Candidate as "ShadowPlanCandidate"
-participant Validator as "WorkflowPolicyValidator"
-Planner->>Planner : _build_candidate_step_spec(step_id, goal)
-Planner->>Planner : Sum timeout budgets
-Planner->>Planner : Merge side effects to risk
-Planner->>Planner : Build PlanSpec (shadow_or_template)
-Planner->>Validator : validate(shadow_plan, context)
-alt accepted
-Validator-->>Planner : accepted=true
-else rejected
-Validator-->>Planner : accepted=false, errors
-Planner-->>Planner : attach fallback template/reason
-end
-```
-
-**Diagram sources**
-- [workflow_planner.py:135-177](file://src/sage_faculty_twin/workflow_planner.py#L135-L177)
-- [workflow_planner.py:114-133](file://src/sage_faculty_twin/workflow_planner.py#L114-L133)
-
-**Section sources**
-- [workflow_planner.py:135-177](file://src/sage_faculty_twin/workflow_planner.py#L135-L177)
-
 ### Creating Custom Workflow Steps
 - Step Definition
   - Define a new step with a unique ID, required inputs, produced outputs, side effect, and timeout budget
@@ -352,7 +325,6 @@ end
 ### Error Handling Propagation
 - Validation Errors
   - Aggregated during policy validation and returned with the decision
-  - Fallback reason is constructed from leading errors for quick diagnosis
 - Example Reference Paths
   - See validation result construction and fallback assignment
 
@@ -429,7 +401,7 @@ TESTS3["test_agentic_workflow.py"] --> PLANNER
 - [workflow_eval.py:53-95](file://src/sage_faculty_twin/workflow_eval.py#L53-L95)
 
 ## Conclusion
-The workflow system provides a robust, extensible framework for building and validating plans. By leveraging the step registry, planner, policy validator, and request context, developers can introduce custom steps and policies while maintaining safety, performance, and traceability. Shadow planning and fallback strategies further enhance reliability and operability.
+The workflow system provides a robust, extensible framework for building and validating plans. By leveraging the step registry, planner, policy validator, and request context, developers can introduce custom steps and policies while maintaining safety, performance, and traceability. The simplified single-path planning approach enhances reliability and operability without the complexity of shadow planning or comparison panels.
 
 ## Appendices
 - Example Reference Paths

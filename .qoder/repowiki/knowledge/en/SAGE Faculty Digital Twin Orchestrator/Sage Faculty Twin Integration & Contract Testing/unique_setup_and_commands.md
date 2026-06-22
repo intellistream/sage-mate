@@ -1,0 +1,2 @@
+- **Offline Embedding Models**: Tests require pre-cached embedding models (e.g., `BAAI/bge-small-zh-v1.5`) to avoid network downloads, enforced by `HF_HUB_OFFLINE=1` in `conftest.py`.
+- **Optional Backend Skips**: Tests automatically skip if optional dependencies like `sentence-transformers` or `sagevdb` are missing or if specific hardware (CANN/torch_npu) is unavailable.

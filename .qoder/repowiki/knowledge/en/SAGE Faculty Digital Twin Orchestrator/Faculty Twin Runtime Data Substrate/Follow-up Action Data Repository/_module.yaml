@@ -1,0 +1,9 @@
+schema_version: 1
+module_path: runtime_data/follow_up_actions
+title: Follow-up Action Data Repository
+scope:
+    - data/follow_up_actions/
+source_files: []
+depends_on: []
+related_to:
+    - path: app_source

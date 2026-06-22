@@ -1,0 +1,17 @@
+schema_version: 1
+module_path: app_source
+title: Deterministic Workflow Planning & Policy Enforcement
+scope:
+    - src/sage_faculty_twin/
+source_files: []
+depends_on: []
+related_to:
+    - path: deployment
+    - path: runtime_data/availability
+    - path: runtime_data/capability_plugins
+    - path: runtime_data/conversation_memory
+    - path: runtime_data/follow_up_actions
+    - path: runtime_data/knowledge_base
+    - path: runtime_data/skills
+    - path: runtime_data/user_accounts
+    - path: tests

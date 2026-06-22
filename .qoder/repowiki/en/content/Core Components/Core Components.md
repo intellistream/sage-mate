@@ -19,11 +19,12 @@
 
 ## Update Summary
 **Changes Made**
-- Added comprehensive documentation for the new collapsible footer system with mobile toggle functionality
-- Enhanced layout system documentation with Flexbox implementation replacing fixed height calculations
-- Updated styling system documentation with new CSS rules and responsive behavior patterns
+- Added comprehensive documentation for the new global error handling system in frontend JavaScript
+- Enhanced documentation for the collapsible footer system with mobile toggle functionality
+- Updated layout system documentation with Flexbox implementation replacing fixed height calculations
 - Documented mobile-first responsive design improvements with media queries and adaptive layouts
 - Added footer toggle functionality with accessibility features and state management
+- Strengthened application stability through comprehensive error handling patterns
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -32,37 +33,38 @@
 4. [Architecture Overview](#architecture-overview)
 5. [Detailed Component Analysis](#detailed-component-analysis)
 6. [Enhanced Web Interface Architecture](#enhanced-web-interface-architecture)
-7. [Collapsible Footer System](#collapsible-footer-system)
-8. [Enhanced Layout System with Flexbox](#enhanced-layout-system-with-flexbox)
-9. [Improved Styling System](#improved-styling-system)
-10. [Mobile-First Responsive Design](#mobile-first-responsive-design)
-11. [Footer Toggle Functionality](#footer-toggle-functionality)
-12. [Seed Chip Implementation](#seed-chip-implementation)
-13. [Race Condition Fixes](#race-condition-fixes)
-14. [Chat Empty State Management](#chat-empty-state-management)
-15. [Streaming Response Optimization](#streaming-response-optimization)
-16. [Suggestion Board Deduplication](#suggestion-board-deduplication)
-17. [Changelog Modal Accessibility](#changelog-modal-accessibility)
-18. [CSS Overflow Management](#css-overflow-management)
-19. [Sidebar Redesign](#sidebar-redesign)
-20. [Markdown Rendering Pipeline](#markdown-rendering-pipeline)
-21. [Dependency Analysis](#dependency-analysis)
-22. [Performance Considerations](#performance-considerations)
-23. [Troubleshooting Guide](#troubleshooting-guide)
-24. [Conclusion](#conclusion)
+7. [Global Error Handling System](#global-error-handling-system)
+8. [Collapsible Footer System](#collapsible-footer-system)
+9. [Enhanced Layout System with Flexbox](#enhanced-layout-system-with-flexbox)
+10. [Improved Styling System](#improved-styling-system)
+11. [Mobile-First Responsive Design](#mobile-first-responsive-design)
+12. [Footer Toggle Functionality](#footer-toggle-functionality)
+13. [Seed Chip Implementation](#seed-chip-implementation)
+14. [Race Condition Fixes](#race-condition-fixes)
+15. [Chat Empty State Management](#chat-empty-state-management)
+16. [Streaming Response Optimization](#streaming-response-optimization)
+17. [Suggestion Board Deduplication](#suggestion-board-deduplication)
+18. [Changelog Modal Accessibility](#changelog-modal-accessibility)
+19. [CSS Overflow Management](#css-overflow-management)
+20. [Sidebar Redesign](#sidebar-redesign)
+21. [Markdown Rendering Pipeline](#markdown-rendering-pipeline)
+22. [Dependency Analysis](#dependency-analysis)
+23. [Performance Considerations](#performance-considerations)
+24. [Troubleshooting Guide](#troubleshooting-guide)
+25. [Conclusion](#conclusion)
 
 ## Introduction
-This document explains the core backend components of Sage Faculty Twin, focusing on the service layer architecture, configuration management, authentication and authorization, runtime environment handling, workflow orchestration, memory management integration, and knowledge base connectivity. The system has been enhanced with comprehensive web interface capabilities including advanced markdown rendering, optimized streaming response handling, seed chip implementation, suggestion board deduplication, collapsible footer system with mobile toggle functionality, enhanced layout system using Flexbox instead of fixed height calculations, and improved styling system with responsive behavior.
+This document explains the core backend components of Sage Faculty Twin, focusing on the service layer architecture, configuration management, authentication and authorization, runtime environment handling, workflow orchestration, memory management integration, and knowledge base connectivity. The system has been enhanced with comprehensive web interface capabilities including advanced markdown rendering, optimized streaming response handling, seed chip implementation, suggestion board deduplication, collapsible footer system with mobile toggle functionality, enhanced layout system using Flexbox instead of fixed height calculations, improved styling system with responsive behavior, and a robust global error handling system to prevent uncaught JavaScript errors from breaking event listeners and strengthening application stability.
 
 ## Project Structure
-The backend is organized around a FastAPI application that exposes REST endpoints and an internal service layer responsible for orchestrating workflows. The frontend has been significantly enhanced with comprehensive markdown rendering capabilities, seed chip functionality, real-time streaming optimizations, collapsible footer system, and responsive design improvements. Key modules include:
+The backend is organized around a FastAPI application that exposes REST endpoints and an internal service layer responsible for orchestrating workflows. The frontend has been significantly enhanced with comprehensive markdown rendering capabilities, seed chip functionality, real-time streaming optimizations, collapsible footer system, responsive design improvements, and comprehensive error handling mechanisms. Key modules include:
 - Configuration and environment bootstrap
 - Authentication and session management
 - Knowledge base and memory stores
 - Workflow planner and policy enforcement
 - Runtime service control
 - API entrypoints and SSE event streaming
-- Enhanced web interface with seed chips, suggestion boards, collapsible footer, and responsive design
+- Enhanced web interface with seed chips, suggestion boards, collapsible footer, responsive design, and global error handling
 
 ```mermaid
 graph TB
@@ -95,6 +97,7 @@ LAYOUT["Flexbox Layout System<br/>Responsive Design"]
 STYLING["Enhanced Styling System<br/>Media Queries"]
 SEED["Seed Chip System<br/>Event Delegation"]
 EMPTY["Empty State Manager<br/>Initialization Fix"]
+ERRORHANDLER["Global Error Handler<br/>Prevent Uncaught Errors"]
 END
 API --> SVC
 SVC --> PLANNER
@@ -114,6 +117,7 @@ WEB --> LAYOUT
 WEB --> STYLING
 WEB --> SEED
 WEB --> EMPTY
+WEB --> ERRORHANDLER
 ```
 
 **Diagram sources**
@@ -201,7 +205,7 @@ The system follows a layered architecture with enhanced web interface capabiliti
 - Service layer orchestrates planning, retrieval, LLM invocation, persistence, and notifications.
 - Data stores encapsulate knowledge, memory, and suggestion management with deduplication.
 - Runtime manager coordinates external services.
-- Enhanced frontend with comprehensive markdown rendering, seed chips, collapsible footer system, and responsive design with Flexbox layout.
+- Enhanced frontend with comprehensive markdown rendering, seed chips, collapsible footer system, responsive design with Flexbox layout, and global error handling for robust application stability.
 
 ```mermaid
 sequenceDiagram
@@ -228,6 +232,7 @@ Svc->>LLM : stream chat completion
 LLM-->>Svc : answer chunks
 Svc->>Broker : publish answer_delta
 API-->>Client : SSE answer_delta with formatted content
+Note over Client,API : Global error handler prevents uncaught errors
 Note over Client,API : Collapsible footer system with mobile toggle
 Note over Client,API : Enhanced Flexbox layout system
 Note over Client,API : Responsive styling improvements
@@ -477,12 +482,35 @@ Score --> Render["Render user response"]
 ## Enhanced Web Interface Architecture
 
 ### Web Interface Components
-The enhanced web interface consists of four main components working together to provide comprehensive markdown rendering, optimized streaming with race condition fixes, collapsible footer system, and responsive design with Flexbox layout:
+The enhanced web interface consists of four main components working together to provide comprehensive markdown rendering, optimized streaming with race condition fixes, collapsible footer system, responsive design with Flexbox layout, and robust error handling:
 
-- **Frontend Shell (index.html)**: Main HTML structure with responsive design, accessibility features, modular UI components including seed chips, suggestion boards, and the new collapsible footer system.
-- **Application Logic (app.js)**: Comprehensive JavaScript implementation handling streaming responses, markdown processing, real-time updates, seed chip interactions, suggestion board management, footer toggle functionality, and responsive behavior with race condition fixes.
-- **Styling (styles.css)**: CSS framework supporting the enhanced interface with modern design patterns, seed chip styling, collapsible footer styles, Flexbox layout system, and comprehensive media queries for responsive behavior.
-- **Footer System**: New collapsible footer with mobile toggle functionality, state management, and accessibility features.
+- **Frontend Shell (index.html)**: Main HTML structure with responsive design, accessibility features, modular UI components including seed chips, suggestion boards, and the new collapsible footer system with global error handling.
+- **Application Logic (app.js)**: Comprehensive JavaScript implementation handling streaming responses, markdown processing, real-time updates, seed chip interactions, suggestion board management, footer toggle functionality, responsive behavior with race condition fixes, and global error handling to prevent uncaught JavaScript errors.
+- **Styling (styles.css)**: CSS framework supporting the enhanced interface with modern design patterns, seed chip styling, collapsible footer styles, Flexbox layout system, comprehensive media queries for responsive behavior, and global error handling styling.
+- **Footer System**: New collapsible footer with mobile toggle functionality, state management, accessibility features, and global error handling integration.
+- **Global Error Handler**: Comprehensive error handling system that prevents uncaught JavaScript errors from breaking event listeners and strengthening application stability.
+
+### Global Error Handling System
+
+**Updated** Comprehensive global error handling system to prevent uncaught JavaScript errors from breaking event listeners
+
+The global error handling system provides robust error management across the entire application:
+
+- **Error Event Listener**: Captures uncaught JavaScript errors using `window.addEventListener("error", ...)`
+- **Promise Rejection Handler**: Handles unhandled promise rejections with `window.addEventListener("unhandledrejection", ...)`
+- **Error Logging**: Comprehensive logging of error messages, filenames, and line numbers for debugging
+- **Event Listener Protection**: Prevents error propagation that could break event listeners and UI functionality
+- **Application Stability**: Ensures critical UI components remain functional even when individual operations fail
+
+Key implementation details:
+- Global error capture at the window level prevents cascading failures
+- Promise rejection handling protects asynchronous operations
+- Detailed error information logging for debugging and monitoring
+- Non-blocking error handling that allows the application to continue functioning
+- Integration with existing event listener management to maintain UI responsiveness
+
+**Section sources**
+- [app.js:1-7](file://src/sage_faculty_twin/web/app.js#L1-L7)
 
 ### Collapsible Footer System
 
@@ -504,10 +532,10 @@ Key implementation details:
 - Dynamic ARIA label updates based on state
 
 **Section sources**
-- [index.html:356-390](file://src/sage_faculty_twin/web/index.html#L356-L390)
-- [styles.css:676-726](file://src/sage_faculty_twin/web/styles.css#L676-L726)
-- [styles.css:5332-5347](file://src/sage_faculty_twin/web/styles.css#L5332-L5347)
-- [app.js:8712-8724](file://src/sage_faculty_twin/web/app.js#L8712-L8724)
+- [index.html:369-403](file://src/sage_faculty_twin/web/index.html#L369-L403)
+- [styles.css:670-728](file://src/sage_faculty_twin/web/styles.css#L670-L728)
+- [styles.css:5709-5724](file://src/sage_faculty_twin/web/styles.css#L5709-L5724)
+- [app.js:9113-9124](file://src/sage_faculty_twin/web/app.js#L9113-L9124)
 
 ### Enhanced Layout System with Flexbox
 
@@ -553,8 +581,8 @@ Key styling improvements:
 - Better spacing and alignment with Flexbox properties
 
 **Section sources**
-- [styles.css:676-726](file://src/sage_faculty_twin/web/styles.css#L676-L726)
-- [styles.css:728-752](file://src/sage_faculty_twin/web/styles.css#L728-L752)
+- [styles.css:678-728](file://src/sage_faculty_twin/web/styles.css#L678-L728)
+- [styles.css:729-753](file://src/sage_faculty_twin/web/styles.css#L729-L753)
 - [styles.css:5332-5369](file://src/sage_faculty_twin/web/styles.css#L5332-L5369)
 - [styles.css:256-259](file://src/sage_faculty_twin/web/styles.css#L256-L259)
 
@@ -603,8 +631,8 @@ Implementation details:
 - Responsive behavior with media queries
 
 **Section sources**
-- [app.js:8712-8724](file://src/sage_faculty_twin/web/app.js#L8712-L8724)
-- [styles.css:676-726](file://src/sage_faculty_twin/web/styles.css#L676-L726)
+- [app.js:9113-9124](file://src/sage_faculty_twin/web/app.js#L9113-L9124)
+- [styles.css:678-728](file://src/sage_faculty_twin/web/styles.css#L678-L728)
 - [styles.css:5332-5347](file://src/sage_faculty_twin/web/styles.css#L5332-L5347)
 
 ### Seed Chip Implementation
@@ -690,6 +718,7 @@ Formatter-->>App : HTML formatted content
 App->>DOM : body.innerHTML = formatted content
 App->>DOM : Update thinking panel
 App->>DOM : Scroll to bottom
+Note over App,DOM : Global error handler prevents uncaught errors
 Note over App,DOM : Race condition fixes for DOM updates
 Note over App,DOM : Proper initialization order for streaming
 Note over App,DOM : Collapsible footer responsive behavior
@@ -737,7 +766,7 @@ Implementation includes:
 - Semantic HTML structure with proper heading hierarchy
 
 **Section sources**
-- [index.html:387-395](file://src/sage_faculty_twin/web/index.html#L387-L395)
+- [index.html:408-416](file://src/sage_faculty_twin/web/index.html#L408-L416)
 - [app.js:8636-8681](file://src/sage_faculty_twin/web/app.js#L8636-L8681)
 
 ### CSS Overflow Management
@@ -893,6 +922,7 @@ Complete --> [*]
 - **Scroll Management**: Automatic scrolling to newly added content
 - **Race Condition Prevention**: Proper initialization order and event handling
 - **Responsive Footer**: Collapsible footer reduces layout calculations on mobile
+- **Global Error Protection**: Comprehensive error handling prevents application crashes
 
 **Section sources**
 - [app.js:6701-6729](file://src/sage_faculty_twin/web/app.js#L6701-L6729)
@@ -906,16 +936,19 @@ Complete --> [*]
 - External dependencies
   - FastAPI for routing and middleware.
   - Optional PDF parsing for attachments.
-  - Enhanced frontend with comprehensive JavaScript dependencies including seed chip, suggestion board, and collapsible footer logic.
+  - Enhanced frontend with comprehensive JavaScript dependencies including seed chip, suggestion board, collapsible footer logic, and global error handling.
 - Runtime checks
   - Runtime environment validates optional packages and enforces local policy precedence.
 - Frontend dependencies
-  - Modern JavaScript features for streaming, DOM manipulation, seed chip interactions, suggestion board management, and collapsible footer functionality.
+  - Modern JavaScript features for streaming, DOM manipulation, seed chip interactions, suggestion board management, collapsible footer functionality, and global error handling.
   - CSS Grid and Flexbox for responsive layouts with overflow management.
-  - Accessibility features for inclusive design including ARIA labels, keyboard navigation, and footer toggle functionality.
+  - Accessibility features for inclusive design including ARIA labels, keyboard navigation, footer toggle functionality, and comprehensive error handling.
   - Race condition fixes for sidebar user icon and settings drawer interactions.
   - Responsive design patterns with media queries for mobile-first approach.
   - Collapsible footer system with state management and smooth transitions.
+  - Global error handling system preventing uncaught JavaScript errors from breaking event listeners.
+  - Enhanced layout system with Flexbox replacing fixed height calculations.
+  - Comprehensive styling system with responsive behavior and accessibility compliance.
 
 ```mermaid
 graph LR
@@ -937,9 +970,12 @@ APPJS --> FOOTERTOGGLE["Footer Toggle Logic"]
 APPJS --> MARKDOWN["formatMessageContent()"]
 APPJS --> STREAMING["appendStreamingAnswerDelta()"]
 APPJS --> RACEFIXES["Race Condition Fixes"]
+APPJS --> ERRORHANDLER["Global Error Handler"]
 STYLES --> FLEXBOX["Flexbox Layout System"]
 STYLES --> RESPONSIVE["Responsive Design"]
 STYLES --> FOOTERSTYLE["Footer Styles"]
+ERRORHANDLER --> EVENTLISTENERS["Event Listener Protection"]
+ERRORHANDLER --> PROMISEREJECTIONS["Promise Rejection Handling"]
 ```
 
 **Diagram sources**
@@ -969,7 +1005,7 @@ STYLES --> FOOTERSTYLE["Footer Styles"]
   - References:
     - [Background default and toggles:428-430](file://src/sage_faculty_twin/service.py#L428-L430)
 - Streaming answers
-  - Optional streaming of LLM tokens over SSE to improve perceived latency with race condition fixes.
+  - Optional streaming of LLM tokens over SSE to improve perceived latency with race condition fixes and global error handling.
   - References:
     - [Streaming toggle and SSE broker:145-147](file://src/sage_faculty_twin/api.py#L145-L147)
     - [WorkflowEventBroker.publish_answer_chunk:218-226](file://src/sage_faculty_twin/api.py#L218-L226)
@@ -980,7 +1016,7 @@ STYLES --> FOOTERSTYLE["Footer Styles"]
     - [NeuroMem bm25 index:512-518](file://src/sage_faculty_twin/knowledge_base.py#L512-L518)
 - Enhanced frontend performance
   - Optimized markdown processing with efficient regex patterns and DOM manipulation.
-  - Streaming response handling with minimal layout recalculations and race condition fixes.
+  - Streaming response handling with minimal layout recalculations, race condition fixes, and global error protection.
   - Real-time content updates with debounced scroll positioning.
   - Seed chip interactions with efficient event delegation and immediate visibility.
   - Suggestion board deduplication with client-side validation.
@@ -989,7 +1025,8 @@ STYLES --> FOOTERSTYLE["Footer Styles"]
   - Race condition issues resolved with proper event listener initialization order.
   - Sidebar user icon and settings drawer interactions fixed with deferred event attachment.
   - Chat empty state initialization issues resolved with proper class management.
-  - **Collapsible footer system**: Efficient state management with CSS transitions and responsive behavior.
+  - **Global error handling system**: Comprehensive error capture and logging to prevent application crashes.
+  - **Footer toggle functionality**: Efficient state management with CSS transitions and responsive behavior.
   - **Flexbox layout system**: Better performance than fixed height calculations with automatic sizing.
   - **Responsive design**: Media queries optimize rendering for different screen sizes.
   - **Mobile-first approach**: Optimized for touch interactions and smaller screens.
@@ -1013,7 +1050,7 @@ STYLES --> FOOTERSTYLE["Footer Styles"]
   - Keepalive events prevent proxy timeouts during long LLM decoding windows.
   - References:
     - [Keepalive cadence:136-137](file://src/sage_faculty_twin/api.py#L136-L137)
-    - [WorkflowEventBroker keepalive:194-200](file://src/sage_faculty_twin/api.py#L194-L200)
+    - [WorkflowEventBroker.keepalive:194-200](file://src/sage_faculty_twin/api.py#L194-L200)
 - Frontend markdown rendering issues
   - XSS prevention blocks unsafe content; verify input sanitization.
   - Streaming buffer overflow protection prevents memory leaks.
@@ -1025,6 +1062,7 @@ STYLES --> FOOTERSTYLE["Footer Styles"]
   - Race condition issues resolved with proper event listener initialization order.
   - Sidebar user icon and settings drawer interactions fixed with deferred event attachment.
   - Chat empty state initialization issues resolved with proper class management.
+  - **Global error handling issues**: Verify error event listeners are properly attached and logging is functioning.
   - **Footer toggle issues**: Check CSS class management and event listener initialization.
   - **Flexbox layout problems**: Verify Flexbox properties and media query breakpoints.
   - **Responsive design issues**: Test with different viewport sizes and orientation changes.
@@ -1040,4 +1078,4 @@ STYLES --> FOOTERSTYLE["Footer Styles"]
 - [api.py:194-200](file://src/sage_faculty_twin/api.py#L194-L200)
 
 ## Conclusion
-Sage Faculty Twin's backend is a modular, configuration-driven system centered on a service orchestrator that integrates planning, retrieval, memory, suggestions, and notifications. The enhanced web interface provides comprehensive markdown rendering capabilities with sophisticated streaming response handling, featuring real-time content delivery, progressive rendering, extensive formatting support, seed chip functionality, suggestion board deduplication, collapsible footer system with mobile toggle functionality, enhanced layout system using Flexbox instead of fixed height calculations, improved styling system with responsive behavior, and comprehensive UI/UX improvements including race condition fixes and proper initialization handling. The system emphasizes operability through environment-based configuration, robust authentication, streaming-first UX patterns with optimized frontend performance, and comprehensive responsive design with mobile-first approach. The architecture supports extensibility via pluggable backends, policy-driven planning, and clear dependency boundaries, now augmented with advanced web interface capabilities for rich content presentation, improved user experience with comprehensive race condition fixes, responsive design patterns, and innovative collapsible footer system for better mobile device utilization.
+Sage Faculty Twin's backend is a modular, configuration-driven system centered on a service orchestrator that integrates planning, retrieval, memory, suggestions, and notifications. The enhanced web interface provides comprehensive markdown rendering capabilities with sophisticated streaming response handling, featuring real-time content delivery, progressive rendering, extensive formatting support, seed chip functionality, suggestion board deduplication, collapsible footer system with mobile toggle functionality, enhanced layout system using Flexbox instead of fixed height calculations, improved styling system with responsive behavior, comprehensive UI/UX improvements including race condition fixes, proper initialization handling, and a robust global error handling system that prevents uncaught JavaScript errors from breaking event listeners and strengthening application stability. The system emphasizes operability through environment-based configuration, robust authentication, streaming-first UX patterns with optimized frontend performance, comprehensive responsive design with mobile-first approach, and comprehensive error handling mechanisms for enhanced reliability. The architecture supports extensibility via pluggable backends, policy-driven planning, and clear dependency boundaries, now augmented with advanced web interface capabilities for rich content presentation, improved user experience with comprehensive race condition fixes, responsive design patterns, innovative collapsible footer system for better mobile device utilization, and comprehensive error handling for enhanced application stability.

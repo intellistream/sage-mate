@@ -1,1 +1,0 @@
-Manages persistent application state, user identities, conversation history, and extensible capability configurations using a hybrid JSON and SQLite storage architecture.
