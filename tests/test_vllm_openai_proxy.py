@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 
+import httpx
 import pytest
 from fastapi.testclient import TestClient
 
@@ -46,6 +47,11 @@ class _FakeAsyncClient:
     def stream(self, method: str, url: str, **kwargs):
         _FakeAsyncClient.last_request = {"method": method, "url": url, **kwargs}
         return self.stream_response
+
+
+class _FailingAsyncClient(_FakeAsyncClient):
+    def stream(self, method: str, url: str, **kwargs):
+        raise httpx.ConnectError("connection refused")
 
 
 def test_proxy_requires_a_real_api_key() -> None:
@@ -114,3 +120,24 @@ def test_proxy_forwards_streaming_request_with_auth(monkeypatch: pytest.MonkeyPa
     assert _FakeAsyncClient.last_request["headers"]["Authorization"] == "Bearer upstream-secret"
     payload = json.loads(_FakeAsyncClient.last_request["content"])
     assert payload["stream"] is True
+
+
+def test_proxy_returns_503_when_upstream_is_not_ready(monkeypatch: pytest.MonkeyPatch) -> None:
+    app = create_app(
+        ProxySettings(
+            listen_host="127.0.0.1",
+            listen_port=18001,
+            upstream_base_url="http://127.0.0.1:18000/v1",
+            path_prefix="/v1",
+            api_key="secret",
+            upstream_api_key="",
+        )
+    )
+    monkeypatch.setattr("sage_faculty_twin.vllm_openai_proxy.httpx.AsyncClient", _FailingAsyncClient)
+
+    with TestClient(app) as client:
+        response = client.get("/v1/models", headers={"Authorization": "Bearer secret"})
+
+    assert response.status_code == 503
+    payload = response.json()
+    assert payload["error"]["code"] == "upstream_unavailable"

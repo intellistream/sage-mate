@@ -47,10 +47,14 @@ req = urllib.request.Request(
     data=json.dumps({"channel": channel, "text": text}, ensure_ascii=False).encode(),
     headers={"Content-Type": "application/json; charset=utf-8", "Authorization": f"Bearer {token}"},
 )
-with urllib.request.urlopen(req, timeout=8) as resp:
-    data = json.loads(resp.read().decode("utf-8"))
-if not data.get("ok"):
-    raise RuntimeError(data.get("error", "slack_post_failed"))
+try:
+    with urllib.request.urlopen(req, timeout=8) as resp:
+        data = json.loads(resp.read().decode("utf-8"))
+except Exception as exc:
+    print(f"slack_notify_failed: {exc.__class__.__name__}", file=sys.stderr)
+else:
+    if not data.get("ok"):
+        print(f"slack_notify_failed: {data.get('error', 'slack_post_failed')}", file=sys.stderr)
 PY
         return 0
     fi
@@ -59,7 +63,10 @@ PY
 import json, sys, urllib.request
 url, text = sys.argv[1], sys.argv[2]
 req = urllib.request.Request(url, data=json.dumps({"text": text}, ensure_ascii=False).encode(), headers={"Content-Type": "application/json"})
-urllib.request.urlopen(req, timeout=8).read()
+try:
+    urllib.request.urlopen(req, timeout=8).read()
+except Exception as exc:
+    print(f"slack_webhook_notify_failed: {exc.__class__.__name__}", file=sys.stderr)
 PY
         return 0
     fi
@@ -72,7 +79,13 @@ engine_is_active() {
 }
 
 looks_like_engine_booting() {
-    [[ "$failure" == *"Connection refused"* || "$failure" == *"connection refused"* ]] || return 1
+    [[
+        "$failure" == *"Connection refused"* ||
+        "$failure" == *"connection refused"* ||
+        "$failure" == *"RemoteDisconnected"* ||
+        "$failure" == *"upstream_unavailable"* ||
+        "$failure" == *'"status": 503'*
+    ]] || return 1
     engine_is_active
 }
 

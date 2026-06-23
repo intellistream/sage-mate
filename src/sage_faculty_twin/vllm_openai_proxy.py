@@ -96,6 +96,21 @@ def _build_auth_error() -> JSONResponse:
     )
 
 
+def _build_upstream_unavailable_error(exc: Exception) -> JSONResponse:
+    return JSONResponse(
+        status_code=503,
+        content={
+            "error": {
+                "message": "vLLM upstream is not ready; retry after the engine finishes starting.",
+                "type": "upstream_unavailable",
+                "param": None,
+                "code": "upstream_unavailable",
+                "detail": exc.__class__.__name__,
+            }
+        },
+    )
+
+
 def _map_upstream_path(request_path: str, prefix: str) -> str | None:
     normalized_prefix = prefix.rstrip("/")
     if request_path == normalized_prefix:
@@ -246,6 +261,15 @@ def create_app(
                 status_code=upstream.status_code,
                 headers=response_headers,
             )
+        except (
+            httpx.ConnectError,
+            httpx.ConnectTimeout,
+            httpx.ReadTimeout,
+            httpx.RemoteProtocolError,
+            httpx.PoolTimeout,
+            httpx.WriteError,
+        ) as exc:
+            return _build_upstream_unavailable_error(exc)
         finally:
             if created_client:
                 await proxy_client.aclose()

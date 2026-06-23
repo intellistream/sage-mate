@@ -5,6 +5,7 @@ from __future__ import annotations
 import http.client
 import json
 import os
+import socket
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlsplit
 
@@ -32,6 +33,20 @@ def _extract_token(headers: BaseHTTPRequestHandler.headers.__class__) -> str | N
 
 def _safe_json_bytes(payload: dict) -> bytes:
     return json.dumps(payload, ensure_ascii=False).encode("utf-8")
+
+
+def _upstream_unavailable_payload(exc: Exception) -> bytes:
+    return _safe_json_bytes(
+        {
+            "error": {
+                "message": "vLLM upstream is not ready; retry after the engine finishes starting.",
+                "type": "upstream_unavailable",
+                "param": None,
+                "code": "upstream_unavailable",
+                "detail": exc.__class__.__name__,
+            }
+        }
+    )
 
 
 class OpenAIKeyProxyHandler(BaseHTTPRequestHandler):
@@ -151,6 +166,20 @@ class OpenAIKeyProxyHandler(BaseHTTPRequestHandler):
             self.end_headers()
             if self.command != "HEAD":
                 self.wfile.write(response_body)
+        except (
+            ConnectionError,
+            TimeoutError,
+            http.client.HTTPException,
+            OSError,
+            socket.timeout,
+        ) as exc:
+            payload = _upstream_unavailable_payload(exc)
+            self.send_response(503)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(payload)))
+            self.end_headers()
+            if self.command != "HEAD":
+                self.wfile.write(payload)
         finally:
             connection.close()
 
