@@ -1,21 +1,23 @@
 {
-  "document_id": "f3724bdd-3275-4fb3-94fd-5d924fc88ebe",
-  "title": "荣誉附件正文｜LOA Combine（第1部分）",
-  "content": "RTDS S 22 14 05 1 ANNEX A SCOPE OF WORK a. Project Title: Towards Online Continual Pre-Trained Language Model Maintenance b. Project Objectives: The proposed research targets addressing the research issues relating to the efficient continuously retraining of PLMs in an out-of-distribution unlabeled data stream, without catastrophically forgetting its acquired knowledge over time. In particular, we aim to explore the use of novel stateful coreset selection techniques to address two important issues: 1) efficient retraining by extracting the most valuable information from continuous data streams into a model-based stateful coreset, and 2) anti-forgetting by conducting efficient rehearsal with the continuously updated stateful coreset. Ultimately, we will build a framework for online continual pre-trained language model maintenance. c. Area of Research (including innovative claims): Project Overview. Large pre-trained language models (PLMs), such as BERT (Devlin et al. 2019, 20), GPT3 (Brown et al. 2020), and T5 (Raffel et al. 2022), have helped in resolving many NLP problems. Unfortunately, most of the existing PLMs are trained with the static web information, ignoring that in real-world scenarios, information is constantly growing over time forming a data stream. Driven by the realization that static data is merely a partial snapshot of a data stream, there is an increasing interest to update PLMs over data streams via continual learning (CL) methods. However, traditional CL paradigms mainly focus on incrementally learning a model from a data stream with a sequence of distinct tasks with explicit delineation, which is rather unrealistic in real-world applications. In this work, we aim to address the question of “how to maintain high quality PLMs on the fly whenever new unlabeled data streams arrive”, which we term it online continual PLM maintenance (OCPLM2). A key to realize OCPLM2 is that we need to carefully select and store subset of datasets for retraining and model refinement. Coreset selection is one of the most widely used technique that selects representative data points. We propose a novel unsupervised coreset selection mechanism to realize OCPLM2, called State-Aware Coreset Selection (SACS). SACS wisely applies the following three key mechanisms for better coreset selection. They maintain running states while handling continuous data streams and utilizes continuously updated states to better guide data selection. They differ from each other in their selection strategies. We will implement and evaluate each of them, and investigate a way to combine them together. • Anti-domain data selection, which prioritize data points from unseen or rare seen domains (Gururangan et al. 2020). • Model-based data selection, which prioritize data points bringing predicted higher loss (Yoo and Kweon 2019; Zhao, Viet Hung, and Weidlich 2020). • Clustering-based data selection, which prioritize data points that are dissimilar to historical datasets (Aharoni and Goldberg 2020). Novelty of the Proposal. Continual PLMs maintenance has been studied in a few prior works (Qin et al. 2022). However, those works either 1) assume unrealistic problem settings (e.",
-  "tags": [
-    "homepage",
-    "profile",
-    "awards",
-    "achievement",
-    "attachment",
-    "pdf"
-  ],
-  "source_name": "homepage:contents/awards/基金/LOA Combine.pdf::part-1",
-  "metadata": {
-    "domain": "teaching",
-    "identity": "teacher",
-    "material_type": "pdf",
-    "source_kind": "homepage"
-  },
-  "created_at": "2026-06-09T09:58:20.887067Z"
+    "document_id": "f3724bdd-3275-4fb3-94fd-5d924fc88ebe",
+    "title": "荣誉附件正文｜LOA Combine（第1部分）",
+    "content": "RTDS S 22 14 05 1 ANNEX A SCOPE OF WORK a. Project Title: Towards Online Continual Pre-Trained Language Model Maintenance b. Project Objectives: The proposed research targets addressing the research issues relating to the efficient continuously retraining of PLMs in an out-of-distribution unlabeled data stream, without catastrophically forgetting its acquired knowledge over time. In particular, we aim to explore the use of novel stateful coreset selection techniques to address two important issues: 1) efficient retraining by extracting the most valuable information from continuous data streams into a model-based stateful coreset, and 2) anti-forgetting by conducting efficient rehearsal with the continuously updated stateful coreset. Ultimately, we will build a framework for online continual pre-trained language model maintenance. c. Area of Research (including innovative claims): Project Overview. Large pre-trained language models (PLMs), such as BERT (Devlin et al. 2019, 20), GPT3 (Brown et al. 2020), and T5 (Raffel et al. 2022), have helped in resolving many NLP problems. Unfortunately, most of the existing PLMs are trained with the static web information, ignoring that in real-world scenarios, information is constantly growing over time forming a data stream. Driven by the realization that static data is merely a partial snapshot of a data stream, there is an increasing interest to update PLMs over data streams via continual learning (CL) methods. However, traditional CL paradigms mainly focus on incrementally learning a model from a data stream with a sequence of distinct tasks with explicit delineation, which is rather unrealistic in real-world applications. In this work, we aim to address the question of “how to maintain high quality PLMs on the fly whenever new unlabeled data streams arrive”, which we term it online continual PLM maintenance (OCPLM2). A key to realize OCPLM2 is that we need to carefully select and store subset of datasets for retraining and model refinement. Coreset selection is one of the most widely used technique that selects representative data points. We propose a novel unsupervised coreset selection mechanism to realize OCPLM2, called State-Aware Coreset Selection (SACS). SACS wisely applies the following three key mechanisms for better coreset selection. They maintain running states while handling continuous data streams and utilizes continuously updated states to better guide data selection. They differ from each other in their selection strategies. We will implement and evaluate each of them, and investigate a way to combine them together. • Anti-domain data selection, which prioritize data points from unseen or rare seen domains (Gururangan et al. 2020). • Model-based data selection, which prioritize data points bringing predicted higher loss (Yoo and Kweon 2019; Zhao, Viet Hung, and Weidlich 2020). • Clustering-based data selection, which prioritize data points that are dissimilar to historical datasets (Aharoni and Goldberg 2020). Novelty of the Proposal. Continual PLMs maintenance has been studied in a few prior works (Qin et al. 2022). However, those works either 1) assume unrealistic problem settings (e.",
+    "tags": [
+        "homepage",
+        "profile",
+        "awards",
+        "achievement",
+        "attachment",
+        "pdf",
+        "audience:lab_member"
+    ],
+    "source_name": "homepage:contents/awards/基金/LOA Combine.pdf::part-1",
+    "metadata": {
+        "domain": "teaching",
+        "identity": "teacher",
+        "material_type": "pdf",
+        "source_kind": "homepage",
+        "audience": "lab_member"
+    },
+    "created_at": "2026-06-09T09:58:20.887067Z"
 }

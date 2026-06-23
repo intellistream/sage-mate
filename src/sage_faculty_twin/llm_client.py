@@ -764,6 +764,7 @@ class VllmChatClient:
         deadline_class: str | None = None,
         request_priority: int | None = None,
         target_e2e_ms: float | None = None,
+        cache_namespace: str | None = None,
     ) -> str:
         payload: dict[str, Any] = {
             "model": self.model_name,
@@ -788,6 +789,13 @@ class VllmChatClient:
                     payload["thinking_token_budget"] = budget
         if max_tokens is not None:
             payload["max_tokens"] = max_tokens
+
+        # Scope the response cache to a specific conversation/user so that
+        # different users asking similar questions don't get identical cached
+        # answers (cross-user cache pollution).  The key is stripped before
+        # the payload is sent to the LLM server.
+        if cache_namespace:
+            payload["_cache_ns"] = cache_namespace
 
         self._apply_serving_policy_to_payload(
             payload,
@@ -864,8 +872,9 @@ class VllmChatClient:
         cache_payload = dict(payload)
         cache_payload.pop("stream", None)
         cache_payload.pop("stream_options", None)
-        cache_key = self._cache_key(cache_payload)
-        semantic_key = self._semantic_cache_key(cache_payload)
+        cache_payload.pop("_cache_ns", None)
+        cache_key = self._cache_key(cache_payload, namespace=payload.get("_cache_ns"))
+        semantic_key = self._semantic_cache_key(cache_payload, namespace=payload.get("_cache_ns"))
         cached, hit_type = self._get_cached_response(cache_key, semantic_key)
         if cached is not None:
             self._record_cache_hit(hit_type or "exact")
@@ -874,6 +883,9 @@ class VllmChatClient:
             except Exception:
                 pass
             return cached
+
+        # Strip internal cache-namespace key before sending to the server.
+        payload.pop("_cache_ns", None)
 
         started_at = perf_counter()
         self._record_request_start()
@@ -979,9 +991,10 @@ class VllmChatClient:
         return answer
 
     def _request_chat_completion_sync(self, payload: dict[str, Any]) -> str:
+        cache_ns = payload.pop("_cache_ns", None)
 
-        cache_key = self._cache_key(payload)
-        semantic_key = self._semantic_cache_key(payload)
+        cache_key = self._cache_key(payload, namespace=cache_ns)
+        semantic_key = self._semantic_cache_key(payload, namespace=cache_ns)
         cached, hit_type = self._get_cached_response(cache_key, semantic_key)
         if cached is not None:
             self._record_cache_hit(hit_type or "exact")
@@ -1520,8 +1533,11 @@ class VllmChatClient:
 
         return intent
 
-    def _cache_key(self, payload: dict[str, Any]) -> str:
-        return json.dumps(payload, sort_keys=True, ensure_ascii=False, separators=(",", ":"))
+    def _cache_key(self, payload: dict[str, Any], *, namespace: str | None = None) -> str:
+        base = json.dumps(payload, sort_keys=True, ensure_ascii=False, separators=(",", ":"))
+        if namespace:
+            return f"{namespace}::{base}"
+        return base
 
     def _get_cached_response(self, cache_key: str, semantic_key: str) -> tuple[str | None, str | None]:
         ttl_seconds = self._settings.llm_cache_ttl_seconds
@@ -1582,7 +1598,7 @@ class VllmChatClient:
         for key in expired_keys:
             self._response_cache.pop(key, None)
 
-    def _semantic_cache_key(self, payload: dict[str, Any]) -> str:
+    def _semantic_cache_key(self, payload: dict[str, Any], *, namespace: str | None = None) -> str:
         messages = payload.get("messages") or []
         system_text = ""
         user_texts: list[str] = []
@@ -1611,6 +1627,8 @@ class VllmChatClient:
             normalized_system = re.sub(r"[\s\W_]+", "", system_text.lower())
             system_finger = normalized_system[:80]
         merged = user_merged + "|" + system_finger
+        if namespace:
+            merged = f"{namespace}::{merged}"
         if len(merged) > 2400:
             return merged[:2400]
         return merged
@@ -1654,7 +1672,10 @@ class VllmChatClient:
         with self._metrics_lock:
             self._error_count += 1
             self._last_error_at = time.time()
-            self._last_error_message = str(exc)[:240]
+            msg = str(exc).strip()
+            if not msg:
+                msg = type(exc).__name__
+            self._last_error_message = msg[:240]
 
     def _record_cache_hit(self, hit_type: str) -> None:
         with self._metrics_lock:

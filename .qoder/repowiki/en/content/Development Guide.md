@@ -27,15 +27,18 @@
 - [test_operations_overview.py](file://tests/test_operations_overview.py)
 - [.github/workflows/ci.yml](file://.github/workflows/ci.yml)
 - [.github/agent.md](file://.github/agent.md)
+- [sage-faculty-twin.code-workspace](file://sage-faculty-twin.code-workspace)
+- [rename_research_repos.sh](file://tools/rename_research_repos.sh)
+- [ingest_workspace_repos.py](file://tools/ingest_workspace_repos.py)
 </cite>
 
 ## Update Summary
 **Changes Made**
-- Enhanced defensive testing practices documentation for handling conditional planner steps like `retrieve_recent_memory`
-- Added comprehensive guidance on testing planner behavior across different memory availability scenarios
-- Updated testing infrastructure to include memory retrieval conditional logic validation
-- Expanded testing strategies for memory availability scenarios including recent session context, profile memory consent, and artifact memory integration
-- Added documentation for planner decision validation and memory retrieval optimization techniques
+- Updated workspace configuration documentation to reflect the shift from NeurIPS 2026 to WWW 2027 research focus
+- Updated workspace name from 'research | wiki-link-retrieval [→NeurIPS 2026 RAG WS]' to 'research | wiki-link-retrieval [WWW 2027]'
+- Updated path references to ../wiki-link-retrieval directory
+- Enhanced documentation of workspace repository management and research project organization
+- Added comprehensive guidance on workspace cleanup and research repository renaming
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -50,20 +53,22 @@
 10. [Build System and CI](#build-system-and-ci)
 11. [Testing Infrastructure](#testing-infrastructure)
 12. [Defensive Testing Practices for Conditional Planner Steps](#defensive-testing-practices-for-conditional-planner-steps)
-13. [Extending Functionality](#extending-functionality)
-14. [Best Practices and Team Collaboration](#best-practices-and-team-collaboration)
-15. [Conclusion](#conclusion)
+13. [Workspace Management and Research Organization](#workspace-management-and-research-organization)
+14. [Extending Functionality](#extending-functionality)
+15. [Best Practices and Team Collaboration](#best-practices-and-team-collaboration)
+16. [Conclusion](#conclusion)
 
 ## Introduction
-This guide provides comprehensive development documentation for contributors and maintainers of the Sage Faculty Twin project. It covers environment setup, testing strategies, code structure conventions, contribution guidelines, build and dependency management, continuous integration processes, and practical guidance for extending functionality while maintaining code quality. The guide now includes enhanced documentation of defensive testing practices for handling conditional planner steps and memory availability scenarios.
+This guide provides comprehensive development documentation for contributors and maintainers of the Sage Faculty Twin project. It covers environment setup, testing strategies, code structure conventions, contribution guidelines, build and dependency management, continuous integration processes, and practical guidance for extending functionality while maintaining code quality. The guide now includes enhanced documentation of defensive testing practices for handling conditional planner steps and memory availability scenarios, along with comprehensive workspace management for research projects.
 
 ## Project Structure
-The repository follows a layered architecture:
+The repository follows a layered architecture with integrated workspace management for research projects:
 - Application entrypoint and HTTP surface in the API module
 - Orchestrator and workflow engine in the service module
 - Configuration and environment bootstrapping utilities
 - Tests organized by functional area with enhanced conftest.py bootstrap
 - Tooling for deployment, service management, and local development
+- Integrated workspace management for research repositories
 
 ```mermaid
 graph TB
@@ -82,6 +87,10 @@ subgraph "Testing Infrastructure"
 CONFTEST["tests/conftest.py<br/>Enhanced test bootstrap with offline mode"]
 TESTS["tests/<br/>Functional test suites with pytest markers"]
 end
+subgraph "Workspace Management"
+WS["sage-faculty-twin.code-workspace<br/>Multi-repo workspace with research projects"]
+TOOLS["tools/<br/>Workspace management and research tools"]
+end
 subgraph "Tooling"
 QS["quickstart.sh<br/>One-touch setup"]
 RUN["tools/run_app_server.sh<br/>Local server runner"]
@@ -98,6 +107,7 @@ CONFTEST --> RTENV
 RUN --> API
 MAN --> INST
 QS --> RUN
+WS --> TOOLS
 ```
 
 **Diagram sources**
@@ -109,16 +119,19 @@ QS --> RUN
 - [quickstart.sh](file://quickstart.sh)
 - [run_app_server.sh](file://tools/run_app_server.sh)
 - [manage.sh](file://manage.sh)
+- [sage-faculty-twin.code-workspace](file://sage-faculty-twin.code-workspace)
 
 **Section sources**
 - [README.md](file://README.md)
 - [pyproject.toml](file://pyproject.toml)
+- [sage-faculty-twin.code-workspace](file://sage-faculty-twin.code-workspace)
 
 ## Core Components
 - API module: Defines FastAPI routes, CORS, SSE event streaming, request parsing, and session management. It delegates orchestration to the service layer and enforces runtime environment bootstrapping.
 - Service module: Implements the DigitalTwinService orchestrator, workflow planner integration, memory and knowledge stores, LLM client interactions, and streaming callbacks.
 - Configuration: Centralized settings via Pydantic settings with environment variable prefix and multiple env file sources.
 - Runtime environment: Bootstraps Python path, validates local policy and sageVDB sources, and ensures required modules are available.
+- Workspace management: Integrated multi-repository workspace configuration supporting research projects across various conferences and venues.
 
 Key responsibilities:
 - HTTP surface: api.py
@@ -126,15 +139,17 @@ Key responsibilities:
 - Storage and retrieval: dedicated stores accessed via service.py
 - Configuration: config.py
 - Environment: runtime_env.py
+- Workspace: sage-faculty-twin.code-workspace
 
 **Section sources**
 - [api.py](file://src/sage_faculty_twin/api.py)
 - [service.py](file://src/sage_faculty_twin/service.py)
 - [config.py](file://src/sage_faculty_twin/config.py)
 - [runtime_env.py](file://src/sage_faculty_twin/runtime_env.py)
+- [sage-faculty-twin.code-workspace](file://sage-faculty-twin.code-workspace)
 
 ## Architecture Overview
-The system is a FastAPI application that exposes REST endpoints and an SSE endpoint for streaming workflow events. The API layer parses requests, validates payloads, and invokes the service layer. The service layer coordinates retrieval, planning, LLM interaction, and post-answer actions, publishing trace events and optional streaming tokens to clients.
+The system is a FastAPI application that exposes REST endpoints and an SSE endpoint for streaming workflow events. The API layer parses requests, validates payloads, and invokes the service layer. The service layer coordinates retrieval, planning, LLM interaction, and post-answer actions, publishing trace events and optional streaming tokens to clients. The architecture now includes integrated workspace management for research projects spanning multiple conferences and venues.
 
 ```mermaid
 sequenceDiagram
@@ -524,6 +539,7 @@ PYPKG --> ANNS
 - Environment bootstrapping avoids expensive module reloads and ensures local source preference.
 - Offline mode prevents network overhead during testing and ensures consistent performance.
 - **Updated** Memory retrieval optimization reduces unnecessary database queries and improves response times.
+- **Updated** Workspace management enables efficient multi-repository development with optimized Python path resolution.
 
 ## Troubleshooting Guide
 Common issues and resolutions:
@@ -536,9 +552,11 @@ Common issues and resolutions:
 - Knowledge backend dependencies: The runtime dependency checker now validates against updated version constraints (isage-vdb>=0.2.0.10, isage-anns>=0.2.0).
 - Network-dependent test failures: The offline mode prevents network downloads during testing, ensuring reproducible results.
 - Model cache issues: Use the provided model caching detection to verify local availability before running embedding-based tests.
-- **Updated** Memory retrieval optimization issues: Use trace logging to debug memory retrieval decisions and verify planner behavior across different scenarios.
+- **Updated** Workspace configuration issues: Verify workspace name reflects WWW 2027 focus and path references point to ../wiki-link-retrieval directory.
+- **Updated** Research repository conflicts: Use rename_research_repos.sh script to unify research repositories under research- prefix.
+- **Updated** Multi-repository path resolution: Ensure all sibling repositories are accessible from the workspace root for proper Python path resolution.
 
-**Updated** Enhanced troubleshooting guidance based on recent operational runtime notes and CI improvements, including updated dependency version validation and offline testing considerations
+**Updated** Enhanced troubleshooting guidance based on recent operational runtime notes and CI improvements, including updated dependency version validation, offline testing considerations, and comprehensive workspace management support
 
 **Section sources**
 - [runtime_env.py](file://src/sage_faculty_twin/runtime_env.py)
@@ -547,6 +565,8 @@ Common issues and resolutions:
 - [conftest.py](file://tests/conftest.py)
 - [.github/agent.md](file://.github/agent.md)
 - [tools/run_app_server.sh](file://tools/run_app_server.sh)
+- [sage-faculty-twin.code-workspace](file://sage-faculty-twin.code-workspace)
+- [rename_research_repos.sh](file://tools/rename_research_repos.sh)
 
 ## Contribution Guidelines
 - Development environment: Use an existing non-venv Python environment and install dev dependencies with editable install.
@@ -555,6 +575,7 @@ Common issues and resolutions:
 - Coding style: Keep changes small and focused; preserve the app architecture: HTTP surface in api.py, orchestration in service.py, storage and retrieval in dedicated modules.
 - Testing: Leverage the enhanced offline testing infrastructure and automatic backend detection for comprehensive test coverage.
 - **Updated** Defensive testing: When adding new conditional planner steps, include comprehensive tests covering memory availability scenarios and planner decision validation.
+- **Updated** Workspace management: When contributing to research projects, ensure workspace configuration reflects current research focus and path references are correctly maintained.
 
 **Section sources**
 - [CONTRIBUTING.md](file://CONTRIBUTING.md)
@@ -588,6 +609,87 @@ The CI workflow has been updated to remove duplicated job definitions and optimi
 **Section sources**
 - [pyproject.toml](file://pyproject.toml)
 
+## Workspace Management and Research Organization
+
+### Integrated Multi-Repository Workspace
+The project now includes comprehensive workspace management for research projects spanning multiple conferences and venues. The workspace configuration supports:
+
+**Research Projects by Conference Focus:**
+- **WWW 2027**: Wiki link retrieval system, temporal memory, and serving workloads
+- **NeurIPS 2026**: Previous research projects and legacy implementations
+- **SIGMOD 2026**: Database systems and temporal memory research
+- **Other Venues**: Various conferences and workshops across computer science domains
+
+**Workspace Structure:**
+- Primary project: `twin | faculty-twin` (current implementation)
+- Research projects: `research | wiki-link-retrieval [WWW 2027]` (updated focus)
+- Supporting systems: `research | CANDOR-Bench [SIGMOD 2026]`, `research | NeuroMem [ICML 2026, →ATC 2026]`
+- Serving infrastructure: Multiple vLLM-based serving systems
+- Academic portfolio: Homepage, private materials, and publication management
+
+### Research Repository Management
+The project includes automated tools for managing research repositories:
+
+**Repository Renaming Script:**
+- Unified research repositories under `research-` prefix
+- Supports systematic renaming across multiple conference-focused projects
+- Preserves git history and remote configurations
+- Provides migration guidance for updated paths
+
+**Workspace Ingestion Tools:**
+- Automated ingestion of research repository READMEs and FAQs
+- Integration with knowledge base for unified search capabilities
+- Support for multiple research domains and conference focuses
+
+```mermaid
+graph TB
+subgraph "Workspace Structure"
+WS["sage-faculty-twin.code-workspace"]
+WS --> TWIN["twin | faculty-twin"]
+WS --> WIKI["research | wiki-link-retrieval [WWW 2027]"]
+WS --> CANDOR["research | CANDOR-Bench [SIGMOD 2026]"]
+WS --> NEURO["research | NeuroMem [ICML 2026, →ATC 2026]"]
+WS --> FLOW["research | FlowRAG [WWW 2026]"]
+WS --> STREAM["research | StreamFP [WWW 2026]"]
+WS --> SAGESRC["sage | SAGE [ICML 2026]"]
+WS --> VAMOS["sage | VAMOS [→ATC 2026]"]
+end
+subgraph "Management Tools"
+RENAME["rename_research_repos.sh"]
+INGEST["ingest_workspace_repos.py"]
+end
+WS --> RENAME
+WS --> INGEST
+```
+
+**Diagram sources**
+- [sage-faculty-twin.code-workspace](file://sage-faculty-twin.code-workspace)
+- [rename_research_repos.sh](file://tools/rename_research_repos.sh)
+- [ingest_workspace_repos.py](file://tools/ingest_workspace_repos.py)
+
+**Section sources**
+- [sage-faculty-twin.code-workspace](file://sage-faculty-twin.code-workspace)
+- [rename_research_repos.sh](file://tools/rename_research_repos.sh)
+- [ingest_workspace_repos.py](file://tools/ingest_workspace_repos.py)
+
+### Research Focus Migration
+The workspace has been updated to reflect the shift in research focus:
+
+**From NeurIPS 2026 to WWW 2027:**
+- Updated workspace name to reflect WWW 2027 conference focus
+- Maintained backward compatibility with previous research projects
+- Enhanced integration of wiki link retrieval system as primary research focus
+- Improved organization of serving infrastructure and temporal memory systems
+
+**Path Reference Updates:**
+- All path references updated to ../wiki-link-retrieval directory
+- Workspace configuration reflects current research priorities
+- Legacy references preserved for historical context and migration
+
+**Section sources**
+- [sage-faculty-twin.code-workspace](file://sage-faculty-twin.code-workspace)
+- [rename_research_repos.sh](file://tools/rename_research_repos.sh)
+
 ## Extending Functionality
 Guidance for adding new features:
 - Keep the HTTP surface in api.py and orchestration in service.py
@@ -599,12 +701,15 @@ Guidance for adding new features:
 - Use pytest markers for conditional execution based on environment capabilities
 - Implement automatic backend detection for new knowledge backends
 - **Updated** Include defensive testing for conditional planner steps and memory availability scenarios
+- **Updated** Consider workspace implications when adding research-focused features
+- **Updated** Ensure compatibility with current research project organization and naming conventions
 
 **Section sources**
 - [api.py](file://src/sage_faculty_twin/api.py)
 - [service.py](file://src/sage_faculty_twin/service.py)
 - [config.py](file://src/sage_faculty_twin/config.py)
 - [conftest.py](file://tests/conftest.py)
+- [sage-faculty-twin.code-workspace](file://sage-faculty-twin.code-workspace)
 
 ## Best Practices and Team Collaboration
 - Use small, incremental changes and targeted tests
@@ -617,14 +722,19 @@ Guidance for adding new features:
 - Implement offline-first testing practices for reliable CI pipelines
 - Use automatic backend detection to ensure cross-environment compatibility
 - **Updated** Implement defensive testing patterns for conditional planner steps and memory retrieval optimization
+- **Updated** Coordinate research project contributions with workspace management tools
+- **Updated** Maintain consistency with current research focus (WWW 2027) and naming conventions
 
 **Section sources**
 - [CONTRIBUTING.md](file://CONTRIBUTING.md)
 - [README.md](file://README.md)
+- [sage-faculty-twin.code-workspace](file://sage-faculty-twin.code-workspace)
 
 ## Conclusion
-This guide consolidates development practices, architecture insights, and operational procedures for contributing to the Sage Faculty Twin project. The enhanced testing infrastructure with automatic conftest.py bootstrap provides seamless sibling source checkout support, comprehensive network prevention, intelligent model caching detection, and automatic backend selection capabilities. These improvements ensure reliable testing across diverse environments while maintaining strict offline operation requirements. Recent CI workflow improvements have streamlined the development process by removing duplication and optimizing resource usage. The updated dependency version constraints reflect the latest SAGE ecosystem releases, ensuring compatibility and stability. 
+This guide consolidates development practices, architecture insights, and operational procedures for contributing to the Sage Faculty Twin project. The enhanced testing infrastructure with automatic conftest.py bootstrap provides seamless sibling source checkout support, comprehensive network prevention, intelligent model caching detection, and automatic backend selection capabilities. These improvements ensure reliable testing across diverse environments while maintaining strict offline operation requirements. Recent CI workflow improvements have streamlined the development process by removing duplication and optimizing resource usage. The updated dependency version constraints reflect the latest SAGE ecosystem releases, ensuring compatibility and stability.
 
-**Updated** The guide now includes comprehensive documentation of defensive testing practices for handling conditional planner steps like `retrieve_recent_memory`, with detailed guidance on testing planner behavior across different memory availability scenarios. The system's sophisticated memory retrieval optimization logic, including benchmark request isolation, route-based conditional execution, planner decision validation, and memory availability optimization, is thoroughly documented with practical testing strategies and real-world examples from the test suite.
+**Updated** The guide now includes comprehensive documentation of workspace management for research projects, reflecting the shift from NeurIPS 2026 to WWW 2027 research focus. The workspace configuration cleanup ensures proper organization of multi-repository development with updated naming conventions and path references. The integrated research project management tools provide systematic handling of repository renaming and workspace ingestion, supporting the evolving research agenda while maintaining backward compatibility.
 
-By following the outlined conventions, testing strategies, and troubleshooting steps, contributors can efficiently extend functionality while preserving system reliability and performance, with particular emphasis on robust defensive testing for conditional planner steps and memory retrieval scenarios.
+The enhanced documentation of defensive testing practices for handling conditional planner steps like `retrieve_recent_memory`, with detailed guidance on testing planner behavior across different memory availability scenarios, completes the comprehensive coverage of development practices. The system's sophisticated memory retrieval optimization logic, including benchmark request isolation, route-based conditional execution, planner decision validation, and memory availability optimization, is thoroughly documented with practical testing strategies and real-world examples from the test suite.
+
+By following the outlined conventions, testing strategies, and troubleshooting steps, contributors can efficiently extend functionality while preserving system reliability and performance, with particular emphasis on robust defensive testing for conditional planner steps, memory retrieval scenarios, and comprehensive workspace management for research projects.

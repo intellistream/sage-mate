@@ -2448,3 +2448,70 @@ def test_health_does_not_dispatch_follow_ups(tmp_path: Path) -> None:
     assert health["follow_up_dispatch_due"] == "1"
     assert notifier.follow_up_emails == []
     assert len(service.list_follow_up_actions(status="queued")) == 1
+
+
+def test_chat_detects_invitation_code_and_short_circuits(tmp_path: Path) -> None:
+    """When a student pastes the invitation code into the chat, the service
+    should return an onboarding hint immediately without calling the LLM.
+    """
+    settings = AppSettings(
+        knowledge_base_dir=tmp_path,
+        lab_member_invitation_code="SAGE-LAB-2026",
+        lab_member_invitation_code_enabled=True,
+    )
+    service = DigitalTwinService(settings)
+    # Use a FailingLLMClient that raises if the LLM is called.
+    service._llm_client = FailingLLMClient()
+
+    request = ChatRequest(
+        student_name="Guest",
+        question="SAGE-LAB-2026",
+        visitor_profile="general_visitor",
+    )
+    response = asyncio.run(service.answer(request))
+
+    assert response.workflow_action == "invitation_code_detected"
+    assert response.decision_mode == "onboarding"
+    assert "注册" in response.answer or "邀请码" in response.answer
+
+
+def test_chat_invitation_code_pattern_match(tmp_path: Path) -> None:
+    """The invitation code pattern should match even when embedded in text."""
+    settings = AppSettings(
+        knowledge_base_dir=tmp_path,
+        lab_member_invitation_code="SAGE-LAB-2026",
+        lab_member_invitation_code_enabled=True,
+    )
+    service = DigitalTwinService(settings)
+    service._llm_client = FailingLLMClient()
+
+    request = ChatRequest(
+        student_name="Guest",
+        question="我的邀请码是 SAGE-LAB-2026，怎么用？",
+        visitor_profile="general_visitor",
+    )
+    response = asyncio.run(service.answer(request))
+
+    assert response.workflow_action == "invitation_code_detected"
+
+
+def test_chat_no_invitation_code_when_disabled(tmp_path: Path) -> None:
+    """When invitation code detection is disabled, codes pass through to LLM."""
+    settings = AppSettings(
+        knowledge_base_dir=tmp_path,
+        lab_member_invitation_code="SAGE-LAB-2026",
+        lab_member_invitation_code_enabled=False,
+    )
+    service = DigitalTwinService(settings)
+    llm = RecordingLLMClient(booking_intent=False, answer="这是一篇论文。")
+    service._llm_client = llm
+
+    request = ChatRequest(
+        student_name="Guest",
+        question="SAGE-LAB-2026",
+        visitor_profile="general_visitor",
+    )
+    response = asyncio.run(service.answer(request))
+
+    # Should NOT short-circuit; goes through the normal pipeline.
+    assert response.workflow_action != "invitation_code_detected"

@@ -992,7 +992,7 @@ class LocalKnowledgeStore:
         return compact[start:end]
 
     def _tokenize(self, text: str) -> set[str]:
-        return _tokenize_text(text)
+        return _tokenize_text(_expand_query_synonyms(text))
 
     def _compose_retrieval_text(self, document: KnowledgeDocumentRecord) -> str:
         title = ((document.title + " ") * 3).strip()
@@ -1152,14 +1152,119 @@ class LocalKnowledgeStore:
 
     # ── Wiki-link retrieval: link graph construction + expansion ────────
 
+    # Tags that are too generic to signal topical relatedness.
+    _GENERIC_TAGS: frozenset[str] = frozenset({
+        "wiki", "homepage", "private-materials", "publication",
+        "paper-list", "pdf-download", "news", "config",
+    })
+    # Tags that ARE meaningful for auto-linking across documents.
+    _TOPIC_TAG_PREFIXES: frozenset[str] = frozenset({
+        "inference", "vllm", "kv", "npu", "ascend", "sage", "neuromem",
+        "rag", "batch", "quantiz", "specul", "prefix", "attention",
+        "tokeniz", "fine-tun", "prompt", "distributed", "memory",
+        "orca", "distserve", "ragcache", "flexgen", "powerinfer",
+        "course:", "stream-", "multicore", "graph", "gpu", "llm",
+        "transactional-", "compression", "approximate-", "continual-",
+        "system", "cluster", "vamos", "paper-writing", "advising",
+        "lecture:", "material:", "experiment", "tutorial",
+    })
+    # Manual cross-references: source_name → list of source_names to link.
+    # Bridges non-wiki documents (lectures, project docs) into the wiki graph.
+    _MANUAL_CROSS_REFS: dict[str, list[str]] = {
+        "private-materials:lecture-ecnu-inference-infra": [
+            "wiki:tech-notes/kv-cache-optimization",
+            "wiki:tech-notes/npu-memory-management",
+            "wiki:tech-notes/distributed-inference-patterns",
+            "wiki:tutorials/llm-inference-basics",
+            "wiki:tech-notes/continuous-batching-notes",
+            "wiki:tech-notes/retrieval-augmented-generation",
+        ],
+        "private-materials:project-4-implementation-plan": [
+            "wiki:tech-notes/kv-cache-optimization",
+            "wiki:tech-notes/npu-memory-management",
+            "wiki:tech-notes/distributed-inference-patterns",
+            "wiki:tech-notes/continuous-batching-notes",
+        ],
+        "private-materials:industry-talk-inference": [
+            "wiki:tech-notes/kv-cache-optimization",
+            "wiki:tech-notes/npu-memory-management",
+            "wiki:tech-notes/distributed-inference-patterns",
+            "wiki:achievements/sage-system-overview",
+        ],
+        "private-materials:academic-presentation": [
+            "wiki:tech-notes/kv-cache-optimization",
+            "wiki:tech-notes/npu-memory-management",
+            "wiki:tech-notes/retrieval-augmented-generation",
+            "wiki:achievements/sage-system-overview",
+        ],
+    }
+    # Concept keywords → related wiki pages.
+    # Scanned against document title + source_name to create links even
+    # for docs that have no topic tags at all (e.g. paper-page docs).
+    _CONCEPT_TO_WIKI: dict[str, list[str]] = {
+        "kv cache":       ["wiki:tech-notes/kv-cache-optimization", "wiki:tech-notes/kv"],
+        "kv_cache":       ["wiki:tech-notes/kv-cache-optimization", "wiki:tech-notes/kv"],
+        "kv-cache":       ["wiki:tech-notes/kv-cache-optimization", "wiki:tech-notes/kv"],
+        "prefix caching": ["wiki:tech-notes/kv-cache-optimization", "wiki:tech-notes/kv"],
+        "npu":            ["wiki:tech-notes/npu-memory-management", "wiki:tech-notes/npu", "wiki:tutorials/ascend-npu-setup"],
+        "ascend":         ["wiki:tech-notes/npu-memory-management", "wiki:tech-notes/npu", "wiki:tutorials/ascend-npu-setup"],
+        "continuous batching": ["wiki:tech-notes/continuous-batching-notes", "wiki:tech-notes/batch"],
+        "batch scheduling":    ["wiki:tech-notes/continuous-batching-notes", "wiki:tech-notes/batch"],
+        "distributed inference": ["wiki:tech-notes/distributed-inference-patterns"],
+        "tensor parallel":  ["wiki:tech-notes/distributed-inference-patterns"],
+        "pipeline parallel": ["wiki:tech-notes/distributed-inference-patterns"],
+        "rag":              ["wiki:tech-notes/retrieval-augmented-generation"],
+        "retrieval augmented": ["wiki:tech-notes/retrieval-augmented-generation"],
+        "llm inference":    ["wiki:tutorials/llm-inference-basics", "wiki:tutorials/inference"],
+        "llm serving":      ["wiki:tutorials/llm-inference-basics", "wiki:tutorials/inference"],
+        "inference serving": ["wiki:tutorials/llm-inference-basics", "wiki:tutorials/inference", "wiki:resources/inference-benchmark-guide"],
+        "inference engine": ["wiki:tutorials/llm-inference-basics", "wiki:tutorials/inference"],
+        "sage":             ["wiki:achievements/sage-system-overview"],
+        "prompt engineering": ["wiki:tutorials/prompt-engineering-guide", "wiki:industry-docs/prompt-engineering-cb-cli"],
+        "benchmark":        ["wiki:resources/inference-benchmark-guide"],
+        "quantiz":          ["wiki:tutorials/inference"],
+        "speculative decoding": ["wiki:tutorials/inference"],
+        "attention":        ["wiki:tutorials/llm-inference-basics"],
+        "vllm":             ["wiki:tutorials/llm-inference-basics", "wiki:resources/tools-and-frameworks"],
+        "gpu":              ["wiki:tutorials/inference"],
+        "memory management": ["wiki:tech-notes/kv-cache-optimization", "wiki:tech-notes/npu-memory-management"],
+        "oom":              ["wiki:tech-notes/npu-memory-management", "wiki:tech-notes/npu"],
+    }
+
+    def _is_topic_tag(self, tag: str) -> bool:
+        """Return True if *tag* is meaningful enough for auto-linking."""
+        lower = tag.lower()
+        if lower in self._GENERIC_TAGS:
+            return False
+        if lower.startswith("audience:"):
+            return False
+        # Explicit topic prefixes
+        for prefix in self._TOPIC_TAG_PREFIXES:
+            if lower.startswith(prefix) or prefix in lower:
+                return True
+        # Wiki category tags
+        if lower.startswith("wiki:"):
+            return False
+        return False
+
     def _rebuild_link_graph(self) -> None:
         """Build bidirectional adjacency list from document metadata.
 
-        Each document may carry ``metadata["linked_source_names"]``: a
-        pipe-separated list of source_names it links to (e.g. from wiki
-        markdown ``[text](../other-page.md)`` links resolved at ingest
-        time).  We resolve those source_names to document_ids to build
-        an in-memory adjacency list.
+        Four edge sources are combined:
+
+        1. **Explicit wiki links** — ``metadata["linked_source_names"]``
+           extracted at ingest time from markdown cross-references.
+        2. **Manual cross-references** — ``_MANUAL_CROSS_REFS`` maps
+           key non-wiki documents (lectures, project docs) to related
+           wiki pages.
+        3. **Tag-based auto-linking** — documents sharing ≥ 1 topic
+           tag are linked, bridging the gap between isolated non-wiki
+           content and the wiki link graph.
+        4. **Concept-keyword linking** — scan document titles and
+           source names for key concepts (KV Cache, NPU, RAG, …) and
+           link matching documents to the corresponding wiki pages.
+           This is the most important bridge for documents that have
+           no topic tags (e.g. paper-page, homepage docs).
 
         Edges are bidirectional: if A links to B, both A→B and B→A are
         added so that expansion can reach documents that are only link
@@ -1172,16 +1277,16 @@ class LocalKnowledgeStore:
         }
         graph: dict[str, list[str]] = {}
 
-        def _add_edge(src: str, dst: str) -> None:
+        def _add_edge(src: str, dst: str, *, cap: int = 15) -> None:
             if src == dst:
                 return
             adj = graph.get(src)
             if adj is None:
                 graph[src] = [dst]
-            elif dst not in adj:
+            elif dst not in adj and len(adj) < cap:
                 adj.append(dst)
 
-        # Forward edges: A declares links → A→B
+        # ── 1. Explicit wiki links ──────────────────────────────────
         for doc_id, doc in self._documents.items():
             linked_sources = (doc.metadata or {}).get("linked_source_names", "")
             if not linked_sources:
@@ -1191,8 +1296,63 @@ class LocalKnowledgeStore:
                 if src_name and src_name in source_to_id:
                     target_id = source_to_id[src_name]
                     _add_edge(doc_id, target_id)
-                    # Reverse edge: B→A (bidirectional expansion)
                     _add_edge(target_id, doc_id)
+
+        # ── 2. Manual cross-references ──────────────────────────────
+        for source_name, target_names in self._MANUAL_CROSS_REFS.items():
+            src_id = source_to_id.get(source_name)
+            if src_id is None:
+                continue
+            for target_name in target_names:
+                dst_id = source_to_id.get(target_name)
+                if dst_id is not None:
+                    _add_edge(src_id, dst_id)
+                    _add_edge(dst_id, src_id)
+
+        # ── 3. Tag-based auto-linking ───────────────────────────────
+        # Build inverted index: topic_tag → list of doc_ids
+        tag_index: dict[str, list[str]] = {}
+        for doc_id, doc in self._documents.items():
+            topic_tags = {t for t in doc.tags if self._is_topic_tag(t)}
+            for tag in topic_tags:
+                tag_index.setdefault(tag, []).append(doc_id)
+
+        # For each doc, find others sharing ≥ 1 topic tag
+        for doc_id, doc in self._documents.items():
+            doc_topic_tags = {t for t in doc.tags if self._is_topic_tag(t)}
+            if len(doc_topic_tags) < 1:
+                continue
+            # Count shared tags with every candidate
+            candidate_shared: dict[str, int] = {}
+            for tag in doc_topic_tags:
+                for other_id in tag_index.get(tag, []):
+                    if other_id != doc_id:
+                        candidate_shared[other_id] = candidate_shared.get(other_id, 0) + 1
+            # Link to candidates sharing ≥ 1 topic tag
+            for other_id, shared_count in sorted(
+                candidate_shared.items(), key=lambda x: -x[1]
+            ):
+                if shared_count < 1:
+                    break
+                _add_edge(doc_id, other_id, cap=12)
+                _add_edge(other_id, doc_id, cap=12)
+
+        # ── 4. Concept-keyword linking ──────────────────────────────
+        # Scan document title + source_name for concept keywords and
+        # link to matching wiki pages.  This catches documents that have
+        # no topic tags but whose titles clearly indicate the subject
+        # (e.g. paper pages, lecture slides, project docs).
+        for doc_id, doc in self._documents.items():
+            if (doc.source_name or "").startswith("wiki:"):
+                continue  # wiki pages already have explicit links
+            haystack = f"{(doc.title or '')} {(doc.source_name or '')}".lower()
+            for keyword, wiki_sources in self._CONCEPT_TO_WIKI.items():
+                if keyword.lower() in haystack:
+                    for wiki_src in wiki_sources:
+                        wiki_id = source_to_id.get(wiki_src)
+                        if wiki_id is not None:
+                            _add_edge(doc_id, wiki_id, cap=12)
+                            _add_edge(wiki_id, doc_id, cap=12)
 
         self._link_graph = graph
 
@@ -1202,7 +1362,7 @@ class LocalKnowledgeStore:
         query_tokens: set[str],
         query_profile: "QueryProfile",
         *,
-        max_expansion: int = 3,
+        max_expansion: int = 8,
     ) -> list[KnowledgeSearchHit]:
         """Post-retrieval 1-hop link expansion.
 
@@ -1235,7 +1395,7 @@ class LocalKnowledgeStore:
                 ):
                     continue
                 # Linked docs get a fraction of the parent hit's score
-                link_score = max(hit.score * 0.5, 1.0)
+                link_score = max(hit.score * 0.6, 1.5)
                 expanded.append(
                     KnowledgeSearchHit(
                         document_id=doc.document_id,
@@ -1462,6 +1622,111 @@ _TEACHING_ALIAS_MAP = {
     "material:experiment": ("experiment", "实验", "项目"),
     "material:pdf": ("pdf", "课件正文"),
 }
+
+
+# -- Query-level synonym expansion ------------------------------------------
+# Bidirectional synonym groups for core domain concepts.  When any term in a
+# group is found in the search query, all other terms in the same group are
+# appended so that the tokeniser (and downstream scorer) can match documents
+# that use the canonical form.  This fixes retrieval failures when students
+# use informal or colloquial phrasings (e.g. "KV部分复用" instead of
+# "KV Cache partial reuse").
+_QUERY_SYNONYM_GROUPS: list[frozenset[str]] = [
+    # KV Cache family
+    frozenset({
+        "KV Cache", "KV缓存", "KV cache", "kv cache",
+        "键值缓存", "KV部分复用", "KV复用", "key-value cache",
+        "key value cache", "KV重用",
+    }),
+    # Prefix caching / prefix reuse
+    frozenset({
+        "prefix cache", "prefix caching", "前缀缓存", "前缀复用",
+        "prefix reuse", "前缀共享", "prefix sharing",
+    }),
+    # GPU memory / VRAM management
+    frozenset({
+        "GPU memory", "GPU内存", "GPU显存", "显存管理", "显存优化",
+        "VRAM", "vram", "GPU memory management", "显存分配",
+    }),
+    # Ascend NPU
+    frozenset({
+        "Ascend NPU", "NPU", "昇腾", "Ascend", "ascend npu",
+        "华为昇腾", "昇腾NPU", "Ascend芯片",
+    }),
+    # Batch scheduling
+    frozenset({
+        "batch scheduling", "批调度", "动态批处理", "continuous batching",
+        "continuous batch", "连续批处理", "iteration-level scheduling",
+    }),
+    # Speculative decoding
+    frozenset({
+        "speculative decoding", "投机解码", "投机采样",
+        "speculative sampling", "draft model",
+    }),
+    # Model quantization
+    frozenset({
+        "quantization", "量化", "INT8", "int8", "INT4", "int4",
+        "FP16", "fp16", "BF16", "bf16", "模型量化", "权重量化",
+    }),
+    # Retrieval-augmented generation
+    frozenset({
+        "RAG", "rag", "retrieval augmented generation",
+        "检索增强生成", "检索增强", "retrieval-augmented",
+    }),
+    # Prompt engineering
+    frozenset({
+        "prompt engineering", "提示工程", "prompt设计", "提示词设计",
+        "prompt优化", "提示词优化", "prompt tuning",
+    }),
+    # Fine-tuning
+    frozenset({
+        "fine-tuning", "fine tuning", "finetuning", "微调",
+        "LoRA", "lora", "QLoRA", "qlora", "参数高效微调",
+        "parameter-efficient fine-tuning", "PEFT", "peft",
+    }),
+    # Distributed inference
+    frozenset({
+        "tensor parallel", "张量并行", "tensor parallelism", "TP",
+        "pipeline parallel", "流水线并行", "pipeline parallelism", "PP",
+        "模型并行", "model parallelism", "分布式推理",
+    }),
+    # Attention mechanism
+    frozenset({
+        "attention", "注意力机制", "self-attention", "自注意力",
+        "multi-head attention", "多头注意力", "MHA", "GQA", "MQA",
+        "grouped-query attention", "分组查询注意力",
+    }),
+    # Token / tokenizer
+    frozenset({
+        "token", "tokenization", "分词", "tokenizer", "词元",
+        "BPE", "bpe", "byte pair encoding", "子词",
+    }),
+]
+
+
+def _expand_query_synonyms(text: str) -> str:
+    """Append synonym terms to the query text for improved recall.
+
+    For each synonym group, if any member appears in *text* (case-insensitive
+    for ASCII terms), all other members are appended.  This ensures the
+    downstream tokeniser produces tokens for canonical forms even when the
+    student uses an informal or colloquial phrasing.
+    """
+    lower = text.lower()
+    expansions: list[str] = []
+    for group in _QUERY_SYNONYM_GROUPS:
+        matched = False
+        for term in group:
+            if term.lower() in lower:
+                matched = True
+                break
+        if matched:
+            for term in group:
+                if term.lower() not in lower:
+                    expansions.append(term)
+    if expansions:
+        return f"{text} {' '.join(expansions)}".strip()
+    return text
 
 
 def _build_query_profile(

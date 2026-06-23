@@ -1,21 +1,23 @@
 {
-  "document_id": "01449b87-2409-4f37-89ff-ea2dd029b94c",
-  "title": "荣誉附件正文｜LOA full（第4部分）",
-  "content": "classification methods, such as lexicon- based approaches [7] have been proposed.\n\nHowever, lexicon-based approaches only deal with novel vocabulary and contextual information in a limited way as they rely on domain-dependent opinions words and aspect-dependent opinion words [8]. Probabilisitc models, such as LDA [9], target learning from a large set of words from documents, while we target at processing opinionated streams, especially tweets are written in a unique conversational style particular to the brevity of the Twitter medium (i. e. , 280-character limit per tweet). Our preliminary results also confirm the superiority of our approach at learning various length of input texts. Our proposal is similar in spirit to an early work from turney et al. [10], where the phrases are firstly identified by tagger and then similarities among phrases are measured referenced to pair of words “excellent” and “poor” to infer polarity. Different from prior work, our proposed framework is able to continuously explore both contextual and temporal context information to achieve better accuracy of sentiment learning of data streams. Third, prior solutions are mostly emphasized at only algorithmic accuracy and are not able to utilize the more and more abundant parallel hardware resources. For example, Zimbra et al. [1] review 28 existing techniques of sentiment classification across five distinctive twitter data sets, but none is evaluated in modern parallel hardware environment. Although there are general-purpose data stream processing systems (DSPSs) [11] that can provide fast stream computations they are not native designed nor optimized for online learning tasks. This motivates a distributed online sentiment analysis system proposed by Amir et al. [12] but it is only equipped with supervised algorithms. To the best of our knowledge, we are the first to propose a parallel online sentiment learning framework leverage on novel algorithms and careful implementation based on state-of-the-art data stream processing systems. d. Potential Impact of Proposed Research to Defence and Security: Driven by the widely deployed 5G and IoT technology, we envision that online machine learning will soon become a mandatory task for every application including defence and security domains. 5G can provide higher device density and bandwidth with low latency, which creates new opportunities in computing but increases security risks like attacks, spammers, and frauds. In this regard, the proposed project is a fundamental step towards the success of practical massive online machine learning. First, the world is changing fast, and the content and habits of people expressing opinions on social media are also changing rapidly. The proposed online sentiment analysis model that is self-trained and updated with real time data streams can respond to these changes quickly and allow us to generate timely insights to end users much earlier than the existing approaches. Second, compared to the traditional store-then-query approach, our proposed fast incremental learning approach could also allow us to reduce data footprint as we can potentially drop irrelevant data early and continuously.",
-  "tags": [
-    "homepage",
-    "profile",
-    "awards",
-    "achievement",
-    "attachment",
-    "pdf"
-  ],
-  "source_name": "homepage:contents/awards/基金/LOA full.pdf::part-4",
-  "metadata": {
-    "domain": "teaching",
-    "identity": "teacher",
-    "material_type": "pdf",
-    "source_kind": "homepage"
-  },
-  "created_at": "2026-06-09T09:58:20.894365Z"
+    "document_id": "01449b87-2409-4f37-89ff-ea2dd029b94c",
+    "title": "荣誉附件正文｜LOA full（第4部分）",
+    "content": "classification methods, such as lexicon- based approaches [7] have been proposed.\n\nHowever, lexicon-based approaches only deal with novel vocabulary and contextual information in a limited way as they rely on domain-dependent opinions words and aspect-dependent opinion words [8]. Probabilisitc models, such as LDA [9], target learning from a large set of words from documents, while we target at processing opinionated streams, especially tweets are written in a unique conversational style particular to the brevity of the Twitter medium (i. e. , 280-character limit per tweet). Our preliminary results also confirm the superiority of our approach at learning various length of input texts. Our proposal is similar in spirit to an early work from turney et al. [10], where the phrases are firstly identified by tagger and then similarities among phrases are measured referenced to pair of words “excellent” and “poor” to infer polarity. Different from prior work, our proposed framework is able to continuously explore both contextual and temporal context information to achieve better accuracy of sentiment learning of data streams. Third, prior solutions are mostly emphasized at only algorithmic accuracy and are not able to utilize the more and more abundant parallel hardware resources. For example, Zimbra et al. [1] review 28 existing techniques of sentiment classification across five distinctive twitter data sets, but none is evaluated in modern parallel hardware environment. Although there are general-purpose data stream processing systems (DSPSs) [11] that can provide fast stream computations they are not native designed nor optimized for online learning tasks. This motivates a distributed online sentiment analysis system proposed by Amir et al. [12] but it is only equipped with supervised algorithms. To the best of our knowledge, we are the first to propose a parallel online sentiment learning framework leverage on novel algorithms and careful implementation based on state-of-the-art data stream processing systems. d. Potential Impact of Proposed Research to Defence and Security: Driven by the widely deployed 5G and IoT technology, we envision that online machine learning will soon become a mandatory task for every application including defence and security domains. 5G can provide higher device density and bandwidth with low latency, which creates new opportunities in computing but increases security risks like attacks, spammers, and frauds. In this regard, the proposed project is a fundamental step towards the success of practical massive online machine learning. First, the world is changing fast, and the content and habits of people expressing opinions on social media are also changing rapidly. The proposed online sentiment analysis model that is self-trained and updated with real time data streams can respond to these changes quickly and allow us to generate timely insights to end users much earlier than the existing approaches. Second, compared to the traditional store-then-query approach, our proposed fast incremental learning approach could also allow us to reduce data footprint as we can potentially drop irrelevant data early and continuously.",
+    "tags": [
+        "homepage",
+        "profile",
+        "awards",
+        "achievement",
+        "attachment",
+        "pdf",
+        "audience:lab_member"
+    ],
+    "source_name": "homepage:contents/awards/基金/LOA full.pdf::part-4",
+    "metadata": {
+        "domain": "teaching",
+        "identity": "teacher",
+        "material_type": "pdf",
+        "source_kind": "homepage",
+        "audience": "lab_member"
+    },
+    "created_at": "2026-06-09T09:58:20.894365Z"
 }

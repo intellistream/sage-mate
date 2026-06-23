@@ -124,6 +124,14 @@ requires_neuromem_model = pytest.mark.skipif(
 )
 
 
+@pytest.fixture(autouse=True)
+def _isolate_conversation_memory(tmp_path, monkeypatch):
+    """Redirect conversation_memory_dir to a temp path so tests never
+    pollute the live production SQLite memory store."""
+    isolated = tmp_path / "conversation_memory"
+    monkeypatch.setenv("DIGITAL_TWIN_CONVERSATION_MEMORY_DIR", str(isolated))
+
+
 def pytest_collection_modifyitems(config, items):
     if _HAS_SENTENCE_TRANSFORMERS and _HAS_LOCAL_EMBEDDING_MODEL:
         return  # all good — run everything

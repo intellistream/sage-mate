@@ -1,0 +1,10 @@
+{
+  "user_id": "4c74c11d-7959-4ddb-a743-0bc6b6bc54be",
+  "name": "陈彦博",
+  "email": "cybber@hust.edu.cn",
+  "visitor_profile": "lab_member",
+  "password_salt": "cf33c0d4ad482c082347245bdcd31e2b",
+  "password_hash": "7fe9a74e00c9d066615034caa02a82d2aefc029216233199e3c82674bafc0585dc3d2500bc9998423b88a5d62fa81906154e6ad7f05d43fa077f35b2e438eae3",
+  "created_at": "2026-06-22T07:10:06.059255+00:00",
+  "updated_at": "2026-06-22T07:10:06.059255+00:00"
+}

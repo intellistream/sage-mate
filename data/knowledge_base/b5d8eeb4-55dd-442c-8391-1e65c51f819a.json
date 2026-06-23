@@ -1,21 +1,23 @@
 {
-  "document_id": "b5d8eeb4-55dd-442c-8391-1e65c51f819a",
-  "title": "荣誉附件正文｜LOA full（第2部分）",
-  "content": "to continuously learning from new data, especially we need to extract knowledges from unbounded high-volume data streams (e. g. , on-going tweets with new vocabularies or real-time customer review comments).\n\nSecond, to elastically scale the training and prediction over large scale of distributed parallel servers, we propose to efficiently implement the training and prediction computation process based on a modern stream processing system, namely Apache Flink. Third, we design a comprehensive benchmark suite for evaluating the proposed algorithm and system implementations. Subsequently, we implement state-of-the-art alternative solutions including learning-based, probabilistic model-based and lexicon-based ones inside the same framework for fair comparision. Ultimately, we will build the next-generation sentiment analysis system called SentiStream, that a) incrementally learns from continuous opinionated data streams, b) achieves high polarity prediction accuracy without training with pre- labelled datasets, and c) scales up over increasing hardware resources. This allows us to gain timely insights much earlier than traditional approaches. It is also a necessary and fundamental step to guide us to develop more efficient system for massive online AI-driven applications in subsequent works, where we lay the foundation in this project. c. Area of Research: Project Overview. Sentiment analysis extracts sentiments by identifying an opinion and deriving its polarity, i. e. , positive, negative, or neutral. In the last decade, many sentiment analysis algorithms have been proposed in the literature. However, existing works are not applicable when users demand a timely extracting of useful information from a massive volume of on-going social data streams (e. g. , live tweets). This is because 1) existing algorithms assume input data sets are readily available while we assume the input data is continuously arriving; 2) most related work assume there are sufficient pre-labelled training datasets, while we assume there is only a handful reference words with assumed polarities; 3) existing works emphasize on theoretical prediction accuracy and overlook the processing efficiency, while we need to handle large volume of input streams. To respond to this situation, the proposed research targets at addressing the research issues relating to the algorithm design and implementation to support unsupervised sentiment analysis of massive volume of social data streams. Specifically, we have the following three inter-related goals. 1) An online sentiment learning algorithm: We design an online sentiment learning algorithm. In contrast to existing offline algorithm, our algorithm can continuously learn from new data even without requiring labels. Furthermore, the algorithm must be able to provide end-to-end training and prediction service and the retraining must be efficient enough as the model is A-1 RTDS S 21 14 01 1 incrementally learned with fast on-going data streams. Each newly arrived dataset (e. g. , tweets) are automatically pre- processed (e. g. , clean and transformation), learned (e. g. , update the machine learning model) and predicted (i. e. , tagging).",
-  "tags": [
-    "homepage",
-    "profile",
-    "awards",
-    "achievement",
-    "attachment",
-    "pdf"
-  ],
-  "source_name": "homepage:contents/awards/基金/LOA full.pdf::part-2",
-  "metadata": {
-    "domain": "teaching",
-    "identity": "teacher",
-    "material_type": "pdf",
-    "source_kind": "homepage"
-  },
-  "created_at": "2026-06-09T09:58:20.893457Z"
+    "document_id": "b5d8eeb4-55dd-442c-8391-1e65c51f819a",
+    "title": "荣誉附件正文｜LOA full（第2部分）",
+    "content": "to continuously learning from new data, especially we need to extract knowledges from unbounded high-volume data streams (e. g. , on-going tweets with new vocabularies or real-time customer review comments).\n\nSecond, to elastically scale the training and prediction over large scale of distributed parallel servers, we propose to efficiently implement the training and prediction computation process based on a modern stream processing system, namely Apache Flink. Third, we design a comprehensive benchmark suite for evaluating the proposed algorithm and system implementations. Subsequently, we implement state-of-the-art alternative solutions including learning-based, probabilistic model-based and lexicon-based ones inside the same framework for fair comparision. Ultimately, we will build the next-generation sentiment analysis system called SentiStream, that a) incrementally learns from continuous opinionated data streams, b) achieves high polarity prediction accuracy without training with pre- labelled datasets, and c) scales up over increasing hardware resources. This allows us to gain timely insights much earlier than traditional approaches. It is also a necessary and fundamental step to guide us to develop more efficient system for massive online AI-driven applications in subsequent works, where we lay the foundation in this project. c. Area of Research: Project Overview. Sentiment analysis extracts sentiments by identifying an opinion and deriving its polarity, i. e. , positive, negative, or neutral. In the last decade, many sentiment analysis algorithms have been proposed in the literature. However, existing works are not applicable when users demand a timely extracting of useful information from a massive volume of on-going social data streams (e. g. , live tweets). This is because 1) existing algorithms assume input data sets are readily available while we assume the input data is continuously arriving; 2) most related work assume there are sufficient pre-labelled training datasets, while we assume there is only a handful reference words with assumed polarities; 3) existing works emphasize on theoretical prediction accuracy and overlook the processing efficiency, while we need to handle large volume of input streams. To respond to this situation, the proposed research targets at addressing the research issues relating to the algorithm design and implementation to support unsupervised sentiment analysis of massive volume of social data streams. Specifically, we have the following three inter-related goals. 1) An online sentiment learning algorithm: We design an online sentiment learning algorithm. In contrast to existing offline algorithm, our algorithm can continuously learn from new data even without requiring labels. Furthermore, the algorithm must be able to provide end-to-end training and prediction service and the retraining must be efficient enough as the model is A-1 RTDS S 21 14 01 1 incrementally learned with fast on-going data streams. Each newly arrived dataset (e. g. , tweets) are automatically pre- processed (e. g. , clean and transformation), learned (e. g. , update the machine learning model) and predicted (i. e. , tagging).",
+    "tags": [
+        "homepage",
+        "profile",
+        "awards",
+        "achievement",
+        "attachment",
+        "pdf",
+        "audience:lab_member"
+    ],
+    "source_name": "homepage:contents/awards/基金/LOA full.pdf::part-2",
+    "metadata": {
+        "domain": "teaching",
+        "identity": "teacher",
+        "material_type": "pdf",
+        "source_kind": "homepage",
+        "audience": "lab_member"
+    },
+    "created_at": "2026-06-09T09:58:20.893457Z"
 }

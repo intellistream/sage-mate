@@ -1,0 +1,26 @@
+{
+  "document_id": "7a0e2c30-8a4f-4a4b-a271-0a7a44b5a301",
+  "title": "FAQ | my-twin 可以做什么",
+  "content": "my-twin 是张书豪老师面向学生和访客的学术数字分身助手，适合处理这些问题：\n\n1. **科研指导前置准备**：帮学生整理课题问题、文献汇报结构、论文定位、实验计划和组会 agenda。\n2. **课程材料问答**：围绕已导入的课程讲义、tutorial、实验报告模板做检索式回答，并尽量给出材料依据。\n3. **论文审阅准备**：说明发给老师前需要准备 PDF、摘要/highlight、希望老师重点看的问题和 deadline。\n4. **预约前准备**：帮助学生把讨论主题、已完成内容、卡点和下一步计划整理清楚；真正约时间仍应遵守系统的预约流程。\n5. **上下文连续性**：在同一会话中会参考前面的问题和回答，但涉及隐私、未公开学生信息、承诺性决定时不会替老师直接确认。\n\n它不是老师本人，不能替老师做录取、评分、推荐信、经费、行政审批等最终决定；不确定的信息会提示需要老师确认。",
+  "tags": [
+    "faq",
+    "general",
+    "capability",
+    "profile",
+    "system-boundary",
+    "context"
+  ],
+  "source_name": "curated_faq",
+  "metadata": {
+    "domain": "general",
+    "identity": "digital_twin",
+    "material_type": "faq",
+    "source_kind": "manual"
+  },
+  "created_at": "2026-06-23T00:00:00Z",
+  "is_feedback_web": false,
+  "review_status": "unknown",
+  "freshness_status": "unknown",
+  "reviewed_at": null,
+  "reviewable": false
+}

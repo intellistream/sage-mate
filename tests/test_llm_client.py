@@ -581,3 +581,70 @@ def test_request_chat_completion_marks_truncation_when_continuation_fails() -> N
 
     assert "第一段回答未完" in answer
     assert "[回答因长度限制被截断]" in answer
+
+
+def test_cache_namespace_scopes_responses_per_conversation() -> None:
+    """Different cache_namespace values must produce distinct cache keys,
+    preventing cross-user cache pollution when two students ask similar
+    questions.
+    """
+    client = object.__new__(VllmChatClient)
+    client._cache_lock = threading.Lock()
+    client._response_cache = OrderedDict()
+    client._metrics_lock = threading.Lock()
+    client._cache_hit_count = 0
+    client._exact_cache_hit_count = 0
+    client._semantic_cache_hit_count = 0
+    client._cache_lookup_count = 0
+
+    settings = AppSettings(
+        llm_cache_ttl_seconds=300,
+        llm_cache_max_entries=100,
+    )
+    client._settings = settings
+
+    payload_user_a = {
+        "model": "demo",
+        "messages": [{"role": "user", "content": "Ascend NPU内存管理怎么优化？"}],
+        "temperature": 0.2,
+        "max_tokens": 1024,
+    }
+    payload_user_b = dict(payload_user_a)
+
+    # Store a response for user A
+    client._store_cached_response(
+        client._cache_key(payload_user_a, namespace="conv-alice"),
+        "Alice's personalised answer",
+        client._semantic_cache_key(payload_user_a, namespace="conv-alice"),
+    )
+
+    # User B should NOT get Alice's cached response
+    cache_key_b = client._cache_key(payload_user_b, namespace="conv-bob")
+    semantic_key_b = client._semantic_cache_key(payload_user_b, namespace="conv-bob")
+    cached, hit_type = client._get_cached_response(cache_key_b, semantic_key_b)
+    assert cached is None, (
+        "User B should not receive User A's cached response even when "
+        "the question is identical"
+    )
+
+    # User A should still get a cache hit
+    cache_key_a = client._cache_key(payload_user_a, namespace="conv-alice")
+    semantic_key_a = client._semantic_cache_key(payload_user_a, namespace="conv-alice")
+    cached_a, hit_type_a = client._get_cached_response(cache_key_a, semantic_key_a)
+    assert cached_a == "Alice's personalised answer"
+    assert hit_type_a == "exact"
+
+
+def test_cache_key_includes_namespace() -> None:
+    """The namespace must appear in the cache key to guarantee isolation."""
+    client = object.__new__(VllmChatClient)
+    payload = {"model": "demo", "messages": [{"role": "user", "content": "hi"}]}
+
+    key_a = client._cache_key(payload, namespace="conv-1")
+    key_b = client._cache_key(payload, namespace="conv-2")
+    key_none = client._cache_key(payload)
+
+    assert key_a != key_b
+    assert key_a != key_none
+    assert key_a.startswith("conv-1::")
+    assert key_b.startswith("conv-2::")

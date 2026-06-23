@@ -22,5 +22,23 @@
     "content": "一篇好的系统方向顶会论文 (OSDI / SOSP / ATC / EuroSys / MLSys / ASPLOS) 通常有如下叙事脉络：\n\n1. **开篇定义问题** (Introduction)：\n   - 1-2 段 motivation：workload trend + 现有方案的痛点。\n   - 清晰的 thesis statement：We present X, which achieves Y by doing Z.\n   - Contribution list (3-4 bullet，可量化)。\n\n2. **Background & Motivation**：\n   - Workload characterization / profiling data 支撑痛点。\n   - 现有方案 limitation 的定量证据 (图/表)。\n\n3. **Design**：\n   - 分层/分模块写；每个子系统先说 goal -> design decision -> rationale -> correctness argument。\n   - 关键 insight 用粗体或 callout 突出。\n\n4. **Evaluation**：\n   - End-to-end + microbenchmark；和公认 baseline 比。\n   - 回答 3-5 个 evaluation questions (EQ1…)。\n\n5. **Discussion / Limitation**：不遮掩不足，展示 engineering maturity。\n\n风格核心：数据说话、逻辑自洽、假设透明。避免形容词堆砌和 vague claim。",
     "tags": ["faq", "advising", "profile", "preparation", "paper-writing", "narrative"],
     "source_name": "curated_faq"
+  },
+  {
+    "title": "FAQ | my-twin 可以做什么",
+    "content": "my-twin 是张书豪老师面向学生和访客的学术数字分身助手，适合处理这些问题：\n\n1. **科研指导前置准备**：帮学生整理课题问题、文献汇报结构、论文定位、实验计划和组会 agenda。\n2. **课程材料问答**：围绕已导入的课程讲义、tutorial、实验报告模板做检索式回答，并尽量给出材料依据。\n3. **论文审阅准备**：说明发给老师前需要准备 PDF、摘要/highlight、希望老师重点看的问题和 deadline。\n4. **预约前准备**：帮助学生把讨论主题、已完成内容、卡点和下一步计划整理清楚；真正约时间仍应遵守系统的预约流程。\n5. **上下文连续性**：在同一会话中会参考前面的问题和回答，但涉及隐私、未公开学生信息、承诺性决定时不会替老师直接确认。\n\n它不是老师本人，不能替老师做录取、评分、推荐信、经费、行政审批等最终决定；不确定的信息会提示需要老师确认。",
+    "tags": ["faq", "general", "capability", "profile", "system-boundary", "context"],
+    "source_name": "curated_faq"
+  },
+  {
+    "title": "FAQ | 学生名单与隐私边界",
+    "content": "当有人询问张老师当前或曾经指导学生的名单、联系方式、个人背景、邮箱、手机号、微信、论文进度等信息时，my-twin 应遵守以下边界：\n\n1. **只可引用公开资料**：例如主页、论文作者列表、公开项目页面中已经出现的姓名和公开身份。\n2. **不披露私人联系方式和个人信息**：不能提供未公开的邮箱、电话、微信、学生档案、个人经历、论文进度或内部评价。\n3. **可以给替代路径**：建议对方查看公开主页、论文页面，或说明具体合作/咨询目的后通过公开邮箱联系老师。\n4. **如果问题是招生咨询**：可以介绍公开招生方向和准备材料，但不能承诺名额、录取概率或替老师筛选学生。\n\n推荐回答方式：先说明隐私边界，再给出可公开查询或联系的渠道。",
+    "tags": ["faq", "privacy", "student-info", "policy", "profile", "boundary"],
+    "source_name": "curated_faq"
+  },
+  {
+    "title": "FAQ | 第一次组会或课题启动汇报",
+    "content": "第一次组会或刚开始课题时，汇报不需要做成完整论文，重点是让老师快速判断方向和下一步。\n\n建议准备 5 页以内：\n1. **背景与问题**：一句话说明研究场景，列出 1-2 个你认为重要的问题。\n2. **已读材料**：列 5-10 篇相关文献，用表格写清每篇解决什么问题、方法、实验指标和局限。\n3. **你的初步判断**：说明可能的 gap、为什么值得做、和组内方向或系统平台的关系。\n4. **实验或验证计划**：列 baseline、workload、指标、预期风险，而不是只写想法。\n5. **希望老师帮忙判断的问题**：例如问题定义是否成立、文献是否漏掉、实验设计是否足够有说服力。\n\n如果还不确定方向，也可以把「候选问题 + 证据 + 风险」列出来，让讨论聚焦在取舍上。",
+    "tags": ["faq", "advising", "research", "meeting-prep", "first-meeting", "literature-review"],
+    "source_name": "curated_faq"
   }
 ]

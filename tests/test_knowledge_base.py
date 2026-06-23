@@ -1314,3 +1314,55 @@ def test_service_prompt_adds_course_research_boundary_guidance(tmp_path: Path) -
     assert "mixed course-and-research questions" in prompt
     assert "should be prepared separately" in prompt
     assert "Use wording such as '分开', '分别', '课程', '研究', and '准备'." in prompt
+
+
+def test_synonym_expansion_recovers_informal_kv_cache_query(tmp_path: Path) -> None:
+    """When a student types 'KV部分复用' (informal), synonym expansion should
+    match documents that use the canonical 'KV Cache' terminology.
+    """
+    for backend_name in available_knowledge_backends():
+        if backend_name == "sagevdb":
+            continue  # only local + neuromem exercised here
+        settings = AppSettings(
+            knowledge_base_dir=tmp_path / f"synonym-kv-{backend_name}",
+            knowledge_backend="neuromem" if backend_name == "neuromem" else "local",
+        )
+        store = LocalKnowledgeStore(settings)
+        store.add_document(
+            KnowledgeDocumentCreate(
+                title="大模型推理基础设施｜KV Cache管理与复用策略",
+                content=(
+                    "KV Cache是大模型推理中的核心技术，通过缓存键值对避免重复计算。"
+                    "部分复用（partial reuse）策略允许不同请求共享前缀KV Cache。"
+                ),
+                tags=["teaching", "courseware", "lecture", "course:llm-inference"],
+                source_name="homepage:contents/teaching/intro-to-llm-inference-engines.md",
+            )
+        )
+
+        # The informal phrasing that previously caused retrieval failure.
+        hits = store.search("KV部分复用的核心概念是什么？", top_k=3)
+        assert len(hits) > 0, (
+            f"[{backend_name}] Synonym expansion should recover KV Cache "
+            "documents for the informal query 'KV部分复用'"
+        )
+        assert any("KV Cache" in hit.title for hit in hits)
+
+
+def test_expand_query_synonyms_is_idempotent() -> None:
+    """Calling _expand_query_synonyms twice should not double-expand."""
+    from sage_faculty_twin.knowledge_base import _expand_query_synonyms
+
+    once = _expand_query_synonyms("KV部分复用")
+    twice = _expand_query_synonyms(once)
+    # The second call should produce the same result because all terms are
+    # already present after the first expansion.
+    assert once == twice
+
+
+def test_expand_query_synonyms_leaves_unrelated_queries_unchanged() -> None:
+    """Queries that don't match any synonym group should be returned as-is."""
+    from sage_faculty_twin.knowledge_base import _expand_query_synonyms
+
+    query = "明天下午三点的会议"
+    assert _expand_query_synonyms(query) == query

@@ -5,7 +5,7 @@
       "path": "."
     },
     {
-      "name": "research | wiki-link-retrieval [WWW 2027]",
+      "name": "research | wiki-link-retrieval [→WWW 2027]",
       "path": "../wiki-link-retrieval"
     },
     {
@@ -13,7 +13,7 @@
       "path": "../CANDOR-Bench"
     },
     {
-      "name": "research | NeuroMem [ICML 2026, →ATC 2026]",
+      "name": "research | NeuroMem [ICML 2026, ↑ATC 2026]",
       "path": "../neuromem"
     },
     {
@@ -29,11 +29,11 @@
       "path": "../StreamFP"
     },
     {
-      "name": "research | BidKV [→SC 2026]",
+      "name": "research | BidKV [↑SC 2026]",
       "path": "../bidkv"
     },
     {
-      "name": "research | sglang-placement [→ATC 2026]",
+      "name": "research | sglang-placement [↑ATC 2026]",
       "path": "../sglang-request-placement"
     },
     {
@@ -70,7 +70,7 @@
     },
 
     {
-      "name": "research | serving-workloads",
+      "name": "research | serving-workloads [→CSUR]",
       "path": "../llm-serving-workloads"
     },
     {
@@ -90,7 +90,7 @@
       "path": "../SAGE"
     },
     {
-      "name": "sage | VAMOS [→ATC 2026]",
+      "name": "sage | VAMOS [↑ATC 2026]",
       "path": "../vamos"
     },
     {

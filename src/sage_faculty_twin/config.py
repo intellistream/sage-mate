@@ -84,6 +84,7 @@ class AppSettings(BaseSettings):
     operations_task_state_dir: Path = Field(default=Path("data/operations_task_state"))
     suggestion_board_dir: Path = Field(default=Path("data/suggestions"))
     user_account_store_dir: Path = Field(default=Path("data/user_accounts"))
+    slack_user_link_dir: Path = Field(default=Path("data/slack_user_links"))
     workflow_policy_path: Path = Field(
         default=Path("data/workflow_policies/faculty-default-2026-05.json")
     )

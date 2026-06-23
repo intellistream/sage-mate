@@ -1,0 +1,10 @@
+{
+  "user_id": "098373b1-82e1-48e7-8d90-253d6846c4ae",
+  "name": "Shifeng Liu",
+  "email": "2779387088@qq.com",
+  "visitor_profile": "lab_member",
+  "password_salt": "efd5703559f6d4f3c6fe96af642fc2b4",
+  "password_hash": "f367db29e89e2b94e050a4eab7e22f319453af47645ee67d1b996a9025fc0d3f3f34200c90aab227f7125980341d2ad0aacaf81c617db0fd124023f9d922d524",
+  "created_at": "2026-06-22T05:53:03.832656+00:00",
+  "updated_at": "2026-06-22T05:53:03.832656+00:00"
+}

@@ -5,6 +5,4 @@ scope:
     - data/conversation_memory/
 source_files: []
 depends_on: []
-related_to:
-    - path: app_source
-    - path: tests
+related_to: []

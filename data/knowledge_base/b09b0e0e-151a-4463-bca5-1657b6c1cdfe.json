@@ -1,0 +1,28 @@
+{
+  "document_id": "b09b0e0e-151a-4463-bca5-1657b6c1cdfe",
+  "title": "私有材料精选｜状态管理到大模型推理基础设施研究主线",
+  "content": "来源：private-materials/演讲材料/学术汇报/学术汇报-张书豪.md\n可见性：public\n说明：该条目是从私有演讲材料中提炼出的公开问答摘要，已移除项目金额、申报口径和内部图表。\n\n张书豪老师的研究主线可以概括为：在复杂硬件与动态负载下做高效状态管理，并把这条线进一步收束到大模型推理基础设施。这里的状态管理不是简单的数据存储，而是围绕共享状态持续回答三个问题：第一，状态访问如何被组织、观测和调度；第二，状态相关执行如何与底层硬件约束协同优化；第三，状态如何持续写入、演化并被后续任务稳定复用。放到大模型系统里，对应的问题包括请求合批与排队、prefill/decode 执行、KV cache 复用、RAG 与长期记忆如何参与后续推理。因此，学生如果想围绕老师方向找课题，可以从“访问调度、执行优化、状态复用、记忆增强推理”四个入口切入，并明确自己要优化的指标，例如吞吐、P99 时延、TTFT、显存占用、服务稳定性或跨轮一致性。",
+  "tags": [
+    "profile",
+    "research-agenda",
+    "state-management",
+    "llm-inference",
+    "private-materials",
+    "audience:public"
+  ],
+  "source_name": "private-materials:curated-state-management-research-line",
+  "metadata": {
+    "audience": "public",
+    "domain": "research",
+    "identity": "pi",
+    "material_type": "profile",
+    "course_id": "llm-inference",
+    "source_kind": "private-materials"
+  },
+  "created_at": "2026-06-22T17:02:55.196411Z",
+  "is_feedback_web": false,
+  "review_status": "unknown",
+  "freshness_status": "unknown",
+  "reviewed_at": null,
+  "reviewable": false
+}

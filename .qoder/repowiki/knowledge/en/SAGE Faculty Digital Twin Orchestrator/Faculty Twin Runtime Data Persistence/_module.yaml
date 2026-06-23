@@ -5,5 +5,4 @@ scope:
     - data/
 source_files: []
 depends_on: []
-related_to:
-    - path: docs
+related_to: []

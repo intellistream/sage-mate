@@ -216,6 +216,12 @@ body.mobile-topbar-actions-open .topbar-actions {
     display: none;
 }
 
+@media (max-width: 720px) {
+    .topbar-user-badge.mobile-auth-entry.hidden {
+        display: inline-flex !important;
+    }
+}
+
 .topbar-user-badge-avatar {
     display: inline-flex;
     align-items: center;
@@ -3086,6 +3092,47 @@ body.conversation-active .intro-card .message-body {
 
 .account-tab-panel {
     padding: 0 2px;
+}
+
+.account-link-card {
+    margin-top: 1rem;
+    padding: 1rem;
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.78);
+}
+
+.account-link-card-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+}
+
+.account-link-card h3 {
+    margin: 0 0 0.25rem;
+    font-size: 0.98rem;
+}
+
+.account-link-card p,
+.account-link-steps {
+    margin: 0;
+    color: rgba(0, 0, 0, 0.58);
+    font-size: 0.86rem;
+}
+
+.account-link-code {
+    margin: 0.85rem 0;
+    padding: 0.75rem;
+    border-radius: 8px;
+    background: rgba(0, 0, 0, 0.05);
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 1.25rem;
+    letter-spacing: 0;
+}
+
+.account-link-steps {
+    padding-left: 1.2rem;
 }
 
 /* Hide chat-stream and composer when a view is active */

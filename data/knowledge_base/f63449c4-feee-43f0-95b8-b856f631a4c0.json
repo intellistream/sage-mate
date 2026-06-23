@@ -1,25 +1,27 @@
 {
-  "document_id": "f63449c4-feee-43f0-95b8-b856f631a4c0",
-  "title": "个人资料｜发表文章 Venue 统计",
-  "content": "# Publication Venue Summary\n\nTotal unique publications: 56\n\n| Name | Ranking | Publications | Publication Years |\n| --- | --- | --- | --- |\n| ICDE | Database, CCF-A Conference | 10 papers (3 first-author, 4 corresponding-author) | 2017 (2), 2020 (1), 2023 (3), 2024 (2), 2025 (1), 2026 (1) |\n| SIGMOD | Database, CCF-A Conference | 10 papers (2 first-author, 4 corresponding-author) | 2019 (1), 2021 (1), 2023 (2), 2024 (2), 2025 (2), 2026 (2) |\n| TKDE | Database/AI, CCF-A Journal | 4 papers (2 corresponding-author) | 2021 (1), 2024 (1), 2025 (2) |\n| TPDS | HPC/Architecture, CCF-A Journal | 3 papers | 2016 (2), 2021 (1) |\n| VLDB | Database, CCF-A Conference | 2 papers (1 first-author) | 2013 (1), 2014 (1) |\n| IJCAI | AI, CCF-A Conference | 2 papers | 2020 (1), 2025 (1) |\n| VLDBJ | Database, CCF-A Journal | 2 papers (1 first-author) | 2022 (1), 2023 (1) |\n| EMNLP | NLP, CCF-B Conference | 2 papers (1 corresponding-author) | 2023 (1), 2024 (1) |\n| ICML | AI/ML, CCF-A Conference | 2 papers (2 corresponding-author) | 2026 (2) |\n| WWW | Web/IR, CCF-A Conference | 2 papers (2 corresponding-author) | 2026 (2) |\n| MASCOTS | HPC/Simulation, CCF-C Conference | 1 paper | 2015 (1) |\n| SC | HPC, CCF-A Conference | 1 paper | 2016 (1) |\n| BigMM | Multimedia, CCF-C Conference | 1 paper (1 corresponding-author) | 2019 (1) |\n| Open Journal of IoT | IoT, Open Journal | 1 paper | 2020 (1) |\n| SIGMOD Record | Database, CCF-A Journal | 1 paper (1 first-author) | 2020 (1) |\n| USENIX ATC | Systems, CCF-A Conference | 1 paper | 2020 (1) |\n| MDPI Algorithms | CS, General Journal | 1 paper | 2022 (1) |\n| DEBS | Event-Based Systems, CCF-C Conference | 1 paper (1 corresponding-author) | 2023 (1) |\n| NeurIPS | AI/ML, CCF-A Conference | 1 paper (1 corresponding-author) | 2024 (1) |\n| ICDM | Data Mining, CCF-B Conference | 1 paper (1 corresponding-author) | 2024 (1) |\n| ICPP | HPC, CCF-B Conference | 1 paper | 2024 (1) |\n| IWQoS | Networking, CCF-C Conference | 1 paper | 2024 (1) |\n| Nature Communications | Multidisciplinary, Top Journal | 1 paper | 2024 (1) |\n| CVPR | Computer Vision, CCF-A Conference | 1 paper | 2025 (1) |\n| ICDCS | Distributed Systems, CCF-B Conference | 1 paper | 2025 (1) |\n| ACL Findings | NLP, CCF-C Conference | 1 paper | 2026 (1) |\n| ACL | NLP, CCF-A Conference | 1 paper | 2026 (1) |\n",
-  "tags": [
-    "profile",
-    "publication",
-    "venue-stats",
-    "private-materials",
-    "audience:public"
-  ],
-  "source_name": "private-materials:publication-venue-stats",
-  "metadata": {
-    "domain": "research",
-    "identity": "pi",
-    "material_type": "profile",
-    "source_kind": "private-materials"
-  },
-  "created_at": "2026-06-20T04:21:33.874741Z",
-  "is_feedback_web": false,
-  "review_status": "unknown",
-  "freshness_status": "unknown",
-  "reviewed_at": null,
-  "reviewable": false
+    "document_id": "f63449c4-feee-43f0-95b8-b856f631a4c0",
+    "title": "个人资料｜发表文章 Venue 统计",
+    "content": "公开摘要口径：该统计仅用于概览公开发表 venue 分布，来源应以公开主页/论文列表为准；不作为实时履历或申报材料的唯一依据。\n\n# Publication Venue Summary\n\nTotal unique publications: 56\n\n| Name | Ranking | Publications | Publication Years |\n| --- | --- | --- | --- |\n| ICDE | Database, CCF-A Conference | 10 papers (3 first-author, 4 corresponding-author) | 2017 (2), 2020 (1), 2023 (3), 2024 (2), 2025 (1), 2026 (1) |\n| SIGMOD | Database, CCF-A Conference | 10 papers (2 first-author, 4 corresponding-author) | 2019 (1), 2021 (1), 2023 (2), 2024 (2), 2025 (2), 2026 (2) |\n| TKDE | Database/AI, CCF-A Journal | 4 papers (2 corresponding-author) | 2021 (1), 2024 (1), 2025 (2) |\n| TPDS | HPC/Architecture, CCF-A Journal | 3 papers | 2016 (2), 2021 (1) |\n| VLDB | Database, CCF-A Conference | 2 papers (1 first-author) | 2013 (1), 2014 (1) |\n| IJCAI | AI, CCF-A Conference | 2 papers | 2020 (1), 2025 (1) |\n| VLDBJ | Database, CCF-A Journal | 2 papers (1 first-author) | 2022 (1), 2023 (1) |\n| EMNLP | NLP, CCF-B Conference | 2 papers (1 corresponding-author) | 2023 (1), 2024 (1) |\n| ICML | AI/ML, CCF-A Conference | 2 papers (2 corresponding-author) | 2026 (2) |\n| WWW | Web/IR, CCF-A Conference | 2 papers (2 corresponding-author) | 2026 (2) |\n| MASCOTS | HPC/Simulation, CCF-C Conference | 1 paper | 2015 (1) |\n| SC | HPC, CCF-A Conference | 1 paper | 2016 (1) |\n| BigMM | Multimedia, CCF-C Conference | 1 paper (1 corresponding-author) | 2019 (1) |\n| Open Journal of IoT | IoT, Open Journal | 1 paper | 2020 (1) |\n| SIGMOD Record | Database, CCF-A Journal | 1 paper (1 first-author) | 2020 (1) |\n| USENIX ATC | Systems, CCF-A Conference | 1 paper | 2020 (1) |\n| MDPI Algorithms | CS, General Journal | 1 paper | 2022 (1) |\n| DEBS | Event-Based Systems, CCF-C Conference | 1 paper (1 corresponding-author) | 2023 (1) |\n| NeurIPS | AI/ML, CCF-A Conference | 1 paper (1 corresponding-author) | 2024 (1) |\n| ICDM | Data Mining, CCF-B Conference | 1 paper (1 corresponding-author) | 2024 (1) |\n| ICPP | HPC, CCF-B Conference | 1 paper | 2024 (1) |\n| IWQoS | Networking, CCF-C Conference | 1 paper | 2024 (1) |\n| Nature Communications | Multidisciplinary, Top Journal | 1 paper | 2024 (1) |\n| CVPR | Computer Vision, CCF-A Conference | 1 paper | 2025 (1) |\n| ICDCS | Distributed Systems, CCF-B Conference | 1 paper | 2025 (1) |\n| ACL Findings | NLP, CCF-C Conference | 1 paper | 2026 (1) |\n| ACL | NLP, CCF-A Conference | 1 paper | 2026 (1) |\n",
+    "tags": [
+        "profile",
+        "publication",
+        "venue-stats",
+        "private-materials",
+        "public-summary",
+        "audience:public"
+    ],
+    "source_name": "private-materials:publication-venue-stats",
+    "metadata": {
+        "domain": "research",
+        "identity": "pi",
+        "material_type": "profile",
+        "source_kind": "private-materials",
+        "audience": "public"
+    },
+    "created_at": "2026-06-20T04:21:33.874741Z",
+    "is_feedback_web": false,
+    "review_status": "unknown",
+    "freshness_status": "unknown",
+    "reviewed_at": null,
+    "reviewable": false
 }

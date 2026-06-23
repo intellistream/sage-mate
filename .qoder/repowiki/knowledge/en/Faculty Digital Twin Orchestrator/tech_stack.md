@@ -1,0 +1,3 @@
+- **Agentic Framework**: Uses `isage` (SAGE) for workflow orchestration and `isage-neuromem` for neural memory management.
+- **Inference Engine**: Integrates with `vllm-hust` (a customized vLLM fork) for LLM inference, supporting features like thinking token budgets and external prefix caching via DeltaKV.
+- **Vector Search**: Optional dependencies include `isage-vdb` and `isage-anns` for vector database and approximate nearest neighbor search capabilities.

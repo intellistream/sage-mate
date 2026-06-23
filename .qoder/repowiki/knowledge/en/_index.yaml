@@ -3,10 +3,10 @@ schema_version: 1
 locale: en-US
 branch: main
 nodes_managed: true
-exported_at: "2026-06-22T01:22:12Z"
+exported_at: "2026-06-22T14:30:40Z"
 modules:
     "":
-        dir_name: SAGE Faculty Digital Twin Orchestrator
+        dir_name: SAGE Faculty Digital Twin Orchestrator_2
         title: SAGE Faculty Digital Twin Orchestrator
         scope: []
         source_files: []
@@ -14,23 +14,14 @@ modules:
         depends_on: []
         related_to: []
     app_source:
-        dir_name: Faculty Digital Twin Core Service
-        title: Faculty Digital Twin Core Service
+        dir_name: Faculty Digital Twin Orchestration
+        title: Faculty Digital Twin Orchestration
         scope:
             - src/sage_faculty_twin/
         source_files: []
         children: []
         depends_on: []
-        related_to:
-            - path: deployment
-            - path: runtime_data/availability
-            - path: runtime_data/capability_plugins
-            - path: runtime_data/conversation_memory
-            - path: runtime_data/follow_up_actions
-            - path: runtime_data/knowledge_base
-            - path: runtime_data/skills
-            - path: runtime_data/user_accounts
-            - path: tests
+        related_to: []
     build_system:
         dir_name: Build, Deployment, and Runtime Orchestration
         title: Build, Deployment, and Runtime Orchestration
@@ -81,9 +72,7 @@ modules:
         source_files: []
         children: []
         depends_on: []
-        related_to:
-            - path: app_source
-            - path: docs
+        related_to: []
     docs:
         dir_name: Product Documentation & Deployment Operations
         title: Product Documentation & Deployment Operations
@@ -92,10 +81,7 @@ modules:
         source_files: []
         children: []
         depends_on: []
-        related_to:
-            - path: deployment
-            - path: runtime_data
-            - path: tests
+        related_to: []
     error_handling:
         dir_name: Error Handling — Custom Exceptions, HTTPException Propagation, and Retry Logic
         title: Error Handling — Custom Exceptions, HTTPException Propagation, and Retry Logic
@@ -151,8 +137,7 @@ modules:
             - runtime_data/skills
             - runtime_data/user_accounts
         depends_on: []
-        related_to:
-            - path: docs
+        related_to: []
     runtime_data/availability:
         dir_name: Faculty Availability Data Store
         title: Faculty Availability Data Store
@@ -161,8 +146,7 @@ modules:
         source_files: []
         children: []
         depends_on: []
-        related_to:
-            - path: app_source
+        related_to: []
     runtime_data/capability_plugins:
         dir_name: Faculty Capability Plugin Definitions
         title: Faculty Capability Plugin Definitions
@@ -171,8 +155,7 @@ modules:
         source_files: []
         children: []
         depends_on: []
-        related_to:
-            - path: app_source
+        related_to: []
     runtime_data/conversation_memory:
         dir_name: Conversation Memory & Profile Storage
         title: Conversation Memory & Profile Storage
@@ -181,9 +164,7 @@ modules:
         source_files: []
         children: []
         depends_on: []
-        related_to:
-            - path: app_source
-            - path: tests
+        related_to: []
     runtime_data/follow_up_actions:
         dir_name: Follow-up Action Data Store
         title: Follow-up Action Data Store
@@ -192,8 +173,7 @@ modules:
         source_files: []
         children: []
         depends_on: []
-        related_to:
-            - path: app_source
+        related_to: []
     runtime_data/knowledge_base:
         dir_name: Knowledge Base Data Store
         title: Knowledge Base Data Store
@@ -202,9 +182,7 @@ modules:
         source_files: []
         children: []
         depends_on: []
-        related_to:
-            - path: app_source
-            - path: tests
+        related_to: []
     runtime_data/skills:
         dir_name: Academic Skill Definitions
         title: Academic Skill Definitions
@@ -213,8 +191,7 @@ modules:
         source_files: []
         children: []
         depends_on: []
-        related_to:
-            - path: app_source
+        related_to: []
     runtime_data/user_accounts:
         dir_name: User Account Data Persistence
         title: User Account Data Persistence
@@ -223,8 +200,7 @@ modules:
         source_files: []
         children: []
         depends_on: []
-        related_to:
-            - path: app_source
+        related_to: []
     tests:
         dir_name: Sage Faculty Twin Integration & Contract Testing
         title: Sage Faculty Twin Integration & Contract Testing
@@ -233,8 +209,4 @@ modules:
         source_files: []
         children: []
         depends_on: []
-        related_to:
-            - path: app_source
-            - path: docs
-            - path: runtime_data/conversation_memory
-            - path: runtime_data/knowledge_base
+        related_to: []

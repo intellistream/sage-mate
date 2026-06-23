@@ -1,21 +1,23 @@
 {
-  "document_id": "a81c5328-b6f3-44b1-a4fc-3805871a988f",
-  "title": "荣誉附件正文｜LOA Combine（第4部分）",
-  "content": "ection.\n\nTo accelerate model training and resolve redundancy in data, the framework selects a coreset . The function takes the current batch of data and the current state maintained in the framework as parameters for computing . There are multiple ways to implement including “anti- domain”, “model-based”, and “clustering-based” as we discussed earlier. Each approach has different pros and cons. Taking “anti-domain” as an example, it retrieve unlabeled text that aligns with the task distribution from a large in-domain corpus (Gururangan et al. 2020). We observed that the essence of this approach is an offline stateful data selection, and it looks for data relevant to targeted domains. In contrast, what we seek from streaming data is new domain knowledge. Therefore, we propose anti-domain data selection, whose mathematical essence is to find the most informative set of data in the current data stream referencing to the data stored so far, which can be quantify by , where variable is for word tokens. variable is the count of some word type in a corpus. To apply it A-3 RTDS S 22 14 05 1 into an incremental online environment, we redefine it as incremental cross-entropy and will optimize it accordingly. Stage 2: State update. To better guide the data selection and model update, we utilizes a state in the framework. The challenges for state update are 1) identifying what to be kept in from the current batch of data, and 2) what to be removed from considering the storage constraint. A simple strategy is to just keep intermediate results produced during the data selection process. For example, can be simply the temporal clusters if is clustering-based. However, it may limit the effectiveness of the framework to address the catastrophic forgetting issue. Rather than assuming every input element contributes equally, we shall be able to generate the utility of each input element, which is highly dependent on the current state. Again, taking anti-domain method as an example, we will maintain a collection of the most valuable sentences/documents. We will build a novel cost model to evaluate how the state is maintained , For each sentence/document, we establish its contribution and consumption, with contribution defined as the value of its word or implied information as a percentage of the state , consumption defined as computational volume through which training is performed by the sentence/document. But it is important to that this contribution to the model and this contribution decays over time so that the model does not remember knowledge that is too old. Specifically, sentences/documents that are closer to the current time will have a higher contribution. Stage 3: Buffer update. To mitigate catastrophic forgetting, we maintain a buffer of historical samples as new data arrive. A simple idea is to update the buffer via reservoir sampling or ring buffer. However, these algorithms are based on the assumption that the data streams follow the iid distribution, which does not hold in many real applications. Consequently, data patterns with a small probability mass in the distribution would be lost, and many redundant samples could be selected in the buffer.",
-  "tags": [
-    "homepage",
-    "profile",
-    "awards",
-    "achievement",
-    "attachment",
-    "pdf"
-  ],
-  "source_name": "homepage:contents/awards/基金/LOA Combine.pdf::part-4",
-  "metadata": {
-    "domain": "teaching",
-    "identity": "teacher",
-    "material_type": "pdf",
-    "source_kind": "homepage"
-  },
-  "created_at": "2026-06-09T09:58:20.888454Z"
+    "document_id": "a81c5328-b6f3-44b1-a4fc-3805871a988f",
+    "title": "荣誉附件正文｜LOA Combine（第4部分）",
+    "content": "ection.\n\nTo accelerate model training and resolve redundancy in data, the framework selects a coreset . The function takes the current batch of data and the current state maintained in the framework as parameters for computing . There are multiple ways to implement including “anti- domain”, “model-based”, and “clustering-based” as we discussed earlier. Each approach has different pros and cons. Taking “anti-domain” as an example, it retrieve unlabeled text that aligns with the task distribution from a large in-domain corpus (Gururangan et al. 2020). We observed that the essence of this approach is an offline stateful data selection, and it looks for data relevant to targeted domains. In contrast, what we seek from streaming data is new domain knowledge. Therefore, we propose anti-domain data selection, whose mathematical essence is to find the most informative set of data in the current data stream referencing to the data stored so far, which can be quantify by , where variable is for word tokens. variable is the count of some word type in a corpus. To apply it A-3 RTDS S 22 14 05 1 into an incremental online environment, we redefine it as incremental cross-entropy and will optimize it accordingly. Stage 2: State update. To better guide the data selection and model update, we utilizes a state in the framework. The challenges for state update are 1) identifying what to be kept in from the current batch of data, and 2) what to be removed from considering the storage constraint. A simple strategy is to just keep intermediate results produced during the data selection process. For example, can be simply the temporal clusters if is clustering-based. However, it may limit the effectiveness of the framework to address the catastrophic forgetting issue. Rather than assuming every input element contributes equally, we shall be able to generate the utility of each input element, which is highly dependent on the current state. Again, taking anti-domain method as an example, we will maintain a collection of the most valuable sentences/documents. We will build a novel cost model to evaluate how the state is maintained , For each sentence/document, we establish its contribution and consumption, with contribution defined as the value of its word or implied information as a percentage of the state , consumption defined as computational volume through which training is performed by the sentence/document. But it is important to that this contribution to the model and this contribution decays over time so that the model does not remember knowledge that is too old. Specifically, sentences/documents that are closer to the current time will have a higher contribution. Stage 3: Buffer update. To mitigate catastrophic forgetting, we maintain a buffer of historical samples as new data arrive. A simple idea is to update the buffer via reservoir sampling or ring buffer. However, these algorithms are based on the assumption that the data streams follow the iid distribution, which does not hold in many real applications. Consequently, data patterns with a small probability mass in the distribution would be lost, and many redundant samples could be selected in the buffer.",
+    "tags": [
+        "homepage",
+        "profile",
+        "awards",
+        "achievement",
+        "attachment",
+        "pdf",
+        "audience:lab_member"
+    ],
+    "source_name": "homepage:contents/awards/基金/LOA Combine.pdf::part-4",
+    "metadata": {
+        "domain": "teaching",
+        "identity": "teacher",
+        "material_type": "pdf",
+        "source_kind": "homepage",
+        "audience": "lab_member"
+    },
+    "created_at": "2026-06-09T09:58:20.888454Z"
 }

@@ -1,0 +1,26 @@
+{
+  "document_id": "f6f33d6c-f80c-420c-91b5-5fc93a534d35",
+  "title": "论文写作方法｜系统论文修改中文速查清单：避免实验比较不公平",
+  "content": "来源：private-materials/论文写作/paper_revision_lessons.md\n可见性：public\n说明：该条目是英文系统论文修改经验的中文检索摘要，用于回答学生的中文写作问题。\n\n常见学生问题：论文修改时怎么避免实验比较不公平？什么是不公平实验比较？如何判断实验设置是否可比？\n\n系统论文修改时，第一原则是科学有效性优先于视觉好看。不要把不可比较的实验设置放在同一个面板里当作公平对比；例如 zero-reject 和有拒绝率的策略不应被画成同一类 operating regime。只要低延迟依赖拒绝、延迟转移、admission control 或输出预算调整，论文里就必须把服务成本、牺牲对象和适用边界说清楚。图表语义必须和表格行名、caption、正文 claim 保持一致，不能为了图好看保留和真实数据矛盾的版本。正文结构上，要避免一句话单独成段、避免无必要的 bullet list、避免 callout box 反复重复同一个 thesis。写 survey 或 related work 时，要说明证据成熟度、引用来源和自引比例；如果讨论恢复或安全边界，应明确 fault model，例如 crash-stop、crash-recovery、network partition 或 silent degradation。",
+  "tags": [
+    "paper-writing",
+    "research-advising",
+    "revision",
+    "systems-paper",
+    "experiment-design",
+    "fair-comparison",
+    "private-materials",
+    "audience:public"
+  ],
+  "source_name": "private-materials:paper-revision-lessons-zh-summary",
+  "metadata": {
+    "audience": "public",
+    "source_kind": "private-materials"
+  },
+  "created_at": "2026-06-22T17:03:53.828709Z",
+  "is_feedback_web": false,
+  "review_status": "unknown",
+  "freshness_status": "unknown",
+  "reviewed_at": null,
+  "reviewable": false
+}

@@ -1,21 +1,23 @@
 {
-  "document_id": "eebac62d-c198-4d8f-a987-ba8d8f7ef51e",
-  "title": "荣誉附件正文｜LOA full（第1部分）",
-  "content": "Ref: TL@SUTD-LOA/13-2021 18 November 2021 Assistant Professor Zhang Shuhao Information Systems Technology and Design Singapore University of Technology and Design Assistant Professor Zhang Shuhao, LETTER OF AWARD: TL@SUTD SEED RESEARCH PROJECT GRANT Online Sentiment Learning of Massive Data Streams We are pleased to inform you that the Seed Grant for the following project has been approved for 1 year: TL Grant Number: RTDS S 21 14 01 1 Principal Investigator (PI): Zhang Shuhao Assistant Professor Information Systems Technology and Design Project Title: Online Sentiment Learning of Massive Data Streams Term (years): 1 Contract Effective Date: 01 January 2022 Total Funding: S$67,000 8 Somapah Road Singapore 487372 Page 1 of 2 T +65 6303 6600 F +65 6468 9256 www. sutd. edu. sg CO REG NO. 200913519C The PI is responsible for the management of the project and any project management requests or fund requests will have to be raised or endorsed by the PI. The PI is to ensure that the deliverables are met. This seed project is awarded under a TL@SUTD Technology Assessment and Seed Research Programme signed under the MINDEF-SUTD Master Agreement. All applicable terms and conditions of the Master Agreement are to be observed. Please note that these documents (including the Master Agreement) are not for circulation without prior approval. If you accept this grant and the terms and conditions applicable thereto, please complete, sign and return the enclosed Acceptance Form to TL@SUTD no later than 15 December 2021. The enclosed Budget Phasing Form should be completed and returned to TL@SUTD along with the Acceptance Form. Please quote the Grant Number in all future correspondence with us on this matter. If you require any further clarification on this matter, please contact TL@SUTD at temasek labs@sutd. edu. sg. Thank you. Yours sincerely Prof Chong Tow Chong President and Director, Temasek Laboratories Singapore University of Technology and Design Enclosure as stated: 1) MINDEF-SUTD Master Agreement 8015100044 Annex A – Scope of Work Annex B – Project Budget Annex C – Implementation Time Schedule and Deliverables 2) TL@SUTD Guidelines for Fundable / Non-Fundable Expenses of Research Projects 3) Form of Acceptance (To be signed and returned) 4) Budget Phasing Form (To be completed and returned) Copy with enclosure: Head of Pillar Finance TL@SUTD EHS Page 2 of 2 RTDS S 21 14 01 1 ANNEX A SCOPE OF WORK a. Project Title: Online Sentiment Learning of Massive Data Streams b. Project Objectives: The proposed research targets addressing the research issues relating to the algorithmic and system design to support large scale online sentiment learning of massive volume of opinionated data streams. In particular, we will propose the following key mechanisms with algorithmic and technical innovations. First, we are to design the first fully online sentiment learning algorithm with high polarity prediction accuracy. Our algorithm must be able to continuously learning from new data, especially we need to extract knowledges from unbounded high-volume data streams (e. g. , on-going tweets with new vocabularies or real-time customer review comments).",
-  "tags": [
-    "homepage",
-    "profile",
-    "awards",
-    "achievement",
-    "attachment",
-    "pdf"
-  ],
-  "source_name": "homepage:contents/awards/基金/LOA full.pdf::part-1",
-  "metadata": {
-    "domain": "teaching",
-    "identity": "teacher",
-    "material_type": "pdf",
-    "source_kind": "homepage"
-  },
-  "created_at": "2026-06-09T09:58:20.892998Z"
+    "document_id": "eebac62d-c198-4d8f-a987-ba8d8f7ef51e",
+    "title": "荣誉附件正文｜LOA full（第1部分）",
+    "content": "Ref: TL@SUTD-LOA/13-2021 18 November 2021 Assistant Professor Zhang Shuhao Information Systems Technology and Design Singapore University of Technology and Design Assistant Professor Zhang Shuhao, LETTER OF AWARD: TL@SUTD SEED RESEARCH PROJECT GRANT Online Sentiment Learning of Massive Data Streams We are pleased to inform you that the Seed Grant for the following project has been approved for 1 year: TL Grant Number: RTDS S 21 14 01 1 Principal Investigator (PI): Zhang Shuhao Assistant Professor Information Systems Technology and Design Project Title: Online Sentiment Learning of Massive Data Streams Term (years): 1 Contract Effective Date: 01 January 2022 Total Funding: S$67,000 8 Somapah Road Singapore 487372 Page 1 of 2 T +65 6303 6600 F +65 6468 9256 www. sutd. edu. sg CO REG NO. 200913519C The PI is responsible for the management of the project and any project management requests or fund requests will have to be raised or endorsed by the PI. The PI is to ensure that the deliverables are met. This seed project is awarded under a TL@SUTD Technology Assessment and Seed Research Programme signed under the MINDEF-SUTD Master Agreement. All applicable terms and conditions of the Master Agreement are to be observed. Please note that these documents (including the Master Agreement) are not for circulation without prior approval. If you accept this grant and the terms and conditions applicable thereto, please complete, sign and return the enclosed Acceptance Form to TL@SUTD no later than 15 December 2021. The enclosed Budget Phasing Form should be completed and returned to TL@SUTD along with the Acceptance Form. Please quote the Grant Number in all future correspondence with us on this matter. If you require any further clarification on this matter, please contact TL@SUTD at temasek labs@sutd. edu. sg. Thank you. Yours sincerely Prof Chong Tow Chong President and Director, Temasek Laboratories Singapore University of Technology and Design Enclosure as stated: 1) MINDEF-SUTD Master Agreement 8015100044 Annex A – Scope of Work Annex B – Project Budget Annex C – Implementation Time Schedule and Deliverables 2) TL@SUTD Guidelines for Fundable / Non-Fundable Expenses of Research Projects 3) Form of Acceptance (To be signed and returned) 4) Budget Phasing Form (To be completed and returned) Copy with enclosure: Head of Pillar Finance TL@SUTD EHS Page 2 of 2 RTDS S 21 14 01 1 ANNEX A SCOPE OF WORK a. Project Title: Online Sentiment Learning of Massive Data Streams b. Project Objectives: The proposed research targets addressing the research issues relating to the algorithmic and system design to support large scale online sentiment learning of massive volume of opinionated data streams. In particular, we will propose the following key mechanisms with algorithmic and technical innovations. First, we are to design the first fully online sentiment learning algorithm with high polarity prediction accuracy. Our algorithm must be able to continuously learning from new data, especially we need to extract knowledges from unbounded high-volume data streams (e. g. , on-going tweets with new vocabularies or real-time customer review comments).",
+    "tags": [
+        "homepage",
+        "profile",
+        "awards",
+        "achievement",
+        "attachment",
+        "pdf",
+        "audience:lab_member"
+    ],
+    "source_name": "homepage:contents/awards/基金/LOA full.pdf::part-1",
+    "metadata": {
+        "domain": "teaching",
+        "identity": "teacher",
+        "material_type": "pdf",
+        "source_kind": "homepage",
+        "audience": "lab_member"
+    },
+    "created_at": "2026-06-09T09:58:20.892998Z"
 }

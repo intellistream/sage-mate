@@ -1,0 +1,22 @@
+{
+  "action_id": "6bf24bbd-5be8-421d-a562-3c7d24a4f1a1",
+  "booking_id": "70e72a84-f6e5-4cb0-82e6-240ec18744f9",
+  "student_name": "Alice",
+  "student_email": "alice@example.com",
+  "action_type": "post_meeting_summary",
+  "title": "会后总结自动邮件",
+  "detail": "在会议结束后自动发送一封会后跟进摘要邮件。",
+  "subject": "[Faculty Twin] 会后跟进摘要：论文进展",
+  "lines": [
+    "你好，Alice：",
+    "这是一次自动生成的会后跟进摘要，请你据此整理本次沟通的后续动作。",
+    "会议主题：论文进展",
+    "会议时间：2026-05-26 15:00 - 15:30",
+    "建议回顾：建议回顾：agenda、当前 blocker、已有 draft / 结果、最想确认的 2-3 个问题",
+    "如果本次会议形成了新的结论、 blocker 或 next step，建议直接回复这封邮件补充。"
+  ],
+  "status": "queued",
+  "due_at": "2026-05-26T16:00:00+00:00",
+  "created_at": "2026-06-22T15:17:50.950898+00:00",
+  "sent_at": null
+}

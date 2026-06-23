@@ -37,7 +37,7 @@
             <!-- Status info moved to drawer, opened by rail icon -->
             <!-- User badge moved to sidebar, topbar-actions removed -->
             <button type="button" id="topbar-user-badge" class="topbar-user-badge hidden" aria-label="当前账号"
-                title="当前账号" style="display:none">
+                title="当前账号">
                 <span class="topbar-user-badge-avatar" aria-hidden="true"></span>
                 <span class="topbar-user-badge-copy">
                     <small class="topbar-user-badge-label">已登录</small>
@@ -233,6 +233,21 @@
                         <div id="account-tab-login" class="account-tab-panel" hidden>
                             <!-- Login form populated by JS (moved from modal) -->
                         </div>
+                        <section id="slack-twin-link-card" class="account-link-card hidden" aria-live="polite">
+                            <div class="account-link-card-head">
+                                <div>
+                                    <h3>Slack /twin 绑定</h3>
+                                    <p id="slack-twin-link-status">登录课题组成员账号后可以绑定 Slack。</p>
+                                </div>
+                                <button type="button" id="generate-slack-twin-code" class="ghost-button">生成绑定码</button>
+                            </div>
+                            <div id="slack-twin-link-code" class="account-link-code hidden"></div>
+                            <ol class="account-link-steps">
+                                <li>点击生成绑定码</li>
+                                <li>去 Slack 输入 <code>/twin bind &lt;code&gt;</code></li>
+                                <li>绑定成功后即可直接 <code>/twin 你的问题</code></li>
+                            </ol>
+                        </section>
                     </div>
                 </div>
 

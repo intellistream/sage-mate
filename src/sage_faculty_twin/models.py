@@ -770,6 +770,25 @@ class UserSessionResponse(BaseModel):
     account: UserAccountResponse | None = None
 
 
+class SlackTwinLinkStatusResponse(BaseModel):
+    is_authenticated: bool
+    is_lab_member: bool
+    can_link: bool
+    linked: bool = False
+    slack_user_id: str | None = Field(default=None, max_length=64)
+    linked_at: datetime | None = None
+    message: str = Field(min_length=1, max_length=256)
+
+
+class SlackTwinLinkCodeResponse(BaseModel):
+    is_authenticated: bool
+    is_lab_member: bool
+    can_link: bool
+    code: str | None = Field(default=None, max_length=16)
+    expires_at: datetime | None = None
+    message: str = Field(min_length=1, max_length=256)
+
+
 class AdminSessionResponse(BaseModel):
     is_admin: bool
     mode: str = Field(pattern="^(user|admin)$")

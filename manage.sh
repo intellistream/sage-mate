@@ -7,6 +7,10 @@
 #   stop      Stop services
 #   restart   Restart services
 #   logs      Follow journal for a service (usage: manage.sh logs <name>)
+#   repair-sagevdb  Repair sageVDB native extension wiring
+#   check-inference  Run one inference health check
+#   reserve-vllm-devices  Pin vllm-hust to specific Ascend device IDs
+#   configure-slack-twin  Configure Slack /twin command secret and access
 #
 # Flags (combine with any action):
 #   --all                Include all optional services
@@ -45,7 +49,7 @@ python_bin="$PYTHON_BIN"
 
 # ── Parse arguments ──────────────────────────────────────────────────────────
 if [[ $# -lt 1 ]]; then
-    echo "Usage: $0 <status|start|stop|restart|logs> [flags]" >&2
+    echo "Usage: $0 <status|start|stop|restart|logs|repair-sagevdb|check-inference|reserve-vllm-devices|configure-slack-twin> [flags]" >&2
     echo "  Flags: --all --with-vllm-engine --with-vllm-proxy --with-site-proxy --with-tunnel --json" >&2
     echo "  Logs:  $0 logs <app|engine|proxy|site|tunnel|model>" >&2
     exit 1
@@ -57,6 +61,22 @@ shift
 # Delegate install to quickstart.sh
 if [[ "$action" == "install" ]]; then
     exec "$repo_root/quickstart.sh" "$@"
+fi
+
+if [[ "$action" == "repair-sagevdb" ]]; then
+    SAGEVDB_REPAIR_IGNORE_PYTHON_BIN=1 exec "$repo_root/tools/repair_sagevdb.sh" "$@"
+fi
+
+if [[ "$action" == "check-inference" ]]; then
+    exec "$repo_root/tools/monitor_twin_inference.sh" "$@"
+fi
+
+if [[ "$action" == "reserve-vllm-devices" ]]; then
+    exec "$repo_root/tools/reserve_vllm_devices.sh" "$@"
+fi
+
+if [[ "$action" == "configure-slack-twin" ]]; then
+    exec "$repo_root/tools/configure_slack_twin.sh" "$@"
 fi
 
 json_output="false"

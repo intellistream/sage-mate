@@ -5,5 +5,4 @@ scope:
     - data/skills/
 source_files: []
 depends_on: []
-related_to:
-    - path: app_source
+related_to: []

@@ -11,18 +11,17 @@
 - [models.py](file://src/sage_faculty_twin/models.py)
 - [config.py](file://src/sage_faculty_twin/config.py)
 - [styles.css](file://src/sage_faculty_twin/web/styles.css)
+- [3df753a0-93ca-4524-9b20-4e576c958d60.json](file://data/user_accounts/3df753a0-93ca-4524-9b20-4e576c958d60.json)
+- [413e0732-f98a-4bae-b033-4477e43161ec.json](file://data/user_accounts/413e0732-f98a-4bae-b033-4477e43161ec.json)
 </cite>
 
 ## Update Summary
 **Changes Made**
-- Updated to reflect ChatGPT-style sidebar redesign with integrated account management
-- Removed redundant settings gear icon in favor of sidebar user avatar integration
-- Added new model name display in top bar status area
-- Integrated account management as in-chat view instead of separate modal
-- Implemented seed chips functionality moved from sidebar to clickable chips above composer
-- Enhanced visitor profile system with profile-aware seed chip generation
-- Added comprehensive user account management system with structured JSON data format
-- Improved data organization with enhanced security credentials and timestamp management
+- Updated to reflect Applied Changes: Added new user profiles with comprehensive authentication data including password salts and cryptographic hashes
+- Two new user accounts created: Chinese user profile (kimmozhang) and international user profile (刘俊)
+- Existing user account received updated timestamp reflecting recent activity
+- Enhanced visitor profile system with expanded international user support
+- Improved authentication security with comprehensive password hashing implementation
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -50,6 +49,8 @@ The Integrated Account Management View represents a comprehensive transformation
 The redesigned system maintains robust security standards and user experience while implementing modern interface patterns. The integration of account management as an in-chat view eliminates the need for separate modals and provides a more cohesive user journey from authentication to productive interaction.
 
 **Updated** The system now features a ChatGPT-inspired sidebar redesign where the user avatar in the sidebar rail serves as the primary entry point for settings and account management, replacing the previous settings gear icon. Account registration and login are now presented as tabbed in-chat views that can be dismissed without page reload, and seed chips containing pre-filled questions have been moved from the sidebar to clickable chips positioned above the message composer.
+
+**Updated** Recent enhancements include the addition of comprehensive authentication data for new user profiles, featuring password salts and cryptographic hashes for enhanced security. Two new user accounts have been created: a Chinese user profile (kimmozhang) and an international user profile (刘俊), demonstrating the system's expanded support for diverse user bases.
 
 ## System Architecture
 
@@ -253,6 +254,8 @@ The visitor profile system includes profile-aware seed chip generation with diff
 | `hust_undergraduate` | 3 course-specific | Lab experiment questions | Always |
 | `paper_writing_student` | 3 writing-focused | Thesis writing guidance | Always |
 | `lab_member` | 3 research-oriented | Advanced research questions | Invitation code required |
+
+**Updated** Recent additions to the visitor profile system include comprehensive authentication data for new user profiles, featuring password salts and cryptographic hashes for enhanced security. The system now supports international users with proper authentication mechanisms.
 
 **Section sources**
 - [app.js:398-463](file://src/sage_faculty_twin/web/app.js#L398-L463)
@@ -659,6 +662,8 @@ API-->>Client : UserSessionResponse with Session Token
 - [user_store.py:71-121](file://src/sage_faculty_twin/user_store.py#L71-L121)
 - [service.py:2915-2929](file://src/sage_faculty_twin/service.py#L2915-L2929)
 
+**Updated** Recent enhancements include comprehensive authentication data for new user profiles, featuring password salts and cryptographic hashes for enhanced security. The registration process now supports international users with proper authentication mechanisms.
+
 ### Login Process
 
 The login process validates credentials and establishes authenticated sessions with enhanced user experience:
@@ -750,6 +755,8 @@ The system implements industry-standard password hashing using scrypt with confi
 - **Storage**: Separate salt and hash fields for each user
 - **Validation**: Constant-time comparison to prevent timing attacks
 
+**Updated** Recent enhancements include comprehensive authentication data for new user profiles, featuring password salts and cryptographic hashes for enhanced security. The system now supports international users with proper authentication mechanisms.
+
 ### Session Security
 
 Cookie-based sessions provide secure, stateless authentication with enhanced integration:
@@ -810,6 +817,8 @@ USER_ACCOUNT ||--o{ SESSION_TOKEN : has
 **Diagram sources**
 - [user_store.py:16-60](file://src/sage_faculty_twin/user_store.py#L16-L60)
 
+**Updated** Recent additions to the data storage system include comprehensive authentication data for new user profiles, featuring password salts and cryptographic hashes for enhanced security. The system now supports international users with proper authentication mechanisms.
+
 ### Data Integrity
 
 The storage system ensures data integrity through:
@@ -842,6 +851,8 @@ The system supports four distinct visitor profiles with different access levels 
 | `paper_writing_student` | Writing Access | Access to thesis writing resources | No | Always |
 | `lab_member` | Full Access | Complete research system access | Yes | Always |
 
+**Updated** Recent additions to the visitor profile system include comprehensive authentication data for new user profiles, featuring password salts and cryptographic hashes for enhanced security. The system now supports international users with proper authentication mechanisms.
+
 #### Invitation Code Validation
 
 Lab member accounts require invitation code validation during registration and login:
@@ -867,7 +878,11 @@ The testing infrastructure includes pre-provisioned lab member accounts with enh
 
 - **Test Account 1**: `8e5a47f9-49e8-4132-b983-dff1314a6d05` - Lab User with profile-aware seed chips
 - **Test Account 2**: `01215b72-6871-483f-8799-d8f0a6d909df` - Lab User with enhanced onboarding
+- **New Chinese User**: `3df753a0-93ca-4524-9b20-4e576c958d60` - Chinese user (kimmozhang) with comprehensive authentication data
+- **New International User**: `413e0732-f98a-4bae-b033-4477e43161ec` - International user (刘俊) with comprehensive authentication data
 - Additional lab member accounts for comprehensive testing with profile-specific seed chip generation
+
+**Updated** Recent additions include two new user accounts with comprehensive authentication data: a Chinese user profile (kimmozhang) and an international user profile (刘俊), demonstrating the system's expanded support for diverse user bases.
 
 #### Onboarding Integration Testing
 
@@ -875,7 +890,8 @@ The system includes comprehensive onboarding integration testing with profile-aw
 
 **Section sources**
 - [user_store.py:92-104](file://src/sage_faculty_twin/user_store.py#L92-L104)
-- [data/user_accounts/8e5a47f9-49e8-4132-b983-dff1314a6d05.json:1-11](file://data/user_accounts/8e5a47f9-49e8-4132-b983-dff1314a6d05.json#L1-L11)
+- [data/user_accounts/3df753a0-93ca-4524-9b20-4e576c958d60.json:1-11](file://data/user_accounts/3df753a0-93ca-4524-9b20-4e576c958d60.json#L1-L11)
+- [data/user_accounts/413e0732-f98a-4bae-b033-4477e43161ec.json:1-11](file://data/user_accounts/413e0732-f98a-4bae-b033-4477e43161ec.json#L1-L11)
 
 ## Troubleshooting Guide
 
@@ -926,6 +942,11 @@ The system includes comprehensive onboarding integration testing with profile-aw
 - **Solution**: Verify event listener attachment and element existence
 - **Debug Steps**: Check `#sidebar-user-icon` element, verify event handler registration
 
+**Issue**: New user authentication failing
+- **Cause**: Missing password salt or hash data
+- **Solution**: Verify comprehensive authentication data exists for new user profiles
+- **Debug Steps**: Check user account JSON files for password_salt and password_hash fields
+
 ### Performance Optimization
 
 **Recommendations**:
@@ -953,6 +974,8 @@ Key strengths of the redesigned system include:
 - **Flexible Architecture**: Supports future enhancements and additional profile types
 - **Performance Optimization**: Efficient seed chip generation and profile detection
 
+**Updated** Recent enhancements demonstrate the system's commitment to comprehensive user support, including the addition of new user profiles with comprehensive authentication data featuring password salts and cryptographic hashes. The creation of two new user accounts (kimmozhang and 刘俊) showcases the system's expanded support for international users while maintaining security and access control.
+
 The integration of account management as an in-chat view provides a more cohesive user journey from authentication to productive interaction, while the removal of the redundant settings gear icon simplifies the interface and reduces clutter. The new model name display in the top bar enhances transparency about the AI services being used.
 
 The comprehensive seed chip system with profile-aware question generation significantly improves the user experience by providing immediately actionable content tailored to each visitor's role and context. This enhancement demonstrates the system's commitment to providing personalized user experiences while maintaining security and access control.
@@ -960,3 +983,5 @@ The comprehensive seed chip system with profile-aware question generation signif
 The system provides a solid foundation for user management while maintaining flexibility for future enhancements and integration with additional authentication providers or advanced security features. The successful implementation of the sidebar redesign showcases the platform's ability to evolve its interface while preserving core functionality and user experience.
 
 **Updated** The comprehensive sidebar redesign with integrated account management, removal of the settings gear icon, and new model name display in the top bar represents a significant advancement in user interface design. The transformation from separate modals to integrated in-chat views, combined with profile-aware seed chips and streamlined navigation, creates a more intuitive and efficient user experience that aligns with modern web application patterns while maintaining the platform's educational and research focus.
+
+Recent additions to the system include comprehensive authentication data for new user profiles, featuring password salts and cryptographic hashes for enhanced security. The creation of two new user accounts (kimmozhang and 刘俊) demonstrates the system's expanded support for international users while maintaining robust security standards and user experience.

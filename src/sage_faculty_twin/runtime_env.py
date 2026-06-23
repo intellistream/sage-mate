@@ -4,6 +4,8 @@ import importlib
 import importlib.util
 import os
 import sys
+import sysconfig
+import warnings
 from pathlib import Path
 
 
@@ -76,8 +78,13 @@ def _auto_link_sagevdb_shared_libs(source_pkg: Path) -> bool:
     if installed_pkg.resolve() == source_pkg.resolve():
         return False  # installed path IS the source — nothing to link
 
+    ext_suffix = str(sysconfig.get_config_var("EXT_SUFFIX") or "")
     linked = 0
     for so_file in installed_pkg.glob("*.so"):
+        if so_file.name.startswith("_sagevdb") and ext_suffix and not so_file.name.endswith(
+            ext_suffix
+        ):
+            continue
         target = source_pkg / so_file.name
         if target.is_symlink() and target.resolve() == so_file.resolve():
             linked += 1  # already correct
@@ -132,11 +139,15 @@ def _validate_sagevdb_source(repo_root: Path) -> None:
         except Exception:
             pass
 
-    raise RuntimeError(
+    sys.modules.pop("sagevdb", None)
+    warnings.warn(
         "sageVDB source checkout at ../sageVDB is missing compiled C "
-        "extension (.so) and auto-linking failed. "
-        "Ensure isage-vdb is installed (pip install isage-vdb) and run: "
-        "bash ../sageVDB/scripts/link_shared_libs.sh"
+        "extension (.so) for this Python interpreter, so sagevdb-specific "
+        "features will remain unavailable until a matching isage-vdb build is "
+        "installed. Non-sagevdb code can continue to run. Use the project "
+        "Python 3.12 environment or run: bash ../sageVDB/scripts/link_shared_libs.sh",
+        RuntimeWarning,
+        stacklevel=2,
     )
 
 

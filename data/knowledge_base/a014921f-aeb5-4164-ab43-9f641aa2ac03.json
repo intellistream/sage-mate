@@ -1,21 +1,23 @@
 {
-  "document_id": "a014921f-aeb5-4164-ab43-9f641aa2ac03",
-  "title": "荣誉附件正文｜LOA full（第16部分）",
-  "content": "if applicable) or TL Director is required. All PDAs, tablets and mobile phones will be considered as fixed asset (or Low Value Asset, depending on the cost of the item) under the University’s Fixed Assets (FA) Policy, an asset number will be assigned to the equipment and it should be affixed with the asset tag given by Office of Finance. Refer to the policy in SUTD Central under Office of Finance.\n\nOffice Equipment Not allowable Office Furniture & Not allowable Fittings Unless their intended usage are for research labs and/or for storage of research equipment. General furniture and fittings are not allowed. Cost of Not allowable. Renovation Temasek Laboratories @ SUTD Page 8",
-  "tags": [
-    "homepage",
-    "profile",
-    "awards",
-    "achievement",
-    "attachment",
-    "pdf"
-  ],
-  "source_name": "homepage:contents/awards/基金/LOA full.pdf::part-16",
-  "metadata": {
-    "domain": "teaching",
-    "identity": "teacher",
-    "material_type": "pdf",
-    "source_kind": "homepage"
-  },
-  "created_at": "2026-06-09T09:58:20.899845Z"
+    "document_id": "a014921f-aeb5-4164-ab43-9f641aa2ac03",
+    "title": "荣誉附件正文｜LOA full（第16部分）",
+    "content": "if applicable) or TL Director is required. All PDAs, tablets and mobile phones will be considered as fixed asset (or Low Value Asset, depending on the cost of the item) under the University’s Fixed Assets (FA) Policy, an asset number will be assigned to the equipment and it should be affixed with the asset tag given by Office of Finance. Refer to the policy in SUTD Central under Office of Finance.\n\nOffice Equipment Not allowable Office Furniture & Not allowable Fittings Unless their intended usage are for research labs and/or for storage of research equipment. General furniture and fittings are not allowed. Cost of Not allowable. Renovation Temasek Laboratories @ SUTD Page 8",
+    "tags": [
+        "homepage",
+        "profile",
+        "awards",
+        "achievement",
+        "attachment",
+        "pdf",
+        "audience:lab_member"
+    ],
+    "source_name": "homepage:contents/awards/基金/LOA full.pdf::part-16",
+    "metadata": {
+        "domain": "teaching",
+        "identity": "teacher",
+        "material_type": "pdf",
+        "source_kind": "homepage",
+        "audience": "lab_member"
+    },
+    "created_at": "2026-06-09T09:58:20.899845Z"
 }

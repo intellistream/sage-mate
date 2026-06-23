@@ -120,6 +120,14 @@ if ! "$python_bin" -m pip install --quiet -e "$repo_root[vdb-anns]"; then
 	"$python_bin" -m pip install --quiet -e "$repo_root"
 fi
 
+if [[ -d "$parent_dir/sageVDB" ]]; then
+	log "Repairing sageVDB native extension wiring"
+	if ! "$python_bin" "$repo_root/tools/repair_sagevdb.py" --sagevdb-root "$parent_dir/sageVDB"; then
+		warn "sageVDB repair failed; sagevdb backend may be unavailable for this Python"
+		warn "  Retry with: ./manage.sh repair-sagevdb"
+	fi
+fi
+
 if $mode_with_vllm && [[ -d "$parent_dir/vllm-hust" ]]; then
 	log "Installing vllm-hust (editable, may take several minutes)"
 	"$python_bin" -m pip install --quiet -e "$parent_dir/vllm-hust" \
@@ -175,6 +183,14 @@ else
 		if [[ -n "${PYTHON_BIN:-}" && -x "$PYTHON_BIN" ]]; then
 			printf '%s\n' "$PYTHON_BIN"; return 0
 		fi
+		local conda_env_name="${CONDA_ENV_NAME:-vllm-hust-dev}"
+		for candidate in \
+			"$HOME/miniconda3/envs/$conda_env_name/bin/python3" \
+			"$HOME/anaconda3/envs/$conda_env_name/bin/python3"; do
+			if [[ -x "$candidate" ]]; then
+				printf '%s\n' "$candidate"; return 0
+			fi
+		done
 		printf '%s\n' "$python_bin"
 	}
 	render_python_bin=$(resolve_python_bin)
@@ -221,7 +237,7 @@ else
 	log "  enabled: ${service_units[*]}"
 
 	# Enable and start timers
-	timer_units=(sage-faculty-twin-wiki-sync.timer)
+	timer_units=(sage-faculty-twin-wiki-sync.timer sage-faculty-twin-inference-monitor.timer)
 	systemctl --user enable "${timer_units[@]}"
 	log "  enabled: ${timer_units[*]}"
 

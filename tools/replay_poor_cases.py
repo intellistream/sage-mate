@@ -1,5 +1,5 @@
-"""Offline replay of the 39 poor-answer cases recorded in
-docs/student-questions-poor-answers.md.
+"""Offline replay of historical poor-answer cases and simulated student
+questions.
 
 For each fixture this script runs the current chat workflow in-process
 (against the live vLLM backend) and prints BEFORE/AFTER deltas. A markdown
@@ -17,6 +17,7 @@ import asyncio
 import json
 import re
 import sys
+import tempfile
 import time
 import uuid
 from dataclasses import dataclass, field, asdict
@@ -36,11 +37,13 @@ from sage_faculty_twin.models import ChatRequest, InteractionIntent  # noqa: E40
 from sage_faculty_twin.service import DigitalTwinService  # noqa: E402
 
 POOR_DOC = ROOT / "docs" / "student-questions-poor-answers.md"
+SIMULATED_DOC = ROOT / "data" / "simulated_student_questions.json"
 REPORT_DOC = ROOT / "docs" / "student-questions-replay-report.md"
 
 
 @dataclass
 class Fixture:
+    source: str
     student_name: str
     case_index: int  # per-student
     timestamp: str
@@ -62,6 +65,19 @@ class Fixture:
     # ordering
     global_index: int = 0
     conversation_id: str = field(default_factory=lambda: f"replay-{uuid.uuid4().hex[:12]}")
+    student_email: str | None = None
+    visitor_profile: str | None = None
+
+    # Simulated-case expectations.
+    scenario_id: str | None = None
+    expected_behavior: str | None = None
+    expected_domain: str | None = None
+    min_kb_hits: int = 0
+    min_answer_chars: int = 0
+    must_include_any: list[str] = field(default_factory=list)
+    notes: str = ""
+    expectation_errors: list[str] = field(default_factory=list)
+    evaluation_mode: str = "live"
 
 
 _HEADER_RE = re.compile(
@@ -120,6 +136,7 @@ def parse_fixtures(md_path: Path) -> list[Fixture]:
             answer = "\n".join(answer_lines).strip()
             fixtures.append(
                 Fixture(
+                    source="historical_poor_answer",
                     student_name=current_student,
                     case_index=idx,
                     timestamp=ts,
@@ -140,6 +157,41 @@ def parse_fixtures(md_path: Path) -> list[Fixture]:
     return fixtures
 
 
+def load_simulated_fixtures(path: Path = SIMULATED_DOC) -> list[Fixture]:
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    fixtures: list[Fixture] = []
+    for idx, item in enumerate(payload, start=1):
+        scenario_id = item["scenario_id"]
+        fixtures.append(
+            Fixture(
+                source="simulated_student_question",
+                student_name=item["student_name"],
+                student_email=item.get("student_email"),
+                visitor_profile=item.get("visitor_profile"),
+                case_index=idx,
+                timestamp="simulated",
+                domain=item.get("expected_domain", "general"),
+                workflow_before="simulated",
+                course_context=item.get("course_context") or "初次来访",
+                kb_hits_before=0,
+                failure_modes="simulated expectation check",
+                question=item["question"],
+                answer_before=f"Synthetic scenario {scenario_id}: {item.get('notes', '')}".strip(),
+                scenario_id=scenario_id,
+                expected_behavior=item.get("expected_behavior"),
+                expected_domain=item.get("expected_domain"),
+                min_kb_hits=int(item.get("min_kb_hits", 0)),
+                min_answer_chars=int(item.get("min_answer_chars", 0)),
+                must_include_any=list(item.get("must_include_any", [])),
+                notes=item.get("notes", ""),
+                conversation_id=f"sim-{item.get('conversation_group', scenario_id)}",
+            )
+        )
+    for n, fx in enumerate(fixtures):
+        fx.global_index = n + 1
+    return fixtures
+
+
 def assign_conversation_ids(fixtures: list[Fixture]) -> None:
     """Group consecutive same-student same-course cases into one conversation
     so multi-turn follow-ups (e.g. '具体内容') can resolve via session context.
@@ -147,6 +199,8 @@ def assign_conversation_ids(fixtures: list[Fixture]) -> None:
     last_key = None
     last_conv = None
     for fx in fixtures:
+        if fx.source == "simulated_student_question":
+            continue
         key = (fx.student_name, fx.course_context)
         if key != last_key:
             last_conv = f"replay-{uuid.uuid4().hex[:12]}"
@@ -154,9 +208,40 @@ def assign_conversation_ids(fixtures: list[Fixture]) -> None:
         fx.conversation_id = last_conv
 
 
+def _evaluate_simulated_expectations(fx: Fixture) -> list[str]:
+    errors: list[str] = []
+    if fx.expected_behavior == "answer" and fx.workflow_after in {
+        "ask_follow_up",
+        "review_queue",
+        "human_handoff",
+    }:
+        errors.append(f"expected answer-like behavior, got {fx.workflow_after}")
+    if fx.expected_behavior == "ask_follow_up" and fx.workflow_after != "ask_follow_up":
+        errors.append(f"expected ask_follow_up, got {fx.workflow_after}")
+    if fx.min_kb_hits and fx.kb_hits_after < fx.min_kb_hits:
+        errors.append(f"kb_hits {fx.kb_hits_after} < expected {fx.min_kb_hits}")
+    if fx.evaluation_mode == "mock":
+        return errors
+    if fx.min_answer_chars and len(fx.answer_after) < fx.min_answer_chars:
+        errors.append(
+            f"answer length {len(fx.answer_after)} < expected {fx.min_answer_chars}"
+        )
+    if fx.must_include_any:
+        lowered_answer = fx.answer_after.lower()
+        if not any(term.lower() in lowered_answer for term in fx.must_include_any):
+            terms = ", ".join(fx.must_include_any)
+            errors.append(f"answer did not include any expected cue: {terms}")
+    if "[" in fx.answer_after and "]" in fx.answer_after:
+        errors.append("answer contains bracketed placeholder-like text")
+    return errors
+
+
 def _classify_verdict(fx: Fixture) -> str:
     if fx.error:
         return "error"
+    if fx.source == "simulated_student_question":
+        fx.expectation_errors = _evaluate_simulated_expectations(fx)
+        return "passed" if not fx.expectation_errors else "failed"
     before_short = len(fx.answer_before) < 80
     after_short = len(fx.answer_after) < 80
     was_followup = fx.workflow_before == "ask_follow_up"
@@ -235,6 +320,8 @@ async def run_replay(fixtures: list[Fixture], settings: AppSettings, *, max_case
     service = DigitalTwinService(settings)
     if mock_llm:
         _install_mock_llm(service)
+        for fx in fixtures:
+            fx.evaluation_mode = "mock"
         print("[MOCK-LLM] classify_interaction_intent_sync + answer_question_sync patched")
     try:
         cases = fixtures if max_cases is None else fixtures[:max_cases]
@@ -242,8 +329,10 @@ async def run_replay(fixtures: list[Fixture], settings: AppSettings, *, max_case
             t0 = time.perf_counter()
             req = ChatRequest(
                 student_name=fx.student_name,
+                student_email=fx.student_email,
                 question=fx.question,
                 course_context=fx.course_context,
+                visitor_profile=fx.visitor_profile,
                 conversation_id=fx.conversation_id,
                 deep_thinking=False,
             )
@@ -267,7 +356,14 @@ async def run_replay(fixtures: list[Fixture], settings: AppSettings, *, max_case
 
 
 def write_report(fixtures: list[Fixture], path: Path) -> None:
-    counts: dict[str, int] = {"improved": 0, "unchanged": 0, "regressed": 0, "error": 0}
+    counts: dict[str, int] = {
+        "improved": 0,
+        "unchanged": 0,
+        "regressed": 0,
+        "passed": 0,
+        "failed": 0,
+        "error": 0,
+    }
     for fx in fixtures:
         counts[fx.verdict] = counts.get(fx.verdict, 0) + 1
     total = len(fixtures)
@@ -279,24 +375,40 @@ def write_report(fixtures: list[Fixture], path: Path) -> None:
     imp = counts.get("improved", 0)
     unc = counts.get("unchanged", 0)
     reg = counts.get("regressed", 0)
+    passed = counts.get("passed", 0)
+    failed = counts.get("failed", 0)
     err = counts.get("error", 0)
-    out.append(f"> Improved: **{imp}** | Unchanged: **{unc}** | Regressed: **{reg}** | Error: **{err}**")
+    out.append(
+        f"> Historical improved: **{imp}** | unchanged: **{unc}** | regressed: **{reg}**  "
+    )
+    out.append(f"> Simulated passed: **{passed}** | failed: **{failed}** | error: **{err}**")
     out.append("")
     out.append("## TL;DR")
     out.append("")
-    out.append(f"- 改善 {imp}/{total} 条 ({imp / total * 100 if total else 0:.0f}%)")
-    out.append(f"- 仍待优化 {unc + reg + err}/{total} (unchanged + regressed + error)")
+    historical_total = sum(1 for fx in fixtures if fx.source == "historical_poor_answer")
+    simulated_total = sum(1 for fx in fixtures if fx.source == "simulated_student_question")
+    if historical_total:
+        out.append(
+            f"- 历史弱案例改善 {imp}/{historical_total} 条 "
+            f"({imp / historical_total * 100:.0f}%)"
+        )
+    if simulated_total:
+        out.append(
+            f"- 模拟学生问题通过 {passed}/{simulated_total} 条 "
+            f"({passed / simulated_total * 100:.0f}%)"
+        )
+    out.append(f"- 仍待优化 {unc + reg + failed + err}/{total} 条")
     out.append("")
     out.append("## 详细对照")
     out.append("")
-    out.append("| # | 学生 | 课程 | wf BEFORE→AFTER | kb BEFORE→AFTER | verdict | 问题 (摘要) |")
-    out.append("|---|------|------|------------------|------------------|---------|--------------|")
+    out.append("| # | 来源 | 学生 | 课程 | wf BEFORE→AFTER | kb BEFORE→AFTER | verdict | 问题 (摘要) |")
+    out.append("|---|------|------|------|------------------|------------------|---------|--------------|")
     for fx in fixtures:
         q_brief = fx.question.replace("\n", " ").replace("|", "\\|")
         if len(q_brief) > 60:
             q_brief = q_brief[:57] + "..."
         out.append(
-            f"| {fx.global_index} | {fx.student_name} | {fx.course_context} | "
+            f"| {fx.global_index} | {fx.source} | {fx.student_name} | {fx.course_context} | "
             f"{fx.workflow_before}→{fx.workflow_after} | {fx.kb_hits_before}→{fx.kb_hits_after} | "
             f"{fx.verdict} | {q_brief} |"
         )
@@ -304,7 +416,8 @@ def write_report(fixtures: list[Fixture], path: Path) -> None:
     out.append("## 完整答案 (前后对比)")
     out.append("")
     for fx in fixtures:
-        out.append(f"### {fx.global_index}. {fx.student_name} — {fx.course_context} *(verdict: {fx.verdict})*")
+        title = fx.scenario_id or f"{fx.student_name} — {fx.course_context}"
+        out.append(f"### {fx.global_index}. {title} *(verdict: {fx.verdict})*")
         out.append("")
         out.append(f"**问题:** {fx.question}")
         out.append("")
@@ -318,6 +431,11 @@ def write_report(fixtures: list[Fixture], path: Path) -> None:
             out.append(f"> ERROR: {fx.error}")
         else:
             out.append("> " + (fx.answer_after or "(empty)").replace("\n", "\n> "))
+        if fx.expectation_errors:
+            out.append("")
+            out.append("**Expectation errors:**")
+            for error in fx.expectation_errors:
+                out.append(f"- {error}")
         out.append("")
         out.append("---")
         out.append("")
@@ -333,13 +451,27 @@ def main() -> int:
                         help="Parse fixtures only, no LLM call")
     parser.add_argument("--mock-llm", action="store_true",
                         help="Patch LLM client with deterministic stubs to verify guardrails without the live model")
+    parser.add_argument("--fixture-source", choices=["historical", "simulated", "both"],
+                        default="historical",
+                        help="Which replay fixture set to run")
     parser.add_argument("--out", type=Path, default=REPORT_DOC)
     parser.add_argument("--json-out", type=Path, default=None,
                         help="Optional JSON dump of all fixtures + replay results")
+    parser.add_argument("--persist-runtime", action="store_true",
+                        help="Write replay memory/queues to configured data dirs instead of a temporary runtime")
     args = parser.parse_args()
 
-    fixtures = parse_fixtures(POOR_DOC)
-    print(f"Parsed {len(fixtures)} fixtures from {POOR_DOC.name}")
+    fixtures: list[Fixture] = []
+    if args.fixture_source in {"historical", "both"}:
+        historical = parse_fixtures(POOR_DOC)
+        print(f"Parsed {len(historical)} fixtures from {POOR_DOC.name}")
+        fixtures.extend(historical)
+    if args.fixture_source in {"simulated", "both"}:
+        simulated = load_simulated_fixtures(SIMULATED_DOC)
+        print(f"Parsed {len(simulated)} fixtures from {SIMULATED_DOC.name}")
+        fixtures.extend(simulated)
+    for n, fx in enumerate(fixtures):
+        fx.global_index = n + 1
     assign_conversation_ids(fixtures)
     if args.dry_run:
         for fx in fixtures:
@@ -348,12 +480,41 @@ def main() -> int:
                   f"course={fx.course_context} | Q={fx.question[:60]!r}")
         return 0
 
+    replay_fixtures = fixtures if args.max_cases is None else fixtures[:args.max_cases]
     settings = AppSettings()
-    asyncio.run(run_replay(fixtures, settings, max_cases=args.max_cases, mock_llm=args.mock_llm))
-    write_report(fixtures, args.out)
+    if args.persist_runtime:
+        asyncio.run(run_replay(replay_fixtures, settings, max_cases=None, mock_llm=args.mock_llm))
+    else:
+        with tempfile.TemporaryDirectory(prefix="twin-replay-") as tmp:
+            runtime_root = Path(tmp)
+            isolated_settings = settings.model_copy(
+                update={
+                    "conversation_memory_dir": runtime_root / "conversation_memory",
+                    "context_digest_dir": runtime_root / "conversation_memory" / "digests",
+                    "follow_up_queue_dir": runtime_root / "follow_up_actions",
+                    "escalation_queue_dir": runtime_root / "escalations",
+                    "artifact_memory_draft_dir": runtime_root / "artifact_memory_drafts",
+                    "knowledge_gap_draft_dir": runtime_root / "knowledge_gap_drafts",
+                    "online_presence_dir": runtime_root / "online_presence",
+                    "operations_task_state_dir": runtime_root / "operations_task_state",
+                    "suggestion_board_dir": runtime_root / "suggestions",
+                    "user_account_store_dir": runtime_root / "user_accounts",
+                    "planner_comparison_dir": runtime_root / "planner-comparisons",
+                    "planner_metrics_dir": runtime_root / "planner-metrics",
+                }
+            )
+            asyncio.run(
+                run_replay(
+                    replay_fixtures,
+                    isolated_settings,
+                    max_cases=None,
+                    mock_llm=args.mock_llm,
+                )
+            )
+    write_report(replay_fixtures, args.out)
     if args.json_out is not None:
         args.json_out.write_text(
-            json.dumps([asdict(fx) for fx in fixtures], ensure_ascii=False, indent=2),
+            json.dumps([asdict(fx) for fx in replay_fixtures], ensure_ascii=False, indent=2),
             encoding="utf-8",
         )
         print(f"JSON dump: {args.json_out}")

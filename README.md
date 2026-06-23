@@ -91,6 +91,7 @@ vLLM 推理引擎配置（用于 `--with-vllm-engine`）：
 
 - `No module named sage_faculty_twin`：确认通过脚本启动，避免外部 `PYTHONPATH` 覆盖。
 - `cannot import name policy from sage.serving.integrations`：说明命中了错误的 `sage` 包，确保 `PYTHONPATH` 包含 `../SAGE/src`。
+- `sagevdb` 缺少 `DatabaseConfig` 或提示 C 扩展 ABI 不匹配：运行 `./manage.sh repair-sagevdb` 一键修复。
 - `/chat` 422：请求体必须至少包含 `student_name` 与 `question`。
 - 页面无流式输出：确认 `.env` 中 `DIGITAL_TWIN_STREAM_CHAT_ANSWER=true`，并确认上游 LLM 支持 chunked streaming。
 

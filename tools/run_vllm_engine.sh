@@ -42,8 +42,21 @@ max_model_len="${VLLM_ENGINE_MAX_MODEL_LEN:-32768}"
 gpu_mem_util="${VLLM_ENGINE_GPU_MEM_UTIL:-0.85}"
 max_num_seqs="${VLLM_ENGINE_MAX_NUM_SEQS:-16}"
 dtype="${VLLM_ENGINE_DTYPE:-bfloat16}"
-api_key="${DIGITAL_TWIN_API_KEY:-EMPTY}"
+api_key="${VLLM_HUST_API_KEY:-${DIGITAL_TWIN_API_KEY:-}}"
 vllm_bin="${VLLM_ENGINE_BIN:-vllm-hust}"
+replace_existing="${VLLM_ENGINE_REPLACE_EXISTING:-true}"
+
+if [[ -z "$api_key" || "$api_key" == "EMPTY" ]]; then
+    echo "ERROR: vllm-hust must be started with a real API key." >&2
+    echo "  Set VLLM_HUST_API_KEY in .env; DIGITAL_TWIN_API_KEY should match it for direct local access." >&2
+    exit 1
+fi
+
+if [[ -n "${DIGITAL_TWIN_API_KEY:-}" && "$DIGITAL_TWIN_API_KEY" != "$api_key" ]]; then
+    echo "ERROR: DIGITAL_TWIN_API_KEY does not match VLLM_HUST_API_KEY." >&2
+    echo "  The app and vllm-hust engine would disagree on authentication." >&2
+    exit 1
+fi
 
 # NPU device selection (Ascend).  Leave empty to let the runtime pick.
 npu_devices="${ASCEND_RT_VISIBLE_DEVICES:-}"
@@ -84,6 +97,60 @@ echo "[vllm-engine] gpu_mem_util      = $gpu_mem_util"
 echo "[vllm-engine] max_num_seqs      = $max_num_seqs"
 echo "[vllm-engine] dtype             = $dtype"
 echo "[vllm-engine] graph_mode        = ON (no --enforce-eager)"
+
+# A docker-exec launched vLLM process can survive a failed/restarted systemd
+# wrapper.  Before binding the fixed service port, clean up only matching
+# vLLM serve processes in the target container and on the target port.
+if [[ "$replace_existing" == "true" ]]; then
+    cleanup_script=$(cat <<'PY'
+import os
+import signal
+import subprocess
+import sys
+import time
+
+port = sys.argv[1]
+rows = subprocess.check_output(["ps", "-eo", "pid=,args="], text=True)
+matches: list[int] = []
+for row in rows.splitlines():
+    parts = row.strip().split(None, 1)
+    if len(parts) != 2:
+        continue
+    pid_text, cmd = parts
+    try:
+        pid = int(pid_text)
+    except ValueError:
+        continue
+    haystack = f" {cmd} "
+    if "vllm" not in cmd or " serve " not in haystack:
+        continue
+    if f"--port {port}" not in cmd and f"--port={port}" not in cmd:
+        continue
+    if pid == os.getpid():
+        continue
+    matches.append(pid)
+
+if matches:
+    print(" ".join(str(pid) for pid in matches))
+    for pid in matches:
+        try:
+            os.kill(pid, signal.SIGTERM)
+        except ProcessLookupError:
+            pass
+    time.sleep(5)
+    for pid in matches:
+        try:
+            os.kill(pid, 0)
+        except ProcessLookupError:
+            continue
+        os.kill(pid, signal.SIGKILL)
+PY
+)
+    cleaned_pids=$($docker_cmd exec "$container" python3 -c "$cleanup_script" "$port" 2>/dev/null || true)
+    if [[ -n "$cleaned_pids" ]]; then
+        echo "[vllm-engine] stopped existing vLLM process(es) on port $port: $cleaned_pids"
+    fi
+fi
 
 # ── Build argument list ──────────────────────────────────────────────────────
 vllm_args=(

@@ -1898,6 +1898,8 @@ class FacultyTwinWorkflowSupport:
             kwargs["request_priority"] = policy_context["request_priority"]
         if "target_e2e_ms" in signature.parameters:
             kwargs["target_e2e_ms"] = policy_context["target_e2e_ms"]
+        if "cache_namespace" in signature.parameters and context.conversation_id:
+            kwargs["cache_namespace"] = context.conversation_id
 
         return answer_fn(system_prompt, user_prompt, **kwargs)
 
@@ -5642,6 +5644,14 @@ class DigitalTwinService:
         answer_chunk_callback: Callable[[str], None] | None = None,
     ) -> ChatResponse:
         admin_session_payload = decode_admin_session_token(admin_session_token, self._settings)
+
+        # Pre-LLM invitation code detection: intercept invitation codes before
+        # routing to the LLM pipeline so that the onboarding flow is triggered
+        # instead of treating the code as a research query.
+        invitation_response = self._check_invitation_code_in_message(request)
+        if invitation_response is not None:
+            return invitation_response
+
         recent_session_context = self._build_recent_session_context(request)
 
         # Skill routing: check if a skill matches before running the standard pipeline
@@ -5827,6 +5837,54 @@ class DigitalTwinService:
             ),
         )
         return self._workflow_planner.plan(context)
+
+    def _check_invitation_code_in_message(
+        self, request: ChatRequest
+    ) -> ChatResponse | None:
+        """Pre-LLM check: detect invitation codes in the message text.
+
+        When a student pastes an invitation code (e.g. ``SAGE-LAB-2026``)
+        into the chat, the system should recognise it and guide them to the
+        registration flow instead of treating it as a research query.
+
+        Returns a ``ChatResponse`` with onboarding guidance when a code is
+        detected, or ``None`` to let the normal pipeline proceed.
+        """
+        if not self._settings.lab_member_invitation_code_enabled:
+            return None
+        configured_code = self._settings.lab_member_invitation_code.strip()
+        if not configured_code:
+            return None
+
+        question = request.question.strip()
+        # Match the exact configured code or the general pattern SAGE-LAB-XXXX.
+        code_pattern = re.compile(
+            r"\bSAGE[-_]LAB[-_]\d{4}\b", re.IGNORECASE
+        )
+        if not code_pattern.search(question) and question.upper() != configured_code.upper():
+            return None
+
+        _logger.info(
+            "Invitation code detected in chat message (conversation_id=%s)",
+            request.conversation_id,
+        )
+        answer = (
+            "你好！你输入的是实验室成员邀请码。\n\n"
+            "请使用注册页面完成实验室成员注册：\n"
+            "1. 点击页面右上角的“登录/注册”按钮\n"
+            "2. 选择“实验室成员注册”选项\n"
+            "3. 填写你的姓名、邮箱和密码\n"
+            f"4. 在邀请码栏中输入：**{configured_code}**\n\n"
+            "注册成功后，你将获得实验室成员权限，可以访问更多资源。"
+        )
+        return ChatResponse(
+            answer=answer,
+            owner_name=self._settings.owner_name,
+            used_model=self._llm_client.model_name,
+            conversation_id=request.conversation_id or str(uuid4()),
+            workflow_action="invitation_code_detected",
+            decision_mode="onboarding",
+        )
 
     def _build_recent_session_context(self, request: ChatRequest) -> str:
         return self._build_support()._format_recent_session_context(request)

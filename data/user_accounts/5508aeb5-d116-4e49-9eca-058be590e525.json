@@ -2,9 +2,9 @@
   "user_id": "5508aeb5-d116-4e49-9eca-058be590e525",
   "name": "马俊豪",
   "email": "kms12425@qq.com",
-  "visitor_profile": "general_visitor",
+  "visitor_profile": "lab_member",
   "password_salt": "499959d9f7a1a49c446f74b8b0c90fe7",
   "password_hash": "b08582c198ce0e4f4d271774624f062b787c1d8e7ab5980e1336dbbc9a60ecf7b7cfd499383644df57826bf93bf8ef201697a88e61498906ea0333d285c16db9",
   "created_at": "2026-06-08T10:48:57.536028+00:00",
-  "updated_at": "2026-06-08T10:48:57.536028+00:00"
+  "updated_at": "2026-06-23T07:07:10.889968+00:00"
 }

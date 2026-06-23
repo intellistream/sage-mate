@@ -1,18 +1,25 @@
 import asyncio
+import hashlib
+import hmac
 import json
 import os
+import secrets
 import threading
+import time
+import urllib.parse
+import urllib.request
 from collections.abc import AsyncIterator
 from datetime import date
 from io import BytesIO
 from pathlib import Path
+from uuid import uuid4
 
 from . import __version__
 from .runtime_env import bootstrap_runtime_env
 
 bootstrap_runtime_env(require_policy=True, require_fastapi=False)
 
-from fastapi import Depends, FastAPI, HTTPException, Query, Request, Response
+from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException, Query, Request, Response
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse, StreamingResponse
@@ -68,6 +75,8 @@ from .models import (
     OperationsWorkbenchResponse,
     QuestionAnalyticsReportResponse,
     ServiceControlResponse,
+    SlackTwinLinkCodeResponse,
+    SlackTwinLinkStatusResponse,
     UserLoginRequest,
     UserRegisterRequest,
     UserSessionResponse,
@@ -76,6 +85,7 @@ from .models import (
 from .history_auth import resolve_authenticated_history_email
 from .service import DigitalTwinService, build_stack_versions_payload, build_hardware_payload
 from .capability_plugins import CapabilityPluginRegistry, CapabilityPluginStatus
+from .slack_link_store import SlackUserLinkRecord, SlackUserLinkStore
 
 
 def configure_local_cors(target_app: FastAPI) -> None:
@@ -133,6 +143,7 @@ class LazyDigitalTwinService:
 
 
 service = LazyDigitalTwinService()
+slack_link_store = SlackUserLinkStore(settings.slack_user_link_dir)
 web_dir = Path(__file__).with_name("web")
 NO_STORE_HEADERS = {"Cache-Control": "no-store, no-cache, must-revalidate"}
 MAX_CHAT_ATTACHMENTS = 4
@@ -163,6 +174,17 @@ CHAT_SSE_KEEPALIVE_SECONDS = float(os.environ.get("DIGITAL_TWIN_CHAT_SSE_KEEPALI
 STREAM_CHAT_ANSWER = os.environ.get(
     "DIGITAL_TWIN_STREAM_CHAT_ANSWER", "true"
 ).strip().lower() not in {"0", "false", "no", "off"}
+SLACK_TWIN_SIGNING_SECRET = os.environ.get("SLACK_TWIN_SIGNING_SECRET", "").strip()
+SLACK_TWIN_ALLOWED_USER_IDS = {
+    user_id.strip()
+    for user_id in os.environ.get("SLACK_TWIN_ALLOWED_USER_IDS", "").split(",")
+    if user_id.strip()
+}
+SLACK_TWIN_VISITOR_PROFILE = os.environ.get("SLACK_TWIN_VISITOR_PROFILE", "lab_member").strip()
+SLACK_TWIN_RESPONSE_TIMEOUT_SECONDS = float(
+    os.environ.get("SLACK_TWIN_RESPONSE_TIMEOUT_SECONDS", "95")
+)
+SLACK_TWIN_BIND_CODE_TTL_SECONDS = int(os.environ.get("SLACK_TWIN_BIND_CODE_TTL_SECONDS", "600"))
 SUPPORTED_CHAT_ATTACHMENT_SUFFIXES = {
     ".pdf",
     ".txt",
@@ -433,6 +455,123 @@ def _resolve_effective_chat_visitor_profile(
     return requested_visitor_profile
 
 
+def _require_user_account(raw_request: Request):
+    session = service.get_user_session(raw_request.cookies.get(USER_COOKIE_NAME))
+    if not session.is_authenticated or session.account is None:
+        raise HTTPException(status_code=403, detail="需要先登录用户账号。")
+    return session.account
+
+
+def _slack_link_status_for_account(account) -> SlackTwinLinkStatusResponse:
+    is_lab_member = account.visitor_profile == "lab_member"
+    link = slack_link_store.get_link_for_user(account.user_id)
+    if not is_lab_member:
+        return SlackTwinLinkStatusResponse(
+            is_authenticated=True,
+            is_lab_member=False,
+            can_link=False,
+            linked=False,
+            message="需要邀请码升级为课题组成员后才能绑定 Slack /twin。",
+        )
+    return SlackTwinLinkStatusResponse(
+        is_authenticated=True,
+        is_lab_member=True,
+        can_link=True,
+        linked=link is not None,
+        slack_user_id=link.slack_user_id if link else None,
+        linked_at=link.linked_at if link else None,
+        message="Slack /twin 已绑定。" if link else "可以生成 Slack 绑定码。",
+    )
+
+
+def _verify_slack_signature(raw_body: bytes, request: Request) -> None:
+    if not SLACK_TWIN_SIGNING_SECRET:
+        raise HTTPException(status_code=503, detail="Slack twin command is not configured.")
+
+    timestamp = request.headers.get("x-slack-request-timestamp", "")
+    signature = request.headers.get("x-slack-signature", "")
+    try:
+        request_ts = int(timestamp)
+    except ValueError as exc:
+        raise HTTPException(status_code=401, detail="Invalid Slack request timestamp.") from exc
+
+    if abs(time.time() - request_ts) > 60 * 5:
+        raise HTTPException(status_code=401, detail="Stale Slack request.")
+
+    base = b"v0:" + str(request_ts).encode("ascii") + b":" + raw_body
+    expected = "v0=" + hmac.new(
+        SLACK_TWIN_SIGNING_SECRET.encode("utf-8"),
+        base,
+        hashlib.sha256,
+    ).hexdigest()
+    if not secrets.compare_digest(expected, signature):
+        raise HTTPException(status_code=401, detail="Invalid Slack signature.")
+
+
+def _post_slack_response(response_url: str, text: str, *, response_type: str = "ephemeral") -> None:
+    payload = json.dumps(
+        {"response_type": response_type, "text": text},
+        ensure_ascii=False,
+    ).encode("utf-8")
+    req = urllib.request.Request(
+        response_url,
+        data=payload,
+        headers={"Content-Type": "application/json; charset=utf-8"},
+    )
+    urllib.request.urlopen(req, timeout=8).read()
+
+
+def _format_slack_twin_answer(response: ChatResponse) -> str:
+    lines = [response.answer.strip()]
+    if response.answer_basis:
+        basis = "；".join(item.title for item in response.answer_basis[:2])
+        if basis:
+            lines.append(f"\n依据：{basis}")
+    if response.used_model:
+        lines.append(f"\n模型：`{response.used_model}`")
+    return "\n".join(line for line in lines if line)
+
+
+async def _answer_slack_twin_command(
+    *,
+    response_url: str,
+    question: str,
+    user_id: str,
+    user_name: str | None,
+    user_email: str | None = None,
+    visitor_profile: str = "lab_member",
+) -> None:
+    try:
+        chat_request = ChatRequest(
+            student_name=user_name or user_id,
+            student_email=user_email,
+            question=question,
+            course_context="Slack /twin",
+            visitor_profile=visitor_profile,
+            conversation_id=f"slack-{user_id}-{uuid4().hex}",
+            deep_thinking=False,
+            deep_thinking_explicit=False,
+            web_search=False,
+        )
+        response = await asyncio.wait_for(
+            service.answer(chat_request),
+            timeout=SLACK_TWIN_RESPONSE_TIMEOUT_SECONDS,
+        )
+        await asyncio.to_thread(
+            _post_slack_response,
+            response_url,
+            _format_slack_twin_answer(response),
+            response_type="ephemeral",
+        )
+    except Exception as exc:
+        await asyncio.to_thread(
+            _post_slack_response,
+            response_url,
+            f"抱歉，twin 这次没有完成回答：{exc}",
+            response_type="ephemeral",
+        )
+
+
 def frontend_asset(filename: str) -> FileResponse:
     return FileResponse(web_dir / filename, headers=NO_STORE_HEADERS)
 
@@ -477,6 +616,47 @@ async def auth_session(request: Request) -> AdminSessionResponse:
 @llm_app.get("/auth/user/session", response_model=UserSessionResponse)
 async def user_auth_session(request: Request) -> UserSessionResponse:
     return service.get_user_session(request.cookies.get(USER_COOKIE_NAME))
+
+
+@llm_app.get("/slack/twin-link/status", response_model=SlackTwinLinkStatusResponse)
+async def slack_twin_link_status(request: Request) -> SlackTwinLinkStatusResponse:
+    session = service.get_user_session(request.cookies.get(USER_COOKIE_NAME))
+    if not session.is_authenticated or session.account is None:
+        return SlackTwinLinkStatusResponse(
+            is_authenticated=False,
+            is_lab_member=False,
+            can_link=False,
+            linked=False,
+            message="需要先登录用户账号。",
+        )
+    return _slack_link_status_for_account(session.account)
+
+
+@llm_app.post("/slack/twin-link/code", response_model=SlackTwinLinkCodeResponse)
+async def create_slack_twin_link_code(request: Request) -> SlackTwinLinkCodeResponse:
+    account = _require_user_account(request)
+    is_lab_member = account.visitor_profile == "lab_member"
+    if not is_lab_member:
+        return SlackTwinLinkCodeResponse(
+            is_authenticated=True,
+            is_lab_member=False,
+            can_link=False,
+            message="需要邀请码升级为课题组成员后才能绑定 Slack /twin。",
+        )
+    code = slack_link_store.create_code(
+        user_id=account.user_id,
+        email=account.email,
+        visitor_profile=account.visitor_profile,
+        ttl_seconds=SLACK_TWIN_BIND_CODE_TTL_SECONDS,
+    )
+    return SlackTwinLinkCodeResponse(
+        is_authenticated=True,
+        is_lab_member=True,
+        can_link=True,
+        code=code.code,
+        expires_at=code.expires_at,
+        message="绑定码已生成，请在 Slack 输入 /twin bind 你的绑定码。",
+    )
 
 
 @llm_app.get("/admin/services", response_model=ServiceControlResponse)
@@ -630,6 +810,101 @@ async def chat_workflow_events(
             "Connection": "keep-alive",
             "X-Accel-Buffering": "no",
         },
+    )
+
+
+@llm_app.post("/slack/commands/twin", include_in_schema=False)
+async def slack_twin_command(
+    raw_request: Request,
+    background_tasks: BackgroundTasks,
+) -> JSONResponse:
+    raw_body = await raw_request.body()
+    _verify_slack_signature(raw_body, raw_request)
+
+    form = {
+        key: values[-1] if values else ""
+        for key, values in urllib.parse.parse_qs(raw_body.decode("utf-8")).items()
+    }
+    user_id = form.get("user_id", "").strip()
+    question = form.get("text", "").strip()
+    response_url = form.get("response_url", "").strip()
+    if not question:
+        return JSONResponse(
+            {
+                "response_type": "ephemeral",
+                "text": "用法：`/twin 你的问题`",
+            }
+        )
+    if not response_url:
+        raise HTTPException(status_code=400, detail="Slack request missing response_url.")
+
+    words = question.split()
+    if words and words[0].lower() == "bind":
+        if len(words) < 2:
+            return JSONResponse(
+                {
+                    "response_type": "ephemeral",
+                    "text": "用法：`/twin bind 你的绑定码`",
+                }
+            )
+        link = slack_link_store.consume_code(words[1], slack_user_id=user_id)
+        if link is None:
+            return JSONResponse(
+                {
+                    "response_type": "ephemeral",
+                    "text": "绑定码无效或已过期。请回到 twin 网页端重新生成 Slack 绑定码。",
+                }
+            )
+        if link.visitor_profile != "lab_member":
+            return JSONResponse(
+                {
+                    "response_type": "ephemeral",
+                    "text": "这个账号还不是课题组成员，需要邀请码升级为课题组成员后才能使用 Slack /twin。",
+                }
+            )
+        return JSONResponse(
+            {
+                "response_type": "ephemeral",
+                "text": f"绑定成功。以后可以直接输入 `/twin 你的问题` 使用 twin。已绑定账号：{link.email}",
+            }
+        )
+
+    linked_account: SlackUserLinkRecord | None = None
+    visitor_profile = SLACK_TWIN_VISITOR_PROFILE or "lab_member"
+    user_email = None
+    if user_id not in SLACK_TWIN_ALLOWED_USER_IDS:
+        linked_account = slack_link_store.get_link_for_slack_user(user_id)
+        if linked_account is None:
+            return JSONResponse(
+                {
+                    "response_type": "ephemeral",
+                    "text": "请先登录 twin 网页端账号，生成 Slack 绑定码，然后在 Slack 输入 `/twin bind 你的绑定码` 完成绑定。",
+                }
+            )
+        if linked_account.visitor_profile != "lab_member":
+            return JSONResponse(
+                {
+                    "response_type": "ephemeral",
+                    "text": "已绑定账号不是课题组成员。需要邀请码升级为课题组成员后才能使用 Slack /twin。",
+                }
+            )
+        visitor_profile = linked_account.visitor_profile
+        user_email = linked_account.email
+
+    background_tasks.add_task(
+        _answer_slack_twin_command,
+        response_url=response_url,
+        question=question,
+        user_id=user_id or "slack-user",
+        user_name=form.get("user_name") or user_id or None,
+        user_email=user_email,
+        visitor_profile=visitor_profile,
+    )
+    return JSONResponse(
+        {
+            "response_type": "ephemeral",
+            "text": "收到，我正在问 twin，答案会稍后发回这里。",
+        }
     )
 
 

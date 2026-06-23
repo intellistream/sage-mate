@@ -1,0 +1,10 @@
+{
+  "user_id": "537c6442-0784-417e-b840-bc06d41ca685",
+  "name": "ao",
+  "email": "619378845@qq.com",
+  "visitor_profile": "lab_member",
+  "password_salt": "8ef8e31ad861c332cd1d1117e035192d",
+  "password_hash": "8e6f132d4d505c38053681aee58b8c806d4c8edd3356c0770707d5a8182d942658d68fef0574063149a4b9cc8c66047634d9db23f576f30014b00364c65b0199",
+  "created_at": "2026-06-23T07:04:28.106731+00:00",
+  "updated_at": "2026-06-23T07:04:28.106731+00:00"
+}

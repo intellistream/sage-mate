@@ -19,12 +19,12 @@
 
 ## Update Summary
 **Changes Made**
-- Enhanced onboarding system with adaptive wrapping mechanisms for better mobile responsiveness
-- Added comprehensive onboarding steps for different visitor profiles including guided learning templates
-- Implemented multiple hint options with rotating hint panels and fade transitions
-- Improved error handling with graceful fallback mechanisms for LLM integration
-- Added random fill capabilities with dice emoji-powered question generation
-- Enhanced UI with sticky positioning, loading states, and visual feedback animations
+- Enhanced onboarding system with new seven-step guided tour architecture
+- Added comprehensive HTML structure with specialized onboarding card component featuring progress indicators, step labels, and completion messaging
+- Implemented interactive question cards with rotating hint panels and dice emoji-powered random question generation
+- Integrated contextual coaching through onboarding_step parameter with LLM-powered question generation
+- Added adaptive wrapping mechanisms for mobile responsiveness and enhanced UI with sticky positioning and loading states
+- Implemented sophisticated preference management with completion tracking, dismissal preferences, and manual restart capabilities
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -44,7 +44,7 @@ The User Onboarding System is a comprehensive framework designed to seamlessly i
 
 The system supports multiple user profiles including general visitors, students, and lab members, each with distinct permissions and capabilities. It leverages advanced session management, secure password handling, and intelligent knowledge-based guidance to create a personalized user journey from first visit to full platform utilization.
 
-**Updated** Enhanced with improved user control mechanisms, preference persistence, manual restart capabilities, contextual coaching through onboarding_step parameter, enhanced UI with sticky positioning and loading states, intelligent question generation with coaching templates, adaptive wrapping mechanisms for mobile responsiveness, comprehensive onboarding steps for different visitor profiles, rotating hint panels with fade transitions, dice emoji-powered random question generation, and sophisticated error handling with graceful fallback mechanisms.
+**Updated** Enhanced with a sophisticated seven-step guided tour architecture, comprehensive onboarding card component with progress indicators, interactive question cards with rotating hint panels, dice emoji-powered random question generation, contextual coaching through onboarding_step parameter integration, adaptive wrapping mechanisms for mobile responsiveness, comprehensive profile templates for different visitor types, and advanced preference management with completion tracking and manual restart capabilities.
 
 ## System Architecture
 
@@ -53,73 +53,58 @@ The User Onboarding System follows a layered architecture pattern with clear sep
 ```mermaid
 graph TB
 subgraph "Presentation Layer"
-UI[Web Interface]
-Mobile[Mobile Interface]
-HelpButton[Help Button #open-onboarding-help]
-DiceButton[Dice Emoji Button 🎲]
-HintPanel[Rotating Hint Panel]
-OnboardingRandomBtn[Onboarding Random Button]
-LoadingSpinner[Loading Spinner Animation]
-AdaptiveWrapping[Adaptive Wrapping Mechanisms]
+OnboardingCard[Onboarding Card Component]
+ProgressBar[Progress Bar Indicator]
+StepLabels[Step Labels 1/7]
+QuestionCard[Interactive Question Card]
+HintPanels[Rotating Hint Panels]
+RandomButton[Random Question Button 🎲]
+CompletionPanel[Completion Messaging]
+NavButtons[Navigation Buttons]
 end
 subgraph "API Layer"
-AuthAPI[Authentication API]
-UserAPI[User Management API]
 OnboardingAPI[Onboarding API]
 LuckyQuestionAPI[Lucky Question API]
+ContextAPI[Context-aware API]
 end
 subgraph "Business Logic Layer"
-AuthService[Authentication Service]
-UserStore[User Store Service]
 OnboardingService[Onboarding Service]
 LLMClient[LLM Client Service]
-SessionManager[Session Manager]
-LocalStorage[Local Storage Manager]
-ErrorHandling[Error Handling Manager]
+PreferenceManager[Preference Management]
+HintRotation[Hint Rotation Engine]
+RandomGenerator[Random Question Generator]
 end
 subgraph "Data Layer"
-UserDatabase[(User Accounts)]
-KnowledgeBase[(Knowledge Base)]
-SessionStore[(Session Storage)]
-DismissedPrefs[(Dismissed Preferences)]
-CompletedPrefs[(Completed Preferences)]
-LuckyQuestionHistory[(Lucky Question History)]
-OnboardingStepContext[(Onboarding Step Context)]
-ProfileTemplates[(Profile-Based Templates)]
+OnboardingSteps[(Onboarding Steps Data)]
+ProfileTemplates[(Profile Templates)]
+PreferenceStore[(Preference Storage)]
+HintPool[(Hint Rotation Pool)]
+QuestionBank[(Question Generation Bank)]
 end
-UI --> AuthAPI
-Mobile --> AuthAPI
-HelpButton --> OnboardingService
-DiceButton --> LuckyQuestionAPI
-HintPanel --> OnboardingService
-OnboardingRandomBtn --> LuckyQuestionAPI
-LoadingSpinner --> OnboardingRandomBtn
-AdaptiveWrapping --> UI
-AuthAPI --> AuthService
-UserAPI --> UserStore
+OnboardingCard --> OnboardingAPI
+ProgressBar --> OnboardingService
+StepLabels --> OnboardingService
+QuestionCard --> LLMClient
+HintPanels --> HintRotation
+RandomButton --> LuckyQuestionAPI
+CompletionPanel --> PreferenceManager
+NavButtons --> OnboardingService
 OnboardingAPI --> OnboardingService
 LuckyQuestionAPI --> LLMClient
-AuthService --> SessionManager
-UserStore --> UserDatabase
-OnboardingService --> KnowledgeBase
+ContextAPI --> LLMClient
+OnboardingService --> OnboardingSteps
 OnboardingService --> ProfileTemplates
-LLMClient --> KnowledgeBase
-LLMClient --> OnboardingStepContext
-LLMClient --> ErrorHandling
-SessionManager --> SessionStore
-OnboardingService --> LocalStorage
-LocalStorage --> DismissedPrefs
-LocalStorage --> CompletedPrefs
-LocalStorage --> LuckyQuestionHistory
-ErrorHandling --> AdaptiveWrapping
+PreferenceManager --> PreferenceStore
+HintRotation --> HintPool
+RandomGenerator --> QuestionBank
 ```
 
 **Diagram sources**
-- [api.py:512-530](file://src/sage_faculty_twin/api.py#L512-L530)
-- [auth.py:45-86](file://src/sage_faculty_twin/auth.py#L45-L86)
-- [user_store.py:62-122](file://src/sage_faculty_twin/user_store.py#L62-L122)
-- [app.js:652-654](file://src/sage_faculty_twin/web/app.js#L652-L654)
-- [llm_client.py:588-623](file://src/sage_faculty_twin/llm_client.py#L588-L623)
+- [index.html:98-133](file://src/sage_faculty_twin/web/index.html#L98-L133)
+- [app.js:589-799](file://src/sage_faculty_twin/web/app.js#L589-L799)
+- [app.js:880-973](file://src/sage_faculty_twin/web/app.js#L880-L973)
+- [api.py:571-595](file://src/sage_faculty_twin/api.py#L571-L595)
+- [llm_client.py:590-670](file://src/sage_faculty_twin/llm_client.py#L590-L670)
 
 The architecture ensures scalability through lazy initialization of services and efficient resource management. The modular design allows for easy maintenance and extension of onboarding features, with enhanced preference management, user control mechanisms, intelligent question generation capabilities, contextual coaching through onboarding_step parameter integration, adaptive wrapping mechanisms for mobile responsiveness, comprehensive profile-based templates, and sophisticated error handling with graceful fallback mechanisms.
 

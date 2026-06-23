@@ -5,8 +5,4 @@ scope:
     - tests/
 source_files: []
 depends_on: []
-related_to:
-    - path: app_source
-    - path: docs
-    - path: runtime_data/conversation_memory
-    - path: runtime_data/knowledge_base
+related_to: []

@@ -1,29 +1,29 @@
 {
-  "document_id": "c12a6884-de64-4757-a795-e30b3ba1cae7",
-  "title": "Wiki | Ascend NPU 开发环境搭建指南",
-  "content": "[Wiki: Ascend NPU 开发环境搭建指南](https://lab.sage.org.ai/sage-wiki/docs/tutorials/ascend-npu-setup)\n\n# Ascend NPU 开发环境搭建指南\n\n本文介绍如何在华为 Ascend 910B NPU 上搭建 LLM 推理开发环境。\n\n## 硬件要求\n\n- Ascend 910B3 NPU（64 GB HBM）\n- 推荐 4 卡配置用于 Tensor Parallelism\n\n## 软件栈安装\n\n### 1. CANN Toolkit\n\n```bash\n# 下载并安装 CANN toolkit\n./Ascend-cann-toolkit_8.0.RC1_linux-aarch64.run --install\nsource /usr/local/Ascend/ascend-toolkit/set_env.sh\n```\n\n### 2. PyTorch + torch_npu\n\n```bash\npip install torch==2.1.0\npip install torch_npu==2.1.0\n```\n\n### 3. vLLM-Ascend\n\n基于 vLLM 的 Ascend 适配版本，详见 [vLLM-HUST 项目](https://github.com/intellistream/vllm-hust)。\n\n## 常见问题\n\n- **环境变量**：`set_env.sh` 和 `LD_LIBRARY_PATH` 必须同时设置\n- **Graph Mode**：Ascend 910B3 上禁止使用 `--enforce-eager`，需使用 graph mode 以获得最佳性能\n\n## 相关资源\n\n- [LLM 推理入门](llm-inference-basics.md)\n- [NPU 显存管理与调度](../tech-notes/npu-memory-management.md)\n- [常用工具与框架清单](../resources/tools-and-frameworks.md)",
-  "tags": [
-    "wiki",
-    "tutorial",
-    "audience:public"
-  ],
-  "source_name": "wiki:tutorials/ascend-npu-setup",
-  "metadata": {
-    "audience": "public",
-    "domain": "teaching",
-    "identity": "teacher",
-    "material_type": "tutorial",
-    "source_kind": "wiki",
-    "wiki_url": "https://lab.sage.org.ai/sage-wiki/docs/tutorials/ascend-npu-setup",
-    "wiki_category": "tutorials",
-    "linked_source_names": "wiki:tutorials/llm-inference-basics|wiki:tech-notes/npu-memory-management|wiki:resources/tools-and-frameworks",
-    "wiki_authors": "[shuhao]",
-    "wiki_date": "2026-02-20"
-  },
-  "created_at": "2026-06-20T13:37:40.881183Z",
-  "is_feedback_web": false,
-  "review_status": "unknown",
-  "freshness_status": "unknown",
-  "reviewed_at": null,
-  "reviewable": false
+    "document_id": "c12a6884-de64-4757-a795-e30b3ba1cae7",
+    "title": "Wiki | Ascend NPU 开发环境搭建指南",
+    "content": "[Wiki: Ascend NPU 开发环境搭建指南](https://lab.sage.org.ai/sage-wiki/docs/tutorials/ascend-npu-setup)\n\n# Ascend NPU 开发环境搭建指南\n\n本文介绍如何在华为 Ascend NPU 上搭建通用 LLM 推理开发环境。\n\n## 硬件要求\n\n- Ascend 系列 NPU，具体型号、驱动与 CANN 版本请以所在平台公开文档为准\n- 多卡并行配置需根据实际资源和课程/项目要求调整\n\n## 软件栈安装\n\n### 1. CANN Toolkit\n\n```bash\n# 下载并安装 CANN toolkit\n./Ascend-cann-toolkit_8.0.RC1_linux-aarch64.run --install\nsource /usr/local/Ascend/ascend-toolkit/set_env.sh\n```\n\n### 2. PyTorch + torch_npu\n\n```bash\npip install torch==2.1.0\npip install torch_npu==2.1.0\n```\n\n### 3. vLLM-Ascend\n\n基于 vLLM 的 Ascend 适配版本，详见 [vLLM-HUST 项目](https://github.com/intellistream/vllm-hust)。\n\n## 常见问题\n\n- **环境变量**：`set_env.sh` 和 `LD_LIBRARY_PATH` 必须同时设置\n- **Graph Mode**：部分 Ascend 环境对 eager/graph mode 的支持不同，需按当前 CANN 与 torch_npu 版本验证\n\n## 相关资源\n\n- [LLM 推理入门](llm-inference-basics.md)\n- [NPU 显存管理与调度](../tech-notes/npu-memory-management.md)\n- [常用工具与框架清单](../resources/tools-and-frameworks.md)",
+    "tags": [
+        "wiki",
+        "tutorial",
+        "audience:public"
+    ],
+    "source_name": "wiki:tutorials/ascend-npu-setup",
+    "metadata": {
+        "audience": "public",
+        "domain": "teaching",
+        "identity": "teacher",
+        "material_type": "tutorial",
+        "source_kind": "wiki",
+        "wiki_url": "https://lab.sage.org.ai/sage-wiki/docs/tutorials/ascend-npu-setup",
+        "wiki_category": "tutorials",
+        "linked_source_names": "wiki:tutorials/llm-inference-basics|wiki:tech-notes/npu-memory-management|wiki:resources/tools-and-frameworks",
+        "wiki_authors": "[shuhao]",
+        "wiki_date": "2026-02-20"
+    },
+    "created_at": "2026-06-20T13:37:40.881183Z",
+    "is_feedback_web": false,
+    "review_status": "unknown",
+    "freshness_status": "unknown",
+    "reviewed_at": null,
+    "reviewable": false
 }

@@ -1,21 +1,23 @@
 {
-  "document_id": "428a9d9e-108d-41e7-b203-f490ed40641a",
-  "title": "荣誉附件正文｜LOA full（第8部分）",
-  "content": "is and to be invoked by threads to reset their current model (WP1).\n\nTo avoid infinite growing of the model, we will evaluate an LRU strategy, illustrated on the right-hand side of Figure 3, to remove old, useless words from our model, that reduces the merging overhead. If time allowed, rather than relying on key value store, we may also explore the potential usage of more advanced solutions of shared mutable state management of stream processing such as transactional state management, which could potentially improve both accuracy and performance of our proposed framework. Figure 3 Model Management Overview Third, a benchmark for online sentiment analysis: Finally, to ensure the superiority of our proposal, we will implement state-of-the-art solutions (WP1 + WP2) including learning-based, probabilistic model-based and lexicon-based ones inside the same system and compare them with the same benchmark. We will design our own benchmark include the following four application workloads: 1) Cyber Event Detection, 2) Feedback to Epidemic Outbreak, 3) Early Protest/Terrorist Detection, and 4) Financial Crime Detection. Then, we systematically examine the profiling results running the proposed benchmark, with careful considerations on application-level performance metrics (e. g. , throughput, latency, and prediction accuracy) and system-level performance metrics (e. g. , CPU and memory utilizations). As a start, we determine the performance metrics based on three aspects: accuracy including precision and recall, efficiency including throughput and latency, and scalability to data dimensions and hardware resources. Plan for Follow-on Support The success of this project will serve as the foundation to solve a number of future research problem: 1) the proposed project focuses on sentiment classification by identifying the polarity of each tweet. There are many other research questions of sentiment analysis such as opinion mining, sentiment correlation, fact-checking, and others. It is hence an interesting future work to further explore how to achieve fully end- to-end online sentiment analysis including but not limited to sentiment classification. 2) A-6 RTDS S 21 14 01 1 the proposed project focus on utilizing a distributed environment, while it has the potential to be adopted in edge computing paradigm due to the one-pass online learning nature. However, it remains an open question how it can be efficiently implemented on different types of hardware architectures such as non-uniform-memory access (NUMA), high-bandwidth memory (HBM), GPUs, and FPGAs. A typical IoT environment involves multiple types of hardware devices, whose architectures may be ARM, MIPS, XTENSA, RISC-V and so on, while the connection may through Ethernet, WLAN, NB-IoT and so on. • Challenges, risks & proposed mitigation plans The ultimate design goal of our proposed system is to achieve high accuracy unsupervised sentiment analysis of massive volume of data streams. There are three major challenges of achieving the goal. 1) In contrast to existing offline algorithms that learn once from a large collection of datasets, our algorithm must be able to continuously learning from new data.",
-  "tags": [
-    "homepage",
-    "profile",
-    "awards",
-    "achievement",
-    "attachment",
-    "pdf"
-  ],
-  "source_name": "homepage:contents/awards/基金/LOA full.pdf::part-8",
-  "metadata": {
-    "domain": "teaching",
-    "identity": "teacher",
-    "material_type": "pdf",
-    "source_kind": "homepage"
-  },
-  "created_at": "2026-06-09T09:58:20.896204Z"
+    "document_id": "428a9d9e-108d-41e7-b203-f490ed40641a",
+    "title": "荣誉附件正文｜LOA full（第8部分）",
+    "content": "is and to be invoked by threads to reset their current model (WP1).\n\nTo avoid infinite growing of the model, we will evaluate an LRU strategy, illustrated on the right-hand side of Figure 3, to remove old, useless words from our model, that reduces the merging overhead. If time allowed, rather than relying on key value store, we may also explore the potential usage of more advanced solutions of shared mutable state management of stream processing such as transactional state management, which could potentially improve both accuracy and performance of our proposed framework. Figure 3 Model Management Overview Third, a benchmark for online sentiment analysis: Finally, to ensure the superiority of our proposal, we will implement state-of-the-art solutions (WP1 + WP2) including learning-based, probabilistic model-based and lexicon-based ones inside the same system and compare them with the same benchmark. We will design our own benchmark include the following four application workloads: 1) Cyber Event Detection, 2) Feedback to Epidemic Outbreak, 3) Early Protest/Terrorist Detection, and 4) Financial Crime Detection. Then, we systematically examine the profiling results running the proposed benchmark, with careful considerations on application-level performance metrics (e. g. , throughput, latency, and prediction accuracy) and system-level performance metrics (e. g. , CPU and memory utilizations). As a start, we determine the performance metrics based on three aspects: accuracy including precision and recall, efficiency including throughput and latency, and scalability to data dimensions and hardware resources. Plan for Follow-on Support The success of this project will serve as the foundation to solve a number of future research problem: 1) the proposed project focuses on sentiment classification by identifying the polarity of each tweet. There are many other research questions of sentiment analysis such as opinion mining, sentiment correlation, fact-checking, and others. It is hence an interesting future work to further explore how to achieve fully end- to-end online sentiment analysis including but not limited to sentiment classification. 2) A-6 RTDS S 21 14 01 1 the proposed project focus on utilizing a distributed environment, while it has the potential to be adopted in edge computing paradigm due to the one-pass online learning nature. However, it remains an open question how it can be efficiently implemented on different types of hardware architectures such as non-uniform-memory access (NUMA), high-bandwidth memory (HBM), GPUs, and FPGAs. A typical IoT environment involves multiple types of hardware devices, whose architectures may be ARM, MIPS, XTENSA, RISC-V and so on, while the connection may through Ethernet, WLAN, NB-IoT and so on. • Challenges, risks & proposed mitigation plans The ultimate design goal of our proposed system is to achieve high accuracy unsupervised sentiment analysis of massive volume of data streams. There are three major challenges of achieving the goal. 1) In contrast to existing offline algorithms that learn once from a large collection of datasets, our algorithm must be able to continuously learning from new data.",
+    "tags": [
+        "homepage",
+        "profile",
+        "awards",
+        "achievement",
+        "attachment",
+        "pdf",
+        "audience:lab_member"
+    ],
+    "source_name": "homepage:contents/awards/基金/LOA full.pdf::part-8",
+    "metadata": {
+        "domain": "teaching",
+        "identity": "teacher",
+        "material_type": "pdf",
+        "source_kind": "homepage",
+        "audience": "lab_member"
+    },
+    "created_at": "2026-06-09T09:58:20.896204Z"
 }

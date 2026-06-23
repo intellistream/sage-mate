@@ -68,6 +68,10 @@ const drawerModeTitle = document.getElementById("drawer-mode-title");
 const userAuthPanel = document.getElementById("user-auth-panel");
 const userSessionPanel = document.getElementById("user-session-panel");
 const userSessionCopy = document.getElementById("user-session-copy");
+const slackTwinLinkCard = document.getElementById("slack-twin-link-card");
+const slackTwinLinkStatus = document.getElementById("slack-twin-link-status");
+const slackTwinLinkCode = document.getElementById("slack-twin-link-code");
+const generateSlackTwinCodeButton = document.getElementById("generate-slack-twin-code");
 const topbarUserBadge = document.getElementById("topbar-user-badge");
 const topbarUserBadgeName = document.getElementById("topbar-user-badge-name");
 const adminAuthPanel = document.getElementById("admin-auth-panel");
@@ -308,6 +312,7 @@ let latestManagedServiceEvent = null;
 let isAdminSession = false;
 let isUserAuthenticated = false;
 let currentUserAccountEmail = "";
+let currentUserAccountProfile = "";
 let pendingChatAttachments = [];
 let conversationHistoryScope = resolveConversationHistoryStorageScope();
 let conversationHistoryEntries = loadConversationHistory(conversationHistoryScope);
@@ -938,9 +943,6 @@ function renderOnboardingStep() {
     if (backBtn) {
         backBtn.classList.toggle("hidden", onboardingCurrentStep === 0);
     }
-
-    // Focus the main chat input (leave empty for student to type their answer)
-    chatQuestion?.focus();
 }
 
 function showDefaultLandingContent() {
@@ -1489,6 +1491,24 @@ document.getElementById("user-login-form")?.addEventListener("submit", async (ev
         setTimeout(() => closeAccountView(), 800);
     } catch (error) {
         setInlineStatus(responseEl, error.message, "error");
+    }
+});
+
+generateSlackTwinCodeButton?.addEventListener("click", async () => {
+    if (!slackTwinLinkStatus || !slackTwinLinkCode) return;
+    generateSlackTwinCodeButton.disabled = true;
+    slackTwinLinkStatus.textContent = "正在生成绑定码...";
+    try {
+        const data = await apiRequest("/slack/twin-link/code", { method: "POST", timeoutMs: 8000 });
+        renderSlackTwinLinkStatus(data);
+        if (data.code) {
+            slackTwinLinkCode.textContent = data.code;
+            slackTwinLinkCode.classList.remove("hidden");
+        }
+    } catch (error) {
+        slackTwinLinkStatus.textContent = error.message;
+    } finally {
+        generateSlackTwinCodeButton.disabled = false;
     }
 });
 // Use event delegation for close buttons (content may be moved into views)
@@ -2908,11 +2928,51 @@ async function refreshUserSession() {
     await syncConversationHistoryFromServer();
 }
 
+async function refreshSlackTwinLinkStatus() {
+    if (!isUserAuthenticated || !slackTwinLinkCard) {
+        renderSlackTwinLinkStatus(null);
+        return;
+    }
+    try {
+        const data = await apiRequest("/slack/twin-link/status", { timeoutMs: 5000 });
+        renderSlackTwinLinkStatus(data);
+    } catch (error) {
+        if (slackTwinLinkStatus) slackTwinLinkStatus.textContent = error.message;
+    }
+}
+
+function renderSlackTwinLinkStatus(data) {
+    if (!slackTwinLinkCard || !slackTwinLinkStatus) return;
+    const visible = Boolean(isUserAuthenticated);
+    slackTwinLinkCard.classList.toggle("hidden", !visible);
+    if (!visible) {
+        slackTwinLinkStatus.textContent = "登录课题组成员账号后可以绑定 Slack。";
+        slackTwinLinkCode?.classList.add("hidden");
+        return;
+    }
+    const isLabMember = Boolean(data?.is_lab_member ?? currentUserAccountProfile === "lab_member");
+    const canLink = Boolean(data?.can_link ?? isLabMember);
+    generateSlackTwinCodeButton?.toggleAttribute("disabled", !canLink);
+    if (!isLabMember) {
+        slackTwinLinkStatus.textContent = "需要邀请码升级为课题组成员后才能绑定 Slack /twin。";
+        slackTwinLinkCode?.classList.add("hidden");
+        return;
+    }
+    if (data?.linked) {
+        slackTwinLinkStatus.textContent = `已绑定 Slack 用户 ${data.slack_user_id || ""}。`;
+        slackTwinLinkCode?.classList.add("hidden");
+        return;
+    }
+    slackTwinLinkStatus.textContent = data?.message || "可以生成 Slack 绑定码。";
+    if (!data?.code) slackTwinLinkCode?.classList.add("hidden");
+}
+
 function applyUserSession(session) {
     const wasAuthenticated = isUserAuthenticated;
     const authenticated = Boolean(session?.is_authenticated && session?.account);
     isUserAuthenticated = authenticated;
     currentUserAccountEmail = authenticated ? String(session.account?.email || "").trim().toLowerCase() : "";
+    currentUserAccountProfile = authenticated ? String(session.account?.visitor_profile || "") : "";
 
     userAuthPanel?.classList.toggle("hidden", authenticated);
     userSessionPanel?.classList.toggle("hidden", !authenticated);
@@ -2921,7 +2981,7 @@ function applyUserSession(session) {
         const account = session.account;
         userSessionCopy.textContent = `当前账号：${account.name} · ${account.email}`;
         if (topbarUserBadge) {
-            topbarUserBadge.classList.remove("hidden");
+            topbarUserBadge.classList.remove("hidden", "mobile-auth-entry");
             const profileLabel = VISITOR_PROFILE_CONFIGS[account.visitor_profile]?.label || "已登录";
             topbarUserBadge.title = `${account.name} · ${account.email}`;
             topbarUserBadge.setAttribute("aria-label", `当前账号：${account.name}，${profileLabel}`);
@@ -2957,14 +3017,21 @@ function applyUserSession(session) {
             const profile = account.visitor_profile || "general_visitor";
             startOnboarding(profile);
         }
+        refreshSlackTwinLinkStatus();
         return;
     }
 
+    currentUserAccountProfile = "";
     userSessionCopy.textContent = "当前未登录用户账号。";
+    renderSlackTwinLinkStatus(null);
     if (topbarUserBadge) {
-        topbarUserBadge.classList.add("hidden");
-        topbarUserBadge.title = "当前账号";
-        topbarUserBadge.setAttribute("aria-label", "当前账号");
+        topbarUserBadge.classList.add("hidden", "mobile-auth-entry");
+        topbarUserBadge.title = "注册 / 登录";
+        topbarUserBadge.setAttribute("aria-label", "注册 / 登录");
+        const avatarEl = topbarUserBadge.querySelector(".topbar-user-badge-avatar");
+        if (avatarEl) {
+            avatarEl.textContent = "?";
+        }
     }
     if (topbarUserBadgeName) {
         topbarUserBadgeName.textContent = "--";
@@ -7493,8 +7560,10 @@ function toggleWorkflowShell() {
 
 function syncWorkflowViewportState() {
     if (isMobileWorkflowViewport()) {
-        // Don't force-uncollapse on mobile; respect the collapsed state.
-        // The mobile bottom-sheet visibility is controlled by workflow-shell-mobile-open.
+        // The desktop collapsed class hides the shell content entirely, which
+        // breaks the mobile bottom sheet. Mobile visibility is controlled by
+        // workflow-shell-mobile-open instead.
+        document.body.classList.remove("workflow-shell-collapsed");
         if (!document.body.classList.contains("workflow-shell-mobile-open")) {
             setWorkflowMobileSheetMode(getStoredWorkflowMobileSheetMode());
         }
@@ -7516,6 +7585,7 @@ function syncWorkflowViewportState() {
     }
     updateMobileWorkflowTrigger();
     updateWorkflowMobileHandle();
+    restoreWorkflowShellState();
 }
 
 function restoreWorkflowShellState() {
@@ -7523,8 +7593,8 @@ function restoreWorkflowShellState() {
         return;
     }
 
-    if (globalThis.matchMedia("(max-width: 920px)").matches) {
-        setWorkflowShellCollapsed(true);
+    if (isMobileWorkflowViewport()) {
+        document.body.classList.remove("workflow-shell-collapsed");
         return;
     }
 
@@ -8492,6 +8562,7 @@ function openAccountView(tab = "register") {
     }
     // Switch to requested tab
     switchAccountTab(tab);
+    refreshSlackTwinLinkStatus();
     accountView?.removeAttribute("hidden");
     chatShell?.classList.add("view-active");
 }

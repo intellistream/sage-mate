@@ -1,21 +1,23 @@
 {
-  "document_id": "4db42db8-4ef1-4931-a75a-3d4a488f6f21",
-  "title": "荣誉附件正文｜LOA full（第6部分）",
-  "content": "head.\n\nB) Contextual-aware fast word embedding. To analyse the unstructured natural language text, we need to first convert them into numeric values. Context-free models such as Word2vec (W2V) or GloVe generate a single word embedding representation for each word in the vocabulary, where the recently proposed BERT takes into account the context for each occurrence of a given word. The former can train much faster than the latter while BERT may be able to generate vector representations with more valuable contextual information. However, neither has been examined in the proposed novel context: training directly on continuously in-coming stream data points. To this end, we propose to combine the idea of contextual-aware embedding (i. e. , BERT) and static embedding (i. e. , W2V). Specifically, we use W2V for text vectorization as it is suitable for online learning since it can update the vector representation of each vocabulary A-4 RTDS S 21 14 01 1 incrementally with only local data sets, i. e. , the current input tuple being processed. Once the neural network is trained, the weight matrix is taken as the learned vector representation, where =number of distinct words seen so far, and =number of features in the hidden layer. We denote each element in as ,where indicates which word, and indicates which feature. To allow W2V to capture more contextual information, we propose to aggregate representation of each word from multiple input tuples through sampling on the input streams as contexts. A pooling (i. e. , min, max, mean) strategy is then applied to yield a single representation that aggregates across contexts. The sampling rate and pooling strategies will be evaluated in the proposed project. C) Word centroid distance similarity-based classification. As we assume the non- availability of pre-trained datasets, we propose to rely on text similarity [14] to infer the polarity of input tuples based on a list of reference words with assumed polarity. Intuitively, we can compute the cosine similarity between each word of the input tuple and reference words as its quantitative relative polarity. We can then compute the arithmetic mean of quantitative polarity of all words to get the polarity of an input tuple. However, such a simple solution leads to huge computational overhead as it involves multiple cosine similarity computation for every words of an input sentence. We hence propose a simple yet effective word centroid distance (WCD) calculation approach. Specifically, we first obtain the vector representation of the input tuple (consists of words) by calculating the arithmetic mean of learned vector representation of all words, such that . Then, we perform cosine similarity computation between and all reference positive or negative words to obtain the aggregated sum as and , respectively. Finally, we compare and to infer the polarity of the input tuple entirely. Note that, the reference table may become outdated and it needs to be periodically updated by experts in practice. Nevertheless, the cost to update reference table is much lower than acquiring large amount of labelled training datasets. D) Spatial-temporal-aware trend detection feedback.",
-  "tags": [
-    "homepage",
-    "profile",
-    "awards",
-    "achievement",
-    "attachment",
-    "pdf"
-  ],
-  "source_name": "homepage:contents/awards/基金/LOA full.pdf::part-6",
-  "metadata": {
-    "domain": "teaching",
-    "identity": "teacher",
-    "material_type": "pdf",
-    "source_kind": "homepage"
-  },
-  "created_at": "2026-06-09T09:58:20.895286Z"
+    "document_id": "4db42db8-4ef1-4931-a75a-3d4a488f6f21",
+    "title": "荣誉附件正文｜LOA full（第6部分）",
+    "content": "head.\n\nB) Contextual-aware fast word embedding. To analyse the unstructured natural language text, we need to first convert them into numeric values. Context-free models such as Word2vec (W2V) or GloVe generate a single word embedding representation for each word in the vocabulary, where the recently proposed BERT takes into account the context for each occurrence of a given word. The former can train much faster than the latter while BERT may be able to generate vector representations with more valuable contextual information. However, neither has been examined in the proposed novel context: training directly on continuously in-coming stream data points. To this end, we propose to combine the idea of contextual-aware embedding (i. e. , BERT) and static embedding (i. e. , W2V). Specifically, we use W2V for text vectorization as it is suitable for online learning since it can update the vector representation of each vocabulary A-4 RTDS S 21 14 01 1 incrementally with only local data sets, i. e. , the current input tuple being processed. Once the neural network is trained, the weight matrix is taken as the learned vector representation, where =number of distinct words seen so far, and =number of features in the hidden layer. We denote each element in as ,where indicates which word, and indicates which feature. To allow W2V to capture more contextual information, we propose to aggregate representation of each word from multiple input tuples through sampling on the input streams as contexts. A pooling (i. e. , min, max, mean) strategy is then applied to yield a single representation that aggregates across contexts. The sampling rate and pooling strategies will be evaluated in the proposed project. C) Word centroid distance similarity-based classification. As we assume the non- availability of pre-trained datasets, we propose to rely on text similarity [14] to infer the polarity of input tuples based on a list of reference words with assumed polarity. Intuitively, we can compute the cosine similarity between each word of the input tuple and reference words as its quantitative relative polarity. We can then compute the arithmetic mean of quantitative polarity of all words to get the polarity of an input tuple. However, such a simple solution leads to huge computational overhead as it involves multiple cosine similarity computation for every words of an input sentence. We hence propose a simple yet effective word centroid distance (WCD) calculation approach. Specifically, we first obtain the vector representation of the input tuple (consists of words) by calculating the arithmetic mean of learned vector representation of all words, such that . Then, we perform cosine similarity computation between and all reference positive or negative words to obtain the aggregated sum as and , respectively. Finally, we compare and to infer the polarity of the input tuple entirely. Note that, the reference table may become outdated and it needs to be periodically updated by experts in practice. Nevertheless, the cost to update reference table is much lower than acquiring large amount of labelled training datasets. D) Spatial-temporal-aware trend detection feedback.",
+    "tags": [
+        "homepage",
+        "profile",
+        "awards",
+        "achievement",
+        "attachment",
+        "pdf",
+        "audience:lab_member"
+    ],
+    "source_name": "homepage:contents/awards/基金/LOA full.pdf::part-6",
+    "metadata": {
+        "domain": "teaching",
+        "identity": "teacher",
+        "material_type": "pdf",
+        "source_kind": "homepage",
+        "audience": "lab_member"
+    },
+    "created_at": "2026-06-09T09:58:20.895286Z"
 }
