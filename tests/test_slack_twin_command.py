@@ -251,3 +251,34 @@ def test_slack_twin_command_whitelist_answers_in_background(monkeypatch, tmp_pat
     assert "正在问 twin" in response.json()["text"]
     assert seen_questions == ["研究路线是什么？"]
     assert posted == [("https://hooks.slack.test/response", "这是回答。\n\n模型：`fake-model`")]
+
+
+def test_slack_twin_response_url_failure_does_not_break_background_task(
+    monkeypatch, tmp_path
+):
+    secret = "secret"
+    seen_questions: list[str] = []
+
+    async def fake_answer(request):
+        seen_questions.append(request.question)
+        return ChatResponse(answer="这是回答。", owner_name="张书豪", used_model="fake-model")
+
+    def failing_post(response_url: str, text: str, *, response_type: str = "ephemeral") -> None:
+        raise OSError("response url unavailable")
+
+    monkeypatch.setattr(api_module, "SLACK_TWIN_SIGNING_SECRET", secret)
+    monkeypatch.setattr(api_module, "SLACK_TWIN_ALLOWED_USER_IDS", {"U013T91JDQT"})
+    monkeypatch.setattr(api_module, "slack_link_store", SlackUserLinkStore(tmp_path))
+    monkeypatch.setattr(api_module.service, "answer", fake_answer)
+    monkeypatch.setattr(api_module, "_post_slack_response", failing_post)
+    body = _body(text="研究路线是什么？")
+
+    response = client.post(
+        "/slack/commands/twin",
+        data=body,
+        headers=_signed_headers(body, secret),
+    )
+
+    assert response.status_code == 200
+    assert "正在问 twin" in response.json()["text"]
+    assert seen_questions == ["研究路线是什么？"]

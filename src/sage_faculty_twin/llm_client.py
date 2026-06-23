@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import difflib
+import hashlib
 import json
 import logging
 import re
@@ -355,6 +356,47 @@ class VllmChatClient:
         payload["kv_transfer_params"] = {
             "logical_request_id": session_key,
         }
+        return payload
+
+    def annotate_request_with_fixed_prefix_hints(
+        self,
+        payload: dict[str, Any],
+        *,
+        system_prompt: str,
+        logical_request_id: str | None = None,
+    ) -> dict[str, Any]:
+        """Annotate a chat-completion payload for fixed-prefix KV reuse.
+
+        The annotation uses vLLM's native ``cache_salt`` field to scope
+        prefix-cache hashes. vLLM will still require exact token equality for
+        reuse, so the salt is only a namespace, not a correctness shortcut.
+        """
+        if not getattr(
+            self._settings,
+            "kv_fixed_prefix_materialization_enabled",
+            False,
+        ):
+            return payload
+
+        prompt_digest = hashlib.sha256(
+            f"{self.model_name}\n{system_prompt}".encode("utf-8")
+        ).hexdigest()[:16]
+        anchor_prefix = str(
+            getattr(
+                self._settings,
+                "kv_fixed_prefix_anchor_prefix",
+                "sage-faculty-twin-fixed-prefix",
+            )
+            or "sage-faculty-twin-fixed-prefix"
+        ).strip()
+        anchor_version = str(
+            getattr(self._settings, "kv_fixed_prefix_anchor_version", "v1") or "v1"
+        ).strip()
+        anchor_id = f"{anchor_prefix}:{anchor_version}:{prompt_digest}"
+        cache_salt = f"kvmat:anchor:{anchor_id}"
+
+        del logical_request_id
+        payload["cache_salt"] = cache_salt
         return payload
 
     def get_session_continuity_snapshot(
@@ -789,6 +831,18 @@ class VllmChatClient:
                     payload["thinking_token_budget"] = budget
         if max_tokens is not None:
             payload["max_tokens"] = max_tokens
+
+        logical_request_id = cache_namespace or "default"
+        payload = self.annotate_request_with_session_hints(
+            payload,
+            user_id="anonymous",
+            conversation_id=logical_request_id,
+        )
+        payload = self.annotate_request_with_fixed_prefix_hints(
+            payload,
+            system_prompt=system_prompt,
+            logical_request_id=logical_request_id,
+        )
 
         # Scope the response cache to a specific conversation/user so that
         # different users asking similar questions don't get identical cached

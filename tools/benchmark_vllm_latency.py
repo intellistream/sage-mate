@@ -11,9 +11,13 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
+import re
 import statistics
 import time
+import urllib.error
 import urllib.request
+from pathlib import Path
 
 DEFAULT_PROMPTS = [
     # Short prompt, ~50 tokens, asks for a fixed-length numeric answer.
@@ -35,7 +39,81 @@ DEFAULT_PROMPTS = [
 ]
 
 
-def measure_one(host: str, model: str, prompts: dict, max_tokens: int) -> dict:
+
+def _load_env(repo_root: Path) -> dict[str, str]:
+    env = dict(os.environ)
+    path = repo_root / ".env"
+    if not path.exists():
+        return env
+    for raw in path.read_text(encoding="utf-8", errors="replace").splitlines():
+        line = raw.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        env.setdefault(key.strip(), value.strip())
+    return env
+
+
+def _derive_metrics_url(host: str) -> str:
+    return re.sub(r"/v1/?$", "", host.rstrip("/")) + "/metrics"
+
+
+def _read_prefix_metrics(metrics_url: str) -> dict[str, float]:
+    selected = {
+        "prefix_cache_queries": 0.0,
+        "prefix_cache_hits": 0.0,
+        "prefix_cache_block_queries": 0.0,
+        "prefix_cache_block_hits": 0.0,
+        "prefix_cache_blocks_cached": 0.0,
+        "vllm:num_requests_running": 0.0,
+        "vllm:num_requests_waiting": 0.0,
+        "vllm:kv_cache_usage_perc": 0.0,
+    }
+    metric_aliases = {
+        "vllm:prefix_cache_queries": "prefix_cache_queries",
+        "vllm:prefix_cache_queries_total": "prefix_cache_queries",
+        "vllm:prefix_cache_hits": "prefix_cache_hits",
+        "vllm:prefix_cache_hits_total": "prefix_cache_hits",
+        "vllm:prefix_cache_block_queries": "prefix_cache_block_queries",
+        "vllm:prefix_cache_block_queries_total": "prefix_cache_block_queries",
+        "vllm:prefix_cache_block_hits": "prefix_cache_block_hits",
+        "vllm:prefix_cache_block_hits_total": "prefix_cache_block_hits",
+        "vllm:prefix_cache_blocks_cached": "prefix_cache_blocks_cached",
+        "vllm:prefix_cache_blocks_cached_total": "prefix_cache_blocks_cached",
+    }
+    try:
+        with urllib.request.urlopen(metrics_url, timeout=2.0) as resp:
+            text = resp.read().decode("utf-8", errors="replace")
+    except (urllib.error.URLError, TimeoutError, OSError):
+        return selected
+
+    for raw in text.splitlines():
+        if not raw or raw.startswith("#"):
+            continue
+        name = raw.split("{", 1)[0].split(" ", 1)[0]
+        key = metric_aliases.get(name, name)
+        if key not in selected:
+            continue
+        try:
+            selected[key] += float(raw.rsplit(" ", 1)[-1])
+        except ValueError:
+            continue
+    return selected
+
+
+def _metric_delta(before: dict[str, float], after: dict[str, float]) -> dict[str, float]:
+    return {key: after.get(key, 0.0) - before.get(key, 0.0) for key in after}
+
+
+def measure_one(
+    host: str,
+    model: str,
+    prompts: dict,
+    max_tokens: int,
+    *,
+    api_key: str,
+    cache_salt: str | None = None,
+) -> dict:
     body = {
         "model": model,
         "stream": True,
@@ -48,11 +126,13 @@ def measure_one(host: str, model: str, prompts: dict, max_tokens: int) -> dict:
         # Disable thinking for Qwen3 to keep results comparable across runs.
         "chat_template_kwargs": {"enable_thinking": False},
     }
+    if cache_salt:
+        body["cache_salt"] = cache_salt
     payload = json.dumps(body).encode()
     req = urllib.request.Request(
-        f"{host}/v1/chat/completions",
+        f"{host.rstrip('/')}/chat/completions",
         data=payload,
-        headers={"Content-Type": "application/json", "Authorization": "Bearer noop"},
+        headers={"Content-Type": "application/json", "Authorization": f"Bearer {api_key}"},
         method="POST",
     )
 
@@ -103,26 +183,38 @@ def measure_one(host: str, model: str, prompts: dict, max_tokens: int) -> dict:
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--host", default="http://127.0.0.1:18000")
-    parser.add_argument("--model", default="Qwen3-32B")
+    parser.add_argument("--repo-root", type=Path, default=Path(__file__).resolve().parents[1])
+    parser.add_argument("--host", default=None)
+    parser.add_argument("--model", default=None)
     parser.add_argument("--max-tokens", type=int, default=128)
     parser.add_argument("--warmup", type=int, default=2)
     parser.add_argument("--runs", type=int, default=5)
     parser.add_argument("--label", default="baseline")
+    parser.add_argument("--cache-salt", default=None)
+    parser.add_argument("--metrics", action="store_true")
     args = parser.parse_args()
 
-    print(f"[{args.label}] target={args.host} model={args.model} max_tokens={args.max_tokens}")
+    env = _load_env(args.repo_root)
+    host = (args.host or env.get("DIGITAL_TWIN_LLM_BASE_URL") or "http://127.0.0.1:8000/v1").rstrip("/")
+    model = args.model or env.get("DIGITAL_TWIN_MODEL_NAME") or "qwen3-32b"
+    api_key = env.get("DIGITAL_TWIN_API_KEY") or "EMPTY"
+    metrics_url = _derive_metrics_url(host)
+
+    print(f"[{args.label}] target={host} model={model} max_tokens={args.max_tokens}")
+    if args.cache_salt:
+        print("[benchmark] cache_salt enabled (value redacted)")
     for prompt in DEFAULT_PROMPTS:
         label = prompt["user"][:40].replace("\n", " ") + "..."
         print(f"\n>>> prompt: {label}")
         for _ in range(args.warmup):
-            measure_one(args.host, args.model, prompt, args.max_tokens)
+            measure_one(host, model, prompt, args.max_tokens, api_key=api_key, cache_salt=args.cache_salt)
         ttfts = []
         tpots = []
         ns = []
         tots = []
+        metrics_before = _read_prefix_metrics(metrics_url) if args.metrics else {}
         for i in range(args.runs):
-            r = measure_one(args.host, args.model, prompt, args.max_tokens)
+            r = measure_one(host, model, prompt, args.max_tokens, api_key=api_key, cache_salt=args.cache_salt)
             ttfts.append(r["ttft_s"])
             tpots.append(r["tpot_ms"])
             ns.append(r["n_tokens"])
@@ -138,6 +230,22 @@ def main() -> None:
             f"total={statistics.median(tots):.2f}s "
             f"throughput={statistics.median([n / t for n, t in zip(ns, tots)]):.2f} tok/s"
         )
+        if args.metrics:
+            metrics_after = _read_prefix_metrics(metrics_url)
+            delta = _metric_delta(metrics_before, metrics_after)
+            queries = delta["prefix_cache_queries"]
+            hits = delta["prefix_cache_hits"]
+            block_queries = delta["prefix_cache_block_queries"]
+            block_hits = delta["prefix_cache_block_hits"]
+            hit_rate = hits / queries if queries > 0 else 0.0
+            block_hit_rate = block_hits / block_queries if block_queries > 0 else 0.0
+            print(
+                "  prefix-cache delta: "
+                f"queries={queries:.0f} hits={hits:.0f} hit_rate={hit_rate:.3f} "
+                f"block_queries={block_queries:.0f} block_hits={block_hits:.0f} "
+                f"block_hit_rate={block_hit_rate:.3f} "
+                f"cached_blocks={delta['prefix_cache_blocks_cached']:.0f}"
+            )
 
 
 if __name__ == "__main__":

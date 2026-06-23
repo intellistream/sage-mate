@@ -1,0 +1,10 @@
+{
+  "user_id": "e29518a7-549c-452b-99cb-de1499ca5048",
+  "name": "杨锦昀",
+  "email": "yangjinyun@hust.edu.cn",
+  "visitor_profile": "lab_member",
+  "password_salt": "cfed2fab2c8a61e488dbec12c8437421",
+  "password_hash": "47acab1317a70e22f58491d6097fa486e5ca1a55d6fb65cf9a620e4153deddaceae4ff03d0cb430b0d2c97594fca8d665f1a3ca4b9adeade0693134f8cb53c17",
+  "created_at": "2026-06-23T09:31:18.119506+00:00",
+  "updated_at": "2026-06-23T09:31:18.119506+00:00"
+}

@@ -1,0 +1,10 @@
+{
+  "user_id": "af9a92e5-f059-43f9-bc4d-e1492591a026",
+  "name": "Xincai Zhu",
+  "email": "pygonebe@gmail.com",
+  "visitor_profile": "lab_member",
+  "password_salt": "00a4bb13ea24dbbe5668e91e8e79919a",
+  "password_hash": "219859e5bc3e0e6ec2f8abd1811a0209a69dc03051b95b61fdb9631c5e8b7d5995435354cca9014cfa086f64dffb64b1834dddd42f9daf8143ee317375962c7d",
+  "created_at": "2026-06-23T09:18:35.931038+00:00",
+  "updated_at": "2026-06-23T09:18:35.931038+00:00"
+}

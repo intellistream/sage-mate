@@ -2,6 +2,7 @@ import asyncio
 import hashlib
 import hmac
 import json
+import logging
 import os
 import secrets
 import threading
@@ -86,6 +87,9 @@ from .history_auth import resolve_authenticated_history_email
 from .service import DigitalTwinService, build_stack_versions_payload, build_hardware_payload
 from .capability_plugins import CapabilityPluginRegistry, CapabilityPluginStatus
 from .slack_link_store import SlackUserLinkRecord, SlackUserLinkStore
+
+
+_logger = logging.getLogger(__name__)
 
 
 def configure_local_cors(target_app: FastAPI) -> None:
@@ -521,6 +525,17 @@ def _post_slack_response(response_url: str, text: str, *, response_type: str = "
     urllib.request.urlopen(req, timeout=8).read()
 
 
+def _safe_post_slack_response(
+    response_url: str, text: str, *, response_type: str = "ephemeral"
+) -> bool:
+    try:
+        _post_slack_response(response_url, text, response_type=response_type)
+        return True
+    except Exception as exc:  # pragma: no cover - exception type depends on network stack
+        _logger.warning("Failed to post Slack /twin response: %s", exc)
+        return False
+
+
 def _format_slack_twin_answer(response: ChatResponse) -> str:
     lines = [response.answer.strip()]
     if response.answer_basis:
@@ -558,14 +573,14 @@ async def _answer_slack_twin_command(
             timeout=SLACK_TWIN_RESPONSE_TIMEOUT_SECONDS,
         )
         await asyncio.to_thread(
-            _post_slack_response,
+            _safe_post_slack_response,
             response_url,
             _format_slack_twin_answer(response),
             response_type="ephemeral",
         )
     except Exception as exc:
         await asyncio.to_thread(
-            _post_slack_response,
+            _safe_post_slack_response,
             response_url,
             f"抱歉，twin 这次没有完成回答：{exc}",
             response_type="ephemeral",

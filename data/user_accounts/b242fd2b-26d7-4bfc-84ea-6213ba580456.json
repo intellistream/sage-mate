@@ -1,0 +1,10 @@
+{
+  "user_id": "b242fd2b-26d7-4bfc-84ea-6213ba580456",
+  "name": "王明琪",
+  "email": "wangmingqi36@gmail.com",
+  "visitor_profile": "lab_member",
+  "password_salt": "6e9c6ad74efbd1b5eef9f44e06dd61db",
+  "password_hash": "8342f9a90e9463f4241c63106a473f0b4ac1731109e79615d472abb9da221d2e33f7d521b621b68055b413993e92ad43bfec701e1437540227a4536df4123ef4",
+  "created_at": "2026-06-23T09:23:39.940760+00:00",
+  "updated_at": "2026-06-23T09:23:39.940760+00:00"
+}

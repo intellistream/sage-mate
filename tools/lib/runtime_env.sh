@@ -13,6 +13,26 @@ resolve_repo_python() {
         return 0
     fi
 
+    local conda_env_name="${CONDA_ENV_NAME:-vllm-hust-dev}"
+    local conda_root=""
+    if [[ -n "${CONDA_EXE:-}" ]]; then
+        conda_root=$(cd "$(dirname "${CONDA_EXE}")/.." && pwd)
+    fi
+
+    local candidate=""
+    for candidate in \
+        "$conda_root/envs/$conda_env_name/bin/python" \
+        "$conda_root/envs/$conda_env_name/bin/python3" \
+        "$HOME/miniconda3/envs/$conda_env_name/bin/python" \
+        "$HOME/miniconda3/envs/$conda_env_name/bin/python3" \
+        "$HOME/anaconda3/envs/$conda_env_name/bin/python" \
+        "$HOME/anaconda3/envs/$conda_env_name/bin/python3"; do
+        if [[ -n "$candidate" && -x "$candidate" ]]; then
+            printf '%s\n' "$candidate"
+            return 0
+        fi
+    done
+
     if command -v python3 >/dev/null 2>&1; then
         command -v python3
         return 0

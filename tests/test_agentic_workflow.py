@@ -101,6 +101,16 @@ class RecordingLLMClient(IntentAwareLLMClient):
         return super().answer_question_sync(system_prompt, user_prompt)
 
 
+class IntentClassifierFailingLLMClient(RecordingLLMClient):
+    def classify_interaction_intent_sync(
+        self,
+        question: str,
+        course_context: str | None = None,
+        recent_session_context: str | None = None,
+    ) -> InteractionIntent:
+        raise AssertionError("high-confidence fast intent path should skip LLM classification")
+
+
 class ShadowPlanningLLMClient(RecordingLLMClient):
     def __init__(self, booking_intent: bool, answer: str, shadow_plan_candidate: dict) -> None:
         super().__init__(booking_intent=booking_intent, answer=answer)
@@ -238,7 +248,7 @@ def _trace_step(response, key: str):
 
 
 def test_chat_books_meeting_when_details_are_complete(tmp_path: Path) -> None:
-    settings = AppSettings(knowledge_base_dir=tmp_path)
+    settings = AppSettings(knowledge_base_dir=tmp_path, knowledge_backend="bm25")
     service = DigitalTwinService(settings)
     service._llm_client = FailingLLMClient()
     notifier = RecordingNotifier()
@@ -696,6 +706,35 @@ def test_chat_uses_llm_intent_to_avoid_false_booking_positive(tmp_path: Path) ->
     assert all(step.duration_ms is not None for step in response.workflow_trace)
     assert interaction_step.summary == "已识别当前交互意图：answer/advising，仅提供建议。"
     assert booking_prepare_step.summary == "未进入预约流程。"
+
+
+def test_chat_fast_paths_obvious_research_route_without_llm_classifier(
+    tmp_path: Path,
+) -> None:
+    settings = AppSettings(knowledge_base_dir=tmp_path)
+    service = DigitalTwinService(settings)
+    service._llm_client = IntentClassifierFailingLLMClient(
+        booking_intent=False,
+        answer="课题组更关注开放研究问题、系统机制和可发表的长期路线。",
+    )
+
+    response = asyncio.run(
+        service.answer(
+            ChatRequest(
+                student_name="Alice",
+                student_email="alice@example.com",
+                visitor_profile="general_visitor",
+                question="这个课题组的研究路线和一般企业 R&D 有什么区别？",
+                deep_thinking=False,
+            )
+        )
+    )
+
+    assert response.workflow_action == "answer"
+    assert response.decision_mode == "direct_answer"
+    interaction_step = _trace_step(response, "interaction_understand")
+    assert "answer/research" in interaction_step.summary
+    assert "heuristic-fast" in interaction_step.detail
 
 
 def test_chat_answers_office_hour_query_without_starting_booking_workflow(

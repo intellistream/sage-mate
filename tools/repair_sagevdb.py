@@ -111,8 +111,6 @@ def _repair_source_checkout(
     if not source_pkg.is_dir():
         raise SystemExit(f"sageVDB source package not found: {source_pkg}")
 
-    _prune_mismatched_extensions(source_pkg, suffix)
-
     target_ext = source_pkg / f"_sagevdb{suffix}"
     if extension.resolve() != target_ext.resolve():
         shutil.copy2(extension, target_ext)

@@ -1898,6 +1898,12 @@ class FacultyTwinWorkflowSupport:
             kwargs["request_priority"] = policy_context["request_priority"]
         if "target_e2e_ms" in signature.parameters:
             kwargs["target_e2e_ms"] = policy_context["target_e2e_ms"]
+        if (
+            "max_tokens" in signature.parameters
+            and not enable_thinking
+            and policy_context.get("max_tokens") is not None
+        ):
+            kwargs["max_tokens"] = policy_context["max_tokens"]
         if "cache_namespace" in signature.parameters and context.conversation_id:
             kwargs["cache_namespace"] = context.conversation_id
 
@@ -1913,12 +1919,14 @@ class FacultyTwinWorkflowSupport:
                 "deadline_class": "interactive-high",
                 "request_priority": 90,
                 "target_e2e_ms": 2200.0,
+                "max_tokens": int(self._settings.llm_fast_answer_max_tokens),
             }
 
         return {
             "deadline_class": "batch-standard",
             "request_priority": 45,
             "target_e2e_ms": 10000.0,
+            "max_tokens": int(self._settings.llm_fast_answer_max_tokens),
         }
 
     def _should_enable_deep_thinking(self, context: ChatWorkflowContext) -> bool:
@@ -2989,6 +2997,14 @@ class FacultyTwinWorkflowSupport:
         )
         availability_context = self._meeting_service.describe_current_availability()
         return (
+            "Response instructions:\n"
+            "Respond as the digital twin of the faculty owner. Keep the answer grounded and concise. "
+            "If the current question is a follow-up that refers to 刚才, 前面, 上一个, this, that, it, or an omitted subject, resolve it against the immediate session context first. "
+            "Use retrieved knowledge only when it directly answers this question; ignore adjacent topics and do not add unasked facts just because they appear in context. "
+            "Never invent paper titles, author names, conference names, URLs, or any bibliographic reference. "
+            "If the answer would benefit from external references but none are available in the context below, "
+            "remind the user they can enable the 联网检索 toggle for real-time sources.\n"
+            "Request context:\n"
             f"Student name: {request.student_name}\n"
             f"{course_hint}"
             f"{visitor_hint}"
@@ -3005,12 +3021,6 @@ class FacultyTwinWorkflowSupport:
             f"{knowledge_context}"
             f"{web_search_context}"
             f"Question: {request.question}\n"
-            "Respond as the digital twin of the faculty owner. Keep the answer grounded and concise. "
-            "If the current question is a follow-up that refers to 刚才, 前面, 上一个, this, that, it, or an omitted subject, resolve it against the immediate session context first. "
-            "Use retrieved knowledge only when it directly answers this question; ignore adjacent topics and do not add unasked facts just because they appear in context. "
-            "Never invent paper titles, author names, conference names, URLs, or any bibliographic reference. "
-            "If the answer would benefit from external references but none are available in the context above, "
-            "remind the user they can enable the 联网检索 toggle for real-time sources."
         )
 
     def _format_recent_session_context(self, request: ChatRequest, limit: int = 4) -> str:
@@ -3294,10 +3304,20 @@ class FacultyTwinWorkflowSupport:
         markers = (
             "研究主线",
             "研究方向",
+            "研究路线",
             "主要研究",
             "研究什么",
             "做什么研究",
+            "课题组",
             "科研",
+            "企业 r&d",
+            "企业研发",
+            "r&d",
+            "推理引擎",
+            "推理服务",
+            "kv cache",
+            "ttft",
+            "vllm",
             "research",
             "publication",
             "publications",
@@ -3646,6 +3666,11 @@ class FacultyTwinWorkflowSupport:
                 "admin_command",
             )
 
+        fast_intent = self._build_fast_path_interaction_intent(context)
+        if fast_intent is not None:
+            guarded_intent, guarded = self._apply_policy_guardrails(context.request, fast_intent)
+            return guarded_intent, "heuristic-fast+policy" if guarded else "heuristic-fast"
+
         classify_sync = getattr(self._llm_client, "classify_interaction_intent_sync", None)
         if callable(classify_sync):
             try:
@@ -3669,6 +3694,110 @@ class FacultyTwinWorkflowSupport:
         intent = self._build_fallback_interaction_intent(context.request)
         guarded_intent, guarded = self._apply_policy_guardrails(context.request, intent)
         return guarded_intent, "heuristic+policy" if guarded else "heuristic"
+
+    def _build_fast_path_interaction_intent(
+        self,
+        context: ChatWorkflowContext,
+    ) -> InteractionIntent | None:
+        if not self._settings.fast_intent_classifier_enabled:
+            return None
+
+        request = context.request
+        question = request.question
+        if context.recent_session_context and self._SHORT_FOLLOWUP_PATTERN.match(question.strip()):
+            return None
+        if request.attachments:
+            return None
+
+        if self._should_force_human_handoff(question):
+            return InteractionIntent(
+                action="human_handoff",
+                domain="advising",
+                decision_mode="human_handoff",
+                escalation_reason="涉及敏感、紧急或必须由老师本人直接处理的事项。",
+                confidence=0.95,
+            )
+
+        if self._should_queue_for_review(question):
+            return InteractionIntent(
+                action="review_queue",
+                domain="advising",
+                retrieval_scopes=["meeting_policy", "profile"],
+                exclude_scopes=["courseware"],
+                decision_mode="review_queue",
+                escalation_reason="这是需要老师审核后才能正式答复的请求。",
+                confidence=0.9,
+            )
+
+        if self._looks_like_booking_information_request(question):
+            return InteractionIntent(
+                action="answer",
+                domain="advising",
+                retrieval_scopes=["meeting_policy", "profile"],
+                exclude_scopes=["courseware"],
+                decision_mode="direct_answer",
+                confidence=0.88,
+            )
+
+        lowered = question.lower()
+        course_context = (request.course_context or "").lower()
+
+        teaching_markers = (
+            "tutorial",
+            "lecture",
+            "experiment",
+            "homework",
+            "assignment",
+            "课件",
+            "讲义",
+            "实验",
+            "作业",
+            "课程",
+            "课堂",
+        )
+        if any(marker in lowered or marker in question for marker in teaching_markers):
+            return InteractionIntent(
+                action="answer",
+                domain="teaching",
+                retrieval_scopes=["courseware"],
+                exclude_scopes=["publications"],
+                confidence=0.82,
+            )
+
+        advising_markers = (
+            "准备什么",
+            "提前准备",
+            "怎么准备",
+            "agenda",
+            "汇报",
+            "组会",
+            "meeting readiness",
+            "paper writing",
+            "论文写作",
+            "怎么沟通",
+            "发邮件",
+            "线下聊",
+        )
+        if any(marker in lowered or marker in question for marker in advising_markers):
+            return InteractionIntent(
+                action="answer",
+                domain="advising",
+                retrieval_scopes=["preparation", "meeting_policy", "profile"],
+                exclude_scopes=["courseware"],
+                decision_mode="advise_only",
+                confidence=0.82,
+            )
+
+        if self._is_research_question(question) or "科研" in course_context:
+            return InteractionIntent(
+                action="answer",
+                domain="research",
+                retrieval_scopes=["publications", "profile"],
+                exclude_scopes=["courseware"],
+                confidence=0.82,
+            )
+
+        return None
 
     def _apply_policy_guardrails(
         self,

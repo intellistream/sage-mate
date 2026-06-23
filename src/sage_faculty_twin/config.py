@@ -30,6 +30,12 @@ class AppSettings(BaseSettings):
     llm_policy_execution_priority_mode: str = Field(default="off")
     llm_policy_output_max_tokens_cap: int = Field(default=4096, ge=64, le=8192)
     llm_policy_output_min_tokens_floor: int = Field(default=192, ge=32, le=4096)
+    llm_fast_answer_max_tokens: int = Field(
+        default=1024,
+        ge=128,
+        le=4096,
+        description="Default max_tokens for non-thinking interactive answers.",
+    )
     llm_policy_congestion_waiting_threshold: float = Field(default=1.0, ge=0.0, le=10000.0)
     llm_policy_congestion_kv_usage_threshold: float = Field(default=0.75, ge=0.0, le=1.0)
     llm_policy_congestion_total_requests_threshold: float = Field(
@@ -96,6 +102,11 @@ class AppSettings(BaseSettings):
     auto_disable_thinking_intents: str = Field(
         default="general,booking",
     )
+    fast_intent_classifier_enabled: bool = Field(
+        default=True,
+        description="When True, skip the LLM intent classifier for high-confidence "
+        "requests that can be routed by deterministic guardrails.",
+    )
     shadow_planner_enabled: bool = Field(default=True)
     shadow_planner_temperature: float = Field(default=0.0, ge=0.0, le=1.0)
     shadow_planner_max_tokens: int = Field(default=384, ge=64, le=2048)
@@ -160,6 +171,21 @@ class AppSettings(BaseSettings):
         description="Prefix for the stable session identifier used in KV "
         "transfer annotations. The full session key is "
         "'{prefix}-{user_id}-{conversation_id}'.",
+    )
+    kv_fixed_prefix_materialization_enabled: bool = Field(
+        default=False,
+        description="When True, annotate vLLM-HUST OpenAI requests with a "
+        "stable cache_salt for the fixed system/persona prompt prefix.",
+    )
+    kv_fixed_prefix_anchor_prefix: str = Field(
+        default="sage-faculty-twin-fixed-prefix",
+        description="Human-readable prefix used when constructing the stable "
+        "fixed-prompt KV anchor id.",
+    )
+    kv_fixed_prefix_anchor_version: str = Field(
+        default="v1",
+        description="Operator-controlled version for invalidating fixed-prompt "
+        "KV anchors after prompt-template or model changes.",
     )
 
 

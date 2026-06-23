@@ -648,3 +648,54 @@ def test_cache_key_includes_namespace() -> None:
     assert key_a != key_none
     assert key_a.startswith("conv-1::")
     assert key_b.startswith("conv-2::")
+
+
+def test_fixed_prefix_materialization_hints_are_feature_gated() -> None:
+    client = object.__new__(VllmChatClient)
+    client._settings = AppSettings(kv_fixed_prefix_materialization_enabled=False)
+    client.model_name = "demo-model"
+    payload = {"model": "demo-model", "messages": []}
+
+    annotated = client.annotate_request_with_fixed_prefix_hints(
+        dict(payload),
+        system_prompt="stable system prompt",
+        logical_request_id="conv-1",
+    )
+
+    assert annotated == payload
+
+
+def test_fixed_prefix_materialization_hints_use_stable_anchor() -> None:
+    client = object.__new__(VllmChatClient)
+    client._settings = AppSettings(
+        kv_fixed_prefix_materialization_enabled=True,
+        kv_fixed_prefix_anchor_prefix="twin-fixed",
+        kv_fixed_prefix_anchor_version="v2",
+    )
+    client.model_name = "demo-model"
+    payload = {
+        "model": "demo-model",
+        "messages": [],
+        "kv_transfer_params": {"remote_engine_id": "prefill-0"},
+    }
+
+    first = client.annotate_request_with_fixed_prefix_hints(
+        dict(payload),
+        system_prompt="stable system prompt",
+        logical_request_id="conv-1",
+    )
+    second = client.annotate_request_with_fixed_prefix_hints(
+        dict(payload),
+        system_prompt="stable system prompt",
+        logical_request_id="conv-1",
+    )
+    changed_prompt = client.annotate_request_with_fixed_prefix_hints(
+        dict(payload),
+        system_prompt="changed system prompt",
+        logical_request_id="conv-1",
+    )
+
+    assert first["cache_salt"] == second["cache_salt"]
+    assert first["cache_salt"].startswith("kvmat:anchor:twin-fixed:v2:")
+    assert changed_prompt["cache_salt"] != first["cache_salt"]
+    assert first["kv_transfer_params"] == {"remote_engine_id": "prefill-0"}
