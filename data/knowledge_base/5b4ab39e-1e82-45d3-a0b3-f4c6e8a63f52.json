@@ -1,0 +1,28 @@
+{
+  "document_id": "5b4ab39e-1e82-45d3-a0b3-f4c6e8a63f52",
+  "title": "仓库维护教训｜Git 远端分支同步与过期分支清理",
+  "content": "来源：private-materials/工具/Codex排障记录/git-remote-branch-maintenance-20260623.md\n可见性：admin\n说明：该条目记录一次 private-materials 仓库维护教训，用于后续 owner/admin 处理远端 feature/update 分支和同步配置问题。\n\n核心教训：不要只凭 git branch -r 判断远端是否还有过期分支。如果 remote.origin.fetch 被限制为只抓取 main，例如 +refs/heads/main:refs/remotes/origin/main，git fetch 之后本地会看不到其他远端分支，但 GitHub 上的分支仍然存在。遇到分支显示异常时，应先检查 git config --get-all remote.origin.fetch，必要时用 git ls-remote --heads origin 直接核对远端真实状态。\n\n修复方式：将 origin 的 fetch refspec 恢复为标准全分支同步：git config remote.origin.fetch '+refs/heads/*:refs/remotes/origin/*'，然后运行 git fetch --prune origin。这样本地 remote-tracking refs 才能反映远端实际分支，并能 prune 已删除分支。\n\n处理过期 feature/update 分支的稳妥流程：先确认工作区干净；fetch --prune；用 git branch -r --merged main 判断哪些远端分支已被 main 包含；对未合并分支，用 git log origin/main..origin/<branch>、git rev-list --left-right --count origin/main...origin/<branch>、git diff --stat 和 git diff --name-status 看清楚分支范围。对 archive/bundle 类分支，优先做 git merge --no-commit --no-ff origin/<branch> 试合并，检查 git diff --cached --stat 后再决定 commit 或 git merge --abort。\n\n删除原则：只有在确认分支内容已经进入 main 后，才用 git push origin --delete <branch> 删除远端分支。删除后再次 git fetch --prune origin，并用 git branch -a -vv 或 git ls-remote --heads origin 验证远端只剩预期分支。\n\n本次案例：bundle-sync-20260623 从较早基线分出，表面只有一个新提交，但与 main 有历史分歧，因此先做 no-commit trial merge。最终实际进入 main 的内容集中为 RFIS beamer 源文件、PDF 和 figures，没有删除 main 上已有内容。update/repowiki-2026-06-20 已经被 main 包含。两条过期远端分支均在验证后删除，远端最终只保留 main。",
+  "tags": [
+    "private-materials",
+    "repository-maintenance",
+    "git",
+    "branch-cleanup",
+    "codex-lesson",
+    "audience:admin"
+  ],
+  "source_name": "private-materials:repo-maintenance-branch-hygiene-2026-06-23",
+  "metadata": {
+    "audience": "admin",
+    "domain": "general",
+    "identity": "pi",
+    "material_type": "maintenance-note",
+    "source_kind": "private-materials",
+    "source_path": "工具/Codex排障记录/git-remote-branch-maintenance-20260623.md"
+  },
+  "created_at": "2026-06-23T12:30:00Z",
+  "is_feedback_web": false,
+  "review_status": "unknown",
+  "freshness_status": "unknown",
+  "reviewed_at": null,
+  "reviewable": false
+}
