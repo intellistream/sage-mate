@@ -38,13 +38,14 @@ notify() {
         TWIN_MONITOR_TITLE="$title" TWIN_MONITOR_BODY="$body" bash -lc "$TWIN_MONITOR_NOTIFY_COMMAND" || true
         return 0
     fi
-    if [[ -n "${TWIN_MONITOR_SLACK_BOT_TOKEN:-}" && -n "${TWIN_MONITOR_SLACK_CHANNEL_ID:-}" ]]; then
-        "$PYTHON_BIN" - "$TWIN_MONITOR_SLACK_BOT_TOKEN" "$TWIN_MONITOR_SLACK_CHANNEL_ID" "$payload" <<'PY' || true
+    local slack_target="${TWIN_MONITOR_SLACK_USER_ID:-${TWIN_MONITOR_SLACK_CHANNEL_ID:-}}"
+    if [[ -n "${TWIN_MONITOR_SLACK_BOT_TOKEN:-}" && -n "$slack_target" ]]; then
+        "$PYTHON_BIN" - "$TWIN_MONITOR_SLACK_BOT_TOKEN" "$slack_target" "$payload" <<'PY' || true
 import json, sys, urllib.request
-token, channel, text = sys.argv[1], sys.argv[2], sys.argv[3]
+token, target, text = sys.argv[1], sys.argv[2], sys.argv[3]
 req = urllib.request.Request(
     "https://slack.com/api/chat.postMessage",
-    data=json.dumps({"channel": channel, "text": text}, ensure_ascii=False).encode(),
+    data=json.dumps({"channel": target, "text": text}, ensure_ascii=False).encode(),
     headers={"Content-Type": "application/json; charset=utf-8", "Authorization": f"Bearer {token}"},
 )
 try:
