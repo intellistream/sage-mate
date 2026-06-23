@@ -217,7 +217,12 @@ def test_slack_twin_bound_lab_member_can_ask(monkeypatch, tmp_path):
 
     assert response.status_code == 200
     assert seen == [("lab_member", "lab@example.com")]
-    assert posted == [("https://hooks.slack.test/response", "绑定回答。\n\n模型：`fake-model`")]
+    assert posted == [
+        (
+            "https://hooks.slack.test/response",
+            "你问：研究路线是什么？\n绑定回答。\n\n模型：`fake-model`",
+        )
+    ]
 
 
 def test_slack_twin_command_whitelist_answers_in_background(monkeypatch, tmp_path):
@@ -249,8 +254,14 @@ def test_slack_twin_command_whitelist_answers_in_background(monkeypatch, tmp_pat
 
     assert response.status_code == 200
     assert "正在问 twin" in response.json()["text"]
+    assert "你问：研究路线是什么？" in response.json()["text"]
     assert seen_questions == ["研究路线是什么？"]
-    assert posted == [("https://hooks.slack.test/response", "这是回答。\n\n模型：`fake-model`")]
+    assert posted == [
+        (
+            "https://hooks.slack.test/response",
+            "你问：研究路线是什么？\n这是回答。\n\n模型：`fake-model`",
+        )
+    ]
 
 
 def test_slack_twin_response_url_failure_does_not_break_background_task(

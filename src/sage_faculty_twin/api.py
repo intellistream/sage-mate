@@ -539,8 +539,12 @@ def _safe_post_slack_response(
         return False
 
 
-def _format_slack_twin_answer(response: ChatResponse) -> str:
-    lines = [response.answer.strip()]
+def _format_slack_twin_answer(response: ChatResponse, *, question: str | None = None) -> str:
+    lines: list[str] = []
+    normalized_question = (question or "").strip()
+    if normalized_question:
+        lines.append(f"你问：{normalized_question}")
+    lines.append(response.answer.strip())
     if response.answer_basis:
         basis = "；".join(item.title for item in response.answer_basis[:2])
         if basis:
@@ -578,7 +582,7 @@ async def _answer_slack_twin_command(
         await asyncio.to_thread(
             _safe_post_slack_response,
             response_url,
-            _format_slack_twin_answer(response),
+            _format_slack_twin_answer(response, question=question),
             response_type="ephemeral",
         )
     except Exception as exc:
@@ -918,10 +922,11 @@ async def slack_twin_command(
         user_email=user_email,
         visitor_profile=visitor_profile,
     )
+    question_preview = question if len(question) <= 80 else f"{question[:77]}..."
     return JSONResponse(
         {
             "response_type": "ephemeral",
-            "text": "收到，我正在问 twin，答案会稍后发回这里。",
+            "text": f"收到，我正在问 twin。\n你问：{question_preview}\n答案会稍后发回这里。",
         }
     )
 
