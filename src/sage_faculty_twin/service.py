@@ -2983,6 +2983,7 @@ class FacultyTwinWorkflowSupport:
         profile_grounding_guidance = self._build_profile_grounding_guidance(
             request, interaction_intent
         )
+        fast_answer_guidance = self._build_fast_answer_guidance(request, interaction_intent)
         preparation_guidance = self._build_meeting_preparation_guidance(
             request.question, interaction_intent
         )
@@ -3010,6 +3011,7 @@ class FacultyTwinWorkflowSupport:
             f"{visitor_hint}"
             f"{intent_guidance}"
             f"{profile_grounding_guidance}"
+            f"{fast_answer_guidance}"
             f"{preparation_guidance}"
             f"{advising_guidance}"
             f"{teaching_guidance}"
@@ -3021,6 +3023,59 @@ class FacultyTwinWorkflowSupport:
             f"{knowledge_context}"
             f"{web_search_context}"
             f"Question: {request.question}\n"
+        )
+
+    def _build_fast_answer_guidance(
+        self,
+        request: ChatRequest,
+        interaction_intent: InteractionIntent | None,
+    ) -> str:
+        if not self._settings.fast_answer_concise_guidance_enabled:
+            return ""
+        if getattr(request, "deep_thinking_explicit", False) and getattr(
+            request, "deep_thinking", True
+        ):
+            return ""
+
+        question = request.question
+        lowered = question.lower()
+        if any(
+            marker in lowered or marker in question
+            for marker in (
+                "详细",
+                "展开",
+                "深入",
+                "完整",
+                "长一点",
+                "具体分析",
+                "step by step",
+                "in detail",
+                "详细解释",
+            )
+        ):
+            return ""
+
+        domain = interaction_intent.domain if interaction_intent is not None else "general"
+        decision_mode = (
+            interaction_intent.decision_mode if interaction_intent is not None else "direct_answer"
+        )
+        auto_disable_domains = {
+            item.strip()
+            for item in self._settings.auto_disable_thinking_intents.split(",")
+            if item.strip()
+        }
+        is_fast_lane = (
+            not getattr(request, "deep_thinking", True)
+            or domain in auto_disable_domains
+            or decision_mode == "direct_answer"
+        )
+        if not is_fast_lane:
+            return ""
+
+        return (
+            "Fast-answer guidance: Start with the direct answer in the first sentence. "
+            "Unless the user explicitly asks for detail, keep the final response to "
+            "80-160 Chinese characters or at most 3 short bullets; do not add a closing offer or extra background.\n"
         )
 
     def _format_recent_session_context(self, request: ChatRequest, limit: int = 4) -> str:
@@ -3306,8 +3361,11 @@ class FacultyTwinWorkflowSupport:
             "研究方向",
             "研究路线",
             "主要研究",
+            "主要关注",
+            "关注哪些",
             "研究什么",
             "做什么研究",
+            "系统方向",
             "课题组",
             "科研",
             "企业 r&d",
@@ -3704,9 +3762,15 @@ class FacultyTwinWorkflowSupport:
 
         request = context.request
         question = request.question
-        if context.recent_session_context and self._SHORT_FOLLOWUP_PATTERN.match(question.strip()):
-            return None
         if request.attachments:
+            return None
+        if self._looks_like_contextual_follow_up(question, context.recent_session_context):
+            return None
+        if self._needs_booking_intent_classification(question):
+            return None
+        if self._looks_like_collaboration_preparation_question(question):
+            return None
+        if request.visitor_profile != "general_visitor":
             return None
 
         if self._should_force_human_handoff(question):
@@ -3740,7 +3804,6 @@ class FacultyTwinWorkflowSupport:
             )
 
         lowered = question.lower()
-        course_context = (request.course_context or "").lower()
 
         teaching_markers = (
             "tutorial",
@@ -3754,6 +3817,13 @@ class FacultyTwinWorkflowSupport:
             "作业",
             "课程",
             "课堂",
+            "这门课",
+            "这门课程",
+            "基础一般",
+            "基础薄弱",
+            "先补",
+            "补哪些",
+            "补什么",
         )
         if any(marker in lowered or marker in question for marker in teaching_markers):
             return InteractionIntent(
@@ -3788,7 +3858,7 @@ class FacultyTwinWorkflowSupport:
                 confidence=0.82,
             )
 
-        if self._is_research_question(question) or "科研" in course_context:
+        if self._is_research_question(question):
             return InteractionIntent(
                 action="answer",
                 domain="research",
@@ -4028,8 +4098,58 @@ class FacultyTwinWorkflowSupport:
         return expanded_question
 
     _SHORT_FOLLOWUP_PATTERN = re.compile(
-        r"^(具体|那个|这个|这篇|那篇|继续|然后|展开|详细|细节|还有|接着|其他|另外|呢|么|哦|能否|可以)"
+        r"^(具体|那个|这个|那|这|这篇|那篇|继续|然后|展开|详细|细节|还有|接着|其他|另外|呢|么|哦|能否|可以|按前面|按刚才)"
     )
+
+    def _looks_like_contextual_follow_up(
+        self,
+        question: str,
+        recent_session_context: str | None,
+    ) -> bool:
+        if not recent_session_context:
+            return False
+        normalized = question.strip()
+        if not normalized:
+            return False
+        if self._SHORT_FOLLOWUP_PATTERN.match(normalized):
+            return True
+        markers = (
+            "刚才",
+            "前面",
+            "上面",
+            "那个方向",
+            "这个方向",
+            "那个方案",
+            "这个方案",
+            "继续",
+            "下一步",
+            "值得继续",
+            "风险是什么",
+        )
+        return any(marker in normalized for marker in markers)
+
+    def _looks_like_collaboration_preparation_question(self, question: str) -> bool:
+        lowered = question.lower()
+        collaboration_markers = (
+            "合作",
+            "collaboration",
+            "collaborate",
+            "external partner",
+        )
+        preparation_markers = (
+            "准备",
+            "信息",
+            "材料",
+            "需求",
+            "对齐",
+            "prep",
+            "prepare",
+            "before",
+        )
+        return (
+            any(marker in lowered or marker in question for marker in collaboration_markers)
+            and any(marker in lowered or marker in question for marker in preparation_markers)
+        )
 
     def _expand_followup_question(
         self, question: str, recent_session_context: str | None
@@ -5740,7 +5860,7 @@ class DigitalTwinService:
             request,
             admin_session_token=admin_session_token,
             trace_callback=trace_callback,
-            use_runtime_pipeline=True,
+            use_runtime_pipeline=self._settings.chat_runtime_pipeline_enabled,
             on_post_answer_complete=on_post_answer_complete,
             answer_chunk_callback=answer_chunk_callback,
         )

@@ -453,7 +453,10 @@ def _resolve_effective_chat_visitor_profile(
     raw_request: Request,
     requested_visitor_profile: str | None,
 ) -> str | None:
-    user_session = service.get_user_session(raw_request.cookies.get(USER_COOKIE_NAME))
+    session_token = raw_request.cookies.get(USER_COOKIE_NAME)
+    if not session_token:
+        return requested_visitor_profile
+    user_session = service.get_user_session(session_token)
     if user_session.is_authenticated and user_session.account is not None:
         return user_session.account.visitor_profile
     return requested_visitor_profile
@@ -921,6 +924,12 @@ async def slack_twin_command(
             "text": "收到，我正在问 twin，答案会稍后发回这里。",
         }
     )
+
+
+@llm_app.on_event("startup")
+async def startup_event() -> None:
+    if settings.warm_service_on_startup:
+        await asyncio.to_thread(service.ensure_initialized)
 
 
 @llm_app.on_event("shutdown")

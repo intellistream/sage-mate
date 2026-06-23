@@ -162,7 +162,11 @@ def test_greeting_keeps_canonical_trace_order(tmp_path: Path) -> None:
     """A bare greeting produces every canonical trace key in order, with the
     booking stages reporting as skipped placeholders."""
 
-    settings = AppSettings(knowledge_base_dir=tmp_path)
+    settings = AppSettings(
+        knowledge_base_dir=tmp_path,
+        chat_runtime_pipeline_enabled=True,
+        fast_intent_classifier_enabled=False,
+    )
     service = DigitalTwinService(settings)
     service._llm_client = _AdviseOnlyLLMClient("你好 Alice，今天有什么我可以帮你？")
 
@@ -190,7 +194,11 @@ def test_research_question_keeps_canonical_trace_order(tmp_path: Path) -> None:
     """A research-style question takes the answer path and must still emit
     every canonical trace key in the canonical order."""
 
-    settings = AppSettings(knowledge_base_dir=tmp_path)
+    settings = AppSettings(
+        knowledge_base_dir=tmp_path,
+        chat_runtime_pipeline_enabled=True,
+        fast_intent_classifier_enabled=False,
+    )
     service = DigitalTwinService(settings)
     service._llm_client = _AdviseOnlyLLMClient("建议先复现 baseline，再围绕评估指标做对比实验。")
 
@@ -216,7 +224,11 @@ def test_booking_with_full_details_keeps_canonical_trace_order(
     """A booking request with all required fields exercises the booking
     branch. The trace shape stays canonical."""
 
-    settings = AppSettings(knowledge_base_dir=tmp_path)
+    settings = AppSettings(
+        knowledge_base_dir=tmp_path,
+        chat_runtime_pipeline_enabled=True,
+        fast_intent_classifier_enabled=False,
+    )
     service = DigitalTwinService(settings)
     service._llm_client = _BookingLLMClient()
 

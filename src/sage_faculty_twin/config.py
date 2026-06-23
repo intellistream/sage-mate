@@ -1,9 +1,10 @@
 from pathlib import Path
 
-from pydantic import Field
+from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
+DEFAULT_RUNTIME_DIR = REPO_ROOT.parent / "sage-faculty-twin-runtime-private"
 
 
 class AppSettings(BaseSettings):
@@ -36,6 +37,17 @@ class AppSettings(BaseSettings):
         le=4096,
         description="Default max_tokens for non-thinking interactive answers.",
     )
+    fast_answer_concise_guidance_enabled: bool = Field(default=True)
+    chat_runtime_pipeline_enabled: bool = Field(
+        default=False,
+        description="When True, run chat through FlowNetEnvironment DAG runtime. "
+        "When False, use the in-process stage chain to avoid per-request runtime compilation.",
+    )
+    warm_service_on_startup: bool = Field(
+        default=True,
+        description="When True, construct the DigitalTwinService during app startup "
+        "so the first real chat request does not pay the lazy initialization cost.",
+    )
     llm_policy_congestion_waiting_threshold: float = Field(default=1.0, ge=0.0, le=10000.0)
     llm_policy_congestion_kv_usage_threshold: float = Field(default=0.75, ge=0.0, le=1.0)
     llm_policy_congestion_total_requests_threshold: float = Field(
@@ -48,6 +60,12 @@ class AppSettings(BaseSettings):
             "You are a trusted academic digital twin. Answer clearly, avoid fabricating policy, "
             "and route scheduling requests into structured booking guidance."
         )
+    )
+    runtime_dir: Path = Field(
+        default=DEFAULT_RUNTIME_DIR,
+        description="External runtime-data repository root. Production data, KB, "
+        "logs, account records, and mutable state should live here instead of "
+        "inside the code repository.",
     )
     owner_style_profile_path: Path = Field(default=Path("data/persona/style_profile.md"))
     homepage_dir: Path = Field(default=REPO_ROOT / "data/homepage")
@@ -74,6 +92,8 @@ class AppSettings(BaseSettings):
     neuromem_embedding_model: str = Field(default="BAAI/bge-small-zh-v1.5")
     neuromem_embedding_dim: int = Field(default=512, ge=32, le=4096)
     retrieval_top_k: int = Field(default=3, ge=1, le=10)
+    knowledge_search_cache_ttl_seconds: int = Field(default=300, ge=0, le=3600)
+    knowledge_search_cache_max_entries: int = Field(default=256, ge=0, le=4096)
     web_search_enabled: bool = Field(default=True)
     web_search_timeout_seconds: float = Field(default=8.0, ge=1.0, le=30.0)
     web_search_max_results: int = Field(default=3, ge=1, le=8)
@@ -93,6 +113,9 @@ class AppSettings(BaseSettings):
     slack_user_link_dir: Path = Field(default=Path("data/slack_user_links"))
     workflow_policy_path: Path = Field(
         default=Path("data/workflow_policies/faculty-default-2026-05.json")
+    )
+    workflow_scenario_path: Path = Field(
+        default=Path("data/workflow_scenarios/v3_preview_scenarios.json")
     )
     planner_comparison_dir: Path | None = Field(default=None)
     planner_metrics_dir: Path | None = Field(default=None)
@@ -187,6 +210,38 @@ class AppSettings(BaseSettings):
         description="Operator-controlled version for invalidating fixed-prompt "
         "KV anchors after prompt-template or model changes.",
     )
+
+    @model_validator(mode="after")
+    def apply_runtime_dir_defaults(self) -> "AppSettings":
+        runtime_root = self.runtime_dir
+        defaults: dict[str, Path] = {
+            "owner_style_profile_path": runtime_root / "data/persona/style_profile.md",
+            "homepage_dir": runtime_root / "data/homepage",
+            "availability_schedule_path": runtime_root / "data/availability/current_week.json",
+            "knowledge_base_dir": runtime_root / "data/knowledge_base",
+            "conversation_memory_dir": runtime_root / "data/conversation_memory",
+            "online_presence_dir": runtime_root / ".runtime/online_presence",
+            "artifact_memory_draft_dir": runtime_root / "data/artifact_memory_drafts",
+            "knowledge_gap_draft_dir": runtime_root / "data/knowledge_gap_drafts",
+            "escalation_queue_dir": runtime_root / "data/escalations",
+            "follow_up_queue_dir": runtime_root / "data/follow_up_actions",
+            "operations_task_state_dir": runtime_root / "data/operations_task_state",
+            "suggestion_board_dir": runtime_root / "data/suggestions",
+            "user_account_store_dir": runtime_root / "data/user_accounts",
+            "slack_user_link_dir": runtime_root / "data/slack_user_links",
+            "workflow_policy_path": runtime_root
+            / "data/workflow_policies/faculty-default-2026-05.json",
+            "workflow_scenario_path": runtime_root
+            / "data/workflow_scenarios/v3_preview_scenarios.json",
+            "capability_plugin_dir": runtime_root / "data/capability_plugins",
+            "skill_dir": runtime_root / "data/skills",
+            "changelog_path": runtime_root / "data/changelog.json",
+            "context_digest_dir": runtime_root / "data/conversation_memory/digests",
+        }
+        for field_name, runtime_default in defaults.items():
+            if field_name not in self.model_fields_set:
+                setattr(self, field_name, runtime_default)
+        return self
 
 
 settings = AppSettings()

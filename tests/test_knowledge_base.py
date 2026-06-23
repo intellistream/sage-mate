@@ -37,6 +37,45 @@ def test_knowledge_store_adds_and_searches_documents(tmp_path: Path) -> None:
     assert hits[0].title == "Lab onboarding policy"
 
 
+def test_knowledge_store_caches_searches_and_invalidates_on_write(tmp_path: Path) -> None:
+    settings = AppSettings(
+        knowledge_base_dir=tmp_path,
+        knowledge_backend="local",
+        knowledge_search_cache_ttl_seconds=300,
+        knowledge_search_cache_max_entries=8,
+    )
+    store = LocalKnowledgeStore(settings)
+    store.add_document(
+        KnowledgeDocumentCreate(
+            title="General GPU note",
+            content="Students can ask about GPU access.",
+            tags=["lab"],
+            source_name="general-note",
+        )
+    )
+
+    first = store.search("GPU access")
+    second = store.search("GPU access")
+
+    assert first
+    assert second[0].document_id == first[0].document_id
+    assert len(store._search_cache) == 1
+
+    store.add_document(
+        KnowledgeDocumentCreate(
+            title="Specific GPU access policy",
+            content="GPU access requires reading the onboarding checklist before applying.",
+            tags=["lab", "policy"],
+            source_name="specific-policy",
+        )
+    )
+
+    assert len(store._search_cache) == 0
+    after_write = store.search("GPU access onboarding checklist")
+    assert after_write
+    assert after_write[0].title == "Specific GPU access policy"
+
+
 def test_knowledge_store_upsert_noop_preserves_created_at_and_file(tmp_path: Path) -> None:
     settings = AppSettings(knowledge_base_dir=tmp_path)
     store = LocalKnowledgeStore(settings)

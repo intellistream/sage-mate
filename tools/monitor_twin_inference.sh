@@ -5,11 +5,6 @@ repo_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 source "$repo_root/tools/lib/runtime_env.sh"
 export_repo_runtime_env "$repo_root"
 
-mkdir -p "$repo_root/logs" "$repo_root/data/alerts"
-log_file="$repo_root/logs/twin_inference_monitor.log"
-state_file="$repo_root/data/alerts/twin_inference_monitor_state.json"
-boot_marker_file="$repo_root/data/alerts/twin_inference_engine_boot_started_at"
-
 load_dotenv() {
     if [[ -f "$repo_root/.env" ]]; then
         while IFS= read -r line || [[ -n "$line" ]]; do
@@ -21,6 +16,14 @@ load_dotenv() {
         done < "$repo_root/.env"
     fi
 }
+
+load_dotenv
+
+runtime_root="${DIGITAL_TWIN_RUNTIME_DIR:-$repo_root/../sage-faculty-twin-runtime-private}"
+mkdir -p "$runtime_root/logs" "$runtime_root/data/alerts"
+log_file="$runtime_root/logs/twin_inference_monitor.log"
+state_file="$runtime_root/data/alerts/twin_inference_monitor_state.json"
+boot_marker_file="$runtime_root/data/alerts/twin_inference_engine_boot_started_at"
 
 log() {
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*" | tee -a "$log_file"
@@ -60,7 +63,7 @@ urllib.request.urlopen(req, timeout=8).read()
 PY
         return 0
     fi
-    printf '%s\n%s\n' "$title" "$body" > "$repo_root/data/alerts/latest_twin_inference_alert.txt"
+    printf '%s\n%s\n' "$title" "$body" > "$runtime_root/data/alerts/latest_twin_inference_alert.txt"
 }
 
 engine_is_active() {
@@ -90,8 +93,6 @@ within_engine_boot_grace() {
 
     (( now - started_at < grace ))
 }
-
-load_dotenv
 
 if "$PYTHON_BIN" "$repo_root/tools/check_twin_inference.py" --repo-root "$repo_root" --mode completion --timeout "${TWIN_MONITOR_TIMEOUT_SECONDS:-25}" --json >"$state_file.tmp" 2>&1; then
     mv "$state_file.tmp" "$state_file"

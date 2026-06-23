@@ -11,9 +11,26 @@ set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 WIKI_DIR="${1:-/home/shuhao/sage-wiki}"
-LOG_FILE="${REPO_ROOT}/logs/wiki_sync_$(date +%Y%m%d_%H%M%S).log"
 
-mkdir -p "${REPO_ROOT}/logs"
+load_dotenv() {
+    if [[ -f "$REPO_ROOT/.env" ]]; then
+        while IFS= read -r line || [[ -n "$line" ]]; do
+            [[ -z "$line" || "$line" =~ ^[[:space:]]*# ]] && continue
+            key="${line%%=*}"
+            key="${key// /}"
+            [[ -z "$key" || -n "${!key:-}" ]] && continue
+            export "$line"
+        done < "$REPO_ROOT/.env"
+    fi
+}
+
+load_dotenv
+
+RUNTIME_ROOT="${DIGITAL_TWIN_RUNTIME_DIR:-$REPO_ROOT/../sage-faculty-twin-runtime-private}"
+LOG_DIR="${RUNTIME_ROOT}/logs"
+LOG_FILE="${LOG_DIR}/wiki_sync_$(date +%Y%m%d_%H%M%S).log"
+
+mkdir -p "$LOG_DIR"
 
 log() {
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*" | tee -a "$LOG_FILE"
@@ -51,6 +68,6 @@ PYTHONPATH=src python tools/ingest_wiki.py --wiki-dir "$WIKI_DIR" 2>&1 | tee -a 
 log "=== Wiki KB Sync Complete ==="
 
 # Clean up old logs (keep last 30)
-ls -t "${REPO_ROOT}"/logs/wiki_sync_*.log 2>/dev/null | tail -n +31 | xargs -r rm -f
+ls -t "${LOG_DIR}"/wiki_sync_*.log 2>/dev/null | tail -n +31 | xargs -r rm -f
 
 exit 0

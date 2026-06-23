@@ -7,14 +7,34 @@ __pycache__/
 .env
 .runtime/
 .preview/
+logs/
 htmlcov/
 .coverage
 coverage.xml
-# Deployment-state data stays tracked so redeploys can restore the twin state.
-# Ignore only ad hoc backup snapshots and scratch artifacts.
+# Production runtime data lives in the separate private runtime repository
+# (DIGITAL_TWIN_RUNTIME_DIR, normally ../sage-faculty-twin-runtime-private).
+# Keep this code repository limited to source, tests, tooling, and examples.
+data/_seed_faq.json
+data/alerts/
+data/artifact_memory_drafts/
+data/availability/
+data/capability_plugins/
+data/changelog.json
+data/conversation_memory/
+data/escalations/
+data/follow_up_actions/
 data/homepage/
-data/conversation_memory/planner-comparisons/*.json
-data/conversation_memory/planner-metrics/*.json
+data/knowledge_base/
+data/knowledge_gap_drafts/
+data/operations_task_state/
+data/persona/
+data/skills/
+data/simulated_student_questions.json
+data/slack_user_links/
+data/suggestions/
+data/user_accounts/
+data/workflow_policies/
+data/workflow_scenarios/
 data.pre_recovery_*/
 data/*.backup-*/
 *.bak.*

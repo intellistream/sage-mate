@@ -3,6 +3,9 @@ from __future__ import annotations
 import hashlib
 import math
 import re
+import threading
+import time
+from collections import OrderedDict
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from uuid import uuid4
@@ -141,6 +144,10 @@ class LocalKnowledgeStore:
         self._np = None
         self._text_embedder = None
         self._document_id_to_vector_id: dict[str, int] = {}
+        self._search_cache: OrderedDict[
+            str, tuple[float, list[KnowledgeSearchHit]]
+        ] = OrderedDict()
+        self._search_cache_lock = threading.Lock()
         # Wiki-link retrieval: adjacency list mapping document_id → list of
         # linked document_ids.  Built from ``metadata["linked_source_names"]``
         # at load time.  See wiki-link-retrieval repo for research context.
@@ -178,6 +185,7 @@ class LocalKnowledgeStore:
         elif self._backend == "neuromem" and rebuild_indexes:
             self._add_to_neuromem(record)
         self._rebuild_link_graph()
+        self._clear_search_cache()
         return record
 
     def upsert_document(
@@ -221,6 +229,7 @@ class LocalKnowledgeStore:
         if rebuild_indexes:
             self._rebuild_backend_indexes()
         self._rebuild_link_graph()
+        self._clear_search_cache()
         return updated_record, False
 
     def update_document(
@@ -256,6 +265,7 @@ class LocalKnowledgeStore:
         if rebuild_indexes:
             self._rebuild_backend_indexes()
         self._rebuild_link_graph()
+        self._clear_search_cache()
         return updated_record
 
     def list_documents(self) -> list[KnowledgeDocumentRecord]:
@@ -283,10 +293,14 @@ class LocalKnowledgeStore:
 
         if removed and rebuild_indexes:
             self._rebuild_backend_indexes()
+        if removed:
+            self._rebuild_link_graph()
+            self._clear_search_cache()
         return removed
 
     def rebuild_indexes(self) -> None:
         self._rebuild_backend_indexes()
+        self._clear_search_cache()
 
     def search(
         self,
@@ -296,20 +310,29 @@ class LocalKnowledgeStore:
         visitor_profile: str | None = None,
         admin_role: str | None = None,
     ) -> list[KnowledgeSearchHit]:
+        cache_key = self._search_cache_key(query, top_k, visitor_profile, admin_role)
+        cached = self._get_cached_search(cache_key)
+        if cached is not None:
+            return cached
+
         if self._backend == "sagevdb":
-            return self._search_sagevdb(
+            hits = self._search_sagevdb(
                 query,
                 top_k,
                 visitor_profile=visitor_profile,
                 admin_role=admin_role,
             )
+            self._store_cached_search(cache_key, hits)
+            return hits
         if self._backend == "neuromem":
-            return self._search_neuromem(
+            hits = self._search_neuromem(
                 query,
                 top_k,
                 visitor_profile=visitor_profile,
                 admin_role=admin_role,
             )
+            self._store_cached_search(cache_key, hits)
+            return hits
 
         query_tokens = self._tokenize(query)
         if not query_tokens:
@@ -349,7 +372,74 @@ class LocalKnowledgeStore:
         if self._link_expansion_enabled:
             reranked = self._expand_hits_with_links(reranked, query_tokens, query_profile)
             reranked.sort(key=lambda item: item.score, reverse=True)
-        return self._finalize_hits(reranked, query_profile, limit)
+        hits = self._finalize_hits(reranked, query_profile, limit)
+        self._store_cached_search(cache_key, hits)
+        return hits
+
+    def _search_cache_key(
+        self,
+        query: str,
+        top_k: int | None,
+        visitor_profile: str | None,
+        admin_role: str | None,
+    ) -> str:
+        normalized_query = " ".join(query.split())
+        return "\n".join(
+            (
+                self._backend,
+                str(top_k or self._settings.retrieval_top_k),
+                visitor_profile or "",
+                admin_role or "",
+                normalized_query,
+            )
+        )
+
+    def _get_cached_search(self, cache_key: str) -> list[KnowledgeSearchHit] | None:
+        ttl_seconds = int(self._settings.knowledge_search_cache_ttl_seconds)
+        max_entries = int(self._settings.knowledge_search_cache_max_entries)
+        if ttl_seconds <= 0 or max_entries <= 0:
+            return None
+
+        now = time.time()
+        with self._search_cache_lock:
+            self._evict_expired_search_cache_locked(now)
+            cached = self._search_cache.get(cache_key)
+            if cached is None:
+                return None
+            expires_at, hits = cached
+            if expires_at <= now:
+                self._search_cache.pop(cache_key, None)
+                return None
+            self._search_cache.move_to_end(cache_key)
+            return [hit.model_copy(deep=True) for hit in hits]
+
+    def _store_cached_search(self, cache_key: str, hits: list[KnowledgeSearchHit]) -> None:
+        ttl_seconds = int(self._settings.knowledge_search_cache_ttl_seconds)
+        max_entries = int(self._settings.knowledge_search_cache_max_entries)
+        if ttl_seconds <= 0 or max_entries <= 0:
+            return
+
+        now = time.time()
+        with self._search_cache_lock:
+            self._evict_expired_search_cache_locked(now)
+            self._search_cache[cache_key] = (
+                now + ttl_seconds,
+                [hit.model_copy(deep=True) for hit in hits],
+            )
+            self._search_cache.move_to_end(cache_key)
+            while len(self._search_cache) > max_entries:
+                self._search_cache.popitem(last=False)
+
+    def _evict_expired_search_cache_locked(self, now: float) -> None:
+        expired_keys = [
+            key for key, (expires_at, _) in self._search_cache.items() if expires_at <= now
+        ]
+        for key in expired_keys:
+            self._search_cache.pop(key, None)
+
+    def _clear_search_cache(self) -> None:
+        with self._search_cache_lock:
+            self._search_cache.clear()
 
     def count_documents(self) -> int:
         return len(self._documents)

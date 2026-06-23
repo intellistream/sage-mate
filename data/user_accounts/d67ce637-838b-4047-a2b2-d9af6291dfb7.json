@@ -1,9 +1,0 @@
-{
-  "user_id": "d67ce637-838b-4047-a2b2-d9af6291dfb7",
-  "name": "王子澳",
-  "email": "m202474193@hust.edu.cn",
-  "password_salt": "86e296b6d4b90460a5be3068f59de7d4",
-  "password_hash": "360602fe2af9fdd8e48b2c2da8847b16472b558f53d2bf8a7ffde6a803518fcb0d2d7c909d9567f06276c62333a61000303a92763621e56edbca9a0dcc725171",
-  "created_at": "2026-05-27T03:48:38.529612+00:00",
-  "updated_at": "2026-05-27T03:48:38.529612+00:00"
-}

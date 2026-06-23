@@ -5,7 +5,7 @@ from pathlib import Path
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from .config import REPO_ROOT
+from .config import settings
 from .workflow_context import WorkflowRequestContext
 from .workflow_steps import WorkflowStepDefinition, get_default_step_registry
 
@@ -48,7 +48,7 @@ class PolicyValidationResult(BaseModel):
 
 
 def default_workflow_policy_path() -> Path:
-    return REPO_ROOT / "data" / "workflow_policies" / "faculty-default-2026-05.json"
+    return settings.workflow_policy_path
 
 
 def load_workflow_policy(path: Path | None = None) -> WorkflowPolicy:

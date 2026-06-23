@@ -737,6 +737,35 @@ def test_chat_fast_paths_obvious_research_route_without_llm_classifier(
     assert "heuristic-fast" in interaction_step.detail
 
 
+def test_chat_fast_paths_obvious_teaching_route_without_llm_classifier(
+    tmp_path: Path,
+) -> None:
+    settings = AppSettings(knowledge_base_dir=tmp_path)
+    service = DigitalTwinService(settings)
+    service._llm_client = IntentClassifierFailingLLMClient(
+        booking_intent=False,
+        answer="可以先补并行程序基础、操作系统和基础性能分析方法。",
+    )
+
+    response = asyncio.run(
+        service.answer(
+            ChatRequest(
+                student_name="Alice",
+                student_email="alice@example.com",
+                visitor_profile="general_visitor",
+                question="这门课如果我基础一般，应该先补哪些内容？",
+                deep_thinking=False,
+            )
+        )
+    )
+
+    assert response.workflow_action == "answer"
+    assert response.decision_mode == "direct_answer"
+    interaction_step = _trace_step(response, "interaction_understand")
+    assert "answer/teaching" in interaction_step.summary
+    assert "heuristic-fast" in interaction_step.detail
+
+
 def test_chat_answers_office_hour_query_without_starting_booking_workflow(
     tmp_path: Path,
 ) -> None:

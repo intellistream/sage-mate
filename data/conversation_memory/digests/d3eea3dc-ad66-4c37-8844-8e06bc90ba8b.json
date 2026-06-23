@@ -1,6 +1,0 @@
-{
-  "conversation_id": "d3eea3dc-ad66-4c37-8844-8e06bc90ba8b",
-  "digest_text": "用户聚焦于Ascend NPU上大模型推理优化，尤其针对Offload场景下的D2H传输瓶颈问题。当前挑战在于ACLgraph不适用，需采用单算子模式导致性能下降，用户提出三点优化：1）NPU中维护固定地址slots池暂存激活权重；2）Prefill阶段采用边传边算设计减少空泡；3）Decode阶段分两阶段ACLgraph提升效率。用户计划撰写论文，需梳理故事线与问题定义，重点突出Offload场景的性能瓶颈、现有方案的局限性及所提方法的创新点。建议优先参考Ascend-vLLM框架、IR语法指南及相关Benchmark资料，并结合科研论文结构指导完善论文框架。",
-  "turns_summarized": 4,
-  "updated_at": "2026-06-22T07:33:00.207769+00:00"
-}

@@ -5,6 +5,7 @@ from pathlib import Path
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from .config import settings
 from .models import ChatRequest
 from .workflow_context import WorkflowRequestContext
 from .workflow_planner import DeterministicWorkflowPlanner, PlannerDecision
@@ -34,12 +35,7 @@ class WorkflowReplayResult(BaseModel):
 
 
 def default_scenarios_path() -> Path:
-    return (
-        Path(__file__).resolve().parents[2]
-        / "data"
-        / "workflow_scenarios"
-        / "v3_preview_scenarios.json"
-    )
+    return settings.workflow_scenario_path
 
 
 def load_workflow_replay_scenarios(
