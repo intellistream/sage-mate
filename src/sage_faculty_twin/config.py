@@ -210,6 +210,16 @@ class AppSettings(BaseSettings):
         description="Operator-controlled version for invalidating fixed-prompt "
         "KV anchors after prompt-template or model changes.",
     )
+    installed_skill_prompt_enabled: bool = Field(
+        default=True,
+        description="When True, include the curated installed-skill prompt prefix "
+        "from the runtime repository in the system prompt.",
+    )
+    installed_skill_prompt_path: Path = Field(
+        default=Path("data/installed_skills/fixed_prompt_skills.md"),
+        description="Runtime path to low-risk fixed skill guidance loaded into "
+        "the stable system prompt.",
+    )
 
     @model_validator(mode="after")
     def apply_runtime_dir_defaults(self) -> "AppSettings":
@@ -237,6 +247,8 @@ class AppSettings(BaseSettings):
             "skill_dir": runtime_root / "data/skills",
             "changelog_path": runtime_root / "data/changelog.json",
             "context_digest_dir": runtime_root / "data/conversation_memory/digests",
+            "installed_skill_prompt_path": runtime_root
+            / "data/installed_skills/fixed_prompt_skills.md",
         }
         for field_name, runtime_default in defaults.items():
             if field_name not in self.model_fields_set:

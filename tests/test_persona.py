@@ -32,6 +32,39 @@ def test_build_system_prompt_falls_back_to_default_style_guide(tmp_path: Path) -
     assert "Calm, direct, and academically grounded." in prompt
 
 
+def test_build_system_prompt_includes_installed_skill_prefix(tmp_path: Path) -> None:
+    skill_prompt_path = tmp_path / "fixed_prompt_skills.md"
+    skill_prompt_path.write_text(
+        "- Paper feedback: check claims against evidence.\n"
+        "- Permission boundary: do not expose restricted material.\n",
+        encoding="utf-8",
+    )
+    settings = AppSettings(
+        owner_style_profile_path=tmp_path / "missing.md",
+        installed_skill_prompt_path=skill_prompt_path,
+    )
+
+    prompt = build_system_prompt(settings)
+
+    assert "Installed reusable skills, always available:" in prompt
+    assert "Paper feedback: check claims against evidence." in prompt
+    assert "Permission boundary: do not expose restricted material." in prompt
+
+
+def test_build_system_prompt_can_disable_installed_skill_prefix(tmp_path: Path) -> None:
+    skill_prompt_path = tmp_path / "fixed_prompt_skills.md"
+    skill_prompt_path.write_text("Should not load", encoding="utf-8")
+    settings = AppSettings(
+        owner_style_profile_path=tmp_path / "missing.md",
+        installed_skill_prompt_path=skill_prompt_path,
+        installed_skill_prompt_enabled=False,
+    )
+
+    prompt = build_system_prompt(settings)
+
+    assert "Should not load" not in prompt
+
+
 def test_build_system_prompt_loads_repo_default_style_profile() -> None:
     prompt = build_system_prompt(AppSettings())
 

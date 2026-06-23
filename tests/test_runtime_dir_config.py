@@ -18,6 +18,10 @@ def test_runtime_dir_supplies_mutable_store_defaults(tmp_path: Path, monkeypatch
         settings.workflow_scenario_path
         == tmp_path / "data/workflow_scenarios/v3_preview_scenarios.json"
     )
+    assert (
+        settings.installed_skill_prompt_path
+        == tmp_path / "data/installed_skills/fixed_prompt_skills.md"
+    )
 
 
 def test_explicit_store_paths_are_not_overridden_by_runtime_dir(tmp_path: Path) -> None:
