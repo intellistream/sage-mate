@@ -3,6 +3,7 @@ from __future__ import annotations
 from tools.segment_reuse_experiment import (
     BODY_MARKER_BEGIN,
     TrialConfig,
+    WORKLOADS,
     _build_messages,
 )
 
@@ -16,6 +17,7 @@ def test_experiment_baseline_uses_envelope_before_body_without_hints() -> None:
     system_text, extras = _system_text(
         TrialConfig(
             variant="baseline_e_b",
+            workload="policy_first",
             body_tokens=512,
             envelope_tokens=32,
             concurrency=1,
@@ -31,6 +33,7 @@ def test_experiment_native_prefix_uses_body_before_envelope_and_cache_salt() -> 
     system_text, extras = _system_text(
         TrialConfig(
             variant="native_b_e",
+            workload="policy_first",
             body_tokens=512,
             envelope_tokens=32,
             concurrency=1,
@@ -39,7 +42,7 @@ def test_experiment_native_prefix_uses_body_before_envelope_and_cache_salt() -> 
     )
 
     assert system_text.index(BODY_MARKER_BEGIN) < system_text.index("ENVELOPE")
-    assert extras["cache_salt"].startswith("native-prefix:demo-model:512:32")
+    assert extras["cache_salt"].startswith("native-prefix:demo-model:policy_first:512:32")
     assert "extra_key" not in extras
 
 
@@ -47,6 +50,7 @@ def test_experiment_segment_hint_keeps_envelope_before_body_and_sends_extra_key(
     system_text, extras = _system_text(
         TrialConfig(
             variant="segment_hint_e_b",
+            workload="policy_first",
             body_tokens=512,
             envelope_tokens=32,
             concurrency=1,
@@ -59,3 +63,20 @@ def test_experiment_segment_hint_keeps_envelope_before_body_and_sends_extra_key(
     assert extras["extra_key"].startswith("sage-faculty-twin:experiment:lab_member:")
     assert "||segreuse:v1;" in extras["extra_key"]
     assert "leading_tokens=;" in extras["extra_key"]
+
+
+def test_experiment_e_b_workloads_model_dynamic_envelope_first() -> None:
+    for workload in WORKLOADS:
+        system_text, extras = _system_text(
+            TrialConfig(
+                variant="segment_hint_e_b",
+                workload=workload,
+                body_tokens=512,
+                envelope_tokens=32,
+                concurrency=1,
+                repeated_mode="cold",
+            )
+        )
+
+        assert system_text.index("ENVELOPE") < system_text.index(BODY_MARKER_BEGIN)
+        assert "extra_key" in extras

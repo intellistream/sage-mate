@@ -18,6 +18,7 @@ import argparse
 import csv
 import hashlib
 import json
+import math
 import os
 import re
 import statistics
@@ -39,6 +40,7 @@ BODY_TOKEN_OPTIONS = (512, 2048, 8192)
 ENVELOPE_TOKEN_OPTIONS = (32, 128, 512)
 CONCURRENCY_OPTIONS = (1, 4, 16)
 VARIANTS = ("baseline_e_b", "native_b_e", "segment_hint_e_b")
+WORKLOADS = ("policy_first", "task_first", "agent_state_first")
 
 BODY_MARKER_BEGIN = "<SEGMENT_REUSE_BODY"
 BODY_MARKER_END = "</SEGMENT_REUSE_BODY>"
@@ -81,6 +83,7 @@ METRIC_ALIASES = {
 @dataclass(frozen=True)
 class TrialConfig:
     variant: str
+    workload: str
     body_tokens: int
     envelope_tokens: int
     concurrency: int
@@ -149,16 +152,64 @@ def _approx_text(label: str, target_tokens: int) -> str:
     return (sentence * repeats).strip()
 
 
-def _body_text(target_tokens: int) -> str:
-    return _approx_text("BODY", target_tokens)
+def _body_text(target_tokens: int, *, workload: str) -> str:
+    if workload == "policy_first":
+        seed = (
+            "BODY shared public lab handbook. It contains research routes, "
+            "onboarding steps, paper-reading expectations, experiment hygiene, "
+            "systems project rubrics, and examples of reusable guidance. "
+        )
+    elif workload == "task_first":
+        seed = (
+            "BODY shared technical corpus. It describes KV cache reuse, "
+            "PagedAttention, prefix caching, segment stitch, admission control, "
+            "allocator pinning, demotion reasons, and evaluation metrics. "
+        )
+    elif workload == "agent_state_first":
+        seed = (
+            "BODY shared tool and skill manual. It lists available tools, "
+            "schemas, safety contracts, planner conventions, workflow actions, "
+            "and stable instructions for answer composition. "
+        )
+    else:
+        raise ValueError(f"unknown workload: {workload}")
+    repeats = max(1, target_tokens // 18)
+    return (seed * repeats).strip()
 
 
-def _envelope_text(target_tokens: int, request_id: int, *, stable: bool) -> str:
+def _envelope_text(
+    target_tokens: int,
+    request_id: int,
+    *,
+    stable: bool,
+    workload: str,
+) -> str:
     unique = "stable" if stable else f"request-{request_id}-{time.time_ns()}"
-    return (
-        _approx_text("ENVELOPE", target_tokens)
-        + f"\nDynamic request id: {unique}. Answer with exactly two concise bullets."
-    )
+    if workload == "policy_first":
+        seed = (
+            "ENVELOPE dynamic access policy first. The current visitor profile, "
+            "permission scope, audit id, and redaction rule must be interpreted "
+            "before reading the shared handbook. "
+        )
+        task = "Apply this policy before using the body. Answer with exactly two concise bullets."
+    elif workload == "task_first":
+        seed = (
+            "ENVELOPE dynamic task instruction first. This request asks for a "
+            "specific analysis objective, evaluation axis, output format, and "
+            "fresh request id before reading the shared technical corpus. "
+        )
+        task = "Use the body only for this task. Answer with exactly two concise bullets."
+    elif workload == "agent_state_first":
+        seed = (
+            "ENVELOPE dynamic agent state first. The current planner step, "
+            "completed tool calls, pending constraint, and failure budget must "
+            "be processed before reading the shared tool manual. "
+        )
+        task = "Follow this agent state before using the body. Answer with exactly two concise bullets."
+    else:
+        raise ValueError(f"unknown workload: {workload}")
+    repeats = max(1, target_tokens // 18)
+    return (seed * repeats).strip() + f"\nDynamic request id: {unique}. {task}"
 
 
 def _segment_extra_key(
@@ -187,18 +238,31 @@ def _build_messages(
     model: str,
     request_id: int,
 ) -> tuple[list[dict[str, str]], dict[str, Any]]:
-    body = _body_text(config.body_tokens)
+    body = _body_text(config.body_tokens, workload=config.workload)
     stable_envelope = config.repeated_mode == "hot"
-    envelope = _envelope_text(config.envelope_tokens, request_id, stable=stable_envelope)
+    envelope = _envelope_text(
+        config.envelope_tokens,
+        request_id,
+        stable=stable_envelope,
+        workload=config.workload,
+    )
     if config.repeated_mode == "mixed" and request_id % 2 == 0:
-        envelope = _envelope_text(config.envelope_tokens, 0, stable=True)
+        envelope = _envelope_text(
+            config.envelope_tokens,
+            0,
+            stable=True,
+            workload=config.workload,
+        )
 
     extras: dict[str, Any] = {}
     if config.variant == "baseline_e_b":
         system = f"{envelope}\n\n{BODY_MARKER_BEGIN}>{body}{BODY_MARKER_END}"
     elif config.variant == "native_b_e":
         system = f"{BODY_MARKER_BEGIN}>{body}{BODY_MARKER_END}\n\n{envelope}"
-        extras["cache_salt"] = f"native-prefix:{model}:{config.body_tokens}:{config.envelope_tokens}"
+        extras["cache_salt"] = (
+            f"native-prefix:{model}:{config.workload}:"
+            f"{config.body_tokens}:{config.envelope_tokens}"
+        )
     elif config.variant == "segment_hint_e_b":
         body_digest = hashlib.sha256(f"{model}\n{body}".encode("utf-8")).hexdigest()[:16]
         system = (
@@ -314,19 +378,22 @@ def _run_trial(
     after = _read_metrics(metrics_url, api_key=api_key)
     delta = _metric_delta(before, after)
     latencies = [item["elapsed_s"] for item in results]
+    sorted_latencies = sorted(latencies)
+    p95_index = math.ceil(0.95 * len(sorted_latencies)) - 1 if sorted_latencies else 0
     prefix_queries = delta.get("prefix_cache_queries", 0.0)
     prefix_hits = delta.get("prefix_cache_hits", 0.0)
     segment_queries = delta.get("segment_reuse_queries", 0.0)
     segment_committed = delta.get("segment_stitch_committed", 0.0)
     return {
         "variant": config.variant,
+        "workload": config.workload,
         "body_tokens_target": config.body_tokens,
         "envelope_tokens_target": config.envelope_tokens,
         "concurrency": config.concurrency,
         "repeated_mode": config.repeated_mode,
         "requests": len(results),
         "median_e2e_s": statistics.median(latencies) if latencies else 0.0,
-        "p95_e2e_s": sorted(latencies)[int(0.95 * (len(latencies) - 1))] if latencies else 0.0,
+        "p95_e2e_s": sorted_latencies[p95_index] if sorted_latencies else 0.0,
         "mean_prompt_tokens": statistics.mean(item["prompt_tokens"] for item in results)
         if results
         else 0.0,
@@ -377,6 +444,7 @@ def main() -> None:
     parser.add_argument("--concurrency", default="1")
     parser.add_argument("--repeated-modes", default="cold,hot")
     parser.add_argument("--variants", default=",".join(VARIANTS))
+    parser.add_argument("--workloads", default="policy_first,task_first,agent_state_first")
     parser.add_argument("--output-json", type=Path, default=None)
     parser.add_argument("--output-csv", type=Path, default=None)
     args = parser.parse_args()
@@ -394,43 +462,51 @@ def main() -> None:
     concurrencies = [int(item) for item in args.concurrency.split(",") if item.strip()]
     repeated_modes = [item.strip() for item in args.repeated_modes.split(",") if item.strip()]
     variants = [item.strip() for item in args.variants.split(",") if item.strip()]
+    workloads = [item.strip() for item in args.workloads.split(",") if item.strip()]
 
     rows: list[dict[str, Any]] = []
     for variant in variants:
         if variant not in VARIANTS:
             raise SystemExit(f"Unknown variant: {variant}; expected one of {', '.join(VARIANTS)}")
-        for body_target in body_tokens:
-            for envelope_target in envelope_tokens:
-                for concurrency in concurrencies:
-                    for repeated_mode in repeated_modes:
-                        config = TrialConfig(
-                            variant=variant,
-                            body_tokens=body_target,
-                            envelope_tokens=envelope_target,
-                            concurrency=concurrency,
-                            repeated_mode=repeated_mode,
-                        )
-                        print(
-                            "RUN",
-                            variant,
-                            f"body={body_target}",
-                            f"envelope={envelope_target}",
-                            f"conc={concurrency}",
-                            repeated_mode,
-                            flush=True,
-                        )
-                        rows.append(
-                            _run_trial(
-                                host=host,
-                                model=model,
-                                api_key=api_key,
-                                metrics_url=metrics_url,
-                                config=config,
-                                requests_per_trial=args.requests_per_trial,
-                                max_tokens=args.max_tokens,
-                                retries=args.retries,
+        for workload in workloads:
+            if workload not in WORKLOADS:
+                raise SystemExit(
+                    f"Unknown workload: {workload}; expected one of {', '.join(WORKLOADS)}"
+                )
+            for body_target in body_tokens:
+                for envelope_target in envelope_tokens:
+                    for concurrency in concurrencies:
+                        for repeated_mode in repeated_modes:
+                            config = TrialConfig(
+                                variant=variant,
+                                workload=workload,
+                                body_tokens=body_target,
+                                envelope_tokens=envelope_target,
+                                concurrency=concurrency,
+                                repeated_mode=repeated_mode,
                             )
-                        )
+                            print(
+                                "RUN",
+                                variant,
+                                workload,
+                                f"body={body_target}",
+                                f"envelope={envelope_target}",
+                                f"conc={concurrency}",
+                                repeated_mode,
+                                flush=True,
+                            )
+                            rows.append(
+                                _run_trial(
+                                    host=host,
+                                    model=model,
+                                    api_key=api_key,
+                                    metrics_url=metrics_url,
+                                    config=config,
+                                    requests_per_trial=args.requests_per_trial,
+                                    max_tokens=args.max_tokens,
+                                    retries=args.retries,
+                                )
+                            )
 
     report = {
         "host": host,

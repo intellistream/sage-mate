@@ -80,6 +80,7 @@ export_repo_runtime_env "$PWD"
   --envelope-tokens 32,128,512 \
   --concurrency 1,4,16 \
   --repeated-modes cold,hot,mixed \
+  --workloads policy_first,task_first,agent_state_first \
   --requests-per-trial 4 \
   --output-json /tmp/segment-reuse-report.json \
   --output-csv /tmp/segment-reuse-report.csv
@@ -93,6 +94,7 @@ For quick smoke:
   --envelope-tokens 32 \
   --concurrency 1 \
   --repeated-modes cold,hot \
+  --workloads policy_first \
   --requests-per-trial 2
 ```
 
@@ -104,17 +106,47 @@ The script sends three direct OpenAI-compatible variants:
 | `native_b_e` | B|E | `cache_salt` |
 | `segment_hint_e_b` | E|B | body markers + `extra_key` |
 
+It also includes three E|B workload families:
+
+| Workload | Dynamic envelope | Stable body |
+| --- | --- | --- |
+| `policy_first` | current visitor profile, permission scope, audit id, redaction rule | shared public lab handbook |
+| `task_first` | this request's objective, output format, evaluation axis | shared KV/prefix/segment-reuse technical corpus |
+| `agent_state_first` | current planner step, tool results, pending constraints | shared tool/skill manual |
+
 It bypasses `/chat`, so service semantic/knowledge caches are not part of the
 model-side comparison. Use `tools/smoke_segment_reuse_perf.py` separately to
 measure the full app path where service cache is enabled.
 
 ## Result Table Template
 
-| Variant | Body | Envelope | Concurrency | Mode | Median E2E | Prefix hit tokens/blocks | Stitch committed | Reused body tokens | Interpretation |
-| --- | ---: | ---: | ---: | --- | ---: | ---: | ---: | ---: | --- |
-| baseline_e_b | 512 | 32 | 1 | cold | TBD | expected low | requires engine metric | requires engine metric | Full prefill baseline |
-| native_b_e | 512 | 32 | 1 | hot | TBD | expected high | 0/absent | 0/absent | Native prefix benefit |
-| segment_hint_e_b | 512 | 32 | 1 | hot | TBD | may be low | must be >0 to claim stitch | must be >0 to claim stitch | Control hint unless engine consumes it |
+| Variant | Workload | Body | Envelope | Concurrency | Mode | Median E2E | Prefix hit tokens/blocks | Stitch committed | Reused body tokens | Interpretation |
+| --- | --- | ---: | ---: | ---: | --- | ---: | ---: | ---: | ---: | --- |
+| baseline_e_b | policy_first | 512 | 32 | 1 | cold | TBD | expected low | requires engine metric | requires engine metric | Full prefill baseline |
+| native_b_e | policy_first | 512 | 32 | 1 | hot | TBD | expected high | 0/absent | 0/absent | Native prefix benefit |
+| segment_hint_e_b | policy_first | 512 | 32 | 1 | hot | TBD | may be low | must be >0 to claim stitch | must be >0 to claim stitch | Control hint unless engine consumes it |
+
+## Initial Online Observations
+
+These quick probes bypassed `/chat` and used the direct OpenAI-compatible
+endpoint with `repeated_mode=cold`, so the dynamic envelope changed between
+requests.
+
+| Variant | Workload | Body target | Prefix hit rate | Native cached tokens | Segment committed | Reused body tokens | Interpretation |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | --- |
+| `baseline_e_b` | `policy_first` | 512 | 0.000 | 0 | 0 | 0 | Dynamic E prefix prevents native prefix reuse. |
+| `native_b_e` | `policy_first` | 512 | 0.835 | 5376 | 0 | 0 | B|E exposes body to native prefix cache. |
+| `segment_hint_e_b` | `policy_first` | 512 | 0.000 | 0 | 0 | 0 | `extra_key` alone does not trigger stitch. |
+| `baseline_e_b` | `policy_first` | 2048 | 0.000 | 0 | 0 | 0 | Long body still recomputed when behind dynamic E. |
+| `native_b_e` | `policy_first` | 2048 | 0.485 | 7680 | 0 | 0 | Native cache helps only after moving body to prefix. |
+| `segment_hint_e_b` | `policy_first` | 2048 | 0.000 | 0 | 0 | 0 | No engine-side stitch metrics observed. |
+
+This confirms that the workload shape we need does exist: dynamic envelope
+first, reusable body later. It also confirms that the current serving stack is
+not yet reporting segment stitch consumption. If the engine adapter later
+implements stitch, the `segment_hint_e_b` rows are where
+`segment_stitch_committed` and `segment_reused_body_tokens` should become
+nonzero.
 
 ## Engine Adapter Hooks Needed
 
