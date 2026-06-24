@@ -45,6 +45,7 @@ dtype="${VLLM_ENGINE_DTYPE:-bfloat16}"
 api_key="${VLLM_HUST_API_KEY:-${DIGITAL_TWIN_API_KEY:-}}"
 vllm_bin="${VLLM_ENGINE_BIN:-vllm-hust}"
 replace_existing="${VLLM_ENGINE_REPLACE_EXISTING:-true}"
+compilation_config="${VLLM_ENGINE_COMPILATION_CONFIG:-}"
 
 if [[ -z "$api_key" || "$api_key" == "EMPTY" ]]; then
     echo "ERROR: vllm-hust must be started with a real API key." >&2
@@ -97,6 +98,9 @@ echo "[vllm-engine] gpu_mem_util      = $gpu_mem_util"
 echo "[vllm-engine] max_num_seqs      = $max_num_seqs"
 echo "[vllm-engine] dtype             = $dtype"
 echo "[vllm-engine] graph_mode        = ON (no --enforce-eager)"
+if [[ -n "$compilation_config" ]]; then
+    echo "[vllm-engine] compilation_config = $compilation_config"
+fi
 
 # A docker-exec launched vLLM process can survive a failed/restarted systemd
 # wrapper.  Before binding the fixed service port, clean up only matching
@@ -171,6 +175,10 @@ vllm_args=(
     --api-key "$api_key"
 )
 
+if [[ -n "$compilation_config" ]]; then
+    vllm_args+=(--compilation-config "$compilation_config")
+fi
+
 # ── Launch inside Docker container ───────────────────────────────────────────
 # Use login shell so CANN/NPU environment is sourced.
 # Pass critical env vars through docker exec --env.
@@ -178,5 +186,5 @@ docker_env_args=(
     --env "VLLM_TARGET_DEVICE=$VLLM_TARGET_DEVICE"
 )
 [[ -n "$npu_devices" ]] && docker_env_args+=(--env "ASCEND_RT_VISIBLE_DEVICES=$npu_devices")
-cmd_str="${vllm_args[*]}"
+printf -v cmd_str '%q ' "${vllm_args[@]}"
 exec $docker_cmd exec "${docker_env_args[@]}" "$container" bash -lc "$cmd_str"
