@@ -357,12 +357,28 @@ class _SequencedChatCompletionResponse:
         return {"choices": [payload]}
 
 
+class _FailingChatCompletionResponse:
+    def raise_for_status(self) -> None:
+        raise httpx.HTTPStatusError(
+            "server error",
+            request=httpx.Request("POST", "http://test.local/v1/chat/completions"),
+            response=httpx.Response(500),
+        )
+
+
 class _SequencedHttpxClient:
-    def __init__(self, responses: list[_SequencedChatCompletionResponse]) -> None:
+    def __init__(
+        self,
+        responses: list[_SequencedChatCompletionResponse | _FailingChatCompletionResponse],
+    ) -> None:
         self._responses = list(responses)
         self.calls: list[tuple[str, dict]] = []
 
-    def post(self, path: str, json: dict) -> _SequencedChatCompletionResponse:
+    def post(
+        self,
+        path: str,
+        json: dict,
+    ) -> _SequencedChatCompletionResponse | _FailingChatCompletionResponse:
         self.calls.append((path, json))
         if not self._responses:
             raise RuntimeError("no more sequenced responses")
@@ -699,3 +715,214 @@ def test_fixed_prefix_materialization_hints_use_stable_anchor() -> None:
     assert first["cache_salt"].startswith("kvmat:anchor:twin-fixed:v2:")
     assert changed_prompt["cache_salt"] != first["cache_salt"]
     assert first["kv_transfer_params"] == {"remote_engine_id": "prefill-0"}
+
+
+def test_segment_reuse_hints_are_feature_gated() -> None:
+    client = object.__new__(VllmChatClient)
+    client._settings = AppSettings(segment_reuse_hints_enabled=False)
+    client.model_name = "demo-model"
+    payload = {"model": "demo-model", "messages": []}
+
+    annotated = client.annotate_request_with_segment_reuse_hints(
+        dict(payload),
+        reusable_body_text="stable reusable body",
+        scope="lab_member",
+        logical_request_id="conv-1",
+    )
+
+    assert annotated == payload
+
+
+def test_segment_reuse_hints_attach_extra_key_without_leading_token_guess() -> None:
+    client = object.__new__(VllmChatClient)
+    client._settings = AppSettings(
+        segment_reuse_hints_enabled=True,
+        segment_reuse_namespace_prefix="twin",
+        segment_reuse_boundary_class="control-only",
+        segment_reuse_max_leading_tokens=8192,
+    )
+    client.model_name = "demo-model"
+    payload = {
+        "model": "demo-model",
+        "messages": [],
+        "cache_salt": "kvmat:anchor:abc",
+    }
+
+    annotated = client.annotate_request_with_segment_reuse_hints(
+        dict(payload),
+        reusable_body_text="stable reusable body",
+        scope="lab_member",
+        logical_request_id="conv 1/with spaces",
+    )
+
+    assert annotated["cache_salt"] == "kvmat:anchor:abc"
+    assert annotated["extra_key"].startswith("twin:lab_member:")
+    assert "||segreuse:v1;" in annotated["extra_key"]
+    assert "mode=leading-envelope" in annotated["extra_key"]
+    assert "tokens=8192" in annotated["extra_key"]
+    assert "leading_tokens=;" in annotated["extra_key"]
+    assert "boundary_class=control-only" in annotated["extra_key"]
+    assert "attention_contract=control-envelope-excluded-from-model-body" in annotated["extra_key"]
+    assert "rid=conv-1-with-spaces" in annotated["extra_key"]
+
+
+def test_segment_reuse_hints_partition_by_visitor_profile_scope() -> None:
+    client = object.__new__(VllmChatClient)
+    client._settings = AppSettings(
+        segment_reuse_hints_enabled=True,
+        segment_reuse_namespace_prefix="twin",
+    )
+    client.model_name = "demo-model"
+    body = "stable reusable skills and public KB context"
+
+    guest = client.annotate_request_with_segment_reuse_hints(
+        {"model": "demo-model", "messages": []},
+        reusable_body_text=body,
+        scope="general_visitor",
+    )
+    lab = client.annotate_request_with_segment_reuse_hints(
+        {"model": "demo-model", "messages": []},
+        reusable_body_text=body,
+        scope="lab_member",
+    )
+
+    assert guest["extra_key"].startswith("twin:general_visitor:")
+    assert lab["extra_key"].startswith("twin:lab_member:")
+    assert guest["extra_key"] != lab["extra_key"]
+
+
+def test_segment_reuse_hints_preserve_runtime_leading_token_count() -> None:
+    client = object.__new__(VllmChatClient)
+    client._settings = AppSettings(
+        segment_reuse_hints_enabled=True,
+        segment_reuse_max_leading_tokens=4096,
+    )
+    client.model_name = "demo-model"
+
+    annotated = client.annotate_request_with_segment_reuse_hints(
+        {"model": "demo-model", "messages": []},
+        reusable_body_text="stable reusable body",
+        scope="lab_member",
+        leading_token_count=384,
+    )
+
+    assert "tokens=4096" in annotated["extra_key"]
+    assert "leading_tokens=384;" in annotated["extra_key"]
+
+
+def test_segment_reuse_masked_envelope_advertises_hidden_body_contract() -> None:
+    client = object.__new__(VllmChatClient)
+    client._settings = AppSettings(
+        segment_reuse_hints_enabled=True,
+        segment_reuse_boundary_class="masked-envelope",
+    )
+    client.model_name = "demo-model"
+
+    annotated = client.annotate_request_with_segment_reuse_hints(
+        {"model": "demo-model", "messages": []},
+        reusable_body_text="stable reusable body",
+        scope="lab_member",
+    )
+
+    assert "boundary_class=masked-envelope" in annotated["extra_key"]
+    assert "attention_contract=masked-envelope-hidden-from-body" in annotated["extra_key"]
+
+
+def test_vllm_metrics_url_can_be_configured_separately_from_proxy_base_url() -> None:
+    client = object.__new__(VllmChatClient)
+    client._settings = AppSettings(
+        llm_base_url="http://127.0.0.1:18001/v1",
+        vllm_metrics_url="http://127.0.0.1:18080/metrics",
+    )
+
+    assert client._resolve_vllm_metrics_url() == "http://127.0.0.1:18080/metrics"
+
+
+def test_vllm_metrics_url_defaults_to_llm_base_url_metrics_endpoint() -> None:
+    client = object.__new__(VllmChatClient)
+    client._settings = AppSettings(
+        llm_base_url="http://127.0.0.1:18001/v1",
+        vllm_metrics_url="",
+    )
+
+    assert client._resolve_vllm_metrics_url() == "http://127.0.0.1:18001/metrics"
+
+
+def test_fixed_prefix_warmup_uses_materialization_anchor() -> None:
+    transport = _SequencedHttpxClient([_SequencedChatCompletionResponse("OK")])
+    client = _build_retry_test_client(
+        AppSettings(
+            kv_fixed_prefix_materialization_enabled=True,
+            kv_fixed_prefix_warmup_on_startup=True,
+            kv_fixed_prefix_warmup_max_tokens=1,
+            kv_fixed_prefix_anchor_prefix="twin-fixed",
+            kv_fixed_prefix_anchor_version="v3",
+        ),
+        transport,
+    )
+    client.model_name = "demo-model"
+
+    assert client.warm_fixed_prefix_cache_sync("stable system prompt") is True
+
+    assert len(transport.calls) == 1
+    path, payload = transport.calls[0]
+    assert path == "/chat/completions"
+    assert payload["max_tokens"] == 1
+    assert payload["chat_template_kwargs"] == {"enable_thinking": False}
+    assert payload["cache_salt"].startswith("kvmat:anchor:twin-fixed:v3:")
+    assert payload["messages"][0] == {
+        "role": "system",
+        "content": "stable system prompt",
+    }
+
+
+def test_fixed_prefix_warmup_failure_does_not_mark_llm_unhealthy() -> None:
+    transport = _SequencedHttpxClient([_FailingChatCompletionResponse()])
+    client = _build_retry_test_client(
+        AppSettings(
+            kv_fixed_prefix_materialization_enabled=True,
+            kv_fixed_prefix_warmup_on_startup=True,
+        ),
+        transport,
+    )
+    client.model_name = "demo-model"
+
+    assert client.warm_fixed_prefix_cache_sync("stable system prompt") is False
+
+    assert len(transport.calls) == 1
+    assert client._request_count == 0
+    assert client._success_count == 0
+    assert client._error_count == 0
+    assert client._last_error_message is None
+
+
+def test_answer_question_can_attach_prefix_and_segment_reuse_hints_together() -> None:
+    transport = _SequencedHttpxClient([_SequencedChatCompletionResponse("OK")])
+    client = _build_retry_test_client(
+        AppSettings(
+            kv_fixed_prefix_materialization_enabled=True,
+            kv_fixed_prefix_anchor_prefix="twin-fixed",
+            kv_fixed_prefix_anchor_version="v4",
+            segment_reuse_hints_enabled=True,
+            segment_reuse_namespace_prefix="twin",
+        ),
+        transport,
+    )
+    client.model_name = "demo-model"
+
+    answer = client.answer_question_sync(
+        "stable system prompt",
+        "dynamic user prompt",
+        enable_thinking=False,
+        max_tokens=8,
+        cache_namespace="conv-1",
+        segment_reuse_scope="lab_member",
+    )
+
+    assert answer == "OK"
+    assert len(transport.calls) == 1
+    _, payload = transport.calls[0]
+    assert payload["cache_salt"].startswith("kvmat:anchor:twin-fixed:v4:")
+    assert payload["extra_key"].startswith("twin:lab_member:")
+    assert "||segreuse:v1;" in payload["extra_key"]
+    assert "leading_tokens=;" in payload["extra_key"]

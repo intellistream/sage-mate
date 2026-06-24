@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import hmac
+import json
 import time
 from urllib.parse import urlencode
 
@@ -16,12 +17,26 @@ from sage_faculty_twin.slack_link_store import SlackUserLinkStore
 client = TestClient(app)
 
 
-def _signed_headers(body: bytes, secret: str) -> dict[str, str]:
+def _slack_signature(body: bytes, secret: str) -> tuple[str, str]:
     timestamp = str(int(time.time()))
     base = b"v0:" + timestamp.encode("ascii") + b":" + body
     signature = "v0=" + hmac.new(secret.encode(), base, hashlib.sha256).hexdigest()
+    return timestamp, signature
+
+
+def _signed_headers(body: bytes, secret: str) -> dict[str, str]:
+    timestamp, signature = _slack_signature(body, secret)
     return {
         "content-type": "application/x-www-form-urlencoded",
+        "x-slack-request-timestamp": timestamp,
+        "x-slack-signature": signature,
+    }
+
+
+def _signed_json_headers(body: bytes, secret: str) -> dict[str, str]:
+    timestamp, signature = _slack_signature(body, secret)
+    return {
+        "content-type": "application/json",
         "x-slack-request-timestamp": timestamp,
         "x-slack-signature": signature,
     }
@@ -42,6 +57,33 @@ def _body(**overrides: str) -> bytes:
     }
     payload.update(overrides)
     return urlencode(payload).encode()
+
+
+def _event_body(**event_overrides: object) -> bytes:
+    event = {
+        "type": "message",
+        "channel": "D123",
+        "channel_type": "im",
+        "user": "U013T91JDQT",
+        "text": "研究路线是什么？",
+        "ts": "1719200000.000100",
+    }
+    event.update(event_overrides)
+    payload = {
+        "type": "event_callback",
+        "team_id": "T123",
+        "api_app_id": "A123",
+        "event": event,
+        "event_id": "Ev123",
+        "event_time": 1719200000,
+    }
+    return json.dumps(payload, ensure_ascii=False).encode()
+
+
+def test_normalize_slack_twin_question():
+    assert api_module._normalize_slack_twin_question("<@UAPP> 研究路线是什么？") == "研究路线是什么？"
+    assert api_module._normalize_slack_twin_question("<@UAPP> <@UAPP2> 研究路线是什么？") == "研究路线是什么？"
+    assert api_module._normalize_slack_twin_question("研究路线是什么？") == "研究路线是什么？"
 
 
 def _session(visitor_profile: str) -> UserSessionResponse:
@@ -293,3 +335,197 @@ def test_slack_twin_response_url_failure_does_not_break_background_task(
     assert response.status_code == 200
     assert "正在问 twin" in response.json()["text"]
     assert seen_questions == ["研究路线是什么？"]
+
+
+def test_slack_events_url_verification(monkeypatch):
+    secret = "secret"
+    monkeypatch.setattr(api_module, "SLACK_TWIN_SIGNING_SECRET", secret)
+    body = json.dumps({"type": "url_verification", "challenge": "abc123"}).encode()
+
+    response = client.post(
+        "/slack/events",
+        data=body,
+        headers=_signed_json_headers(body, secret),
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {"challenge": "abc123"}
+
+
+def test_slack_events_bind_code_success(monkeypatch, tmp_path):
+    secret = "secret"
+    store = SlackUserLinkStore(tmp_path)
+    code = store.create_code(
+        user_id="user-1",
+        email="lab@example.com",
+        visitor_profile="lab_member",
+    )
+    posted: list[tuple[str, str, str | None]] = []
+
+    def fake_post(channel_id: str, text: str, *, thread_ts: str | None = None) -> None:
+        posted.append((channel_id, text, thread_ts))
+
+    monkeypatch.setattr(api_module, "SLACK_TWIN_SIGNING_SECRET", secret)
+    monkeypatch.setattr(api_module, "slack_link_store", store)
+    monkeypatch.setattr(api_module, "_post_slack_message", fake_post)
+    body = _event_body(user="UOTHER", text=f"bind {code.code}")
+
+    response = client.post(
+        "/slack/events",
+        data=body,
+        headers=_signed_json_headers(body, secret),
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {"ok": True}
+    assert posted == [("D123", "绑定成功。以后可以直接输入 `/twin 你的问题`，或者直接给 twin 发私信。已绑定账号：lab@example.com", None)]
+
+
+def test_slack_events_unlinked_user_gets_guidance(monkeypatch, tmp_path):
+    secret = "secret"
+    posted: list[tuple[str, str, str | None]] = []
+
+    def fake_post(channel_id: str, text: str, *, thread_ts: str | None = None) -> None:
+        posted.append((channel_id, text, thread_ts))
+
+    monkeypatch.setattr(api_module, "SLACK_TWIN_SIGNING_SECRET", secret)
+    monkeypatch.setattr(api_module, "SLACK_TWIN_ALLOWED_USER_IDS", {"U013T91JDQT"})
+    monkeypatch.setattr(api_module, "slack_link_store", SlackUserLinkStore(tmp_path))
+    monkeypatch.setattr(api_module, "_post_slack_message", fake_post)
+    body = _event_body(user="UOTHER")
+
+    response = client.post(
+        "/slack/events",
+        data=body,
+        headers=_signed_json_headers(body, secret),
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {"ok": True}
+    assert len(posted) == 1
+    assert posted[0][0] == "D123"
+    assert "生成 Slack 绑定码" in posted[0][1]
+
+
+def test_slack_events_bound_lab_member_can_ask(monkeypatch, tmp_path):
+    secret = "secret"
+    store = SlackUserLinkStore(tmp_path)
+    code = store.create_code(
+        user_id="user-3",
+        email="lab@example.com",
+        visitor_profile="lab_member",
+    )
+    assert store.consume_code(code.code, slack_user_id="UOTHER") is not None
+    posted: list[tuple[str, str, str | None]] = []
+    seen: list[tuple[str, str | None, str]] = []
+
+    async def fake_answer(request):
+        seen.append((request.visitor_profile, request.student_email, request.course_context))
+        return ChatResponse(answer="DM 回答。", owner_name="张书豪", used_model="fake-model")
+
+    def fake_post(channel_id: str, text: str, *, thread_ts: str | None = None) -> None:
+        posted.append((channel_id, text, thread_ts))
+
+    monkeypatch.setattr(api_module, "SLACK_TWIN_SIGNING_SECRET", secret)
+    monkeypatch.setattr(api_module, "SLACK_TWIN_ALLOWED_USER_IDS", {"U013T91JDQT"})
+    monkeypatch.setattr(api_module, "slack_link_store", store)
+    monkeypatch.setattr(api_module.service, "answer", fake_answer)
+    monkeypatch.setattr(api_module, "_post_slack_message", fake_post)
+    body = _event_body(user="UOTHER", text="这个课题组的研究路线和一般企业 R&D 有什么区别？")
+
+    response = client.post(
+        "/slack/events",
+        data=body,
+        headers=_signed_json_headers(body, secret),
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {"ok": True}
+    assert seen == [("lab_member", "lab@example.com", "Slack DM")]
+    assert posted == [
+        (
+            "D123",
+            "你问：这个课题组的研究路线和一般企业 R&D 有什么区别？\nDM 回答。\n\n模型：`fake-model`",
+            None,
+        )
+    ]
+
+
+def test_slack_events_app_mention_without_question_shows_usage(monkeypatch, tmp_path):
+    secret = "secret"
+    posted: list[tuple[str, str, str | None]] = []
+
+    def fake_post(channel_id: str, text: str, *, thread_ts: str | None = None) -> None:
+        posted.append((channel_id, text, thread_ts))
+
+    monkeypatch.setattr(api_module, "SLACK_TWIN_SIGNING_SECRET", secret)
+    monkeypatch.setattr(api_module, "slack_link_store", SlackUserLinkStore(tmp_path))
+    monkeypatch.setattr(api_module, "_post_slack_message", fake_post)
+    body = _event_body(type="app_mention", channel_type="channel", text="<@UAPP>", ts="1719200000.000100")
+
+    response = client.post(
+        "/slack/events",
+        data=body,
+        headers=_signed_json_headers(body, secret),
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {"ok": True}
+    assert posted == [(
+        "D123",
+        "用法：`@twin 你的问题`、`/twin 你的问题`，或者直接给 twin 发私信。",
+        "1719200000.000100",
+    )]
+
+
+def test_slack_events_app_mention_bound_lab_member_replies_in_thread(monkeypatch, tmp_path):
+    secret = "secret"
+    store = SlackUserLinkStore(tmp_path)
+    code = store.create_code(
+        user_id="user-4",
+        email="lab@example.com",
+        visitor_profile="lab_member",
+    )
+    assert store.consume_code(code.code, slack_user_id="UOTHER") is not None
+    posted: list[tuple[str, str, str | None]] = []
+    seen: list[tuple[str, str | None, str, str]] = []
+
+    async def fake_answer(request):
+        seen.append((request.visitor_profile, request.student_email, request.course_context, request.question))
+        return ChatResponse(answer="公开回答。", owner_name="张书豪", used_model="fake-model")
+
+    def fake_post(channel_id: str, text: str, *, thread_ts: str | None = None) -> None:
+        posted.append((channel_id, text, thread_ts))
+
+    monkeypatch.setattr(api_module, "SLACK_TWIN_SIGNING_SECRET", secret)
+    monkeypatch.setattr(api_module, "SLACK_TWIN_ALLOWED_USER_IDS", {"U013T91JDQT"})
+    monkeypatch.setattr(api_module, "slack_link_store", store)
+    monkeypatch.setattr(api_module.service, "answer", fake_answer)
+    monkeypatch.setattr(api_module, "_post_slack_message", fake_post)
+    body = _event_body(
+        type="app_mention",
+        channel_type="channel",
+        user="UOTHER",
+        text="<@UAPP> 这个课题组的研究路线和一般企业 R&D 有什么区别？",
+        ts="1719200000.000100",
+    )
+
+    response = client.post(
+        "/slack/events",
+        data=body,
+        headers=_signed_json_headers(body, secret),
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {"ok": True}
+    assert seen == [(
+        "lab_member",
+        "lab@example.com",
+        "Slack @twin",
+        "这个课题组的研究路线和一般企业 R&D 有什么区别？",
+    )]
+    assert posted == [(
+        "D123",
+        "你问：这个课题组的研究路线和一般企业 R&D 有什么区别？\n公开回答。\n\n模型：`fake-model`",
+        "1719200000.000100",
+    )]

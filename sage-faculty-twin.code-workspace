@@ -32,10 +32,10 @@
       "name": "research | BidKV [↑SC 2026]",
       "path": "../bidkv"
     },
-    {
-      "name": "research | continuation-placement [↑ATC 2026]",
-      "path": "../continuation-aware-request-placement"
-    },
+    // {
+    //   "name": "research | continuation-placement [↑ATC 2026]",
+    //   "path": "../continuation-aware-request-placement"
+    // },
     {
       "name": "research | ascend-workload-prof [→ASPLOS 2027]",
       "path": "../ascend-llm-realworkload-prof"
@@ -104,6 +104,10 @@
     {
       "name": "portfolio | homepage",
       "path": "../shuhaozhangtony.github.io"
+    },
+    {
+      "name": "tools | paper-writing-skills",
+      "path": "../paper-writing-skills"
     },
     {
       "name": "team | sage-wiki",

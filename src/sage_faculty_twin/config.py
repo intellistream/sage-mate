@@ -19,6 +19,12 @@ class AppSettings(BaseSettings):
     owner_role: str = Field(default="华中科技大学计算机学院教师")
     model_name: str = Field(default="")
     llm_base_url: str = Field(default="http://127.0.0.1:8000/v1")
+    vllm_metrics_url: str = Field(
+        default="",
+        description="Optional authenticated vLLM Prometheus metrics URL. "
+        "Set this when DIGITAL_TWIN_LLM_BASE_URL points at a proxy that does "
+        "not expose /metrics.",
+    )
     api_key: str = Field(default="EMPTY")
     intent_model_name: str = Field(default="")
     intent_llm_base_url: str = Field(default="")
@@ -209,6 +215,45 @@ class AppSettings(BaseSettings):
         default="v1",
         description="Operator-controlled version for invalidating fixed-prompt "
         "KV anchors after prompt-template or model changes.",
+    )
+    kv_fixed_prefix_warmup_on_startup: bool = Field(
+        default=True,
+        description="When True, issue one tiny startup request to materialize "
+        "the stable system/persona/installed-skill prefix in vLLM's prefix cache.",
+    )
+    kv_fixed_prefix_warmup_max_tokens: int = Field(
+        default=1,
+        ge=1,
+        le=16,
+        description="Maximum output tokens for fixed-prefix startup warmup.",
+    )
+    dynamic_context_materialization_enabled: bool = Field(
+        default=True,
+        description="When True, place reusable non-private retrieved KB context "
+        "before per-user fields so hot dynamic prompt prefixes can be reused by "
+        "vLLM's native prefix cache.",
+    )
+    segment_reuse_hints_enabled: bool = Field(
+        default=False,
+        description="When True, attach segment-reuse extra_key metadata to "
+        "vLLM-HUST OpenAI requests. This is fail-open control-plane metadata "
+        "for segment-aware runtimes and does not replace exact prefix caching.",
+    )
+    segment_reuse_namespace_prefix: str = Field(
+        default="sage-faculty-twin",
+        description="Namespace prefix used when constructing segment-reuse extra_key values.",
+    )
+    segment_reuse_boundary_class: str = Field(
+        default="control-only",
+        description="Segment-reuse boundary class advertised in extra_key metadata.",
+    )
+    segment_reuse_max_leading_tokens: int = Field(
+        default=4096,
+        ge=1,
+        le=131072,
+        description="Upper bound advertised for the dynamic leading envelope. "
+        "The exact leading token count is intentionally omitted until the app "
+        "can compute it with the same tokenizer/chat template as vLLM-HUST.",
     )
     installed_skill_prompt_enabled: bool = Field(
         default=True,

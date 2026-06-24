@@ -58,7 +58,7 @@ def _derive_metrics_url(host: str) -> str:
     return re.sub(r"/v1/?$", "", host.rstrip("/")) + "/metrics"
 
 
-def _read_prefix_metrics(metrics_url: str) -> dict[str, float]:
+def _read_prefix_metrics(metrics_url: str, *, api_key: str) -> dict[str, float]:
     selected = {
         "prefix_cache_queries": 0.0,
         "prefix_cache_hits": 0.0,
@@ -82,7 +82,11 @@ def _read_prefix_metrics(metrics_url: str) -> dict[str, float]:
         "vllm:prefix_cache_blocks_cached_total": "prefix_cache_blocks_cached",
     }
     try:
-        with urllib.request.urlopen(metrics_url, timeout=2.0) as resp:
+        req = urllib.request.Request(
+            metrics_url,
+            headers={"Authorization": f"Bearer {api_key}"} if api_key else {},
+        )
+        with urllib.request.urlopen(req, timeout=2.0) as resp:
             text = resp.read().decode("utf-8", errors="replace")
     except (urllib.error.URLError, TimeoutError, OSError):
         return selected
@@ -198,7 +202,7 @@ def main() -> None:
     host = (args.host or env.get("DIGITAL_TWIN_LLM_BASE_URL") or "http://127.0.0.1:8000/v1").rstrip("/")
     model = args.model or env.get("DIGITAL_TWIN_MODEL_NAME") or "qwen3-32b"
     api_key = env.get("DIGITAL_TWIN_API_KEY") or "EMPTY"
-    metrics_url = _derive_metrics_url(host)
+    metrics_url = env.get("DIGITAL_TWIN_VLLM_METRICS_URL") or _derive_metrics_url(host)
 
     print(f"[{args.label}] target={host} model={model} max_tokens={args.max_tokens}")
     if args.cache_salt:
@@ -212,7 +216,7 @@ def main() -> None:
         tpots = []
         ns = []
         tots = []
-        metrics_before = _read_prefix_metrics(metrics_url) if args.metrics else {}
+        metrics_before = _read_prefix_metrics(metrics_url, api_key=api_key) if args.metrics else {}
         for i in range(args.runs):
             r = measure_one(host, model, prompt, args.max_tokens, api_key=api_key, cache_salt=args.cache_salt)
             ttfts.append(r["ttft_s"])
@@ -231,7 +235,7 @@ def main() -> None:
             f"throughput={statistics.median([n / t for n, t in zip(ns, tots)]):.2f} tok/s"
         )
         if args.metrics:
-            metrics_after = _read_prefix_metrics(metrics_url)
+            metrics_after = _read_prefix_metrics(metrics_url, api_key=api_key)
             delta = _metric_delta(metrics_before, metrics_after)
             queries = delta["prefix_cache_queries"]
             hits = delta["prefix_cache_hits"]

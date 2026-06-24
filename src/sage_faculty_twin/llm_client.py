@@ -49,6 +49,8 @@ _DEFAULT_EXCLUDE_SCOPES: dict[str, list[str]] = {
 _SEMANTIC_CACHE_SIMILARITY_THRESHOLD = 0.88
 _VLLM_METRICS_REFRESH_SECONDS = 5.0
 _THROUGHPUT_WINDOW_SECONDS = 60.0
+_SEGMENT_REUSE_TAG_PREFIX = "segreuse:v1"
+_SEGMENT_REUSE_TAG_SEPARATOR = "||"
 
 
 class StreamingServerError(RuntimeError):
@@ -140,7 +142,7 @@ class VllmChatClient:
         self._prompt_tokens_total = 0
         self._completion_tokens_total = 0
         self._total_tokens_total = 0
-        self._vllm_metrics_url = self._derive_vllm_metrics_url(self._settings.llm_base_url)
+        self._vllm_metrics_url = self._resolve_vllm_metrics_url()
         self._vllm_prefix_cache_queries = 0.0
         self._vllm_prefix_cache_hits = 0.0
         self._vllm_external_prefix_cache_queries = 0.0
@@ -246,9 +248,7 @@ class VllmChatClient:
         if not hasattr(self, "_total_tokens_total"):
             self._total_tokens_total = 0
         if not hasattr(self, "_vllm_metrics_url"):
-            settings = getattr(self, "_settings", None)
-            base_url = getattr(settings, "llm_base_url", "") if settings is not None else ""
-            self._vllm_metrics_url = self._derive_vllm_metrics_url(base_url)
+            self._vllm_metrics_url = self._resolve_vllm_metrics_url()
         if not hasattr(self, "_vllm_prefix_cache_queries"):
             self._vllm_prefix_cache_queries = 0.0
         if not hasattr(self, "_vllm_prefix_cache_hits"):
@@ -398,6 +398,83 @@ class VllmChatClient:
         del logical_request_id
         payload["cache_salt"] = cache_salt
         return payload
+
+    def annotate_request_with_segment_reuse_hints(
+        self,
+        payload: dict[str, Any],
+        *,
+        reusable_body_text: str,
+        scope: str = "default",
+        logical_request_id: str | None = None,
+        leading_token_count: int | None = None,
+    ) -> dict[str, Any]:
+        """Attach segment-reuse control-plane metadata to a vLLM request.
+
+        This does not change prompt semantics. It exposes a stable namespace
+        and body digest to runtimes that understand the segment-reuse
+        ``extra_key`` protocol. We intentionally omit ``leading_tokens`` by
+        default because exact token boundaries must be computed with the same
+        tokenizer and chat template as the serving runtime.
+        """
+        if not getattr(self._settings, "segment_reuse_hints_enabled", False):
+            return payload
+        body = (reusable_body_text or "").strip()
+        if not body:
+            return payload
+
+        boundary_class = str(
+            getattr(self._settings, "segment_reuse_boundary_class", "control-only")
+            or "control-only"
+        ).strip()
+        attention_contract = self._segment_reuse_attention_contract(boundary_class)
+        body_digest = hashlib.sha256(
+            f"{self.model_name}\n{body}".encode("utf-8")
+        ).hexdigest()[:16]
+        namespace_prefix = str(
+            getattr(self._settings, "segment_reuse_namespace_prefix", "sage-faculty-twin")
+            or "sage-faculty-twin"
+        ).strip()
+        namespace = ":".join(
+            self._sanitize_segment_reuse_field(part)
+            for part in (namespace_prefix, scope, body_digest)
+            if str(part or "").strip()
+        )
+        max_leading_tokens = int(
+            getattr(self._settings, "segment_reuse_max_leading_tokens", 4096) or 4096
+        )
+        leading_tokens_text = (
+            ""
+            if leading_token_count is None
+            else str(max(0, int(leading_token_count)))
+        )
+        note_parts = ["source=twin", f"body={body_digest}"]
+        if logical_request_id:
+            note_parts.append(
+                "rid=" + self._sanitize_segment_reuse_field(logical_request_id)[:48]
+            )
+        note = "|".join(note_parts)
+        tag = (
+            f"{_SEGMENT_REUSE_TAG_PREFIX};mode=leading-envelope;segments=1;"
+            f"tokens={max_leading_tokens};leading_tokens={leading_tokens_text};"
+            f"boundary_class={self._sanitize_segment_reuse_field(boundary_class)};"
+            f"attention_contract={self._sanitize_segment_reuse_field(attention_contract)};"
+            f"note={note}"
+        )
+        payload["extra_key"] = f"{namespace}{_SEGMENT_REUSE_TAG_SEPARATOR}{tag}"
+        return payload
+
+    @staticmethod
+    def _segment_reuse_attention_contract(boundary_class: str) -> str:
+        normalized = boundary_class.strip().lower()
+        if normalized == "masked-envelope":
+            return "masked-envelope-hidden-from-body"
+        return "control-envelope-excluded-from-model-body"
+
+    @staticmethod
+    def _sanitize_segment_reuse_field(value: object) -> str:
+        text = str(value or "").strip()
+        sanitized = re.sub(r"[^A-Za-z0-9_.:@+-]+", "-", text)
+        return sanitized.strip("-") or "default"
 
     def get_session_continuity_snapshot(
         self, user_id: str = "anonymous", conversation_id: str = "default"
@@ -807,6 +884,8 @@ class VllmChatClient:
         request_priority: int | None = None,
         target_e2e_ms: float | None = None,
         cache_namespace: str | None = None,
+        segment_reuse_body_text: str | None = None,
+        segment_reuse_scope: str | None = None,
     ) -> str:
         payload: dict[str, Any] = {
             "model": self.model_name,
@@ -841,6 +920,12 @@ class VllmChatClient:
         payload = self.annotate_request_with_fixed_prefix_hints(
             payload,
             system_prompt=system_prompt,
+            logical_request_id=logical_request_id,
+        )
+        payload = self.annotate_request_with_segment_reuse_hints(
+            payload,
+            reusable_body_text=segment_reuse_body_text or system_prompt,
+            scope=segment_reuse_scope or "system",
             logical_request_id=logical_request_id,
         )
 
@@ -1043,6 +1128,34 @@ class VllmChatClient:
             "total_tokens": total_tokens,
         }
         return answer
+
+    def warm_fixed_prefix_cache_sync(self, system_prompt: str) -> bool:
+        if not getattr(self._settings, "kv_fixed_prefix_materialization_enabled", False):
+            return False
+        if not getattr(self._settings, "kv_fixed_prefix_warmup_on_startup", True):
+            return False
+        payload: dict[str, Any] = {
+            "model": self.model_name,
+            "messages": [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": "固定前缀预热。只回复 OK。"},
+            ],
+            "temperature": 0.0,
+            "max_tokens": int(getattr(self._settings, "kv_fixed_prefix_warmup_max_tokens", 1)),
+            "chat_template_kwargs": {"enable_thinking": False},
+        }
+        payload = self.annotate_request_with_fixed_prefix_hints(
+            payload,
+            system_prompt=system_prompt,
+            logical_request_id="fixed-prefix-warmup",
+        )
+        try:
+            response = self._client.post("/chat/completions", json=payload)
+            response.raise_for_status()
+            return True
+        except Exception as exc:
+            logger.warning("Fixed-prefix warmup failed: %s", exc)
+            return False
 
     def _request_chat_completion_sync(self, payload: dict[str, Any]) -> str:
         cache_ns = payload.pop("_cache_ns", None)
@@ -1781,6 +1894,12 @@ class VllmChatClient:
             return urlunsplit((parsed.scheme, parsed.netloc, "/metrics", "", ""))
         except Exception:
             return ""
+
+    def _resolve_vllm_metrics_url(self) -> str:
+        explicit_metrics_url = str(getattr(self._settings, "vllm_metrics_url", "") or "").strip()
+        if explicit_metrics_url:
+            return explicit_metrics_url
+        return self._derive_vllm_metrics_url(str(getattr(self._settings, "llm_base_url", "")))
 
     def _refresh_vllm_prefix_cache_metrics(self) -> None:
         self._ensure_runtime_state()

@@ -1906,6 +1906,12 @@ class FacultyTwinWorkflowSupport:
             kwargs["max_tokens"] = policy_context["max_tokens"]
         if "cache_namespace" in signature.parameters and context.conversation_id:
             kwargs["cache_namespace"] = context.conversation_id
+        if "segment_reuse_body_text" in signature.parameters:
+            kwargs["segment_reuse_body_text"] = system_prompt
+        if "segment_reuse_scope" in signature.parameters:
+            kwargs["segment_reuse_scope"] = (
+                getattr(context.request, "visitor_profile", None) or "general_visitor"
+            )
 
         return answer_fn(system_prompt, user_prompt, **kwargs)
 
@@ -2977,7 +2983,15 @@ class FacultyTwinWorkflowSupport:
         prompt_hits = self._select_prompt_knowledge_hits(
             request.question, knowledge_hits, interaction_intent
         )
-        knowledge_context = self._format_knowledge_context(prompt_hits)
+        materializable_hits, residual_prompt_hits = self._split_materializable_knowledge_hits(
+            request,
+            prompt_hits,
+        )
+        materializable_knowledge_context = self._format_materializable_knowledge_context(
+            request,
+            materializable_hits,
+        )
+        knowledge_context = self._format_knowledge_context(residual_prompt_hits)
         web_search_context = self._format_web_search_context(web_search_hits or [])
         intent_guidance = self._build_intent_guidance(interaction_intent)
         profile_grounding_guidance = self._build_profile_grounding_guidance(
@@ -3005,6 +3019,7 @@ class FacultyTwinWorkflowSupport:
             "Never invent paper titles, author names, conference names, URLs, or any bibliographic reference. "
             "If the answer would benefit from external references but none are available in the context below, "
             "remind the user they can enable the 联网检索 toggle for real-time sources.\n"
+            f"{materializable_knowledge_context}"
             "Request context:\n"
             f"Student name: {request.student_name}\n"
             f"{course_hint}"
@@ -3259,6 +3274,110 @@ class FacultyTwinWorkflowSupport:
                 f"{index}. {hit.title}{source_suffix}\nExcerpt: {hit.excerpt}\nTags: {', '.join(hit.tags) if hit.tags else 'none'}"
             )
         return "\n".join(sections) + "\n"
+
+    def _split_materializable_knowledge_hits(
+        self,
+        request: ChatRequest,
+        knowledge_hits: list[KnowledgeSearchHit],
+    ) -> tuple[list[KnowledgeSearchHit], list[KnowledgeSearchHit]]:
+        if not self._settings.dynamic_context_materialization_enabled:
+            return [], knowledge_hits
+        materializable: list[KnowledgeSearchHit] = []
+        residual: list[KnowledgeSearchHit] = []
+        for hit in knowledge_hits:
+            if self._is_materializable_knowledge_hit(request, hit):
+                materializable.append(hit)
+            else:
+                residual.append(hit)
+        return materializable, residual
+
+    def _is_materializable_knowledge_hit(
+        self,
+        request: ChatRequest,
+        hit: KnowledgeSearchHit,
+    ) -> bool:
+        del request
+        lowered_tags = {tag.lower() for tag in hit.tags}
+        metadata = {str(key).lower(): str(value).lower() for key, value in hit.metadata.items()}
+        source_name = (hit.source_name or "").lower()
+        blocked_markers = {
+            "audience:admin",
+            "audience:private",
+            "admin",
+            "private",
+            "secret",
+            "credential",
+            "token",
+            "slack-binding",
+            "student-record",
+            "runtime-log",
+        }
+        if lowered_tags & blocked_markers:
+            return False
+        if metadata.get("audience") in {"admin", "private"}:
+            return False
+        if metadata.get("source_kind") in {"runtime-log", "student-record", "slack-binding"}:
+            return False
+        if any(marker in source_name for marker in ("slack_user_links", "user_accounts", "runtime-log")):
+            return False
+        return True
+
+    def _format_materializable_knowledge_context(
+        self,
+        request: ChatRequest,
+        knowledge_hits: list[KnowledgeSearchHit],
+    ) -> str:
+        if not knowledge_hits:
+            return ""
+        scope = self._materializable_context_scope(request, knowledge_hits)
+        sections = [
+            f"Reusable retrieved materials (materialization scope: {scope}):",
+            "These materials are stable KB excerpts selected for the current access scope. "
+            "Use them only when they directly answer the current question.",
+        ]
+        for index, hit in enumerate(
+            sorted(knowledge_hits, key=self._materializable_knowledge_hit_sort_key),
+            start=1,
+        ):
+            source_suffix = f" | source: {hit.source_name}" if hit.source_name else ""
+            sections.append(
+                f"{index}. {hit.title}{source_suffix}\nExcerpt: {hit.excerpt}\nTags: {', '.join(hit.tags) if hit.tags else 'none'}"
+            )
+        return "\n".join(sections) + "\n"
+
+    def _materializable_knowledge_hit_sort_key(
+        self,
+        hit: KnowledgeSearchHit,
+    ) -> tuple[str, str, str]:
+        return (
+            hit.document_id or "",
+            hit.source_name or "",
+            hit.title or "",
+        )
+
+    def _materializable_context_scope(
+        self,
+        request: ChatRequest,
+        knowledge_hits: list[KnowledgeSearchHit],
+    ) -> str:
+        audiences: set[str] = set()
+        for hit in knowledge_hits:
+            metadata_audience = str(hit.metadata.get("audience") or "").strip().lower()
+            if metadata_audience:
+                audiences.add(metadata_audience)
+            for tag in hit.tags:
+                lowered = tag.lower()
+                if lowered.startswith("audience:"):
+                    audiences.add(lowered.split(":", 1)[1])
+        if "lab_member" in audiences:
+            return "lab_member"
+        publicish = {"public", "undergraduate", "graduate"}
+        if audiences and audiences <= publicish:
+            return "+".join(sorted(audiences))
+        visitor_profile = (
+            getattr(request, "visitor_profile", None) or "general_visitor"
+        ).strip() or "general_visitor"
+        return visitor_profile
 
     def _format_web_search_context(self, web_search_hits: list[WebSearchHit]) -> str:
         if not web_search_hits:
@@ -5819,7 +5938,26 @@ class DigitalTwinService:
         )
         self._sage_runtime_class = FlowNetEnvironment
         self._booking_workflows: dict[str, BookingWorkflowState] = {}
+        self._fixed_prefix_cache_warmup_attempted = False
+        self._fixed_prefix_cache_warmup_lock = threading.Lock()
         self._normalize_published_gap_documents()
+
+    def warm_fixed_prefix_cache(self) -> bool:
+        if not self._settings.kv_fixed_prefix_warmup_on_startup:
+            return False
+        with self._fixed_prefix_cache_warmup_lock:
+            if self._fixed_prefix_cache_warmup_attempted:
+                return False
+            self._fixed_prefix_cache_warmup_attempted = True
+        try:
+            system_prompt = build_system_prompt(self._settings)
+            warmed = self._llm_client.warm_fixed_prefix_cache_sync(system_prompt)
+            if warmed:
+                _logger.info("Fixed-prefix KV warmup completed.")
+            return warmed
+        except Exception as exc:  # pragma: no cover - startup must remain best-effort
+            _logger.warning("Fixed-prefix KV warmup skipped: %s", exc)
+            return False
 
     def _normalize_published_gap_documents(self) -> None:
         changed = False

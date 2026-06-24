@@ -988,9 +988,84 @@ def test_service_prompt_includes_retrieved_owner_materials(tmp_path: Path) -> No
     )
 
     assert hits
-    assert "Relevant owner materials:" in prompt
+    assert "Reusable retrieved materials" in prompt
     assert "Meeting preference" in prompt
     assert "agenda" in prompt
+    assert prompt.index("Reusable retrieved materials") < prompt.index("Student name: Alice")
+
+
+def test_service_prompt_keeps_private_materials_out_of_materialized_prefix(
+    tmp_path: Path,
+) -> None:
+    settings = AppSettings(knowledge_base_dir=tmp_path)
+    service = DigitalTwinService(settings)
+
+    prompt = service._build_student_prompt(
+        request=type(
+            "Request",
+            (),
+            {
+                "student_name": "Alice",
+                "course_context": None,
+                "visitor_profile": "lab_member",
+                "question": "内部账号怎么处理？",
+            },
+        )(),
+        knowledge_hits=[
+            KnowledgeSearchHit(
+                document_id="private-hit",
+                title="内部账号记录",
+                excerpt="这是一段不应进入 materialized prefix 的私有账号材料。",
+                score=1.0,
+                tags=["audience:private"],
+                source_name="user_accounts/internal",
+                metadata={"audience": "private"},
+            ),
+        ],
+    )
+
+    assert "Reusable retrieved materials" not in prompt
+    assert "Relevant owner materials:" in prompt
+    assert "内部账号记录" in prompt
+
+
+def test_service_materialized_context_uses_stable_hit_order(tmp_path: Path) -> None:
+    service = DigitalTwinService(AppSettings(knowledge_base_dir=tmp_path))
+
+    prompt = service._build_student_prompt(
+        request=type(
+            "Request",
+            (),
+            {
+                "student_name": "Alice",
+                "course_context": None,
+                "visitor_profile": "lab_member",
+                "question": "两个材料都相关时怎么回答？",
+            },
+        )(),
+        knowledge_hits=[
+            KnowledgeSearchHit(
+                document_id="b-doc",
+                title="B material",
+                excerpt="B excerpt",
+                score=0.99,
+                tags=["audience:lab_member"],
+                source_name="kb/b",
+                metadata={"audience": "lab_member"},
+            ),
+            KnowledgeSearchHit(
+                document_id="a-doc",
+                title="A material",
+                excerpt="A excerpt",
+                score=0.5,
+                tags=["audience:lab_member"],
+                source_name="kb/a",
+                metadata={"audience": "lab_member"},
+            ),
+        ],
+    )
+
+    assert prompt.index("A material") < prompt.index("B material")
 
 
 def test_service_prompt_filters_teaching_materials_for_research_queries(

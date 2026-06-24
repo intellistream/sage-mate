@@ -189,6 +189,10 @@ SLACK_TWIN_RESPONSE_TIMEOUT_SECONDS = float(
     os.environ.get("SLACK_TWIN_RESPONSE_TIMEOUT_SECONDS", "95")
 )
 SLACK_TWIN_BIND_CODE_TTL_SECONDS = int(os.environ.get("SLACK_TWIN_BIND_CODE_TTL_SECONDS", "600"))
+SLACK_TWIN_BOT_TOKEN = (
+    os.environ.get("SLACK_TWIN_BOT_TOKEN", "").strip()
+    or os.environ.get("TWIN_MONITOR_SLACK_BOT_TOKEN", "").strip()
+)
 SUPPORTED_CHAT_ATTACHMENT_SUFFIXES = {
     ".pdf",
     ".txt",
@@ -528,6 +532,32 @@ def _post_slack_response(response_url: str, text: str, *, response_type: str = "
     urllib.request.urlopen(req, timeout=8).read()
 
 
+def _post_slack_api(method: str, payload: dict[str, object]) -> dict[str, object]:
+    if not SLACK_TWIN_BOT_TOKEN:
+        raise RuntimeError("Slack bot token is not configured.")
+    req = urllib.request.Request(
+        f"https://slack.com/api/{method}",
+        data=json.dumps(payload, ensure_ascii=False).encode("utf-8"),
+        headers={
+            "Authorization": f"Bearer {SLACK_TWIN_BOT_TOKEN}",
+            "Content-Type": "application/json; charset=utf-8",
+        },
+    )
+    response = urllib.request.urlopen(req, timeout=8)
+    body = response.read().decode("utf-8")
+    parsed = json.loads(body) if body else {}
+    if not parsed.get("ok"):
+        raise RuntimeError(f"Slack API {method} failed: {parsed.get('error', 'unknown_error')}")
+    return parsed
+
+
+def _post_slack_message(channel_id: str, text: str, *, thread_ts: str | None = None) -> None:
+    payload: dict[str, object] = {"channel": channel_id, "text": text}
+    if thread_ts:
+        payload["thread_ts"] = thread_ts
+    _post_slack_api("chat.postMessage", payload)
+
+
 def _safe_post_slack_response(
     response_url: str, text: str, *, response_type: str = "ephemeral"
 ) -> bool:
@@ -537,6 +567,66 @@ def _safe_post_slack_response(
     except Exception as exc:  # pragma: no cover - exception type depends on network stack
         _logger.warning("Failed to post Slack /twin response: %s", exc)
         return False
+
+
+def _safe_post_slack_message(
+    channel_id: str, text: str, *, thread_ts: str | None = None
+) -> bool:
+    try:
+        _post_slack_message(channel_id, text, thread_ts=thread_ts)
+        return True
+    except Exception as exc:  # pragma: no cover - exception type depends on network stack
+        _logger.warning("Failed to post Slack twin DM response: %s", exc)
+        return False
+
+
+def _slack_twin_link_instructions() -> str:
+    return (
+        "请先登录 twin 网页端账号，生成 Slack 绑定码，然后在 Slack 输入 "
+        "`/twin bind 你的绑定码` 完成绑定。"
+    )
+
+
+def _normalize_slack_twin_question(text: str) -> str:
+    words = text.split()
+    while words and words[0].startswith("<@") and words[0].endswith(">"):
+        words.pop(0)
+    return " ".join(words).strip()
+
+
+def _handle_slack_twin_bind_text(*, user_id: str, text: str) -> str | None:
+    normalized_text = _normalize_slack_twin_question(text)
+    words = normalized_text.split()
+    if not words or words[0].lower() != "bind":
+        return None
+    if len(words) < 2:
+        return "用法：`/twin bind 你的绑定码`"
+    link = slack_link_store.consume_code(words[1], slack_user_id=user_id)
+    if link is None:
+        return "绑定码无效或已过期。请回到 twin 网页端重新生成 Slack 绑定码。"
+    if link.visitor_profile != "lab_member":
+        return "这个账号还不是课题组成员，需要邀请码升级为课题组成员后才能使用 Slack /twin。"
+    return (
+        "绑定成功。以后可以直接输入 `/twin 你的问题`，"
+        f"或者直接给 twin 发私信。已绑定账号：{link.email}"
+    )
+
+
+def _resolve_slack_twin_identity(user_id: str) -> tuple[str, str | None, str | None]:
+    visitor_profile = SLACK_TWIN_VISITOR_PROFILE or "lab_member"
+    user_email = None
+    if user_id in SLACK_TWIN_ALLOWED_USER_IDS:
+        return visitor_profile, user_email, None
+    linked_account = slack_link_store.get_link_for_slack_user(user_id)
+    if linked_account is None:
+        return visitor_profile, user_email, _slack_twin_link_instructions()
+    if linked_account.visitor_profile != "lab_member":
+        return (
+            visitor_profile,
+            user_email,
+            "已绑定账号不是课题组成员。需要邀请码升级为课题组成员后才能使用 Slack /twin。",
+        )
+    return linked_account.visitor_profile, linked_account.email, None
 
 
 def _format_slack_twin_answer(response: ChatResponse, *, question: str | None = None) -> str:
@@ -554,21 +644,22 @@ def _format_slack_twin_answer(response: ChatResponse, *, question: str | None = 
     return "\n".join(line for line in lines if line)
 
 
-async def _answer_slack_twin_command(
+async def _answer_slack_twin_question(
     *,
-    response_url: str,
     question: str,
     user_id: str,
     user_name: str | None,
     user_email: str | None = None,
     visitor_profile: str = "lab_member",
+    course_context: str = "Slack /twin",
+    delivery_callback,
 ) -> None:
     try:
         chat_request = ChatRequest(
             student_name=user_name or user_id,
             student_email=user_email,
             question=question,
-            course_context="Slack /twin",
+            course_context=course_context,
             visitor_profile=visitor_profile,
             conversation_id=f"slack-{user_id}-{uuid4().hex}",
             deep_thinking=False,
@@ -580,18 +671,62 @@ async def _answer_slack_twin_command(
             timeout=SLACK_TWIN_RESPONSE_TIMEOUT_SECONDS,
         )
         await asyncio.to_thread(
-            _safe_post_slack_response,
-            response_url,
+            delivery_callback,
             _format_slack_twin_answer(response, question=question),
-            response_type="ephemeral",
         )
     except Exception as exc:
         await asyncio.to_thread(
-            _safe_post_slack_response,
-            response_url,
+            delivery_callback,
             f"抱歉，twin 这次没有完成回答：{exc}",
-            response_type="ephemeral",
         )
+
+
+async def _answer_slack_twin_command(
+    *,
+    response_url: str,
+    question: str,
+    user_id: str,
+    user_name: str | None,
+    user_email: str | None = None,
+    visitor_profile: str = "lab_member",
+) -> None:
+    def deliver(text: str) -> bool:
+        return _safe_post_slack_response(response_url, text, response_type="ephemeral")
+
+    await _answer_slack_twin_question(
+        question=question,
+        user_id=user_id,
+        user_name=user_name,
+        user_email=user_email,
+        visitor_profile=visitor_profile,
+        course_context="Slack /twin",
+        delivery_callback=deliver,
+    )
+
+
+async def _answer_slack_twin_dm(
+    *,
+    channel_id: str,
+    question: str,
+    user_id: str,
+    user_name: str | None,
+    user_email: str | None = None,
+    visitor_profile: str = "lab_member",
+    thread_ts: str | None = None,
+    course_context: str = "Slack DM",
+) -> None:
+    def deliver(text: str) -> bool:
+        return _safe_post_slack_message(channel_id, text, thread_ts=thread_ts)
+
+    await _answer_slack_twin_question(
+        question=question,
+        user_id=user_id,
+        user_name=user_name,
+        user_email=user_email,
+        visitor_profile=visitor_profile,
+        course_context=course_context,
+        delivery_callback=deliver,
+    )
 
 
 def frontend_asset(filename: str) -> FileResponse:
@@ -860,58 +995,13 @@ async def slack_twin_command(
     if not response_url:
         raise HTTPException(status_code=400, detail="Slack request missing response_url.")
 
-    words = question.split()
-    if words and words[0].lower() == "bind":
-        if len(words) < 2:
-            return JSONResponse(
-                {
-                    "response_type": "ephemeral",
-                    "text": "用法：`/twin bind 你的绑定码`",
-                }
-            )
-        link = slack_link_store.consume_code(words[1], slack_user_id=user_id)
-        if link is None:
-            return JSONResponse(
-                {
-                    "response_type": "ephemeral",
-                    "text": "绑定码无效或已过期。请回到 twin 网页端重新生成 Slack 绑定码。",
-                }
-            )
-        if link.visitor_profile != "lab_member":
-            return JSONResponse(
-                {
-                    "response_type": "ephemeral",
-                    "text": "这个账号还不是课题组成员，需要邀请码升级为课题组成员后才能使用 Slack /twin。",
-                }
-            )
-        return JSONResponse(
-            {
-                "response_type": "ephemeral",
-                "text": f"绑定成功。以后可以直接输入 `/twin 你的问题` 使用 twin。已绑定账号：{link.email}",
-            }
-        )
+    bind_reply = _handle_slack_twin_bind_text(user_id=user_id, text=question)
+    if bind_reply is not None:
+        return JSONResponse({"response_type": "ephemeral", "text": bind_reply})
 
-    linked_account: SlackUserLinkRecord | None = None
-    visitor_profile = SLACK_TWIN_VISITOR_PROFILE or "lab_member"
-    user_email = None
-    if user_id not in SLACK_TWIN_ALLOWED_USER_IDS:
-        linked_account = slack_link_store.get_link_for_slack_user(user_id)
-        if linked_account is None:
-            return JSONResponse(
-                {
-                    "response_type": "ephemeral",
-                    "text": "请先登录 twin 网页端账号，生成 Slack 绑定码，然后在 Slack 输入 `/twin bind 你的绑定码` 完成绑定。",
-                }
-            )
-        if linked_account.visitor_profile != "lab_member":
-            return JSONResponse(
-                {
-                    "response_type": "ephemeral",
-                    "text": "已绑定账号不是课题组成员。需要邀请码升级为课题组成员后才能使用 Slack /twin。",
-                }
-            )
-        visitor_profile = linked_account.visitor_profile
-        user_email = linked_account.email
+    visitor_profile, user_email, denial_message = _resolve_slack_twin_identity(user_id)
+    if denial_message is not None:
+        return JSONResponse({"response_type": "ephemeral", "text": denial_message})
 
     background_tasks.add_task(
         _answer_slack_twin_command,
@@ -931,10 +1021,83 @@ async def slack_twin_command(
     )
 
 
+@llm_app.post("/slack/events", include_in_schema=False)
+async def slack_events(
+    raw_request: Request,
+    background_tasks: BackgroundTasks,
+) -> JSONResponse:
+    raw_body = await raw_request.body()
+    _verify_slack_signature(raw_body, raw_request)
+    try:
+        payload = json.loads(raw_body.decode("utf-8") or "{}")
+    except json.JSONDecodeError as exc:
+        raise HTTPException(status_code=400, detail="Invalid Slack event payload.") from exc
+
+    if payload.get("type") == "url_verification":
+        return JSONResponse({"challenge": payload.get("challenge", "")})
+
+    if raw_request.headers.get("x-slack-retry-num"):
+        return JSONResponse({"ok": True})
+    if payload.get("type") != "event_callback":
+        return JSONResponse({"ok": True})
+
+    event = payload.get("event")
+    if not isinstance(event, dict):
+        return JSONResponse({"ok": True})
+    event_type = str(event.get("type") or "").strip()
+    if event_type not in {"message", "app_mention"}:
+        return JSONResponse({"ok": True})
+    if event.get("subtype") or event.get("bot_id"):
+        return JSONResponse({"ok": True})
+
+    channel_type = str(event.get("channel_type") or "").strip()
+    is_direct_message = channel_type == "im"
+    is_public_mention = event_type == "app_mention"
+    if not is_direct_message and not is_public_mention:
+        return JSONResponse({"ok": True})
+
+    user_id = str(event.get("user") or "").strip()
+    channel_id = str(event.get("channel") or "").strip()
+    question = _normalize_slack_twin_question(str(event.get("text") or ""))
+    thread_ts = str(event.get("thread_ts") or "").strip() or None
+    if is_public_mention and thread_ts is None:
+        thread_ts = str(event.get("ts") or "").strip() or None
+    if not user_id or not channel_id:
+        return JSONResponse({"ok": True})
+    if not question:
+        usage_text = "用法：`@twin 你的问题`、`/twin 你的问题`，或者直接给 twin 发私信。"
+        background_tasks.add_task(_safe_post_slack_message, channel_id, usage_text, thread_ts=thread_ts)
+        return JSONResponse({"ok": True})
+
+    bind_reply = _handle_slack_twin_bind_text(user_id=user_id, text=question)
+    if bind_reply is not None:
+        background_tasks.add_task(_safe_post_slack_message, channel_id, bind_reply, thread_ts=thread_ts)
+        return JSONResponse({"ok": True})
+
+    visitor_profile, user_email, denial_message = _resolve_slack_twin_identity(user_id)
+    if denial_message is not None:
+        background_tasks.add_task(_safe_post_slack_message, channel_id, denial_message, thread_ts=thread_ts)
+        return JSONResponse({"ok": True})
+
+    background_tasks.add_task(
+        _answer_slack_twin_dm,
+        channel_id=channel_id,
+        question=question,
+        user_id=user_id,
+        user_name=str(event.get("username") or user_id or "").strip() or None,
+        user_email=user_email,
+        visitor_profile=visitor_profile,
+        thread_ts=thread_ts,
+        course_context="Slack @twin" if is_public_mention else "Slack DM",
+    )
+    return JSONResponse({"ok": True})
+
+
 @llm_app.on_event("startup")
 async def startup_event() -> None:
     if settings.warm_service_on_startup:
-        await asyncio.to_thread(service.ensure_initialized)
+        instance = await asyncio.to_thread(service.ensure_initialized)
+        await asyncio.to_thread(instance.warm_fixed_prefix_cache)
 
 
 @llm_app.on_event("shutdown")
