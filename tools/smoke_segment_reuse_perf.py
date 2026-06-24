@@ -18,7 +18,10 @@ import uuid
 from pathlib import Path
 from typing import Any
 
-from benchmark_vllm_latency import _load_env, _metric_delta, _read_prefix_metrics
+try:
+    from benchmark_vllm_latency import _load_env, _metric_delta, _read_prefix_metrics
+except ModuleNotFoundError:  # pragma: no cover - used when imported as tools.*
+    from tools.benchmark_vllm_latency import _load_env, _metric_delta, _read_prefix_metrics
 
 
 CASES: tuple[tuple[str, str, str], ...] = (
