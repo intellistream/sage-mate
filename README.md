@@ -98,6 +98,7 @@ vLLM 推理引擎配置（用于 `--with-vllm-engine`）：
 ## 目录入口
 
 - API：`src/sage_faculty_twin/api.py`
+- 本地代码模式：`docs/local-code-mode.md`
 - 编排：`src/sage_faculty_twin/service.py`
 - 首次部署：`quickstart.sh`
 - 服务管理：`manage.sh`

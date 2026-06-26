@@ -54,6 +54,25 @@ class AppSettings(BaseSettings):
         description="When True, construct the DigitalTwinService during app startup "
         "so the first real chat request does not pay the lazy initialization cost.",
     )
+    deployment_mode: str = Field(
+        default="hosted",
+        pattern="^(hosted|local_code)$",
+        description="hosted disables local repository tools; local_code enables "
+        "user-installed code workbench access to explicitly selected local paths.",
+    )
+    code_workbench_enabled: bool = Field(
+        default=False,
+        description="Enable local repository tools. Effective only in local_code mode.",
+    )
+    code_workspace_roots: str = Field(
+        default="",
+        description="Comma-separated allowlist of local repository roots for local_code mode.",
+    )
+    code_workspace_root: Path = Field(
+        default=REPO_ROOT.parent / "sage-faculty-twin-code-workspaces",
+        description="Legacy managed workspace root used when code_workspace_roots is empty.",
+    )
+    code_command_timeout_seconds: int = Field(default=20, ge=1, le=120)
     llm_policy_congestion_waiting_threshold: float = Field(default=1.0, ge=0.0, le=10000.0)
     llm_policy_congestion_kv_usage_threshold: float = Field(default=0.75, ge=0.0, le=1.0)
     llm_policy_congestion_total_requests_threshold: float = Field(

@@ -35,6 +35,7 @@ from .auth import (
     resolve_admin_session_identity,
     validate_admin_credentials,
 )
+from .code_workbench import CodeWorkbench
 from .config import AppSettings
 from .escalation_store import EscalationQueueStore
 from .follow_up_store import FollowUpQueueStore
@@ -67,6 +68,23 @@ from .models import (
     ChatFeedbackResponse,
     ChatRequest,
     ChatResponse,
+    CodeAssistRequest,
+    CodeAssistResponse,
+    CodeCommandRequest,
+    CodeCommandResponse,
+    CodeContextRequest,
+    CodeContextResponse,
+    CodeDirectoryListRequest,
+    CodeDirectoryListResponse,
+    CodeFileReadRequest,
+    CodeFileReadResponse,
+    CodeGitDiffRequest,
+    CodeGitDiffResponse,
+    CodeGitStatusRequest,
+    CodeGitStatusResponse,
+    CodeSearchRequest,
+    CodeSearchResponse,
+    CodeWorkspaceListResponse,
     ConversationExchangeResponse,
     ConversationHistoryItemResponse,
     ConversationHistoryListResponse,
@@ -5919,6 +5937,7 @@ class DigitalTwinService:
         self._meeting_service = MeetingService(settings)
         self._email_notifier = BookingEmailNotifier(settings)
         self._runtime_manager = ServiceRuntimeManager(settings)
+        self._code_workbench = CodeWorkbench(settings)
         self._workflow_planner = DeterministicWorkflowPlanner(
             policy_path=settings.workflow_policy_path
         )
@@ -6038,6 +6057,12 @@ class DigitalTwinService:
         invitation_response = self._check_invitation_code_in_message(request)
         if invitation_response is not None:
             return invitation_response
+
+        if (
+            self._code_workbench_available()
+            and self._code_workbench.is_chat_command(request.question)
+        ):
+            return await self._answer_code_workbench_command(request)
 
         recent_session_context = self._build_recent_session_context(request)
 
@@ -6365,6 +6390,172 @@ class DigitalTwinService:
             [_FLOWNET_TICK],
             [(AdminLogoutStage, support)],
             "SAGE runtime completed without producing an admin logout response.",
+        )
+
+    def list_code_workspaces(self) -> CodeWorkspaceListResponse:
+        self._require_code_workbench_enabled()
+        return self._code_workbench.list_workspaces()
+
+    def search_code(self, request: CodeSearchRequest) -> CodeSearchResponse:
+        self._require_code_workbench_enabled()
+        return self._code_workbench.search(request)
+
+    def read_code_file(self, request: CodeFileReadRequest) -> CodeFileReadResponse:
+        self._require_code_workbench_enabled()
+        return self._code_workbench.read_file(request)
+
+    def list_code_directory(
+        self,
+        request: CodeDirectoryListRequest,
+    ) -> CodeDirectoryListResponse:
+        self._require_code_workbench_enabled()
+        return self._code_workbench.list_directory(request)
+
+    def get_code_git_status(
+        self,
+        request: CodeGitStatusRequest,
+    ) -> CodeGitStatusResponse:
+        self._require_code_workbench_enabled()
+        return self._code_workbench.git_status(request)
+
+    def get_code_git_diff(self, request: CodeGitDiffRequest) -> CodeGitDiffResponse:
+        self._require_code_workbench_enabled()
+        return self._code_workbench.git_diff(request)
+
+    def build_code_context(self, request: CodeContextRequest) -> CodeContextResponse:
+        self._require_code_workbench_enabled()
+        return self._code_workbench.build_context(request)
+
+    def run_code_command(self, request: CodeCommandRequest) -> CodeCommandResponse:
+        self._require_code_workbench_enabled()
+        return self._code_workbench.run_command(request)
+
+    async def assist_with_code(self, request: CodeAssistRequest) -> CodeAssistResponse:
+        self._require_code_workbench_enabled()
+        system_prompt, user_prompt, context_paths = self._code_workbench.build_assist_prompt(
+            request
+        )
+        answer = await asyncio.to_thread(
+            self._llm_client.answer_question_sync,
+            system_prompt,
+            user_prompt,
+            temperature=0.1,
+            max_tokens=2048,
+            enable_thinking=False,
+            cache_namespace=f"code-workbench:{request.workspace_id}",
+            session_identity="admin-code-workbench",
+        )
+        return CodeAssistResponse(
+            workspace_id=request.workspace_id,
+            answer=answer,
+            context_paths=context_paths,
+            used_model=self._llm_client.model_name,
+        )
+
+    async def _answer_code_workbench_command(self, request: ChatRequest) -> ChatResponse:
+        try:
+            command = self._code_workbench.parse_chat_command(request.question)
+            if command.action == "help":
+                answer = self._code_workbench.format_chat_help()
+            elif command.action == "workspaces":
+                answer = self._code_workbench.format_workspaces_for_chat()
+            elif command.action == "search":
+                response = self.search_code(
+                    CodeSearchRequest(
+                        workspace_id=command.workspace_id,
+                        query=command.query,
+                        glob=command.glob,
+                    )
+                )
+                answer = self._code_workbench.format_search_for_chat(response)
+            elif command.action == "read":
+                response = self.read_code_file(
+                    CodeFileReadRequest(
+                        workspace_id=command.workspace_id,
+                        path=command.path,
+                        start_line=command.start_line,
+                        max_lines=command.max_lines,
+                    )
+                )
+                answer = self._code_workbench.format_file_for_chat(response)
+            elif command.action == "list":
+                response = self.list_code_directory(
+                    CodeDirectoryListRequest(
+                        workspace_id=command.workspace_id,
+                        path=command.path or ".",
+                    )
+                )
+                answer = self._code_workbench.format_directory_for_chat(response)
+            elif command.action == "status":
+                response = self.get_code_git_status(
+                    CodeGitStatusRequest(workspace_id=command.workspace_id)
+                )
+                answer = self._code_workbench.format_git_status_for_chat(response)
+            elif command.action == "diff":
+                response = self.get_code_git_diff(
+                    CodeGitDiffRequest(
+                        workspace_id=command.workspace_id,
+                        path=command.path or None,
+                        staged=command.staged,
+                    )
+                )
+                answer = self._code_workbench.format_git_diff_for_chat(response)
+            elif command.action == "context":
+                response = self.build_code_context(
+                    CodeContextRequest(
+                        workspace_id=command.workspace_id,
+                        paths=command.paths,
+                    )
+                )
+                answer = self._code_workbench.format_context_for_chat(response)
+            elif command.action == "run":
+                response = self.run_code_command(
+                    CodeCommandRequest(
+                        workspace_id=command.workspace_id,
+                        command=command.command,
+                    )
+                )
+                answer = self._code_workbench.format_command_for_chat(response)
+            elif command.action == "ask":
+                response = await self.assist_with_code(
+                    CodeAssistRequest(
+                        workspace_id=command.workspace_id,
+                        task=command.task,
+                        paths=command.paths,
+                    )
+                )
+                context_note = (
+                    "\n\n上下文：" + "、".join(f"`{path}`" for path in response.context_paths)
+                    if response.context_paths
+                    else ""
+                )
+                answer = response.answer + context_note
+            else:
+                answer = self._code_workbench.format_chat_help()
+        except Exception as exc:
+            answer = f"代码工作台命令没有执行：{exc}\n\n{self._code_workbench.format_chat_help()}"
+
+        return ChatResponse(
+            answer=answer,
+            owner_name=self._settings.owner_name,
+            used_model=self._llm_client.model_name,
+            conversation_id=request.conversation_id or str(uuid4()),
+            workflow_action="code_workbench",
+            decision_mode="admin_code_workbench",
+        )
+
+    def _require_code_workbench_enabled(self) -> None:
+        if not self._code_workbench_available():
+            raise ValueError(
+                "Code tools are disabled. Install Faculty Twin locally and set "
+                "DIGITAL_TWIN_DEPLOYMENT_MODE=local_code plus "
+                "DIGITAL_TWIN_CODE_WORKBENCH_ENABLED=true to use local repositories."
+            )
+
+    def _code_workbench_available(self) -> bool:
+        return (
+            self._settings.deployment_mode == "local_code"
+            and self._settings.code_workbench_enabled
         )
 
     def get_user_session(self, session_token: str | None) -> UserSessionResponse:

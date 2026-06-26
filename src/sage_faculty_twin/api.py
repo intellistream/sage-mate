@@ -53,6 +53,23 @@ from .models import (
     ChatFeedbackResponse,
     ChatRequest,
     ChatResponse,
+    CodeAssistRequest,
+    CodeAssistResponse,
+    CodeCommandRequest,
+    CodeCommandResponse,
+    CodeContextRequest,
+    CodeContextResponse,
+    CodeDirectoryListRequest,
+    CodeDirectoryListResponse,
+    CodeFileReadRequest,
+    CodeFileReadResponse,
+    CodeGitDiffRequest,
+    CodeGitDiffResponse,
+    CodeGitStatusRequest,
+    CodeGitStatusResponse,
+    CodeSearchRequest,
+    CodeSearchResponse,
+    CodeWorkspaceListResponse,
     ConversationHistoryListResponse,
     ConversationTranscriptResponse,
     EscalationDecisionRequest,
@@ -737,6 +754,12 @@ def require_admin_session(request: Request) -> dict:
     return service.require_admin_session(request.cookies.get(ADMIN_COOKIE_NAME))
 
 
+def require_code_access(request: Request) -> dict:
+    if settings.deployment_mode == "local_code" and settings.code_workbench_enabled:
+        return {"mode": "local_code"}
+    return require_admin_session(request)
+
+
 llm_app.mount("/static", StaticFiles(directory=web_dir), name="static")
 
 
@@ -830,6 +853,101 @@ async def control_managed_services(
 ) -> ServiceControlResponse:
     try:
         return service.control_managed_services(action)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@llm_app.get("/code/workspaces", response_model=CodeWorkspaceListResponse)
+async def list_code_workspaces(
+    _: dict = Depends(require_code_access),
+) -> CodeWorkspaceListResponse:
+    return service.list_code_workspaces()
+
+
+@llm_app.post("/code/search", response_model=CodeSearchResponse)
+async def search_code(
+    payload: CodeSearchRequest,
+    _: dict = Depends(require_code_access),
+) -> CodeSearchResponse:
+    try:
+        return service.search_code(payload)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@llm_app.post("/code/file", response_model=CodeFileReadResponse)
+async def read_code_file(
+    payload: CodeFileReadRequest,
+    _: dict = Depends(require_code_access),
+) -> CodeFileReadResponse:
+    try:
+        return service.read_code_file(payload)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@llm_app.post("/code/list", response_model=CodeDirectoryListResponse)
+async def list_code_directory(
+    payload: CodeDirectoryListRequest,
+    _: dict = Depends(require_code_access),
+) -> CodeDirectoryListResponse:
+    try:
+        return service.list_code_directory(payload)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@llm_app.post("/code/git/status", response_model=CodeGitStatusResponse)
+async def get_code_git_status(
+    payload: CodeGitStatusRequest,
+    _: dict = Depends(require_code_access),
+) -> CodeGitStatusResponse:
+    try:
+        return service.get_code_git_status(payload)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@llm_app.post("/code/git/diff", response_model=CodeGitDiffResponse)
+async def get_code_git_diff(
+    payload: CodeGitDiffRequest,
+    _: dict = Depends(require_code_access),
+) -> CodeGitDiffResponse:
+    try:
+        return service.get_code_git_diff(payload)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@llm_app.post("/code/context", response_model=CodeContextResponse)
+async def build_code_context(
+    payload: CodeContextRequest,
+    _: dict = Depends(require_code_access),
+) -> CodeContextResponse:
+    try:
+        return service.build_code_context(payload)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@llm_app.post("/code/run", response_model=CodeCommandResponse)
+async def run_code_command(
+    payload: CodeCommandRequest,
+    _: dict = Depends(require_code_access),
+) -> CodeCommandResponse:
+    try:
+        return service.run_code_command(payload)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@llm_app.post("/code/assist", response_model=CodeAssistResponse)
+async def assist_with_code(
+    payload: CodeAssistRequest,
+    _: dict = Depends(require_code_access),
+) -> CodeAssistResponse:
+    try:
+        return await service.assist_with_code(payload)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
