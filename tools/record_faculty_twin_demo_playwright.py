@@ -179,7 +179,7 @@ def save_setup_profile(page: Page, profile: str, workspace: str | None = None) -
         page.locator("#sage-mate-setup-workspace-roots").fill(workspace)
     page.wait_for_timeout(700)
     page.evaluate(
-        """() => {
+        """profile => {
           if (typeof closeSageMateSetup === 'function') {
             closeSageMateSetup({ markComplete: true });
           } else {
@@ -188,7 +188,17 @@ def save_setup_profile(page: Page, profile: str, workspace: str | None = None) -
             modal?.setAttribute('aria-hidden', 'true');
             document.body.classList.remove('sage-mate-setup-open');
           }
-        }"""
+          if (typeof applyAppProfilePresentation === 'function') {
+            applyAppProfilePresentation({ app_profile: profile });
+          }
+          if (profile === 'code_assistant' && typeof renderCodeAssistantLanding === 'function') {
+            renderCodeAssistantLanding();
+          }
+          if (profile === 'faculty_twin' && typeof renderDefaultLandingForProfile === 'function') {
+            renderDefaultLandingForProfile();
+          }
+        }""",
+        profile,
     )
 
 
@@ -400,7 +410,6 @@ def main() -> None:
         page.locator('input[name="app_profile"][value="code_assistant"]').check(force=True)
         page.wait_for_timeout(1300)
         save_setup_profile(page, "code_assistant", WORKSPACE)
-        preserve_config("code_assistant", [WORKSPACE])
         page.evaluate("typeof closeSettingsDrawer === 'function' && closeSettingsDrawer()")
         goto_app(page)
         page.evaluate(
@@ -424,7 +433,7 @@ def main() -> None:
         page.wait_for_timeout(6000)
         send_chat(
             page,
-            "/code propose faculty-twin-demo-project 请检查 src/cart.py 里有没有明显 bug，并生成最小 patch。 -- src/cart.py",
+            "/code propose faculty-twin-demo-project 请检查 src/cart.py 里的潜在问题，并生成最小 patch。 -- src/cart.py",
             timeout=90000,
         )
         caption(page, "生成 propose-only patch，保留风险说明和建议测试")
