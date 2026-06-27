@@ -9,7 +9,7 @@
 - 运行管理：`./manage.sh`（统一入口：启停、状态、日志）。
 - 应用默认监听：`127.0.0.1:55601`。
 
-## 前置条件（最小）
+## 前置条件（服务器网页部署）
 
 - Linux
 - Python 3.11
@@ -17,12 +17,68 @@
 - vLLM 推理引擎运行在 Docker 容器内（设置 `VLLM_ENGINE_CONTAINER`）
 - 本机可访问 vllm-hust OpenAI 端点（默认 `127.0.0.1:8000`）
 
+## 本地 Sage Mate sibling 布局
+
+本地代码编程版会把 `claude-code-hust` 作为同级依赖仓库管理，默认布局如下：
+
+```text
+parent/
+  faculty-twin/
+  SAGE/
+  neuromem/
+  sageVDB/
+  claude-code-hust/   # 仅 local-mac-app / Sage Mate 代码 Profile 使用
+```
+
+`hosted-web` 服务器部署不会安装、暴露或启用 `claude-code-hust`。
+
 ## 首次部署
 
+### 服务器网页部署（Faculty Twin hosted）
+
+用于 `180-ascend-dev` 这类远程服务器。默认是浏览器网页形态，并且显式关闭本地代码功能：
+
 ```bash
-./quickstart.sh                        # 安装环境、依赖、.env、systemd 服务
-./quickstart.sh --with-vllm-engine     # 启用 vLLM 推理引擎服务
-./quickstart.sh --start                # 安装并启动 systemd 服务
+./quickstart.sh --target hosted-web          # 默认 target；安装环境、依赖、.env、systemd 服务
+./quickstart.sh --target hosted-web --start  # 安装并启动 systemd 服务
+./quickstart.sh --with-vllm-engine --start   # 需要本机 vLLM 引擎服务时再启用
+```
+
+`hosted-web` 会在 `.env` 中确保：
+
+```bash
+DIGITAL_TWIN_DEPLOYMENT_MODE=hosted
+DIGITAL_TWIN_APP_PROFILE=faculty_twin
+DIGITAL_TWIN_CODE_WORKBENCH_ENABLED=false
+DIGITAL_TWIN_CODE_WORKSPACE_ROOTS=
+```
+
+### macOS 本地 App（Sage Mate）
+
+```text
+打开 dist/sage-mate-macos.dmg，双击 Sage Mate.app
+```
+
+它会作为独立 macOS 应用启动，在应用窗口内选择 Faculty Twin、Code Assistant 或 Both 模式，
+并完成 LLM、运行时数据目录和本地仓库 allowlist 配置。`sage-studio` 已保留给 SAGE
+画布/低代码流水线 UI，这个桌面助手命名为 Sage Mate。
+LLM URL、API key 和模型名会优先从本机 `SAGE_MATE_PREFILL_ENV` 指向的 env 文件预填；
+没有显式指定时会尝试读取 `~/vllm-hust-dev-hub/.env` 或 runtime 私有仓库中的部署 env。
+代码后端默认使用内置 propose-only harness；本地安装也可以在设置里切到 sibling
+`claude-code-hust` 的 `claude-hust` CLI 后端。选择 Code Assistant 或 Both 模式时，
+本地安装器会尝试自动 clone/install `../claude-code-hust`，并把本机 `bin/claude-hust` 路径写入 Sage Mate 配置；
+服务器 hosted-web 部署不会安装或启用代码功能。
+
+维护者构建 DMG：
+
+```bash
+./quickstart.sh --target mac-dmg
+```
+
+本机脚本化安装（不走 DMG）：
+
+```bash
+./quickstart.sh --target local-mac-app --app-profile code_assistant --workspace "$HOME/my-repo" --start
 ```
 
 ## 启动后验证

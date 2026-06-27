@@ -4,6 +4,7 @@ __pycache__/
 .mypy_cache/
 .ruff_cache/
 .benchmarks/
+.DS_Store
 .env
 .runtime/
 .preview/
@@ -43,3 +44,4 @@ dist/
 build/
 *.egg-info/
 .venv311/
+.venv/

@@ -54,6 +54,13 @@ class AppSettings(BaseSettings):
         description="When True, construct the DigitalTwinService during app startup "
         "so the first real chat request does not pay the lazy initialization cost.",
     )
+    app_profile: str = Field(
+        default="faculty_twin",
+        pattern="^(faculty_twin|code_assistant|both)$",
+        description="Local desktop product profile. faculty_twin keeps the current "
+        "digital-twin experience, code_assistant enables local code tools, and "
+        "both enables both surfaces.",
+    )
     deployment_mode: str = Field(
         default="hosted",
         pattern="^(hosted|local_code)$",
@@ -73,6 +80,17 @@ class AppSettings(BaseSettings):
         description="Legacy managed workspace root used when code_workspace_roots is empty.",
     )
     code_command_timeout_seconds: int = Field(default=20, ge=1, le=120)
+    code_agent_backend: str = Field(
+        default="internal",
+        pattern="^(internal|claude_hust)$",
+        description="Code assistant backend. internal uses the built-in propose-only harness; "
+        "claude_hust delegates code ask/propose to a user-installed claude-hust CLI.",
+    )
+    claude_hust_cli_path: str = Field(
+        default="",
+        description="Optional path to the user-installed claude-hust executable.",
+    )
+    claude_hust_timeout_seconds: int = Field(default=180, ge=10, le=900)
     llm_policy_congestion_waiting_threshold: float = Field(default=1.0, ge=0.0, le=10000.0)
     llm_policy_congestion_kv_usage_threshold: float = Field(default=0.75, ge=0.0, le=1.0)
     llm_policy_congestion_total_requests_threshold: float = Field(

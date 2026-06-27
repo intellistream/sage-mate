@@ -28,6 +28,17 @@ const historyNewChatButton = document.getElementById("history-new-chat");
 const chatStream = document.getElementById("chat-stream");
 const chatShell = document.querySelector(".chat-shell");
 const modalOverlay = document.getElementById("modal-overlay");
+const sageMateSetupModal = document.getElementById("sage-mate-setup-modal");
+const sageMateSetupForm = document.getElementById("sage-mate-setup-form");
+const sageMateSetupCloseButton = document.getElementById("sage-mate-setup-close");
+const sageMateSetupOpenSettingsButton = document.getElementById("sage-mate-setup-open-settings");
+const sageMateSetupResponse = document.getElementById("sage-mate-setup-response");
+const sageMateSetupLlmBaseUrlInput = document.getElementById("sage-mate-setup-llm-base-url");
+const sageMateSetupApiKeyInput = document.getElementById("sage-mate-setup-api-key");
+const sageMateSetupModelNameInput = document.getElementById("sage-mate-setup-model-name");
+const sageMateSetupRuntimeDirInput = document.getElementById("sage-mate-setup-runtime-dir");
+const sageMateSetupWorkspaceLabel = document.getElementById("sage-mate-setup-workspace-label");
+const sageMateSetupWorkspaceRootsInput = document.getElementById("sage-mate-setup-workspace-roots");
 const settingsDrawer = document.getElementById("settings-drawer");
 const statusView = document.getElementById("status-view");
 const settingsView = document.getElementById("settings-view");
@@ -87,6 +98,18 @@ const refreshManagedServicesButton = document.getElementById("refresh-managed-se
 const startManagedServicesButton = document.getElementById("start-managed-services");
 const restartManagedServicesButton = document.getElementById("restart-managed-services");
 const stopManagedServicesButton = document.getElementById("stop-managed-services");
+const localCodeConfigPanel = document.getElementById("local-code-config-panel");
+const localCodeConfigForm = document.getElementById("local-code-config-form");
+const localCodeConfigResponse = document.getElementById("local-code-config-response");
+const refreshLocalCodeConfigButton = document.getElementById("refresh-local-code-config");
+const localCodeAppProfileInput = document.getElementById("local-code-app-profile");
+const localCodeLlmBaseUrlInput = document.getElementById("local-code-llm-base-url");
+const localCodeApiKeyInput = document.getElementById("local-code-api-key");
+const localCodeModelNameInput = document.getElementById("local-code-model-name");
+const localCodeRuntimeDirInput = document.getElementById("local-code-runtime-dir");
+const localCodeWorkspaceRootsInput = document.getElementById("local-code-workspace-roots");
+const localCodeAgentBackendInput = document.getElementById("local-code-agent-backend");
+const localCodeClaudeHustCliPathInput = document.getElementById("local-code-claude-hust-cli-path");
 const openKnowledgeButton = document.getElementById("open-knowledge");
 const openSuggestionsButton = document.getElementById("open-suggestions");
 const topbarHistoryToggleButton = document.getElementById("topbar-history-toggle");
@@ -99,12 +122,15 @@ const openQuestionAnalyticsButton = document.getElementById("open-question-analy
 const openAvailabilityEditorButton = document.getElementById("open-availability-editor");
 const topbarTitle = document.getElementById("topbar-title");
 const topbarSubtitle = document.getElementById("topbar-subtitle");
+const topbarKicker = document.querySelector(".topbar-kicker");
+const openOnboardingHelpButton = document.getElementById("open-onboarding-help");
 const homepageLink = document.getElementById("homepage-link");
 const chatQuestion = document.getElementById("chat-question");
 const chatFileInput = document.getElementById("chat-file-input");
 const composerUploadButton = document.getElementById("composer-upload-button");
 const composerAttachmentList = document.getElementById("composer-attachment-list");
 const composerUploadHint = document.getElementById("composer-upload-hint");
+const codeComposerContextRow = document.getElementById("code-composer-context-row");
 const courseContextInput = document.getElementById("course-context");
 const visitorProfileInput = document.getElementById("visitor-profile");
 const studentNameInput = document.getElementById("student-name");
@@ -146,6 +172,7 @@ const workflowPlanSteps = document.getElementById("workflow-plan-steps");
 const mobileWorkflowTrigger = document.getElementById("mobile-workflow-trigger");
 const workflowMobileBackdrop = document.getElementById("workflow-mobile-backdrop");
 const initialChatStreamMarkup = chatStream?.innerHTML || "";
+let currentAppProfile = "faculty_twin";
 
 const chatForm = document.getElementById("chat-form");
 const deepThinkingCheckbox = document.getElementById("deep-thinking-checkbox");
@@ -160,6 +187,12 @@ const suggestionForm = document.getElementById("suggestion-form");
 const chatSubmitButton = chatForm?.querySelector('button[type="submit"]') || null;
 let deepThinkingExplicitlyEnabled = Boolean(deepThinkingCheckbox?.checked);
 let lastFailedQuestion = null;
+let codeAssistantWorkspaces = [];
+let selectedCodeWorkspaceId = "";
+let codeAssistantWorkspacesLoaded = false;
+let codeAssistantWorkspaceLoadPromise = null;
+let currentLocalCodeConfig = null;
+const CODE_ASSISTANT_WORKSPACE_KEY = "sageMateSelectedCodeWorkspace";
 
 deepThinkingCheckbox?.addEventListener("change", () => {
     deepThinkingExplicitlyEnabled = Boolean(deepThinkingCheckbox.checked);
@@ -453,6 +486,401 @@ const VISITOR_PROFILE_CONFIGS = {
         ],
     },
 };
+
+function isCodeAssistantProfile(profile = currentAppProfile) {
+    return profile === "code_assistant" || profile === "both";
+}
+
+function shellQuote(value) {
+    const text = String(value || "");
+    if (/^[A-Za-z0-9_./:@=-]+$/.test(text)) {
+        return text;
+    }
+    return "'" + text.replace(/'/g, "'\"'\"'") + "'";
+}
+
+function rememberSelectedCodeWorkspace(workspaceId) {
+    selectedCodeWorkspaceId = workspaceId || "";
+    try {
+        if (selectedCodeWorkspaceId) {
+            localStorage.setItem(CODE_ASSISTANT_WORKSPACE_KEY, selectedCodeWorkspaceId);
+        } else {
+            localStorage.removeItem(CODE_ASSISTANT_WORKSPACE_KEY);
+        }
+    } catch {
+        // Ignore storage access issues.
+    }
+}
+
+function restoreSelectedCodeWorkspace() {
+    try {
+        return localStorage.getItem(CODE_ASSISTANT_WORKSPACE_KEY) || "";
+    } catch {
+        return "";
+    }
+}
+
+function activeCodeWorkspaceId() {
+    if (selectedCodeWorkspaceId) {
+        return selectedCodeWorkspaceId;
+    }
+    if (codeAssistantWorkspaces.length === 1) {
+        selectedCodeWorkspaceId = codeAssistantWorkspaces[0].workspace_id || "";
+        return selectedCodeWorkspaceId;
+    }
+    return "";
+}
+
+function selectedCodeWorkspace() {
+    const workspaceId = activeCodeWorkspaceId();
+    return codeAssistantWorkspaces.find((workspace) => workspace.workspace_id === workspaceId) || null;
+}
+
+function compactPath(path) {
+    const text = String(path || "");
+    if (!text) {
+        return "";
+    }
+    const home = globalThis.SAGE_MATE_HOME || "";
+    if (home && text.startsWith(home)) {
+        return "~" + text.slice(home.length);
+    }
+    return text.replace(/^\/Users\/([^/]+)/, "~");
+}
+
+function codeAssistantTemplateCommand(template) {
+    const workspaceId = activeCodeWorkspaceId();
+    if (!workspaceId) {
+        return "/code workspaces";
+    }
+    const quotedWorkspace = shellQuote(workspaceId);
+    if (template === "explain") {
+        return `帮我解释这个项目的核心结构，并指出我应该先看哪些文件。`;
+    }
+    if (template === "bug") {
+        return `请检查当前项目里有没有明显 bug 或边界条件问题，并给出最小修改建议。`;
+    }
+    if (template === "test") {
+        return `请为当前项目里最关键的简单函数补一个最小单元测试。`;
+    }
+    if (template === "propose") {
+        return `/code propose ${quotedWorkspace} 请生成一个最小、安全、propose-only 的修改建议`;
+    }
+    return "";
+}
+
+function localCodeConfigPayloadWithWorkspace(path) {
+    const config = currentLocalCodeConfig || {};
+    const existingRoots = Array.isArray(config.workspace_roots) ? config.workspace_roots : [];
+    const workspaceRoots = [...existingRoots, path]
+        .map((item) => String(item || "").trim())
+        .filter(Boolean)
+        .filter((item, index, arr) => arr.indexOf(item) === index);
+    return {
+        app_profile: isCodeAssistantProfile(config.app_profile) ? config.app_profile : "code_assistant",
+        llm_base_url: config.llm_base_url || localCodeLlmBaseUrlInput?.value?.trim() || "http://127.0.0.1:8000/v1",
+        model_name: config.model_name || localCodeModelNameInput?.value?.trim() || "",
+        runtime_dir: config.runtime_dir || localCodeRuntimeDirInput?.value?.trim() || "",
+        workspace_roots: workspaceRoots,
+        code_agent_backend: config.code_agent_backend || localCodeAgentBackendInput?.value || "internal",
+        claude_hust_cli_path: config.claude_hust_cli_path || localCodeClaudeHustCliPathInput?.value?.trim() || "",
+    };
+}
+
+async function addCodeAssistantWorkspaceFromLanding() {
+    const input = chatStream?.querySelector("[data-code-add-project-input]");
+    const status = chatStream?.querySelector("[data-code-add-project-status]");
+    if (!(input instanceof HTMLInputElement)) {
+        return;
+    }
+    const rawPath = input.value.trim();
+    if (!rawPath) {
+        if (status) status.textContent = "请输入本地项目文件夹路径。";
+        input.focus();
+        return;
+    }
+    if (status) status.textContent = "正在添加项目...";
+    try {
+        if (!currentLocalCodeConfig) {
+            currentLocalCodeConfig = await apiRequest("/local-code/config", { timeoutMs: 8000 });
+        }
+        const beforeRoots = new Set(
+            (Array.isArray(currentLocalCodeConfig.workspace_roots) ? currentLocalCodeConfig.workspace_roots : [])
+                .map((item) => String(item || ""))
+        );
+        const data = await apiRequest("/local-code/config", {
+            method: "POST",
+            body: JSON.stringify(localCodeConfigPayloadWithWorkspace(rawPath)),
+            timeoutMs: 15000,
+        });
+        renderLocalCodeConfig(data);
+        const addedRoot = (Array.isArray(data.workspace_roots) ? data.workspace_roots : [])
+            .find((root) => !beforeRoots.has(root));
+        await loadCodeAssistantWorkspaces({ force: true });
+        if (addedRoot) {
+            const addedWorkspace = codeAssistantWorkspaces.find((workspace) => workspace.root === addedRoot);
+            if (addedWorkspace) {
+                rememberSelectedCodeWorkspace(addedWorkspace.workspace_id || "");
+            }
+        }
+        if (!selectedCodeWorkspaceId && codeAssistantWorkspaces.length) {
+            rememberSelectedCodeWorkspace(codeAssistantWorkspaces[codeAssistantWorkspaces.length - 1].workspace_id || "");
+        }
+        renderCodeAssistantLanding();
+    } catch (error) {
+        if (status) status.textContent = error.message || "添加项目失败。";
+    }
+}
+
+async function loadCodeAssistantWorkspaces({ force = false } = {}) {
+    if (!isCodeAssistantProfile()) {
+        return [];
+    }
+    if (codeAssistantWorkspaceLoadPromise && !force) {
+        return codeAssistantWorkspaceLoadPromise;
+    }
+    codeAssistantWorkspaceLoadPromise = apiRequest("/code/workspaces", { timeoutMs: 8000 })
+        .then((data) => {
+            codeAssistantWorkspaces = Array.isArray(data?.workspaces) ? data.workspaces : [];
+            codeAssistantWorkspacesLoaded = true;
+            const stored = restoreSelectedCodeWorkspace();
+            const ids = new Set(codeAssistantWorkspaces.map((workspace) => workspace.workspace_id));
+            if (selectedCodeWorkspaceId && ids.has(selectedCodeWorkspaceId)) {
+                rememberSelectedCodeWorkspace(selectedCodeWorkspaceId);
+            } else if (stored && ids.has(stored)) {
+                rememberSelectedCodeWorkspace(stored);
+            } else if (codeAssistantWorkspaces.length === 1) {
+                rememberSelectedCodeWorkspace(codeAssistantWorkspaces[0].workspace_id || "");
+            } else {
+                rememberSelectedCodeWorkspace("");
+            }
+            return codeAssistantWorkspaces;
+        })
+        .finally(() => {
+            codeAssistantWorkspaceLoadPromise = null;
+        });
+    return codeAssistantWorkspaceLoadPromise;
+}
+
+function workspaceAwareCodeCommand(action) {
+    const workspaceId = activeCodeWorkspaceId();
+    if (action === "workspaces") {
+        return "/code workspaces";
+    }
+    if (!workspaceId) {
+        return "/code workspaces";
+    }
+    if (action === "status") {
+        return `/code status ${shellQuote(workspaceId)}`;
+    }
+    if (action === "diff") {
+        return `/code diff ${shellQuote(workspaceId)}`;
+    }
+    if (action === "propose") {
+        return `/code propose ${shellQuote(workspaceId)} `;
+    }
+    if (action === "context") {
+        return `/code context ${shellQuote(workspaceId)}`;
+    }
+    return "/code workspaces";
+}
+
+function normalizeCodeAssistantQuestion(question) {
+    const trimmed = String(question || "").trim();
+    if (!isCodeAssistantProfile() || !trimmed || trimmed.startsWith("/code") || trimmed.startsWith("代码 ")) {
+        return trimmed;
+    }
+    const workspaceId = activeCodeWorkspaceId();
+    if (!workspaceId) {
+        return trimmed;
+    }
+    return `/code ask ${shellQuote(workspaceId)} ${shellQuote(trimmed)}`;
+}
+
+function codeAssistantLandingMarkup() {
+    const selectedWorkspaceId = activeCodeWorkspaceId();
+    const selectedWorkspace = selectedCodeWorkspace();
+    const selectedLabel = selectedWorkspace?.label || selectedWorkspaceId || "未选择项目";
+    const selectedRoot = compactPath(selectedWorkspace?.root || "");
+    const workspaceOptions = codeAssistantWorkspaces
+        .map((workspace) => {
+            const workspaceId = workspace.workspace_id || "";
+            const label = workspace.label || workspaceId;
+            const root = compactPath(workspace.root || "");
+            const selected = workspaceId === selectedWorkspaceId ? " selected" : "";
+            return `<option value="${escapeHtml(workspaceId)}"${selected}>${escapeHtml(label)} · ${escapeHtml(root)}</option>`;
+        })
+        .join("");
+    const workspaceControl = codeAssistantWorkspaces.length
+        ? `
+            <label class="code-workspace-picker code-workspace-picker-inline">
+                <span>项目</span>
+                <select id="code-workspace-select" aria-label="选择本地项目工作区">
+                    ${workspaceOptions}
+                </select>
+            </label>
+        `
+        : `
+            <div class="code-workspace-empty">
+                <strong>还没有项目</strong>
+                <span>先添加一个本地 repo。</span>
+            </div>
+        `;
+    return `
+        <div class="code-assistant-landing">
+            <h1>${escapeHtml(selectedWorkspaceId ? `我们应该在 ${selectedLabel} 中构建什么？` : "我们应该构建什么？")}</h1>
+            <div class="code-start-context">
+                ${workspaceControl}
+                <div class="code-add-project">
+                    <input data-code-add-project-input type="text" placeholder="/Users/you/my-repo" aria-label="本地项目文件夹路径" />
+                    <button type="button" class="primary-button code-add-project-button" data-code-add-project>添加项目</button>
+                    <button type="button" class="ghost-button code-add-project-settings" data-code-open-settings>设置</button>
+                    <span data-code-add-project-status class="code-add-project-status"></span>
+                </div>
+            </div>
+            <div class="code-local-boundary">
+                <span>${escapeHtml(selectedRoot || "选择或添加本地项目")}</span>
+                <span>本地模式</span>
+                <span>propose-only</span>
+                <span>repo 不上传</span>
+            </div>
+            <div class="code-template-grid">
+                <button type="button" class="code-template-button" data-code-template="explain">
+                    <strong>解释项目</strong>
+                    <span>梳理结构和入口文件</span>
+                </button>
+                <button type="button" class="code-template-button" data-code-template="bug">
+                    <strong>检查 bug</strong>
+                    <span>找明显问题和边界条件</span>
+                </button>
+                <button type="button" class="code-template-button" data-code-template="test">
+                    <strong>补测试</strong>
+                    <span>生成最小单元测试建议</span>
+                </button>
+                <button type="button" class="code-template-button" data-code-template="propose">
+                    <strong>生成 patch</strong>
+                    <span>propose-only unified diff</span>
+                </button>
+            </div>
+        </div>
+    `;
+}
+
+function renderCodeComposerContext() {
+    if (!codeComposerContextRow) {
+        return;
+    }
+    if (!isCodeAssistantProfile()) {
+        codeComposerContextRow.hidden = true;
+        codeComposerContextRow.innerHTML = "";
+        return;
+    }
+    const workspace = selectedCodeWorkspace();
+    const label = workspace?.label || activeCodeWorkspaceId() || "选择项目";
+    const root = compactPath(workspace?.root || "");
+    codeComposerContextRow.hidden = false;
+    codeComposerContextRow.innerHTML = `
+        <button type="button" class="code-context-chip" data-code-open-settings title="添加或管理本地项目">
+            <span aria-hidden="true">▣</span>
+            <span>${escapeHtml(label)}</span>
+        </button>
+        <span class="code-context-chip">
+            <span aria-hidden="true">⌘</span>
+            <span>本地模式</span>
+        </span>
+        <span class="code-context-chip">
+            <span aria-hidden="true">⎇</span>
+            <span>propose-only</span>
+        </span>
+        ${root ? `<span class="code-context-path">${escapeHtml(root)}</span>` : ""}
+    `;
+}
+
+function syncCodeAssistantChrome() {
+    document.body.classList.add("profile-code-assistant");
+    document.body.classList.remove("profile-faculty-twin");
+    document.body.classList.add("sidebar-expanded");
+    if (topbarKicker) {
+        topbarKicker.textContent = "Sage Mate";
+    }
+    if (topbarTitle) {
+        topbarTitle.textContent = "Code Assistant";
+    }
+    if (topbarSubtitle) {
+        topbarSubtitle.textContent = "Sage Mate · 本地代码助手";
+    }
+    if (chatQuestion) {
+        chatQuestion.placeholder = "随心输入";
+    }
+    document.title = "Sage Mate";
+    renderCodeComposerContext();
+}
+
+function renderCodeAssistantLanding() {
+    if (!chatStream) return;
+    syncCodeAssistantChrome();
+    chatStream.innerHTML = codeAssistantLandingMarkup();
+    updateChatEmptyState();
+    if (codeAssistantWorkspacesLoaded) {
+        return;
+    }
+    void loadCodeAssistantWorkspaces().then(() => {
+        if (isCodeAssistantProfile() && !chatStream?.querySelector(".message-user")) {
+            chatStream.innerHTML = codeAssistantLandingMarkup();
+            renderCodeComposerContext();
+            updateChatEmptyState();
+        }
+    }).catch(() => {
+        codeAssistantWorkspacesLoaded = true;
+        codeAssistantWorkspaces = [];
+        if (isCodeAssistantProfile() && !chatStream?.querySelector(".message-user")) {
+            chatStream.innerHTML = codeAssistantLandingMarkup();
+            renderCodeComposerContext();
+            updateChatEmptyState();
+        }
+    });
+}
+
+function renderDefaultLandingForProfile() {
+    if (!chatStream) return;
+    if (isCodeAssistantProfile()) {
+        renderCodeAssistantLanding();
+    } else {
+        chatStream.innerHTML = initialChatStreamMarkup;
+        syncIntroCardPresentation();
+        updateChatEmptyState();
+    }
+}
+
+function applyAppProfilePresentation(data = {}) {
+    currentAppProfile = data.app_profile || currentAppProfile || "faculty_twin";
+    document.body.classList.toggle("profile-code-assistant", isCodeAssistantProfile());
+    document.body.classList.toggle("profile-faculty-twin", currentAppProfile === "faculty_twin");
+    if (topbarKicker) {
+        topbarKicker.textContent = isCodeAssistantProfile() ? "Sage Mate" : "Personal Twin OS";
+    }
+    if (topbarTitle) {
+        topbarTitle.textContent = currentAppProfile === "code_assistant" ? "Code Assistant" : "张书豪";
+    }
+    if (topbarSubtitle) {
+        topbarSubtitle.textContent = isCodeAssistantProfile()
+            ? "Sage Mate · 本地代码助手"
+            : "张书豪 · 华中科技大学计算机学院教师";
+    }
+    if (chatQuestion) {
+        chatQuestion.placeholder = isCodeAssistantProfile()
+            ? "随心输入"
+            : "请写下你的问题...";
+    }
+    document.title = isCodeAssistantProfile() ? "Sage Mate" : "张书豪的分身";
+    openOnboardingHelpButton?.classList.remove("hidden");
+    homepageLink?.classList.toggle("hidden", currentAppProfile === "code_assistant");
+    renderCodeComposerContext();
+    if (!chatStream?.querySelector(".message-user")) {
+        renderDefaultLandingForProfile();
+    }
+}
+
 const RANDOM_CHAT_QUESTION_BANKS = {
     general_visitor: [
         { question: "张老师主要研究什么方向？", context: "初次来访" },
@@ -559,6 +987,12 @@ function renderSeedChips(profile) {
 // --- Beginner-friendly example research questions for onboarding step 1 ---
 // Shown when the user clicks 🎲 in the onboarding card (first step).
 const ONBOARDING_RESEARCH_EXAMPLES = {
+    code_assistant: [
+        "帮我解释这个项目的核心结构，并指出我应该先看哪些文件。",
+        "请检查这个项目里有没有明显 bug 或边界条件问题，并给出最小修改建议。",
+        "请为这个项目里最关键的简单函数补一个最小单元测试。",
+        "请生成一个最小、安全、propose-only 的修改建议，并说明风险和建议测试。",
+    ],
     general_visitor: [
         "我想了解的是：张老师目前主要在哪些方向做研究，有没有公开的代表性工作？",
         "我想了解的是：如果我对 LLM 推理优化方向感兴趣，建议先从哪些关键词或系统开始了解？",
@@ -593,6 +1027,40 @@ const ONBOARDING_RESEARCH_EXAMPLES = {
 // Undergrads: condensed 3-step course Q&A flow
 // General visitors: simplified 2-step explore flow (public info only)
 const ONBOARDING_STEPS = {
+    code_assistant: [
+        {
+            copy: "第 1 步：先添加或选择本地项目。",
+            question: "在 Code Assistant 首屏点击“添加项目”，选择一个本地 repo。Sage Mate 只会访问 allowlisted 项目目录。",
+            hints: [
+                "项目路径可以是 /Users/you/my-repo 这样的本机文件夹。",
+                "添加后会出现在 Project Workspace 下拉框里。",
+                "用户代码留在本机；服务器不接收 repo、不 clone、不跑命令。",
+            ],
+            context: "代码助手 · 项目工作区",
+        },
+        {
+            copy: "第 2 步：直接描述代码任务。",
+            question: "帮我解释这个项目的核心结构，并指出我应该先看哪些文件。",
+            hints: [
+                "可以像 Codex 一样直接写自然语言任务，不必先学 /code 命令。",
+                "例如：检查这个文件有没有明显 bug、为这个函数补测试、解释这段代码。",
+                "如果需要限定文件，可以在问题里写明路径，或使用 /code ask <workspace> <task> -- <path>。",
+            ],
+            context: "代码助手 · 代码任务",
+            canRandomFill: true,
+        },
+        {
+            copy: "第 3 步：需要修改时用 propose-only。",
+            question: "请检查当前项目里有没有明显 bug，并生成最小 patch 建议。",
+            hints: [
+                "Sage Mate 会生成 unified diff 建议、风险说明和建议测试。",
+                "MVP 默认不直接写文件；你可以先审阅 diff。",
+                "推理路径会显示：选择工作区、构建上下文、调用代码后端、返回结果。",
+            ],
+            context: "代码助手 · propose-only",
+            canRandomFill: true,
+        },
+    ],
     lab_member: [
         {
             copy: "第 1 步：你想研究什么问题？",
@@ -813,6 +1281,10 @@ function getOnboardingStepsForProfile(profile) {
     return ONBOARDING_STEPS[profile] || ONBOARDING_STEPS.general_visitor;
 }
 
+function currentOnboardingProfile() {
+    return isCodeAssistantProfile() ? "code_assistant" : (visitorProfileInput?.value || "general_visitor");
+}
+
 function hasCompletedOnboarding() {
     try {
         return globalThis.localStorage?.getItem(ONBOARDING_COMPLETED_KEY) === "true";
@@ -988,6 +1460,8 @@ function finishOnboarding() {
     markOnboardingCompleted();
     onboardingActive = false;
     const donePanel = document.getElementById("onboarding-done");
+    const doneTitle = donePanel?.querySelector(".onboarding-done-title");
+    const doneCopy = donePanel?.querySelector(".onboarding-done-copy");
     const dismissCheckbox = document.getElementById("onboarding-dismiss-checkbox");
     const navRow = document.querySelector(".onboarding-nav");
     const stepCopy = document.getElementById("onboarding-step-copy");
@@ -998,6 +1472,12 @@ function finishOnboarding() {
 
     // Reset dismiss checkbox state before showing
     if (dismissCheckbox) dismissCheckbox.checked = isOnboardingDismissed();
+    if (doneTitle) doneTitle.textContent = isCodeAssistantProfile() ? "代码助手引导完成" : "引导完成！";
+    if (doneCopy) {
+        doneCopy.textContent = isCodeAssistantProfile()
+            ? "现在可以添加或选择本地项目，直接描述代码任务，并审阅 propose-only 修改建议。"
+            : "现在可以自由提问了，也可以在下方点击推荐问题快速开始。";
+    }
 
     if (donePanel) donePanel.classList.remove("hidden");
     if (navRow) navRow.classList.add("hidden");
@@ -1030,7 +1510,7 @@ function skipOnboarding() {
 
 function restartOnboarding() {
     // Manually re-open onboarding from help button, bypassing completed/dismissed checks
-    const profile = visitorProfileInput?.value || "general_visitor";
+    const profile = currentOnboardingProfile();
     // Clear completed key so startOnboarding with force works cleanly
     try {
         globalThis.localStorage?.removeItem(ONBOARDING_COMPLETED_KEY);
@@ -1068,7 +1548,7 @@ addTapListener(document.getElementById("onboarding-random-btn"), async () => {
     const btn = document.getElementById("onboarding-random-btn");
     if (!btn) return;
     const originalHtml = btn.innerHTML;
-    const profile = visitorProfileInput?.value || "general_visitor";
+    const profile = currentOnboardingProfile();
     const step = onboardingSteps[onboardingCurrentStep];
     const ctx = (step && step.context) || "";
     const onboardingStepLabel = ctx;
@@ -1079,7 +1559,7 @@ addTapListener(document.getElementById("onboarding-random-btn"), async () => {
 
     // Try LLM-generated question first (contextual to the onboarding step)
     let pick = null;
-    if (onboardingStepLabel) {
+    if (onboardingStepLabel && profile !== "code_assistant") {
         try {
             const apiUrl = `/lucky-question?visitor_profile=${encodeURIComponent(profile)}&onboarding_step=${encodeURIComponent(onboardingStepLabel)}`;
             const result = await apiRequest(apiUrl, { timeoutMs: 6000 });
@@ -1287,8 +1767,11 @@ if (workflowTrace) {
 
 chatStream?.addEventListener("click", handleMessageSectionToggle);
 chatStream?.addEventListener("click", handleIntroQuickActionClick);
+chatStream?.addEventListener("change", handleCodeWorkspaceSelectionChange);
+chatStream?.addEventListener("keydown", handleCodeAssistantLandingKeydown);
 chatStream?.addEventListener("click", handleCopyAnswerClick);
 chatStream?.addEventListener("click", handleRetryRequestClick);
+codeComposerContextRow?.addEventListener("click", handleIntroQuickActionClick);
 historyList?.addEventListener("click", handleConversationHistoryClick);
 historyRailToggleButton?.addEventListener("click", toggleHistoryRail);
 topbarHistoryToggleButton?.addEventListener("click", toggleHistoryRail);
@@ -1607,6 +2090,22 @@ document.getElementById("open-admin-login").addEventListener("click", () => {
     openModal(adminLoginModal);
 });
 document.getElementById("admin-logout").addEventListener("click", handleAdminLogout);
+localCodeConfigForm?.addEventListener("submit", saveLocalCodeConfig);
+refreshLocalCodeConfigButton?.addEventListener("click", loadLocalCodeConfig);
+localCodeAppProfileInput?.addEventListener("change", () => {
+    updateLocalCodeWorkspaceVisibility();
+    applyAppProfilePresentation({ app_profile: localCodeAppProfileInput.value });
+});
+localCodeAgentBackendInput?.addEventListener("change", updateLocalCodeAgentBackendVisibility);
+sageMateSetupForm?.addEventListener("submit", saveSageMateSetup);
+sageMateSetupForm?.querySelectorAll('input[name="app_profile"]').forEach((input) => {
+    input.addEventListener("change", updateSageMateSetupWorkspaceVisibility);
+});
+sageMateSetupCloseButton?.addEventListener("click", () => closeSageMateSetup());
+sageMateSetupOpenSettingsButton?.addEventListener("click", () => {
+    closeSageMateSetup();
+    openSettingsDrawer();
+});
 document.getElementById("user-logout")?.addEventListener("click", handleUserLogout);
 document.getElementById("refresh-managed-services")?.addEventListener("click", async () => {
     await loadManagedServices();
@@ -1774,15 +2273,18 @@ chatForm.addEventListener("submit", async (event) => {
     if (!question) {
         return;
     }
+    const effectiveQuestion = normalizeCodeAssistantQuestion(question);
 
     // If onboarding is active, wrap user's answer with the step template
     const wasOnboarding = onboardingActive;
-    let onboardingWrappedQuestion = question;
+    let onboardingWrappedQuestion = effectiveQuestion;
     if (wasOnboarding && onboardingSteps[onboardingCurrentStep]) {
-        const profile = visitorProfileInput?.value || "general_visitor";
+        const profile = currentOnboardingProfile();
         const isGuidedProfile = ["lab_member", "paper_writing_student", "hust_undergraduate"].includes(profile);
         const step = onboardingSteps[onboardingCurrentStep];
-        if (isGuidedProfile) {
+        if (profile === "code_assistant") {
+            onboardingWrappedQuestion = effectiveQuestion;
+        } else if (isGuidedProfile) {
             const stepLabel = step.context || "新手引导";
             const stepNum = onboardingCurrentStep + 1;
             const totalSteps = onboardingSteps.length;
@@ -2144,6 +2646,46 @@ chatQuestion.addEventListener("keydown", (event) => {
 });
 
 function handleIntroQuickActionClick(event) {
+    const addProjectTrigger = event.target.closest("[data-code-add-project]");
+    if (addProjectTrigger instanceof HTMLElement) {
+        void addCodeAssistantWorkspaceFromLanding();
+        return;
+    }
+    const openSettingsTrigger = event.target.closest("[data-code-open-settings]");
+    if (openSettingsTrigger instanceof HTMLElement) {
+        openSettingsDrawer();
+        return;
+    }
+    const codeTemplateTrigger = event.target.closest("[data-code-template]");
+    if (codeTemplateTrigger instanceof HTMLElement) {
+        const command = codeAssistantTemplateCommand(codeTemplateTrigger.dataset.codeTemplate || "");
+        if (chatQuestion && command) {
+            chatQuestion.value = command;
+            autoResizeTextarea();
+            chatQuestion.focus();
+        }
+        return;
+    }
+    const codeActionTrigger = event.target.closest("[data-code-action]");
+    if (codeActionTrigger instanceof HTMLElement) {
+        const command = workspaceAwareCodeCommand(codeActionTrigger.dataset.codeAction || "workspaces");
+        if (chatQuestion) {
+            chatQuestion.value = command;
+            autoResizeTextarea();
+            chatQuestion.focus();
+        }
+        return;
+    }
+    const codeTrigger = event.target.closest("[data-code-command]");
+    if (codeTrigger instanceof HTMLElement) {
+        const command = codeTrigger.dataset.codeCommand || "";
+        if (chatQuestion) {
+            chatQuestion.value = command;
+            autoResizeTextarea();
+            chatQuestion.focus();
+        }
+        return;
+    }
     const trigger = event.target.closest("[data-seed-question]");
     if (!(trigger instanceof HTMLElement)) {
         return;
@@ -2153,6 +2695,26 @@ function handleIntroQuickActionClick(event) {
         return;
     }
     seedChatQuestion(question, trigger.dataset.seedContext || "");
+}
+
+function handleCodeAssistantLandingKeydown(event) {
+    if (event.key !== "Enter" || event.isComposing) {
+        return;
+    }
+    const input = event.target?.closest?.("[data-code-add-project-input]");
+    if (input instanceof HTMLInputElement) {
+        event.preventDefault();
+        void addCodeAssistantWorkspaceFromLanding();
+    }
+}
+
+function handleCodeWorkspaceSelectionChange(event) {
+    const workspaceSelect = event.target.closest("#code-workspace-select");
+    if (!(workspaceSelect instanceof HTMLSelectElement)) {
+        return;
+    }
+    rememberSelectedCodeWorkspace(workspaceSelect.value || "");
+    renderCodeAssistantLanding();
 }
 
 function handleVisitorProfileChange() {
@@ -3013,7 +3575,7 @@ function applyUserSession(session) {
         switchConversationHistoryScope(resolveConversationHistoryStorageScope());
         updateWelcomeGreeting();
         // Trigger progressive onboarding for newly authenticated users
-        if (!wasAuthenticated && !hasCompletedOnboarding()) {
+        if (!isCodeAssistantProfile() && !wasAuthenticated && !hasCompletedOnboarding()) {
             const profile = account.visitor_profile || "general_visitor";
             startOnboarding(profile);
         }
@@ -5143,6 +5705,196 @@ async function apiRequest(path, options = {}) {
     return response.json();
 }
 
+function renderLocalCodeConfig(data) {
+    if (!data || !localCodeConfigPanel) return;
+    currentLocalCodeConfig = data;
+    localCodeConfigPanel.classList.toggle("hidden", data.deployment_mode !== "local_code");
+    codeAssistantWorkspacesLoaded = false;
+    codeAssistantWorkspaces = [];
+    applyAppProfilePresentation(data);
+    if (localCodeAppProfileInput) localCodeAppProfileInput.value = data.app_profile || "code_assistant";
+    updateLocalCodeWorkspaceVisibility();
+    if (localCodeLlmBaseUrlInput) localCodeLlmBaseUrlInput.value = data.llm_base_url || "";
+    if (localCodeModelNameInput) localCodeModelNameInput.value = data.model_name || "";
+    if (localCodeRuntimeDirInput) localCodeRuntimeDirInput.value = data.runtime_dir || "";
+    if (localCodeAgentBackendInput) localCodeAgentBackendInput.value = data.code_agent_backend || "internal";
+    if (localCodeClaudeHustCliPathInput) localCodeClaudeHustCliPathInput.value = data.claude_hust_cli_path || "";
+    updateLocalCodeAgentBackendVisibility();
+    if (localCodeWorkspaceRootsInput) {
+        localCodeWorkspaceRootsInput.value = Array.isArray(data.workspace_roots)
+            ? data.workspace_roots.join("\n")
+            : "";
+    }
+    if (localCodeApiKeyInput) {
+        localCodeApiKeyInput.value = "";
+        localCodeApiKeyInput.placeholder = data.api_key_set ? "已从 .env 读取，留空保留" : "请输入 API key";
+    }
+    renderSageMateSetup(data);
+}
+
+function selectedSageMateSetupProfile() {
+    const checked = sageMateSetupForm?.querySelector('input[name="app_profile"]:checked');
+    return checked?.value || "code_assistant";
+}
+
+function setSageMateSetupProfile(profile) {
+    const target = sageMateSetupForm?.querySelector(`input[name="app_profile"][value="${profile || "code_assistant"}"]`);
+    if (target) target.checked = true;
+    updateSageMateSetupWorkspaceVisibility();
+}
+
+function updateSageMateSetupWorkspaceVisibility() {
+    const profile = selectedSageMateSetupProfile();
+    const needsWorkspace = profile === "code_assistant" || profile === "both";
+    sageMateSetupWorkspaceLabel?.classList.toggle("hidden", !needsWorkspace);
+}
+
+function updateLocalCodeWorkspaceVisibility() {
+    const profile = localCodeAppProfileInput?.value || "code_assistant";
+    const needsWorkspace = profile === "code_assistant" || profile === "both";
+    localCodeWorkspaceRootsInput?.closest("label")?.classList.toggle("hidden", !needsWorkspace);
+}
+
+function updateLocalCodeAgentBackendVisibility() {
+    const backend = localCodeAgentBackendInput?.value || "internal";
+    localCodeClaudeHustCliPathInput?.closest("label")?.classList.toggle("hidden", backend !== "claude_hust");
+}
+
+function renderSageMateSetup(data) {
+    if (!data || !sageMateSetupModal) return;
+    setSageMateSetupProfile(data.app_profile || "code_assistant");
+    if (sageMateSetupLlmBaseUrlInput) sageMateSetupLlmBaseUrlInput.value = data.llm_base_url || "";
+    if (sageMateSetupModelNameInput) sageMateSetupModelNameInput.value = data.model_name || "";
+    if (sageMateSetupRuntimeDirInput) sageMateSetupRuntimeDirInput.value = data.runtime_dir || "";
+    if (sageMateSetupWorkspaceRootsInput) {
+        sageMateSetupWorkspaceRootsInput.value = Array.isArray(data.workspace_roots)
+            ? data.workspace_roots.join("\n")
+            : "";
+    }
+    if (sageMateSetupApiKeyInput) {
+        sageMateSetupApiKeyInput.value = "";
+        sageMateSetupApiKeyInput.placeholder = data.api_key_set ? "已从 .env 读取，留空保留" : "请输入 API key";
+    }
+}
+
+function openSageMateSetup() {
+    if (!sageMateSetupModal) return;
+    sageMateSetupModal.classList.remove("hidden");
+    sageMateSetupModal.setAttribute("aria-hidden", "false");
+    document.body.classList.add("sage-mate-setup-open");
+}
+
+function closeSageMateSetup({ markComplete = false } = {}) {
+    if (!sageMateSetupModal) return;
+    sageMateSetupModal.classList.add("hidden");
+    sageMateSetupModal.setAttribute("aria-hidden", "true");
+    document.body.classList.remove("sage-mate-setup-open");
+    if (markComplete) {
+        localStorage.setItem("sageMateSetupComplete", "true");
+    }
+}
+
+function shouldShowSageMateSetup(data) {
+    if (!data || data.deployment_mode !== "local_code") return false;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("setup") === "local-code") return true;
+    if (localStorage.getItem("sageMateSetupComplete") === "true") return false;
+    return !data.api_key_set;
+}
+
+async function maybeOpenSageMateSetup() {
+    if (!sageMateSetupModal) return;
+    try {
+        const data = await apiRequest("/local-code/config", { timeoutMs: 8000 });
+        renderLocalCodeConfig(data);
+        if (shouldShowSageMateSetup(data)) {
+            openSageMateSetup();
+        }
+    } catch {
+        closeSageMateSetup();
+    }
+}
+
+async function saveSageMateSetup(event) {
+    event?.preventDefault();
+    if (!sageMateSetupForm) return;
+    setInlineStatus(sageMateSetupResponse, "正在保存 Sage Mate 配置...", "empty");
+    const profile = selectedSageMateSetupProfile();
+    const workspaceRoots = (sageMateSetupWorkspaceRootsInput?.value || "")
+        .split(/\r?\n|,/)
+        .map((item) => item.trim())
+        .filter(Boolean);
+    const payload = {
+        app_profile: profile,
+        llm_base_url: sageMateSetupLlmBaseUrlInput?.value?.trim() || "http://127.0.0.1:8000/v1",
+        model_name: sageMateSetupModelNameInput?.value?.trim() || "",
+        runtime_dir: sageMateSetupRuntimeDirInput?.value?.trim() || "",
+        workspace_roots: profile === "faculty_twin" ? [] : workspaceRoots,
+    };
+    const apiKey = sageMateSetupApiKeyInput?.value || "";
+    if (apiKey) {
+        payload.api_key = apiKey;
+    }
+    try {
+        const data = await apiRequest("/local-code/config", {
+            method: "POST",
+            body: JSON.stringify(payload),
+            timeoutMs: 15000,
+        });
+        renderLocalCodeConfig(data);
+        setInlineStatus(sageMateSetupResponse, "已保存。Sage Mate 已准备好。", "success");
+        closeSageMateSetup({ markComplete: true });
+    } catch (error) {
+        setInlineStatus(sageMateSetupResponse, error.message, "error");
+    }
+}
+
+async function loadLocalCodeConfig() {
+    if (!localCodeConfigPanel) return;
+    try {
+        const data = await apiRequest("/local-code/config", { timeoutMs: 8000 });
+        renderLocalCodeConfig(data);
+        const message = data.api_key_set ? "本地代码配置已加载。" : "请填写模型 API key 后保存。";
+        setInlineStatus(localCodeConfigResponse, message, data.api_key_set ? "success" : "empty");
+    } catch {
+        localCodeConfigPanel.classList.add("hidden");
+    }
+}
+
+async function saveLocalCodeConfig(event) {
+    event?.preventDefault();
+    if (!localCodeConfigForm) return;
+    setInlineStatus(localCodeConfigResponse, "正在保存本地代码配置...", "empty");
+    const workspaceRoots = (localCodeWorkspaceRootsInput?.value || "")
+        .split(/\r?\n|,/)
+        .map((item) => item.trim())
+        .filter(Boolean);
+    const payload = {
+        app_profile: localCodeAppProfileInput?.value || "code_assistant",
+        llm_base_url: localCodeLlmBaseUrlInput?.value?.trim() || "http://127.0.0.1:8000/v1",
+        model_name: localCodeModelNameInput?.value?.trim() || "",
+        runtime_dir: localCodeRuntimeDirInput?.value?.trim() || "",
+        workspace_roots: localCodeAppProfileInput?.value === "faculty_twin" ? [] : workspaceRoots,
+        code_agent_backend: localCodeAgentBackendInput?.value || "internal",
+        claude_hust_cli_path: localCodeClaudeHustCliPathInput?.value?.trim() || "",
+    };
+    const apiKey = localCodeApiKeyInput?.value || "";
+    if (apiKey) {
+        payload.api_key = apiKey;
+    }
+    try {
+        const data = await apiRequest("/local-code/config", {
+            method: "POST",
+            body: JSON.stringify(payload),
+            timeoutMs: 15000,
+        });
+        renderLocalCodeConfig(data);
+        setInlineStatus(localCodeConfigResponse, "已保存。现在可以在聊天里使用 /code workspaces。", "success");
+    } catch (error) {
+        setInlineStatus(localCodeConfigResponse, error.message, "error");
+    }
+}
+
 function friendlyHttpErrorMessage(status, body) {
     const trimmed = typeof body === "string" ? body.trim() : "";
     const looksLikeHtml = trimmed.startsWith("<");
@@ -5418,7 +6170,7 @@ function resetConversationViewForHistoryScopeSwitch() {
     };
     clearPendingChatAttachments();
     if (chatStream) {
-        chatStream.innerHTML = initialChatStreamMarkup;
+        renderDefaultLandingForProfile();
         updateChatEmptyState();
     }
     syncIntroCardPresentation();
@@ -5724,8 +6476,7 @@ function renderConversationTranscript(transcript) {
     const speakerName = transcript.student_name || studentNameInput?.value || "学生";
     const exchanges = Array.isArray(transcript.exchanges) ? transcript.exchanges : [];
     if (!exchanges.length) {
-        chatStream.innerHTML = initialChatStreamMarkup;
-        syncIntroCardPresentation();
+        renderDefaultLandingForProfile();
         syncConversationMode();
         return;
     }
@@ -5841,10 +6592,9 @@ function startFreshConversation() {
     };
     clearPendingChatAttachments();
     if (chatStream) {
-        chatStream.innerHTML = initialChatStreamMarkup;
+        renderDefaultLandingForProfile();
         updateChatEmptyState();
     }
-    syncIntroCardPresentation();
     renderConversationHistoryList();
     syncConversationMode();
     renderWorkflowTrace([], latestWorkflowMeta);
@@ -8494,6 +9244,7 @@ function openSettingsDrawer() {
     }
     settingsView?.removeAttribute("hidden");
     chatShell?.classList.add("view-active");
+    loadLocalCodeConfig();
 }
 
 function closeSettingsDrawer() {
@@ -9314,6 +10065,7 @@ function initVoiceInput() {
 async function initializePage() {
     initFooterToggle();
     initVoiceInput();
+    await maybeOpenSageMateSetup();
     renderConversationHistoryList();
     applyStoredVisitorProfile();
     applyVisitorProfilePresentation({ syncCourseContext: true });
@@ -9331,11 +10083,16 @@ async function initializePage() {
     if (!isAdminSession && !isUserAuthenticated) {
         markVisitorIdentitySelected(visitorProfileInput?.value || "general_visitor");
     }
-    // Start onboarding for new users, or show default landing content for returning users
+    // Start Faculty Twin onboarding for new users, or show profile-specific landing content.
     const profile = visitorProfileInput?.value || "general_visitor";
-    startOnboarding(profile);
-    if (!onboardingActive) {
+    if (!isCodeAssistantProfile()) {
+        startOnboarding(profile);
+    }
+    if (!onboardingActive && !isCodeAssistantProfile()) {
         showDefaultLandingContent();
+    }
+    if (isCodeAssistantProfile() && !chatStream?.querySelector(".message-user")) {
+        renderCodeAssistantLanding();
     }
 }
 

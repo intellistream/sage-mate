@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import shlex
+import shutil
 import subprocess
+import tempfile
 import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -23,6 +25,8 @@ from .models import (
     CodeGitDiffResponse,
     CodeGitStatusRequest,
     CodeGitStatusResponse,
+    CodeProposeRequest,
+    CodeProposeResponse,
     CodeSearchHit,
     CodeSearchRequest,
     CodeSearchResponse,
@@ -87,6 +91,41 @@ _WRITE_INTENT_WORDS = {
     "restore",
     "switch",
     "touch",
+}
+_DEFAULT_CONTEXT_FILENAMES = (
+    "README.md",
+    "readme.md",
+    "pyproject.toml",
+    "package.json",
+    "Cargo.toml",
+    "go.mod",
+    "requirements.txt",
+)
+_DEFAULT_CONTEXT_SUFFIXES = {
+    ".css",
+    ".go",
+    ".html",
+    ".js",
+    ".json",
+    ".jsx",
+    ".md",
+    ".py",
+    ".rs",
+    ".ts",
+    ".tsx",
+}
+_DEFAULT_CONTEXT_SKIP_DIRS = {
+    ".git",
+    ".hg",
+    ".mypy_cache",
+    ".pytest_cache",
+    ".ruff_cache",
+    ".venv",
+    "__pycache__",
+    "build",
+    "dist",
+    "node_modules",
+    "vendor",
 }
 
 
@@ -317,7 +356,14 @@ class CodeWorkbench:
             truncated = truncated or len(git_block) > remaining
             remaining -= len(blocks[-1])
 
-        for raw_path in request.paths:
+        paths = request.paths or self._default_context_paths(workspace)
+        if not request.paths and remaining > 0:
+            overview = self._workspace_overview(workspace)
+            blocks.append(overview[:remaining])
+            truncated = truncated or len(overview) > remaining
+            remaining -= len(blocks[-1])
+
+        for raw_path in paths:
             if remaining <= 0:
                 truncated = True
                 break
@@ -340,6 +386,59 @@ class CodeWorkbench:
             context_paths=context_paths,
             truncated=truncated,
         )
+
+    def _workspace_overview(self, workspace: CodeWorkspace) -> str:
+        entries = self.list_directory(
+            CodeDirectoryListRequest(
+                workspace_id=workspace.workspace_id,
+                path=".",
+                max_entries=80,
+            )
+        )
+        lines = ["# Workspace Overview"]
+        for entry in entries.entries:
+            marker = "/" if entry.kind == "directory" else ""
+            lines.append(f"- {entry.path}{marker} ({entry.kind})")
+        if entries.truncated:
+            lines.append("- ...")
+        return "\n".join(lines)
+
+    def _default_context_paths(self, workspace: CodeWorkspace) -> list[str]:
+        candidates: list[str] = []
+        seen_files: set[tuple[int, int]] = set()
+        for filename in _DEFAULT_CONTEXT_FILENAMES:
+            candidate_path = workspace.root / filename
+            if candidate_path.is_file():
+                stat = candidate_path.stat()
+                identity = (stat.st_dev, stat.st_ino)
+                if identity in seen_files:
+                    continue
+                candidates.append(filename)
+                seen_files.add(identity)
+
+        for path in sorted(workspace.root.rglob("*")):
+            if len(candidates) >= 8:
+                break
+            if not path.is_file():
+                continue
+            stat = path.stat()
+            identity = (stat.st_dev, stat.st_ino)
+            if identity in seen_files:
+                continue
+            relative = path.relative_to(workspace.root)
+            parts = set(relative.parts[:-1])
+            if parts & _DEFAULT_CONTEXT_SKIP_DIRS:
+                continue
+            rel_text = relative.as_posix()
+            if rel_text in candidates:
+                continue
+            if path.suffix.lower() not in _DEFAULT_CONTEXT_SUFFIXES:
+                continue
+            if path.stat().st_size > 120_000:
+                continue
+            candidates.append(rel_text)
+            seen_files.add(identity)
+        return candidates[:8]
 
     def run_command(self, request: CodeCommandRequest) -> CodeCommandResponse:
         workspace = self._get_workspace(request.workspace_id)
@@ -420,6 +519,80 @@ class CodeWorkbench:
             f"Context:\n{context.context or '(no files attached)'}"
         )
         return system_prompt, user_prompt, context.context_paths
+
+    def build_propose_prompt(
+        self,
+        request: CodeProposeRequest,
+    ) -> tuple[str, str, list[str]]:
+        workspace = self._get_workspace(request.workspace_id)
+        status = self.git_status(CodeGitStatusRequest(workspace_id=workspace.workspace_id))
+        diff = self.git_diff(
+            CodeGitDiffRequest(
+                workspace_id=workspace.workspace_id,
+                max_chars=min(30000, request.max_context_chars),
+            )
+        )
+        context = self.build_context(
+            CodeContextRequest(
+                workspace_id=workspace.workspace_id,
+                paths=request.paths,
+                include_git_status=False,
+                max_context_chars=request.max_context_chars,
+            )
+        )
+
+        system_prompt = (
+            "You are the propose-only local code workbench inside SAGE Faculty Twin. "
+            "Generate reviewable code-change proposals as unified diffs, but never "
+            "claim that files were edited, saved, applied, committed, or tested. "
+            "Return one JSON object with exactly these keys: summary, affected_files, "
+            "unified_diff, risks, suggested_tests. affected_files and suggested_tests "
+            "must be arrays of strings; unified_diff must be a single string in unified "
+            "diff format. If the task is unsafe or lacks enough context, explain that "
+            "in risks and keep unified_diff empty."
+        )
+        user_prompt = (
+            f"Workspace: {workspace.label} ({workspace.root})\n\n"
+            f"Task:\n{request.task}\n\n"
+            "# Git Status\n"
+            f"branch: {status.branch or '(unknown)'}\n"
+            f"clean: {status.clean}\n"
+            f"{status.porcelain or status.message}\n\n"
+            "# Git Diff\n"
+            f"{diff.diff or diff.message or '(empty)'}\n\n"
+            "# File Context\n"
+            f"{context.context or '(no files attached)'}\n\n"
+            "Produce only a propose-only response. Do not include instructions that "
+            "would require writing files on behalf of the user."
+        )
+        return system_prompt, user_prompt, context.context_paths
+
+    def workspace_root(self, workspace_id: str) -> Path:
+        return self._get_workspace(workspace_id).root
+
+    def copy_workspace_to_temp(self, workspace_id: str) -> tempfile.TemporaryDirectory[str]:
+        workspace = self._get_workspace(workspace_id)
+        temp_dir = tempfile.TemporaryDirectory(prefix=f"sage-mate-{workspace.workspace_id}-")
+        destination = Path(temp_dir.name) / workspace.root.name
+
+        def ignore(_dir: str, names: list[str]) -> set[str]:
+            ignored = {
+                ".git",
+                ".hg",
+                ".mypy_cache",
+                ".pytest_cache",
+                ".ruff_cache",
+                ".venv",
+                "__pycache__",
+                "build",
+                "dist",
+                "node_modules",
+                "vendor",
+            }
+            return {name for name in names if name in ignored}
+
+        shutil.copytree(workspace.root, destination, ignore=ignore, symlinks=False)
+        return temp_dir
 
     def is_chat_command(self, text: str) -> bool:
         stripped = text.strip()
@@ -528,6 +701,20 @@ class CodeWorkbench:
                 task=task,
                 paths=paths,
             )
+        if action == "propose":
+            if len(argv) < 3:
+                raise ValueError("Usage: /code propose <workspace> <task> [-- <path> ...]")
+            path_separator = argv.index("--") if "--" in argv else len(argv)
+            task = " ".join(argv[2:path_separator]).strip()
+            paths = argv[path_separator + 1 :] if path_separator < len(argv) else []
+            if not task:
+                raise ValueError("Code propose task is empty.")
+            return CodeChatCommand(
+                action=action,
+                workspace_id=argv[1],
+                task=task,
+                paths=paths,
+            )
         raise ValueError(f"Unknown /code action: {argv[0]}")
 
     def format_chat_help(self) -> str:
@@ -543,11 +730,20 @@ class CodeWorkbench:
                 "`/code context <workspace> [path] ...` 打包状态和文件上下文",
                 "`/code run <workspace> <read-only command>` 执行受限只读命令",
                 "`/code ask <workspace> <task> [-- <path> ...]` 让模型基于文件上下文分析",
+                "`/code propose <workspace> <task> [-- <path> ...]` 生成 propose-only unified diff 建议",
             ]
         )
 
     def format_workspaces_for_chat(self) -> str:
         response = self.list_workspaces()
+        if not response.workspaces:
+            return (
+                "还没有配置可用代码 workspace。\n\n"
+                "请打开 Sage Mate 设置，在 Workspace Folders 里添加一个本地项目目录，"
+                "保存后再运行 `/code workspaces`。\n\n"
+                "演示时可以使用安全示例目录："
+                "`~/tmp/faculty-twin-demo-project`"
+            )
         lines = ["可用代码 workspace："]
         for workspace in response.workspaces:
             state = "存在" if workspace.exists else "不存在"
@@ -621,8 +817,35 @@ class CodeWorkbench:
             parts.append(f"stderr:\n```text\n{response.stderr}\n```")
         return "\n\n".join(parts)
 
+    def format_propose_for_chat(self, response: CodeProposeResponse) -> str:
+        affected = ", ".join(f"`{path}`" for path in response.affected_files) or "(none)"
+        tests = "\n".join(f"- `{test}`" for test in response.suggested_tests) or "- (none)"
+        diff = response.unified_diff or "(empty)"
+        context_note = (
+            "\n\n上下文：" + "、".join(f"`{path}`" for path in response.context_paths)
+            if response.context_paths
+            else ""
+        )
+        return (
+            "## 摘要\n"
+            f"{response.summary or '(no summary)'}\n\n"
+            "## 受影响文件\n"
+            f"{affected}\n\n"
+            "## Unified Diff 建议\n"
+            f"```diff\n{diff}\n```\n\n"
+            "## 风险说明\n"
+            f"{response.risks or '(none)'}\n\n"
+            "## 建议运行的测试\n"
+            f"{tests}"
+            f"{context_note}"
+        )
+
     def _discover_workspaces(self) -> list[CodeWorkspace]:
         if self._settings.deployment_mode != "local_code":
+            return []
+        if self._settings.app_profile not in {"code_assistant", "both"}:
+            return []
+        if not self._settings.code_workbench_enabled:
             return []
         explicit_roots = self._discover_explicit_workspaces()
         if explicit_roots:
@@ -726,7 +949,11 @@ class CodeWorkbench:
             "ctx": "context",
             "ask": "ask",
             "assist": "ask",
+            "propose": "propose",
+            "proposal": "propose",
+            "patch": "propose",
             "问": "ask",
+            "建议": "propose",
             "搜": "search",
             "读": "read",
             "跑": "run",

@@ -5,6 +5,7 @@ import json
 import logging
 import os
 import secrets
+import socket
 import threading
 import time
 import urllib.parse
@@ -67,6 +68,8 @@ from .models import (
     CodeGitDiffResponse,
     CodeGitStatusRequest,
     CodeGitStatusResponse,
+    CodeProposeRequest,
+    CodeProposeResponse,
     CodeSearchRequest,
     CodeSearchResponse,
     CodeWorkspaceListResponse,
@@ -84,6 +87,8 @@ from .models import (
     KnowledgeGapDraftCreateRequest,
     KnowledgeGapDraftRecordResponse,
     KnowledgeSearchResponse,
+    LocalCodeConfigRequest,
+    LocalCodeConfigResponse,
     MemoryProfileListResponse,
     OnlinePresenceHeartbeatRequest,
     OnlinePresenceHeartbeatResponse,
@@ -120,7 +125,7 @@ def configure_local_cors(target_app: FastAPI) -> None:
     )
 
 
-llm_app = FastAPI(title="SAGE Faculty Twin", version="1.1")
+llm_app = FastAPI(title="Sage Mate", version="1.1")
 configure_local_cors(llm_app)
 
 
@@ -141,6 +146,10 @@ class LazyDigitalTwinService:
             if self._instance is None:
                 self._instance = DigitalTwinService(settings)
         return self._instance
+
+    def reset(self) -> None:
+        with self._lock:
+            self._instance = None
 
     def __getattr__(self, name: str):
         return getattr(self.ensure_initialized(), name)
@@ -755,9 +764,268 @@ def require_admin_session(request: Request) -> dict:
 
 
 def require_code_access(request: Request) -> dict:
-    if settings.deployment_mode == "local_code" and settings.code_workbench_enabled:
+    if (
+        settings.deployment_mode == "local_code"
+        and settings.code_workbench_enabled
+        and settings.app_profile in {"code_assistant", "both"}
+    ):
         return {"mode": "local_code"}
     return require_admin_session(request)
+
+
+def require_local_code_config_access(request: Request) -> dict:
+    client_host = request.client.host if request.client else ""
+    allowed_hosts = {"127.0.0.1", "::1", "localhost"}
+    try:
+        allowed_hosts.add(socket.gethostbyname("localhost"))
+    except Exception:
+        pass
+    if client_host not in allowed_hosts:
+        raise HTTPException(status_code=403, detail="Local code setup is only available locally.")
+    if settings.deployment_mode != "local_code":
+        raise HTTPException(status_code=403, detail="Local code setup requires local_code mode.")
+    return {"mode": "local_code"}
+
+
+def _repo_env_path() -> Path:
+    return Path(__file__).resolve().parents[2] / ".env"
+
+
+def _read_env_values(env_path: Path) -> dict[str, str]:
+    values: dict[str, str] = {}
+    if not env_path.exists():
+        return values
+    for line in env_path.read_text(encoding="utf-8").splitlines():
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#") or "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        values[key.strip()] = value.strip().strip("\"'")
+    return values
+
+
+def _runtime_prefill_env_path() -> Path | None:
+    explicit = os.environ.get("SAGE_MATE_PREFILL_ENV", "").strip()
+    if explicit:
+        explicit_path = Path(explicit).expanduser()
+        if explicit_path.exists():
+            return explicit_path
+    candidates = [
+        Path.home() / "vllm-hust-dev-hub/.env",
+        Path.home() / "Documents/vllm-hust-dev-hub/.env",
+        Path.home() / "dev-hub/.env",
+        Path.home() / "Documents/dev-hub/.env",
+        Path.home()
+        / "Documents/sage-faculty-twin-runtime-private/deployment/vllm-hust-cloudflare.env",
+        Path.home()
+        / "qixin-gaoke-sage-faculty-twin-runtime-private/deployment/vllm-hust-cloudflare.env",
+        Path.home()
+        / "Documents/qixin-gaoke-sage-faculty-twin-runtime-private/deployment/vllm-hust-cloudflare.env",
+    ]
+    for candidate in candidates:
+        if candidate.exists():
+            return candidate
+    return None
+
+
+def _load_local_model_prefill() -> dict[str, str]:
+    prefill_path = _runtime_prefill_env_path()
+    if prefill_path is None:
+        return {}
+    values = _read_env_values(prefill_path)
+    updates: dict[str, str] = {}
+    base_url = values.get("DIGITAL_TWIN_LLM_BASE_URL") or values.get("VLLM_HUST_API_BASE_URL")
+    api_key = values.get("DIGITAL_TWIN_API_KEY") or values.get("VLLM_HUST_API_KEY")
+    model_name = values.get("DIGITAL_TWIN_MODEL_NAME") or values.get("VLLM_HUST_MODEL")
+    if base_url:
+        updates["DIGITAL_TWIN_LLM_BASE_URL"] = base_url
+    if api_key:
+        updates["DIGITAL_TWIN_API_KEY"] = api_key
+    if model_name:
+        updates["DIGITAL_TWIN_MODEL_NAME"] = model_name
+    return updates
+
+
+def _write_env_updates(env_path: Path, updates: dict[str, str]) -> None:
+    lines = env_path.read_text(encoding="utf-8").splitlines() if env_path.exists() else []
+    seen: set[str] = set()
+    next_lines: list[str] = []
+    for line in lines:
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#") or "=" not in line:
+            next_lines.append(line)
+            continue
+        key = line.split("=", 1)[0].strip()
+        if key in updates:
+            next_lines.append(f"{key}={updates[key]}")
+            seen.add(key)
+        else:
+            next_lines.append(line)
+    for key, value in updates.items():
+        if key not in seen:
+            next_lines.append(f"{key}={value}")
+    env_path.write_text("\n".join(next_lines).rstrip() + "\n", encoding="utf-8")
+
+
+def _sync_local_code_settings_from_env() -> None:
+    values = _read_env_values(_repo_env_path())
+    prefill_updates = _load_local_model_prefill()
+    repaired: dict[str, str] = {}
+    if prefill_updates:
+        if values.get("DIGITAL_TWIN_LLM_BASE_URL", "").strip() in {
+            "",
+            "http://127.0.0.1:8000/v1",
+        } and prefill_updates.get("DIGITAL_TWIN_LLM_BASE_URL"):
+            repaired["DIGITAL_TWIN_LLM_BASE_URL"] = prefill_updates["DIGITAL_TWIN_LLM_BASE_URL"]
+        if values.get("DIGITAL_TWIN_API_KEY", "").strip() in {"", "EMPTY"} and prefill_updates.get(
+            "DIGITAL_TWIN_API_KEY"
+        ):
+            repaired["DIGITAL_TWIN_API_KEY"] = prefill_updates["DIGITAL_TWIN_API_KEY"]
+        if not values.get("DIGITAL_TWIN_MODEL_NAME", "").strip() and prefill_updates.get(
+            "DIGITAL_TWIN_MODEL_NAME"
+        ):
+            repaired["DIGITAL_TWIN_MODEL_NAME"] = prefill_updates["DIGITAL_TWIN_MODEL_NAME"]
+        if repaired:
+            _write_env_updates(_repo_env_path(), repaired)
+            values.update(repaired)
+    if not values:
+        return
+    settings.app_profile = values.get("DIGITAL_TWIN_APP_PROFILE", settings.app_profile)
+    settings.deployment_mode = values.get("DIGITAL_TWIN_DEPLOYMENT_MODE", settings.deployment_mode)
+    code_flag = values.get("DIGITAL_TWIN_CODE_WORKBENCH_ENABLED")
+    if code_flag is not None:
+        settings.code_workbench_enabled = code_flag.strip().lower() in {"1", "true", "yes", "on"}
+    settings.code_workspace_roots = values.get(
+        "DIGITAL_TWIN_CODE_WORKSPACE_ROOTS", settings.code_workspace_roots
+    )
+    runtime_dir = values.get("DIGITAL_TWIN_RUNTIME_DIR")
+    if runtime_dir:
+        settings.runtime_dir = Path(runtime_dir).expanduser()
+        _apply_runtime_path_settings(str(settings.runtime_dir))
+    settings.llm_base_url = values.get("DIGITAL_TWIN_LLM_BASE_URL", settings.llm_base_url)
+    settings.model_name = values.get("DIGITAL_TWIN_MODEL_NAME", settings.model_name)
+    settings.code_agent_backend = values.get(
+        "DIGITAL_TWIN_CODE_AGENT_BACKEND", settings.code_agent_backend
+    )
+    settings.claude_hust_cli_path = values.get(
+        "DIGITAL_TWIN_CLAUDE_HUST_CLI_PATH", settings.claude_hust_cli_path
+    )
+    if "DIGITAL_TWIN_API_KEY" in values:
+        settings.api_key = values["DIGITAL_TWIN_API_KEY"]
+    if not runtime_dir:
+        settings.apply_runtime_dir_defaults()
+
+
+def _local_code_config_response(*, message: str = "") -> LocalCodeConfigResponse:
+    return LocalCodeConfigResponse(
+        app_profile=settings.app_profile,
+        deployment_mode=settings.deployment_mode,
+        code_workbench_enabled=(
+            settings.code_workbench_enabled
+            and settings.app_profile in {"code_assistant", "both"}
+        ),
+        llm_base_url=settings.llm_base_url,
+        api_key="" if not settings.api_key or settings.api_key == "EMPTY" else settings.api_key,
+        api_key_set=bool(settings.api_key and settings.api_key != "EMPTY"),
+        model_name=settings.model_name,
+        runtime_dir=str(settings.runtime_dir),
+        workspace_roots=[
+            part.strip()
+            for part in settings.code_workspace_roots.split(",")
+            if part.strip()
+        ],
+        code_agent_backend=settings.code_agent_backend,
+        claude_hust_cli_path=settings.claude_hust_cli_path,
+        message=message,
+    )
+
+
+def _runtime_path_env_updates(runtime_root: str) -> dict[str, str]:
+    root = Path(runtime_root)
+    return {
+        "DIGITAL_TWIN_HOMEPAGE_DIR": str(root / "data/homepage"),
+        "DIGITAL_TWIN_KNOWLEDGE_BASE_DIR": str(root / "data/knowledge_base"),
+        "DIGITAL_TWIN_CONVERSATION_MEMORY_DIR": str(root / "data/conversation_memory"),
+        "DIGITAL_TWIN_AVAILABILITY_SCHEDULE_PATH": str(root / "data/availability/current_week.json"),
+        "DIGITAL_TWIN_INSTALLED_SKILL_PROMPT_PATH": str(root / "data/installed_skills/fixed_prompt_skills.md"),
+        "DIGITAL_TWIN_USER_ACCOUNT_STORE_DIR": str(root / "data/user_accounts"),
+        "DIGITAL_TWIN_CAPABILITY_PLUGIN_DIR": str(root / "data/capability_plugins"),
+        "DIGITAL_TWIN_WORKFLOW_POLICY_PATH": str(root / "data/workflow_policies/faculty-default-2026-05.json"),
+        "DIGITAL_TWIN_WORKFLOW_SCENARIO_PATH": str(root / "data/workflow_scenarios/v3_preview_scenarios.json"),
+    }
+
+
+def _apply_runtime_path_settings(runtime_root: str) -> None:
+    root = Path(runtime_root)
+    settings.homepage_dir = root / "data/homepage"
+    settings.knowledge_base_dir = root / "data/knowledge_base"
+    settings.conversation_memory_dir = root / "data/conversation_memory"
+    settings.availability_schedule_path = root / "data/availability/current_week.json"
+    settings.installed_skill_prompt_path = root / "data/installed_skills/fixed_prompt_skills.md"
+    settings.user_account_store_dir = root / "data/user_accounts"
+    settings.capability_plugin_dir = root / "data/capability_plugins"
+    settings.workflow_policy_path = root / "data/workflow_policies/faculty-default-2026-05.json"
+    settings.workflow_scenario_path = root / "data/workflow_scenarios/v3_preview_scenarios.json"
+
+
+def _apply_local_code_config(payload: LocalCodeConfigRequest) -> LocalCodeConfigResponse:
+    app_profile = payload.app_profile.strip()
+    code_enabled = app_profile in {"code_assistant", "both"}
+    runtime_dir = Path(payload.runtime_dir).expanduser()
+    runtime_dir.mkdir(parents=True, exist_ok=True)
+    resolved_runtime = str(runtime_dir.resolve())
+
+    workspace_roots: list[str] = []
+    for raw_root in payload.workspace_roots:
+        if not raw_root.strip():
+            continue
+        root = Path(raw_root).expanduser()
+        if not root.is_dir():
+            raise ValueError(f"Workspace does not exist: {raw_root}")
+        workspace_roots.append(str(root.resolve()))
+    workspace_csv = ",".join(workspace_roots) if code_enabled else ""
+
+    updates = {
+        "DIGITAL_TWIN_APP_PROFILE": app_profile,
+        "DIGITAL_TWIN_DEPLOYMENT_MODE": "local_code",
+        "DIGITAL_TWIN_CODE_WORKBENCH_ENABLED": "true" if code_enabled else "false",
+        "DIGITAL_TWIN_CODE_WORKSPACE_ROOTS": workspace_csv,
+        "DIGITAL_TWIN_RUNTIME_DIR": resolved_runtime,
+        "DIGITAL_TWIN_LLM_BASE_URL": payload.llm_base_url.strip(),
+        "DIGITAL_TWIN_MODEL_NAME": (payload.model_name or "").strip(),
+        "DIGITAL_TWIN_CODE_AGENT_BACKEND": payload.code_agent_backend,
+        "DIGITAL_TWIN_CLAUDE_HUST_CLI_PATH": (payload.claude_hust_cli_path or "").strip(),
+        "DIGITAL_TWIN_KNOWLEDGE_BACKEND": "neuromem",
+        "DIGITAL_TWIN_NEUROMEM_INDEX_TYPE": "bm25",
+        "DIGITAL_TWIN_CONVERSATION_MEMORY_COLLECTION_TYPE": "unified",
+        "DIGITAL_TWIN_CONVERSATION_MEMORY_INDEX_TYPE": "segment",
+        "DIGITAL_TWIN_WARM_SERVICE_ON_STARTUP": "false",
+    }
+    updates.update(_runtime_path_env_updates(resolved_runtime))
+    if payload.api_key is not None:
+        updates["DIGITAL_TWIN_API_KEY"] = payload.api_key
+
+    _write_env_updates(_repo_env_path(), updates)
+
+    settings.app_profile = app_profile
+    settings.deployment_mode = "local_code"
+    settings.code_workbench_enabled = code_enabled
+    settings.code_workspace_roots = workspace_csv if code_enabled else ""
+    settings.runtime_dir = Path(resolved_runtime)
+    _apply_runtime_path_settings(resolved_runtime)
+    settings.llm_base_url = updates["DIGITAL_TWIN_LLM_BASE_URL"]
+    settings.model_name = updates["DIGITAL_TWIN_MODEL_NAME"]
+    settings.code_agent_backend = updates["DIGITAL_TWIN_CODE_AGENT_BACKEND"]
+    settings.claude_hust_cli_path = updates["DIGITAL_TWIN_CLAUDE_HUST_CLI_PATH"]
+    if payload.api_key is not None:
+        settings.api_key = payload.api_key
+    settings.knowledge_backend = "neuromem"
+    settings.neuromem_index_type = "bm25"
+    settings.conversation_memory_collection_type = "unified"
+    settings.conversation_memory_index_type = "segment"
+    settings.warm_service_on_startup = False
+    service.reset()
+    return _local_code_config_response(message="Local code settings saved.")
 
 
 llm_app.mount("/static", StaticFiles(directory=web_dir), name="static")
@@ -864,6 +1132,25 @@ async def list_code_workspaces(
     return service.list_code_workspaces()
 
 
+@llm_app.get("/local-code/config", response_model=LocalCodeConfigResponse)
+async def get_local_code_config(
+    _: dict = Depends(require_local_code_config_access),
+) -> LocalCodeConfigResponse:
+    _sync_local_code_settings_from_env()
+    return _local_code_config_response()
+
+
+@llm_app.post("/local-code/config", response_model=LocalCodeConfigResponse)
+async def save_local_code_config(
+    payload: LocalCodeConfigRequest,
+    _: dict = Depends(require_local_code_config_access),
+) -> LocalCodeConfigResponse:
+    try:
+        return _apply_local_code_config(payload)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
 @llm_app.post("/code/search", response_model=CodeSearchResponse)
 async def search_code(
     payload: CodeSearchRequest,
@@ -948,6 +1235,17 @@ async def assist_with_code(
 ) -> CodeAssistResponse:
     try:
         return await service.assist_with_code(payload)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@llm_app.post("/code/propose", response_model=CodeProposeResponse)
+async def propose_code_change(
+    payload: CodeProposeRequest,
+    _: dict = Depends(require_code_access),
+) -> CodeProposeResponse:
+    try:
+        return await service.propose_code_change(payload)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 

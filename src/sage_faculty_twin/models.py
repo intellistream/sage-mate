@@ -954,3 +954,54 @@ class CodeAssistResponse(BaseModel):
     answer: str
     context_paths: list[str] = Field(default_factory=list)
     used_model: str
+    workflow_trace: list[WorkflowTraceStep] = Field(default_factory=list)
+
+
+class CodeProposeRequest(BaseModel):
+    workspace_id: str = Field(min_length=1, max_length=64)
+    task: str = Field(min_length=1, max_length=4000)
+    paths: list[str] = Field(default_factory=list, max_length=8)
+    max_context_chars: int = Field(default=20000, ge=2000, le=50000)
+
+
+class CodeProposeResponse(BaseModel):
+    workspace_id: str
+    summary: str = Field(default="", max_length=4000)
+    affected_files: list[str] = Field(default_factory=list, max_length=32)
+    unified_diff: str = Field(default="", max_length=50000)
+    risks: str = Field(default="", max_length=4000)
+    suggested_tests: list[str] = Field(default_factory=list, max_length=32)
+    proposal: str = Field(default="", max_length=60000)
+    context_paths: list[str] = Field(default_factory=list)
+    used_model: str
+    workflow_trace: list[WorkflowTraceStep] = Field(default_factory=list)
+
+
+class LocalCodeConfigRequest(BaseModel):
+    app_profile: str = Field(
+        default="code_assistant",
+        pattern="^(faculty_twin|code_assistant|both)$",
+    )
+    llm_base_url: str = Field(min_length=1, max_length=1000)
+    api_key: str | None = Field(default=None, max_length=4000)
+    model_name: str | None = Field(default=None, max_length=256)
+    runtime_dir: str = Field(min_length=1, max_length=1000)
+    workspace_roots: list[str] = Field(default_factory=list, max_length=16)
+    code_agent_backend: str = Field(default="internal", pattern="^(internal|claude_hust)$")
+    claude_hust_cli_path: str | None = Field(default=None, max_length=1000)
+
+
+class LocalCodeConfigResponse(BaseModel):
+    app_name: str = "Sage Mate"
+    app_profile: str
+    deployment_mode: str
+    code_workbench_enabled: bool
+    llm_base_url: str
+    api_key: str = ""
+    api_key_set: bool
+    model_name: str = ""
+    runtime_dir: str
+    workspace_roots: list[str] = Field(default_factory=list)
+    code_agent_backend: str = "internal"
+    claude_hust_cli_path: str = ""
+    message: str = Field(default="", max_length=512)
