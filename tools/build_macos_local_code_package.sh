@@ -204,7 +204,7 @@ cat > "$work_dir/SageMateApp.swift" <<'EOF'
 import Cocoa
 import WebKit
 
-final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate {
+final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNavigationDelegate {
     private var window: NSWindow!
     private var webView: WKWebView!
     private var statusLabel: NSTextField!
@@ -219,8 +219,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate {
         NSApp.setActivationPolicy(.regular)
         log("Application launched")
         buildWindow()
-        window.makeKeyAndOrderFront(nil)
-        NSApp.activate(ignoringOtherApps: true)
+        showMainWindow()
 
         DispatchQueue.global(qos: .userInitiated).async {
             do {
@@ -239,7 +238,27 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate {
         serverProcess?.terminate()
     }
 
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        showMainWindow()
+        return true
+    }
+
+    func applicationDidBecomeActive(_ notification: Notification) {
+        if window == nil || !window.isVisible {
+            showMainWindow()
+        }
+    }
+
+    func windowShouldClose(_ sender: NSWindow) -> Bool {
+        sender.orderOut(nil)
+        return false
+    }
+
     private func buildWindow() {
+        if window != nil {
+            return
+        }
+
         let config = WKWebViewConfiguration()
         webView = WKWebView(frame: .zero, configuration: config)
         webView.navigationDelegate = self
@@ -274,6 +293,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate {
         window.title = "Sage Mate"
         window.center()
         window.contentView = container
+        window.delegate = self
+    }
+
+    private func showMainWindow() {
+        if window == nil {
+            buildWindow()
+        }
+        window.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
     }
 
     private func supportRoot() throws -> URL {
