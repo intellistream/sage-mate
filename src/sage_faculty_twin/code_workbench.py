@@ -843,7 +843,7 @@ class CodeWorkbench:
     def _discover_workspaces(self) -> list[CodeWorkspace]:
         if self._settings.deployment_mode != "local_code":
             return []
-        if self._settings.app_profile not in {"code_assistant", "both"}:
+        if self._settings.app_profile != "code_assistant":
             return []
         if not self._settings.code_workbench_enabled:
             return []

@@ -58,6 +58,11 @@
                             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
                             <span class="rail-label">新对话</span>
                         </button>
+                        <button type="button" id="open-profile-switcher" class="rail-btn profile-switcher-btn" title="切换 Profile" aria-label="切换 Profile">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="7" height="7" rx="1.5"/><rect x="14" y="4" width="7" height="7" rx="1.5"/><rect x="3" y="15" width="7" height="7" rx="1.5"/><path d="M14 18h7"/><path d="M17.5 14.5v7"/></svg>
+                            <span class="rail-label">切换 Profile</span>
+                            <span id="profile-switcher-current" class="rail-sublabel">Code Assistant</span>
+                        </button>
                     </div>
                     <div class="rail-utils">
                         <button type="button" id="open-onboarding-help" class="rail-btn" title="新手引导">
@@ -459,13 +464,6 @@
                             <small>只访问你允许的本地仓库，生成 propose-only 修改建议。</small>
                         </span>
                     </label>
-                    <label class="sage-mate-profile-option">
-                        <input type="radio" name="app_profile" value="both" />
-                        <span>
-                            <strong>Both</strong>
-                            <small>同时启用数字分身和本地代码助手。</small>
-                        </span>
-                    </label>
                 </fieldset>
                 <div class="sage-mate-setup-fields">
                     <label>
@@ -535,7 +533,6 @@
                     <select id="local-code-app-profile" name="app_profile">
                         <option value="faculty_twin">Faculty Twin</option>
                         <option value="code_assistant">Code Assistant</option>
-                        <option value="both">Both</option>
                     </select>
                 </label>
                 <label>

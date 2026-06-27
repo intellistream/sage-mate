@@ -56,10 +56,9 @@ class AppSettings(BaseSettings):
     )
     app_profile: str = Field(
         default="faculty_twin",
-        pattern="^(faculty_twin|code_assistant|both)$",
+        pattern="^(faculty_twin|code_assistant)$",
         description="Local desktop product profile. faculty_twin keeps the current "
-        "digital-twin experience, code_assistant enables local code tools, and "
-        "both enables both surfaces.",
+        "digital-twin experience; code_assistant enables local code tools.",
     )
     deployment_mode: str = Field(
         default="hosted",

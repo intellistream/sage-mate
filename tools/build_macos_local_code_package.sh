@@ -504,7 +504,7 @@ Sage Mate for macOS
 
 1. Drag "Sage Mate.app" to Applications, or double-click it in this DMG.
 2. The app starts a local backend and opens an embedded window.
-3. Configure Faculty Twin, Code Assistant, or Both mode in Settings.
+3. Choose Faculty Twin or Code Assistant mode in Settings.
 
 Your repositories stay on this Mac. The hosted Faculty Twin server does not
 clone, store, or execute your code.

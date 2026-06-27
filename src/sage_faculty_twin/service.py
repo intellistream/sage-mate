@@ -7002,7 +7002,7 @@ class DigitalTwinService:
         return (
             self._settings.deployment_mode == "local_code"
             and self._settings.code_workbench_enabled
-            and self._settings.app_profile in {"code_assistant", "both"}
+            and self._settings.app_profile == "code_assistant"
         )
 
     def _parse_code_proposal(self, text: str) -> dict[str, object]:

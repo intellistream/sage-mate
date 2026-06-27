@@ -62,7 +62,7 @@ usage() {
 Flags:
   --workspace PATH        Allowlist a local repository. Repeatable.
   --workspace-roots CSV   Comma-separated allowlist of local repositories.
-  --profile NAME          App profile: faculty_twin, code_assistant, or both.
+  --profile NAME          App profile: faculty_twin or code_assistant.
   --runtime-dir PATH      Local runtime-data folder.
   --llm-base-url URL      OpenAI-compatible /v1 endpoint.
   --api-key KEY           API key for the LLM endpoint. Defaults to EMPTY.
@@ -179,8 +179,8 @@ done
 
 [[ -f "$repo_root/pyproject.toml" ]] || fail "Run this script from a sage-faculty-twin checkout."
 case "$app_profile" in
-    faculty_twin|code_assistant|both) ;;
-    *) fail "--profile must be one of: faculty_twin, code_assistant, both" ;;
+    faculty_twin|code_assistant) ;;
+    *) fail "--profile must be one of: faculty_twin, code_assistant" ;;
 esac
 case "$code_agent_backend" in
     auto|internal|claude_hust) ;;
@@ -223,7 +223,7 @@ discover_existing_runtime_dir() {
 }
 
 should_install_claude_hust() {
-    [[ "$app_profile" == "code_assistant" || "$app_profile" == "both" ]] || return 1
+    [[ "$app_profile" == "code_assistant" ]] || return 1
     [[ "$code_agent_backend" != "internal" ]] || return 1
     ! $skip_claude_hust
 }
@@ -458,11 +458,11 @@ updates = {
     "DIGITAL_TWIN_APP_PROFILE": os.environ["INSTALL_APP_PROFILE"],
     "DIGITAL_TWIN_DEPLOYMENT_MODE": "local_code",
     "DIGITAL_TWIN_CODE_WORKBENCH_ENABLED": (
-        "true" if os.environ["INSTALL_APP_PROFILE"] in {"code_assistant", "both"} else "false"
+        "true" if os.environ["INSTALL_APP_PROFILE"] == "code_assistant" else "false"
     ),
     "DIGITAL_TWIN_CODE_WORKSPACE_ROOTS": (
         os.environ["INSTALL_CODE_WORKSPACE_ROOTS"]
-        if os.environ["INSTALL_APP_PROFILE"] in {"code_assistant", "both"}
+        if os.environ["INSTALL_APP_PROFILE"] == "code_assistant"
         else ""
     ),
     "DIGITAL_TWIN_CODE_AGENT_BACKEND": os.environ["INSTALL_CODE_AGENT_BACKEND"],

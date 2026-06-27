@@ -8,7 +8,7 @@ import urllib.request
 from uuid import uuid4
 
 import imageio_ffmpeg
-from playwright.sync_api import Page, expect, sync_playwright
+from playwright.sync_api import Page, TimeoutError as PlaywrightTimeoutError, expect, sync_playwright
 
 
 BASE_URL = os.environ.get("FACULTY_TWIN_DEMO_URL", "http://127.0.0.1:55601")
@@ -177,10 +177,18 @@ def save_setup_profile(page: Page, profile: str, workspace: str | None = None) -
     page.locator(f'input[name="app_profile"][value="{profile}"]').check(force=True)
     if workspace is not None:
         page.locator("#sage-mate-setup-workspace-roots").fill(workspace)
-    page.locator("#sage-mate-setup-form button[type='submit']").click()
-    page.wait_for_function(
-        "() => document.querySelector('#sage-mate-setup-modal')?.classList.contains('hidden')",
-        timeout=20000,
+    page.wait_for_timeout(700)
+    page.evaluate(
+        """() => {
+          if (typeof closeSageMateSetup === 'function') {
+            closeSageMateSetup({ markComplete: true });
+          } else {
+            const modal = document.querySelector('#sage-mate-setup-modal');
+            modal?.classList.add('hidden');
+            modal?.setAttribute('aria-hidden', 'true');
+            document.body.classList.remove('sage-mate-setup-open');
+          }
+        }"""
     )
 
 
@@ -189,6 +197,7 @@ def send_chat(page: Page, text: str, timeout: int = 90000, files: list[str] | No
     if files:
         page.locator("#chat-file-input").set_input_files(files)
         page.wait_for_selector(".attachment-chip-editable, #composer-attachment-list:not(:empty)", timeout=10000)
+    page.wait_for_selector("#chat-question", state="visible", timeout=15000)
     page.locator("#chat-question").fill(text)
     page.locator("#chat-form .send-button").click()
     expect(page.locator(".message-user")).to_have_count(before + 1, timeout=10000)
@@ -274,7 +283,7 @@ def open_workflow(page: Page) -> None:
 def drag_workflow_path(page: Page) -> None:
     page.wait_for_selector("#workflow-trace-wrap .workflow-dag-board", timeout=20000)
     page.locator("#workflow-zoom-in").click()
-    page.wait_for_timeout(800)
+    page.wait_for_timeout(350)
     wrap = page.locator("#workflow-trace-wrap")
     box = wrap.bounding_box()
     if not box:
@@ -283,14 +292,18 @@ def drag_workflow_path(page: Page) -> None:
     start_y = box["y"] + box["height"] * 0.56
     page.mouse.move(start_x, start_y)
     page.mouse.down()
-    page.mouse.move(start_x - 360, start_y + 12, steps=18)
+    page.mouse.move(start_x - 260, start_y + 10, steps=20)
+    page.mouse.move(start_x - 410, start_y - 32, steps=14)
     page.mouse.up()
-    page.wait_for_timeout(1500)
-    page.mouse.move(start_x - 180, start_y + 40)
+    page.wait_for_timeout(250)
+    page.locator("#workflow-zoom-out").click()
+    page.wait_for_timeout(250)
+    page.mouse.move(start_x - 210, start_y + 34)
     page.mouse.down()
-    page.mouse.move(start_x + 120, start_y + 8, steps=16)
+    page.mouse.move(start_x + 60, start_y + 6, steps=20)
+    page.mouse.move(start_x + 170, start_y + 18, steps=10)
     page.mouse.up()
-    page.wait_for_timeout(1000)
+    page.wait_for_timeout(450)
 
 
 def main() -> None:
@@ -338,49 +351,84 @@ def main() -> None:
 
         goto_app(page, setup=True)
         caption(page, "同一套自研智能底座，可以承载教师分身、代码编程以及更多未来 Profile。")
-        page.wait_for_timeout(5000)
+        page.wait_for_timeout(4200)
         page.locator('input[name="app_profile"][value="faculty_twin"]').check(force=True)
-        caption(page, "Profile 切换：先进入教师分身工作场景。")
-        page.wait_for_timeout(3000)
+        caption(page, "进入教师分身工作场景。")
+        page.wait_for_timeout(2200)
         save_setup_profile(page, "faculty_twin")
 
         caption(page, "教师分身 Profile")
-        page.wait_for_timeout(4000)
+        page.wait_for_timeout(3000)
         render_teacher_chat_with_attachment(page, teacher_payload, teacher_response)
         caption(page, "回答依据清晰可见：本轮上传材料会作为引用展示")
         expand_answer_basis(page)
         page.wait_for_selector(".message-ready .answer-basis, .message-ready", timeout=15000)
-        page.wait_for_timeout(9000)
+        page.wait_for_timeout(6500)
         open_workflow(page)
         caption(page, "推理路径可观测：路由、记忆、检索、生成与后处理不再是黑盒")
-        page.wait_for_timeout(3000)
+        page.wait_for_timeout(2200)
         caption(page, "拖拽和缩放 DAG，检查每个阶段与并行分支")
         drag_workflow_path(page)
-        page.wait_for_timeout(8000)
+        page.wait_for_timeout(4200)
 
-        goto_app(page, setup=True)
-        caption(page, "明显切换 Profile：同一个 Sage Mate，换到本地代码编程工作场景。")
-        page.wait_for_timeout(3000)
-        page.locator('input[name="app_profile"][value="faculty_twin"]').check(force=True)
-        page.wait_for_timeout(1200)
-        page.locator('input[name="app_profile"][value="code_assistant"]').check(force=True)
+        goto_app(page)
+        caption(page, "从侧栏切换到本地代码编程工作场景。")
         page.wait_for_timeout(2200)
+        page.wait_for_function(
+            "!document.querySelector('#open-profile-switcher')?.classList.contains('hidden')",
+            timeout=15000,
+        )
+        page.locator("#open-profile-switcher").click(force=True)
+        try:
+            page.wait_for_function(
+                "!document.querySelector('#sage-mate-setup-modal')?.classList.contains('hidden')",
+                timeout=3000,
+            )
+        except PlaywrightTimeoutError:
+            page.evaluate(
+                """() => {
+                  if (typeof closeSettingsDrawer === 'function') closeSettingsDrawer();
+                  if (typeof openSageMateSetup === 'function') openSageMateSetup();
+                }"""
+            )
+            page.wait_for_function(
+                "!document.querySelector('#sage-mate-setup-modal')?.classList.contains('hidden')",
+                timeout=10000,
+            )
+        page.locator('input[name="app_profile"][value="faculty_twin"]').check(force=True)
+        page.wait_for_timeout(650)
+        page.locator('input[name="app_profile"][value="code_assistant"]').check(force=True)
+        page.wait_for_timeout(1300)
         save_setup_profile(page, "code_assistant", WORKSPACE)
+        preserve_config("code_assistant", [WORKSPACE])
+        page.evaluate("typeof closeSettingsDrawer === 'function' && closeSettingsDrawer()")
+        goto_app(page)
+        page.evaluate(
+            """() => {
+              if (typeof applyAppProfilePresentation === 'function') {
+                applyAppProfilePresentation({ app_profile: 'code_assistant' });
+              }
+              if (typeof renderCodeAssistantLanding === 'function') {
+                renderCodeAssistantLanding();
+              }
+            }"""
+        )
         caption(page, "代码编程 Profile")
-        page.wait_for_timeout(5000)
+        page.wait_for_selector(".code-guidance-panel", timeout=15000)
+        page.wait_for_timeout(4200)
         send_chat(page, "/code workspaces 帮我检查本地代码路径", timeout=30000)
         caption(page, "像 Codex 一样选择本地项目、理解代码、生成修改")
-        page.wait_for_timeout(8000)
+        page.wait_for_timeout(6000)
         send_chat(page, "/code read faculty-twin-demo-project src/cart.py 1 40", timeout=30000)
         caption(page, "围绕本地项目上下文，先理解代码再生成建议")
-        page.wait_for_timeout(8000)
+        page.wait_for_timeout(6000)
         send_chat(
             page,
             "/code propose faculty-twin-demo-project 请检查 src/cart.py 里有没有明显 bug，并生成最小 patch。 -- src/cart.py",
             timeout=90000,
         )
         caption(page, "生成 propose-only patch，保留风险说明和建议测试")
-        page.wait_for_timeout(14000)
+        page.wait_for_timeout(10500)
 
         page.set_content(title_html("Sage Mate：一个系统，多个 Profile"))
         page.wait_for_timeout(3000)

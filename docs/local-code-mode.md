@@ -51,7 +51,6 @@ The app-level profile is:
 
 - `faculty_twin`: digital twin, knowledge, chat, scheduling, and workflow features; code tools off.
 - `code_assistant`: local code assistant features; code tools on for allowlisted repositories.
-- `both`: enables both surfaces in one local app.
 
 The important first-run settings in the UI are:
 
@@ -108,7 +107,7 @@ In hosted deployments, code tools remain disabled even if workspace paths are co
 
 Sage Mate's default code backend is `internal`: a small Python/FastAPI local harness with
 propose-only behavior. Local macOS installs now try to install `claude-code-hust` automatically
-when the selected profile is `code_assistant` or `both`. If that succeeds, the installer writes
+when the selected profile is `code_assistant`. If that succeeds, the installer writes
 the local `bin/claude-hust` path into `.env` and switches Sage Mate to the external CLI adapter:
 
 ```bash

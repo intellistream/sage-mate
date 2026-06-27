@@ -124,6 +124,8 @@ const topbarTitle = document.getElementById("topbar-title");
 const topbarSubtitle = document.getElementById("topbar-subtitle");
 const topbarKicker = document.querySelector(".topbar-kicker");
 const openOnboardingHelpButton = document.getElementById("open-onboarding-help");
+const openProfileSwitcherButton = document.getElementById("open-profile-switcher");
+const profileSwitcherCurrent = document.getElementById("profile-switcher-current");
 const homepageLink = document.getElementById("homepage-link");
 const chatQuestion = document.getElementById("chat-question");
 const chatFileInput = document.getElementById("chat-file-input");
@@ -488,7 +490,15 @@ const VISITOR_PROFILE_CONFIGS = {
 };
 
 function isCodeAssistantProfile(profile = currentAppProfile) {
-    return profile === "code_assistant" || profile === "both";
+    return normalizeAppProfile(profile) === "code_assistant";
+}
+
+function appProfileLabel(profile = currentAppProfile) {
+    return normalizeAppProfile(profile) === "code_assistant" ? "Code Assistant" : "Faculty Twin";
+}
+
+function normalizeAppProfile(profile = currentAppProfile) {
+    return profile === "code_assistant" || profile === "both" ? "code_assistant" : "faculty_twin";
 }
 
 function shellQuote(value) {
@@ -577,7 +587,7 @@ function localCodeConfigPayloadWithWorkspace(path) {
         .filter(Boolean)
         .filter((item, index, arr) => arr.indexOf(item) === index);
     return {
-        app_profile: isCodeAssistantProfile(config.app_profile) ? config.app_profile : "code_assistant",
+        app_profile: isCodeAssistantProfile(config.app_profile) ? "code_assistant" : "faculty_twin",
         llm_base_url: config.llm_base_url || localCodeLlmBaseUrlInput?.value?.trim() || "http://127.0.0.1:8000/v1",
         model_name: config.model_name || localCodeModelNameInput?.value?.trim() || "",
         runtime_dir: config.runtime_dir || localCodeRuntimeDirInput?.value?.trim() || "",
@@ -728,7 +738,7 @@ function codeAssistantLandingMarkup() {
         `;
     return `
         <div class="code-assistant-landing">
-            <h1>${escapeHtml(selectedWorkspaceId ? `我们应该在 ${selectedLabel} 中构建什么？` : "我们应该构建什么？")}</h1>
+            <h1>${escapeHtml(selectedWorkspaceId ? `${selectedLabel} · 本地代码工作区` : "选择项目并开始本地代码任务")}</h1>
             <div class="code-start-context">
                 ${workspaceControl}
                 <div class="code-add-project">
@@ -738,11 +748,29 @@ function codeAssistantLandingMarkup() {
                     <span data-code-add-project-status class="code-add-project-status"></span>
                 </div>
             </div>
+            <div class="code-guidance-panel" aria-label="代码助手使用步骤和命令">
+                <ol class="code-guidance-steps">
+                    <li><strong>1. 选择项目</strong><span>添加或选择一个 allowlisted 本地工作区。</span></li>
+                    <li><strong>2. 描述任务</strong><span>说明要解释、检查、补测试或生成建议的文件。</span></li>
+                    <li><strong>3. 审阅结果</strong><span>先看上下文、diff、风险和建议测试，再决定是否手动应用。</span></li>
+                </ol>
+                <div class="code-command-list" aria-label="可用代码命令">
+                    <code>/code workspaces</code>
+                    <code>/code ls &lt;workspace&gt; [path]</code>
+                    <code>/code search &lt;workspace&gt; &lt;query&gt; [--glob pattern]</code>
+                    <code>/code read &lt;workspace&gt; &lt;path&gt; [start] [lines]</code>
+                    <code>/code status &lt;workspace&gt;</code>
+                    <code>/code diff &lt;workspace&gt; [path] [--staged]</code>
+                    <code>/code context &lt;workspace&gt; [path ...]</code>
+                    <code>/code run &lt;workspace&gt; &lt;read-only command&gt;</code>
+                    <code>/code ask &lt;workspace&gt; &lt;task&gt; [-- path ...]</code>
+                    <code>/code propose &lt;workspace&gt; &lt;task&gt; [-- path ...]</code>
+                </div>
+            </div>
             <div class="code-local-boundary">
                 <span>${escapeHtml(selectedRoot || "选择或添加本地项目")}</span>
                 <span>本地模式</span>
                 <span>propose-only</span>
-                <span>repo 不上传</span>
             </div>
             <div class="code-template-grid">
                 <button type="button" class="code-template-button" data-code-template="explain">
@@ -796,10 +824,43 @@ function renderCodeComposerContext() {
     `;
 }
 
+function syncGuidanceLabelsForProfile() {
+    const isCode = isCodeAssistantProfile();
+    const guidanceLabel = isCode ? "使用指南" : "新手引导";
+    if (openOnboardingHelpButton) {
+        openOnboardingHelpButton.title = guidanceLabel;
+        openOnboardingHelpButton.setAttribute("aria-label", guidanceLabel);
+        const label = openOnboardingHelpButton.querySelector(".rail-label");
+        if (label) {
+            label.textContent = guidanceLabel;
+        }
+    }
+    document.querySelectorAll(".onboarding-badge").forEach((badge) => {
+        badge.textContent = guidanceLabel;
+    });
+    const skipLabel = document.querySelector("#onboarding-dismiss-checkbox")?.closest("label")?.querySelector("span");
+    if (skipLabel) {
+        skipLabel.textContent = isCode ? "不再自动弹出使用指南" : "不再自动弹出新手引导";
+    }
+}
+
+function syncProfileSwitcherState() {
+    if (profileSwitcherCurrent) {
+        profileSwitcherCurrent.textContent = appProfileLabel();
+    }
+    if (openProfileSwitcherButton) {
+        openProfileSwitcherButton.setAttribute("data-profile", currentAppProfile || "code_assistant");
+        openProfileSwitcherButton.title = `切换 Profile：当前 ${appProfileLabel()}`;
+        openProfileSwitcherButton.setAttribute("aria-label", `切换 Profile，当前 ${appProfileLabel()}`);
+    }
+}
+
 function syncCodeAssistantChrome() {
     document.body.classList.add("profile-code-assistant");
     document.body.classList.remove("profile-faculty-twin");
     document.body.classList.add("sidebar-expanded");
+    syncGuidanceLabelsForProfile();
+    syncProfileSwitcherState();
     if (topbarKicker) {
         topbarKicker.textContent = "Sage Mate";
     }
@@ -853,7 +914,8 @@ function renderDefaultLandingForProfile() {
 }
 
 function applyAppProfilePresentation(data = {}) {
-    currentAppProfile = data.app_profile || currentAppProfile || "faculty_twin";
+    const previousProfile = normalizeAppProfile(currentAppProfile);
+    currentAppProfile = normalizeAppProfile(data.app_profile || currentAppProfile || "faculty_twin");
     document.body.classList.toggle("profile-code-assistant", isCodeAssistantProfile());
     document.body.classList.toggle("profile-faculty-twin", currentAppProfile === "faculty_twin");
     if (topbarKicker) {
@@ -875,7 +937,14 @@ function applyAppProfilePresentation(data = {}) {
     document.title = isCodeAssistantProfile() ? "Sage Mate" : "张书豪的分身";
     openOnboardingHelpButton?.classList.remove("hidden");
     homepageLink?.classList.toggle("hidden", currentAppProfile === "code_assistant");
+    syncGuidanceLabelsForProfile();
+    syncProfileSwitcherState();
     renderCodeComposerContext();
+    const nextScope = resolveConversationHistoryStorageScope();
+    if (normalizeAppProfile(previousProfile) !== currentAppProfile && nextScope !== conversationHistoryScope) {
+        switchConversationHistoryScope(nextScope);
+        return;
+    }
     if (!chatStream?.querySelector(".message-user")) {
         renderDefaultLandingForProfile();
     }
@@ -1034,7 +1103,7 @@ const ONBOARDING_STEPS = {
             hints: [
                 "项目路径可以是 /Users/you/my-repo 这样的本机文件夹。",
                 "添加后会出现在 Project Workspace 下拉框里。",
-                "用户代码留在本机；服务器不接收 repo、不 clone、不跑命令。",
+                "Sage Mate 会围绕你选择的本地工作区组织上下文和建议。",
             ],
             context: "代码助手 · 项目工作区",
         },
@@ -2101,6 +2170,7 @@ sageMateSetupForm?.addEventListener("submit", saveSageMateSetup);
 sageMateSetupForm?.querySelectorAll('input[name="app_profile"]').forEach((input) => {
     input.addEventListener("change", updateSageMateSetupWorkspaceVisibility);
 });
+openProfileSwitcherButton?.addEventListener("click", openProfileSwitcher);
 sageMateSetupCloseButton?.addEventListener("click", () => closeSageMateSetup());
 sageMateSetupOpenSettingsButton?.addEventListener("click", () => {
     closeSageMateSetup();
@@ -5709,10 +5779,11 @@ function renderLocalCodeConfig(data) {
     if (!data || !localCodeConfigPanel) return;
     currentLocalCodeConfig = data;
     localCodeConfigPanel.classList.toggle("hidden", data.deployment_mode !== "local_code");
+    openProfileSwitcherButton?.classList.toggle("hidden", data.deployment_mode !== "local_code");
     codeAssistantWorkspacesLoaded = false;
     codeAssistantWorkspaces = [];
     applyAppProfilePresentation(data);
-    if (localCodeAppProfileInput) localCodeAppProfileInput.value = data.app_profile || "code_assistant";
+    if (localCodeAppProfileInput) localCodeAppProfileInput.value = normalizeAppProfile(data.app_profile || "code_assistant");
     updateLocalCodeWorkspaceVisibility();
     if (localCodeLlmBaseUrlInput) localCodeLlmBaseUrlInput.value = data.llm_base_url || "";
     if (localCodeModelNameInput) localCodeModelNameInput.value = data.model_name || "";
@@ -5734,24 +5805,24 @@ function renderLocalCodeConfig(data) {
 
 function selectedSageMateSetupProfile() {
     const checked = sageMateSetupForm?.querySelector('input[name="app_profile"]:checked');
-    return checked?.value || "code_assistant";
+    return normalizeAppProfile(checked?.value || "code_assistant");
 }
 
 function setSageMateSetupProfile(profile) {
-    const target = sageMateSetupForm?.querySelector(`input[name="app_profile"][value="${profile || "code_assistant"}"]`);
+    const target = sageMateSetupForm?.querySelector(`input[name="app_profile"][value="${normalizeAppProfile(profile || "code_assistant")}"]`);
     if (target) target.checked = true;
     updateSageMateSetupWorkspaceVisibility();
 }
 
 function updateSageMateSetupWorkspaceVisibility() {
     const profile = selectedSageMateSetupProfile();
-    const needsWorkspace = profile === "code_assistant" || profile === "both";
+    const needsWorkspace = profile === "code_assistant";
     sageMateSetupWorkspaceLabel?.classList.toggle("hidden", !needsWorkspace);
 }
 
 function updateLocalCodeWorkspaceVisibility() {
     const profile = localCodeAppProfileInput?.value || "code_assistant";
-    const needsWorkspace = profile === "code_assistant" || profile === "both";
+    const needsWorkspace = profile === "code_assistant";
     localCodeWorkspaceRootsInput?.closest("label")?.classList.toggle("hidden", !needsWorkspace);
 }
 
@@ -5762,7 +5833,7 @@ function updateLocalCodeAgentBackendVisibility() {
 
 function renderSageMateSetup(data) {
     if (!data || !sageMateSetupModal) return;
-    setSageMateSetupProfile(data.app_profile || "code_assistant");
+    setSageMateSetupProfile(normalizeAppProfile(data.app_profile || "code_assistant"));
     if (sageMateSetupLlmBaseUrlInput) sageMateSetupLlmBaseUrlInput.value = data.llm_base_url || "";
     if (sageMateSetupModelNameInput) sageMateSetupModelNameInput.value = data.model_name || "";
     if (sageMateSetupRuntimeDirInput) sageMateSetupRuntimeDirInput.value = data.runtime_dir || "";
@@ -5811,8 +5882,19 @@ async function maybeOpenSageMateSetup() {
             openSageMateSetup();
         }
     } catch {
+        openProfileSwitcherButton?.classList.add("hidden");
         closeSageMateSetup();
     }
+}
+
+async function openProfileSwitcher() {
+    try {
+        const data = await apiRequest("/local-code/config", { timeoutMs: 8000 });
+        renderLocalCodeConfig(data);
+    } catch {
+        // The switcher should still expose the lightweight Profile chooser.
+    }
+    openSageMateSetup();
 }
 
 async function saveSageMateSetup(event) {
@@ -5858,6 +5940,7 @@ async function loadLocalCodeConfig() {
         setInlineStatus(localCodeConfigResponse, message, data.api_key_set ? "success" : "empty");
     } catch {
         localCodeConfigPanel.classList.add("hidden");
+        openProfileSwitcherButton?.classList.add("hidden");
     }
 }
 
@@ -5870,11 +5953,11 @@ async function saveLocalCodeConfig(event) {
         .map((item) => item.trim())
         .filter(Boolean);
     const payload = {
-        app_profile: localCodeAppProfileInput?.value || "code_assistant",
+        app_profile: normalizeAppProfile(localCodeAppProfileInput?.value || "code_assistant"),
         llm_base_url: localCodeLlmBaseUrlInput?.value?.trim() || "http://127.0.0.1:8000/v1",
         model_name: localCodeModelNameInput?.value?.trim() || "",
         runtime_dir: localCodeRuntimeDirInput?.value?.trim() || "",
-        workspace_roots: localCodeAppProfileInput?.value === "faculty_twin" ? [] : workspaceRoots,
+        workspace_roots: normalizeAppProfile(localCodeAppProfileInput?.value || "code_assistant") === "faculty_twin" ? [] : workspaceRoots,
         code_agent_backend: localCodeAgentBackendInput?.value || "internal",
         claude_hust_cli_path: localCodeClaudeHustCliPathInput?.value?.trim() || "",
     };
@@ -6036,7 +6119,8 @@ function appendMessage(role, label, text, options = {}) {
 
 function resolveConversationHistoryStorageScope() {
     const email = getCurrentHistorySyncEmail();
-    return email ? `user:${email}` : "guest";
+    const profile = normalizeAppProfile();
+    return email ? `${profile}:user:${email}` : `${profile}:guest`;
 }
 
 function buildConversationHistoryStorageKey(scope = conversationHistoryScope) {
@@ -6065,6 +6149,7 @@ function loadConversationHistory(scope = conversationHistoryScope) {
                 html: typeof entry?.html === "string" ? entry.html : "",
                 updatedAt: Number.isFinite(entry?.updatedAt) ? entry.updatedAt : Date.now(),
                 exchangeCount: Number.isFinite(entry?.exchangeCount) ? entry.exchangeCount : 1,
+                appProfile: normalizeAppProfile(entry?.appProfile || currentAppProfile),
                 source: "local",
             }))
             .filter((entry) => entry.id && entry.html)
@@ -6270,6 +6355,7 @@ function persistActiveConversationSnapshot() {
         html: chatStream.innerHTML,
         updatedAt: Date.now(),
         exchangeCount: chatStream.querySelectorAll(".message-user").length || 1,
+        appProfile: normalizeAppProfile(),
         source: "local",
     };
 
@@ -6287,7 +6373,10 @@ function renderConversationHistoryList() {
     const mergedEntries = buildMergedConversationEntries();
 
     if (!mergedEntries.length) {
-        historyList.innerHTML = `<div class="history-empty">${escapeHtml(getCurrentHistorySyncEmail() ? "还没有可恢复的历史对话。" : "新的对话会出现在这里；登录或填写邮箱后也能同步到其他设备。")}</div>`;
+        const emptyCopy = isCodeAssistantProfile()
+            ? "这个代码 Profile 还没有历史对话。"
+            : (getCurrentHistorySyncEmail() ? "这个教师分身 Profile 还没有可恢复的历史对话。" : "教师分身的新对话会出现在这里；登录或填写邮箱后也能同步到其他设备。");
+        historyList.innerHTML = `<div class="history-empty">${escapeHtml(emptyCopy)}</div>`;
         return;
     }
 
@@ -6490,7 +6579,7 @@ function renderConversationTranscript(transcript) {
 
 async function syncConversationHistoryFromServer() {
     const email = getCurrentHistorySyncEmail();
-    if (!email) {
+    if (!email || isCodeAssistantProfile()) {
         serverConversationEntries = [];
         renderConversationHistoryList();
         return;

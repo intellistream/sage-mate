@@ -980,7 +980,7 @@ class CodeProposeResponse(BaseModel):
 class LocalCodeConfigRequest(BaseModel):
     app_profile: str = Field(
         default="code_assistant",
-        pattern="^(faculty_twin|code_assistant|both)$",
+        pattern="^(faculty_twin|code_assistant)$",
     )
     llm_base_url: str = Field(min_length=1, max_length=1000)
     api_key: str | None = Field(default=None, max_length=4000)

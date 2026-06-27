@@ -767,7 +767,7 @@ def require_code_access(request: Request) -> dict:
     if (
         settings.deployment_mode == "local_code"
         and settings.code_workbench_enabled
-        and settings.app_profile in {"code_assistant", "both"}
+        and settings.app_profile == "code_assistant"
     ):
         return {"mode": "local_code"}
     return require_admin_session(request)
@@ -922,7 +922,7 @@ def _local_code_config_response(*, message: str = "") -> LocalCodeConfigResponse
         deployment_mode=settings.deployment_mode,
         code_workbench_enabled=(
             settings.code_workbench_enabled
-            and settings.app_profile in {"code_assistant", "both"}
+            and settings.app_profile == "code_assistant"
         ),
         llm_base_url=settings.llm_base_url,
         api_key="" if not settings.api_key or settings.api_key == "EMPTY" else settings.api_key,
@@ -970,7 +970,7 @@ def _apply_runtime_path_settings(runtime_root: str) -> None:
 
 def _apply_local_code_config(payload: LocalCodeConfigRequest) -> LocalCodeConfigResponse:
     app_profile = payload.app_profile.strip()
-    code_enabled = app_profile in {"code_assistant", "both"}
+    code_enabled = app_profile == "code_assistant"
     runtime_dir = Path(payload.runtime_dir).expanduser()
     runtime_dir.mkdir(parents=True, exist_ok=True)
     resolved_runtime = str(runtime_dir.resolve())

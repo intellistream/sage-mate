@@ -73,7 +73,7 @@ Hosted-web options:
   --no-systemd, --no-siblings, --start, --yes
 
 Local Sage Mate options:
-  --app-profile faculty_twin|code_assistant|both
+  --app-profile faculty_twin|code_assistant
   --workspace PATH              Repeatable local repository allowlist.
   --workspace-roots CSV         Comma-separated local repository allowlist.
   --runtime-dir PATH
@@ -156,7 +156,7 @@ while [[ $# -gt 0 ]]; do
 		[[ $# -ge 2 ]] || { echo "--profile requires a value" >&2; exit 2; }
 		case "$2" in
 			hosted-web|local-mac-app|mac-dmg) install_target="$2" ;;
-			faculty_twin|code_assistant|both)
+			faculty_twin|code_assistant)
 				local_target_hint=true
 				local_install_args+=(--profile "$2")
 				;;

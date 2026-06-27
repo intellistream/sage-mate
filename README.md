@@ -59,13 +59,13 @@ DIGITAL_TWIN_CODE_WORKSPACE_ROOTS=
 打开 dist/sage-mate-macos.dmg，双击 Sage Mate.app
 ```
 
-它会作为独立 macOS 应用启动，在应用窗口内选择 Faculty Twin、Code Assistant 或 Both 模式，
+它会作为独立 macOS 应用启动，在应用窗口内选择 Faculty Twin 或 Code Assistant 模式，
 并完成 LLM、运行时数据目录和本地仓库 allowlist 配置。`sage-studio` 已保留给 SAGE
 画布/低代码流水线 UI，这个桌面助手命名为 Sage Mate。
 LLM URL、API key 和模型名会优先从本机 `SAGE_MATE_PREFILL_ENV` 指向的 env 文件预填；
 没有显式指定时会尝试读取 `~/vllm-hust-dev-hub/.env` 或 runtime 私有仓库中的部署 env。
 代码后端默认使用内置 propose-only harness；本地安装也可以在设置里切到 sibling
-`claude-code-hust` 的 `claude-hust` CLI 后端。选择 Code Assistant 或 Both 模式时，
+`claude-code-hust` 的 `claude-hust` CLI 后端。选择 Code Assistant 模式时，
 本地安装器会尝试自动 clone/install `../claude-code-hust`，并把本机 `bin/claude-hust` 路径写入 Sage Mate 配置；
 服务器 hosted-web 部署不会安装或启用代码功能。
 
