@@ -8,14 +8,36 @@ For a fresh-machine bring-up, the fastest path is:
 ```bash
 git clone https://github.com/intellistream/sage-faculty-twin.git
 cd sage-faculty-twin
-./quickstart.sh                  # env + deps + .env + systemd units
+./quickstart.sh --target hosted-web
 ./quickstart.sh --with-vllm      # also pull and editable-install vllm-hust
 ./quickstart.sh --start          # install + start the three user services
 ```
 
-`quickstart.sh` is idempotent and never overwrites an existing `.env` value—it only fills in
-missing keys. See §7 below for the chunked-transfer / streaming gotcha that the latency
-rollout uncovered.
+`quickstart.sh` is idempotent. It fills in missing `.env` keys and, for the explicit/default
+`hosted-web` target, enforces the deployment-mode/code-tool safety keys so a server install cannot
+accidentally expose local repository features. See §7 below for the chunked-transfer / streaming
+gotcha that the latency rollout uncovered.
+
+## Deployment Targets
+
+`quickstart.sh` is the single installer entry point, but it has separate targets for the two
+product shapes:
+
+- `hosted-web` is the default Linux/server browser deployment. Use this on hosts such as
+  `180-ascend-dev`. It explicitly sets `DIGITAL_TWIN_DEPLOYMENT_MODE=hosted`,
+  `DIGITAL_TWIN_APP_PROFILE=faculty_twin`, `DIGITAL_TWIN_CODE_WORKBENCH_ENABLED=false`, and clears
+  `DIGITAL_TWIN_CODE_WORKSPACE_ROOTS`.
+- `local-mac-app` is for a user-installed Sage Mate runtime on macOS. It delegates to
+  `tools/install_local_code_mode.sh` and does not install systemd units.
+- `mac-dmg` builds the distributable `dist/sage-mate-macos.dmg`.
+
+Examples:
+
+```bash
+./quickstart.sh --target hosted-web --start
+./quickstart.sh --target local-mac-app --app-profile code_assistant --workspace "$HOME/my-repo" --start
+./quickstart.sh --target mac-dmg
+```
 
 ## 1. Application Server
 
@@ -193,6 +215,10 @@ in sibling directories and auto-managed at startup.
 |-----------|--------|-------------|--------------------|
 | SageVDB | `../sageVDB` | `isage-vdb` | `sagevdb` pyproject.toml |
 | SageANNS | (pure Python) | `isage-anns` | pip metadata |
+
+The local Sage Mate code profile also uses a sibling checkout, `../claude-code-hust`, but only for
+`local-mac-app` installs. Hosted web deployments keep code tools disabled and do not install or
+start that code backend.
 
 ### Configuration (.env)
 

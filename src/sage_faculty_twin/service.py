@@ -1,12 +1,19 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import hashlib
+import http.server
 import inspect
+import json
 import logging
 import os
 import re
+import shutil
+import subprocess
 import threading
+import urllib.error
+import urllib.request
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field
 from datetime import UTC, date, datetime, time, timedelta
@@ -35,6 +42,7 @@ from .auth import (
     resolve_admin_session_identity,
     validate_admin_credentials,
 )
+from .code_workbench import CodeWorkbench
 from .config import AppSettings
 from .escalation_store import EscalationQueueStore
 from .follow_up_store import FollowUpQueueStore
@@ -67,6 +75,25 @@ from .models import (
     ChatFeedbackResponse,
     ChatRequest,
     ChatResponse,
+    CodeAssistRequest,
+    CodeAssistResponse,
+    CodeCommandRequest,
+    CodeCommandResponse,
+    CodeContextRequest,
+    CodeContextResponse,
+    CodeDirectoryListRequest,
+    CodeDirectoryListResponse,
+    CodeFileReadRequest,
+    CodeFileReadResponse,
+    CodeGitDiffRequest,
+    CodeGitDiffResponse,
+    CodeGitStatusRequest,
+    CodeGitStatusResponse,
+    CodeProposeRequest,
+    CodeProposeResponse,
+    CodeSearchRequest,
+    CodeSearchResponse,
+    CodeWorkspaceListResponse,
     ConversationExchangeResponse,
     ConversationHistoryItemResponse,
     ConversationHistoryListResponse,
@@ -5919,6 +5946,7 @@ class DigitalTwinService:
         self._meeting_service = MeetingService(settings)
         self._email_notifier = BookingEmailNotifier(settings)
         self._runtime_manager = ServiceRuntimeManager(settings)
+        self._code_workbench = CodeWorkbench(settings)
         self._workflow_planner = DeterministicWorkflowPlanner(
             policy_path=settings.workflow_policy_path
         )
@@ -6038,6 +6066,12 @@ class DigitalTwinService:
         invitation_response = self._check_invitation_code_in_message(request)
         if invitation_response is not None:
             return invitation_response
+
+        if (
+            self._code_workbench_available()
+            and self._code_workbench.is_chat_command(request.question)
+        ):
+            return await self._answer_code_workbench_command(request)
 
         recent_session_context = self._build_recent_session_context(request)
 
@@ -6366,6 +6400,663 @@ class DigitalTwinService:
             [(AdminLogoutStage, support)],
             "SAGE runtime completed without producing an admin logout response.",
         )
+
+    def list_code_workspaces(self) -> CodeWorkspaceListResponse:
+        self._require_code_workbench_enabled()
+        return self._code_workbench.list_workspaces()
+
+    def search_code(self, request: CodeSearchRequest) -> CodeSearchResponse:
+        self._require_code_workbench_enabled()
+        return self._code_workbench.search(request)
+
+    def read_code_file(self, request: CodeFileReadRequest) -> CodeFileReadResponse:
+        self._require_code_workbench_enabled()
+        return self._code_workbench.read_file(request)
+
+    def list_code_directory(
+        self,
+        request: CodeDirectoryListRequest,
+    ) -> CodeDirectoryListResponse:
+        self._require_code_workbench_enabled()
+        return self._code_workbench.list_directory(request)
+
+    def get_code_git_status(
+        self,
+        request: CodeGitStatusRequest,
+    ) -> CodeGitStatusResponse:
+        self._require_code_workbench_enabled()
+        return self._code_workbench.git_status(request)
+
+    def get_code_git_diff(self, request: CodeGitDiffRequest) -> CodeGitDiffResponse:
+        self._require_code_workbench_enabled()
+        return self._code_workbench.git_diff(request)
+
+    def build_code_context(self, request: CodeContextRequest) -> CodeContextResponse:
+        self._require_code_workbench_enabled()
+        return self._code_workbench.build_context(request)
+
+    def run_code_command(self, request: CodeCommandRequest) -> CodeCommandResponse:
+        self._require_code_workbench_enabled()
+        return self._code_workbench.run_command(request)
+
+    async def assist_with_code(self, request: CodeAssistRequest) -> CodeAssistResponse:
+        self._require_code_workbench_enabled()
+        started_at = perf_counter()
+        if self._settings.code_agent_backend == "claude_hust":
+            answer = await asyncio.to_thread(
+                self._run_claude_hust_assist,
+                request,
+            )
+            answer = self._strip_thinking_blocks(answer)
+            context_paths = request.paths
+            return CodeAssistResponse(
+                workspace_id=request.workspace_id,
+                answer=answer,
+                context_paths=context_paths,
+                used_model=self._settings.model_name or self._llm_client.model_name,
+                workflow_trace=self._build_code_workflow_trace(
+                    action="ask",
+                    workspace_id=request.workspace_id,
+                    backend="claude_hust",
+                    context_paths=context_paths,
+                    result_summary="已由本地 claude-hust 后端生成代码问答。",
+                    duration_ms=self._code_elapsed_ms(started_at),
+                ),
+            )
+        system_prompt, user_prompt, context_paths = self._code_workbench.build_assist_prompt(
+            request
+        )
+        answer = await asyncio.to_thread(
+            self._llm_client.answer_question_sync,
+            system_prompt,
+            user_prompt,
+            temperature=0.1,
+            max_tokens=2048,
+            enable_thinking=False,
+            cache_namespace=f"code-workbench:{request.workspace_id}",
+        )
+        return CodeAssistResponse(
+            workspace_id=request.workspace_id,
+            answer=answer,
+            context_paths=context_paths,
+            used_model=self._llm_client.model_name,
+            workflow_trace=self._build_code_workflow_trace(
+                action="ask",
+                workspace_id=request.workspace_id,
+                backend="internal",
+                context_paths=context_paths,
+                result_summary="已由 Sage Mate 内置代码工作台生成代码问答。",
+                duration_ms=self._code_elapsed_ms(started_at),
+            ),
+        )
+
+    async def propose_code_change(self, request: CodeProposeRequest) -> CodeProposeResponse:
+        self._require_code_workbench_enabled()
+        started_at = perf_counter()
+        if self._settings.code_agent_backend == "claude_hust":
+            answer = await asyncio.to_thread(
+                self._run_claude_hust_propose,
+                request,
+            )
+            answer = self._strip_thinking_blocks(answer)
+            parsed = self._parse_code_proposal(answer)
+            context_paths = request.paths
+            return CodeProposeResponse(
+                workspace_id=request.workspace_id,
+                summary=parsed["summary"],
+                affected_files=parsed["affected_files"],
+                unified_diff=parsed["unified_diff"],
+                risks=parsed["risks"],
+                suggested_tests=parsed["suggested_tests"],
+                proposal=answer,
+                context_paths=context_paths,
+                used_model=self._settings.model_name or self._llm_client.model_name,
+                workflow_trace=self._build_code_workflow_trace(
+                    action="propose",
+                    workspace_id=request.workspace_id,
+                    backend="claude_hust",
+                    context_paths=context_paths,
+                    result_summary="已由本地 claude-hust 后端生成 propose-only 修改建议。",
+                    duration_ms=self._code_elapsed_ms(started_at),
+                ),
+            )
+        system_prompt, user_prompt, context_paths = self._code_workbench.build_propose_prompt(
+            request
+        )
+        answer = await asyncio.to_thread(
+            self._llm_client.answer_question_sync,
+            system_prompt,
+            user_prompt,
+            temperature=0.0,
+            max_tokens=4096,
+            enable_thinking=False,
+            cache_namespace=f"code-propose:{request.workspace_id}",
+        )
+        parsed = self._parse_code_proposal(answer)
+        return CodeProposeResponse(
+            workspace_id=request.workspace_id,
+            summary=parsed["summary"],
+            affected_files=parsed["affected_files"],
+            unified_diff=parsed["unified_diff"],
+            risks=parsed["risks"],
+            suggested_tests=parsed["suggested_tests"],
+            proposal=answer,
+            context_paths=context_paths,
+            used_model=self._llm_client.model_name,
+            workflow_trace=self._build_code_workflow_trace(
+                action="propose",
+                workspace_id=request.workspace_id,
+                backend="internal",
+                context_paths=context_paths,
+                result_summary="已由 Sage Mate 内置代码工作台生成 propose-only 修改建议。",
+                duration_ms=self._code_elapsed_ms(started_at),
+            ),
+        )
+
+    @staticmethod
+    def _code_elapsed_ms(started_at: float) -> int:
+        return int((perf_counter() - started_at) * 1000)
+
+    def _build_code_workflow_trace(
+        self,
+        *,
+        action: str,
+        workspace_id: str,
+        backend: str,
+        context_paths: list[str],
+        result_summary: str,
+        duration_ms: int,
+    ) -> list[WorkflowTraceStep]:
+        try:
+            workspace_root = self._code_workbench.workspace_root(workspace_id)
+            workspace_detail = str(workspace_root)
+        except Exception:
+            workspace_detail = workspace_id
+        selected = ", ".join(context_paths) if context_paths else "自动选择仓库概览和相关文件"
+        action_label = "代码问答" if action == "ask" else "修改建议"
+        backend_label = "Claude Code Hust 本地 CLI" if backend == "claude_hust" else "Sage Mate 内置 harness"
+        return [
+            WorkflowTraceStep(
+                key="code_workspace",
+                title="选择本地工作区",
+                summary=f"已确认 allowlisted workspace：{workspace_id}。",
+                detail=f"工作区路径：{workspace_detail}。所有路径解析都限制在该目录内。",
+            ),
+            WorkflowTraceStep(
+                key="code_context",
+                title="构建代码上下文",
+                summary="已读取 git 状态、diff 和用户选择的代码上下文。",
+                detail=f"上下文文件：{selected}。",
+            ),
+            WorkflowTraceStep(
+                key="code_agent_backend",
+                title="调用代码后端",
+                summary=f"已通过 {backend_label} 执行{action_label}流程。",
+                detail=(
+                    "Sage Mate 保持外层 workflow、配置、安全边界和观测；代码后端只作为本地分析节点。"
+                ),
+            ),
+            WorkflowTraceStep(
+                key="code_result",
+                title="返回代码结果",
+                summary=result_summary,
+                detail="未直接修改真实仓库文件；如需落盘，必须经过后续显式确认流程。",
+                duration_ms=duration_ms,
+            ),
+        ]
+
+    def _resolve_claude_hust_cli(self) -> str:
+        configured = self._settings.claude_hust_cli_path.strip()
+        candidates = [
+            configured,
+            shutil.which("claude-hust") or "",
+            str(Path.home() / "claude-code-hust/bin/claude-hust"),
+            str(Path.home() / "Documents/claude-code-hust/bin/claude-hust"),
+        ]
+        for candidate in candidates:
+            if candidate and Path(candidate).expanduser().is_file():
+                return str(Path(candidate).expanduser())
+        raise RuntimeError(
+            "claude_hust backend is enabled, but claude-hust was not found. "
+            "Set DIGITAL_TWIN_CLAUDE_HUST_CLI_PATH to the local bin/claude-hust path."
+        )
+
+    def _claude_hust_env(self) -> dict[str, str]:
+        env = os.environ.copy()
+        env["CC_HUST_SKIP_DOTENV"] = "1"
+        env["PATH"] = f"{Path.home() / '.bun/bin'}:{env.get('PATH', '')}"
+        env["API_TIMEOUT_MS"] = str(self._settings.claude_hust_timeout_seconds * 1000)
+        if self._settings.llm_base_url:
+            env["ANTHROPIC_BASE_URL"] = self._settings.llm_base_url
+        if self._settings.api_key and self._settings.api_key != "EMPTY":
+            env["ANTHROPIC_API_KEY"] = self._settings.api_key
+        if self._should_proxy_openai_for_claude_hust():
+            env["CLAUDE_CODE_FORCE_RECOVERY_CLI"] = "1"
+            env["ANTHROPIC_MODEL"] = "claude-sonnet-4-6"
+            env["ANTHROPIC_DEFAULT_SONNET_MODEL"] = "claude-sonnet-4-6"
+            env["ANTHROPIC_DEFAULT_HAIKU_MODEL"] = "claude-haiku-4-5"
+            env["ANTHROPIC_DEFAULT_OPUS_MODEL"] = "claude-opus-4-7"
+        elif self._settings.model_name:
+            env["ANTHROPIC_MODEL"] = self._settings.model_name
+        return env
+
+    def _should_proxy_openai_for_claude_hust(self) -> bool:
+        base_url = self._settings.llm_base_url.strip().rstrip("/")
+        if not base_url:
+            return False
+        lowered = base_url.lower()
+        return lowered.endswith("/v1") and "anthropic" not in lowered
+
+    @contextlib.contextmanager
+    def _claude_hust_env_for_subprocess(self) -> Iterable[dict[str, str]]:
+        env = self._claude_hust_env()
+        if not self._should_proxy_openai_for_claude_hust():
+            yield env
+            return
+
+        proxy = self._start_anthropic_to_openai_proxy()
+        try:
+            host, port = proxy.server_address[:2]
+            env["ANTHROPIC_BASE_URL"] = f"http://{host}:{port}"
+            yield env
+        finally:
+            proxy.shutdown()
+            proxy.server_close()
+
+    def _start_anthropic_to_openai_proxy(self) -> http.server.ThreadingHTTPServer:
+        target_url = self._settings.llm_base_url.rstrip("/") + "/chat/completions"
+        api_key = self._settings.api_key
+
+        def content_to_text(content: object) -> str:
+            if isinstance(content, str):
+                return content
+            if isinstance(content, list):
+                parts: list[str] = []
+                for block in content:
+                    if isinstance(block, dict) and block.get("type") == "text":
+                        parts.append(str(block.get("text", "")))
+                return "\n".join(part for part in parts if part)
+            return str(content or "")
+
+        class Handler(http.server.BaseHTTPRequestHandler):
+            def log_message(self, _format: str, *_args: object) -> None:
+                return
+
+            def do_GET(self) -> None:  # noqa: N802 - stdlib handler API
+                if self.path not in {"/v1/models", "/models"}:
+                    self.send_error(404)
+                    return
+                body = json.dumps(
+                    {
+                        "object": "list",
+                        "data": [
+                            {
+                                "id": "claude-sonnet-4-6",
+                                "object": "model",
+                                "created": 0,
+                                "owned_by": "sage-mate-proxy",
+                            },
+                            {
+                                "id": "claude-haiku-4-5",
+                                "object": "model",
+                                "created": 0,
+                                "owned_by": "sage-mate-proxy",
+                            },
+                            {
+                                "id": "claude-opus-4-7",
+                                "object": "model",
+                                "created": 0,
+                                "owned_by": "sage-mate-proxy",
+                            },
+                        ],
+                    }
+                ).encode("utf-8")
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+
+            def do_POST(self) -> None:  # noqa: N802 - stdlib handler API
+                if self.path not in {"/v1/messages", "/messages"}:
+                    self.send_error(404)
+                    return
+                try:
+                    length = int(self.headers.get("content-length", "0"))
+                    payload = json.loads(self.rfile.read(length) or b"{}")
+                    messages: list[dict[str, str]] = []
+                    system = payload.get("system")
+                    if system:
+                        messages.append({"role": "system", "content": content_to_text(system)})
+                    for message in payload.get("messages", []):
+                        if not isinstance(message, dict):
+                            continue
+                        role = "assistant" if message.get("role") == "assistant" else "user"
+                        text = content_to_text(message.get("content"))
+                        if text:
+                            messages.append({"role": role, "content": text})
+                    if not messages:
+                        messages.append({"role": "user", "content": ""})
+                    upstream_payload = {
+                        "model": self.server.sage_mate_upstream_model,  # type: ignore[attr-defined]
+                        "messages": messages,
+                        "max_tokens": payload.get("max_tokens", 4096),
+                        "temperature": payload.get("temperature", 0),
+                        "stream": False,
+                    }
+                    request = urllib.request.Request(
+                        target_url,
+                        data=json.dumps(upstream_payload).encode("utf-8"),
+                        headers={
+                            "Content-Type": "application/json",
+                            "User-Agent": "SageMate/1.0",
+                            **(
+                                {"Authorization": f"Bearer {api_key}"}
+                                if api_key and api_key != "EMPTY"
+                                else {}
+                            ),
+                        },
+                        method="POST",
+                    )
+                    with urllib.request.urlopen(request, timeout=self.server.timeout or 120) as response:
+                        upstream = json.loads(response.read() or b"{}")
+                    text = (
+                        upstream.get("choices", [{}])[0]
+                        .get("message", {})
+                        .get("content", "")
+                    )
+                    usage = upstream.get("usage") or {}
+                    response_payload = {
+                        "id": upstream.get("id", "sage-mate-proxy"),
+                        "type": "message",
+                        "role": "assistant",
+                        "model": payload.get("model") or "claude-sonnet-4-6",
+                        "content": [{"type": "text", "text": text}],
+                        "stop_reason": "end_turn",
+                        "stop_sequence": None,
+                        "usage": {
+                            "input_tokens": usage.get("prompt_tokens", 0),
+                            "output_tokens": usage.get("completion_tokens", 0),
+                        },
+                    }
+                    body = json.dumps(response_payload).encode("utf-8")
+                    self.send_response(200)
+                    self.send_header("Content-Type", "application/json")
+                    self.send_header("Content-Length", str(len(body)))
+                    self.end_headers()
+                    self.wfile.write(body)
+                except urllib.error.HTTPError as exc:
+                    detail = exc.read().decode("utf-8", errors="replace")[-2000:]
+                    body = json.dumps({"error": {"message": detail}}).encode("utf-8")
+                    self.send_response(exc.code)
+                    self.send_header("Content-Type", "application/json")
+                    self.send_header("Content-Length", str(len(body)))
+                    self.end_headers()
+                    self.wfile.write(body)
+                except Exception as exc:
+                    body = json.dumps({"error": {"message": str(exc)}}).encode("utf-8")
+                    self.send_response(500)
+                    self.send_header("Content-Type", "application/json")
+                    self.send_header("Content-Length", str(len(body)))
+                    self.end_headers()
+                    self.wfile.write(body)
+
+        server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+        server.timeout = min(self._settings.claude_hust_timeout_seconds, 300)
+        server.sage_mate_upstream_model = self._settings.model_name or "qwen3-32b"  # type: ignore[attr-defined]
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        return server
+
+    def _run_claude_hust_print(self, prompt: str, cwd: Path) -> str:
+        cli = self._resolve_claude_hust_cli()
+        with self._claude_hust_env_for_subprocess() as env:
+            completed = subprocess.run(
+                [
+                    cli,
+                    "--print",
+                    prompt,
+                    "--output-format",
+                    "text",
+                    "--no-session-persistence",
+                ],
+                cwd=cwd,
+                text=True,
+                capture_output=True,
+                timeout=self._settings.claude_hust_timeout_seconds,
+                check=False,
+                env=env,
+            )
+        if completed.returncode != 0:
+            stderr = (completed.stderr or completed.stdout or "claude-hust failed").strip()
+            raise RuntimeError(stderr[-2000:])
+        return (completed.stdout or "").strip()
+
+    def _strip_thinking_blocks(self, text: str) -> str:
+        return re.sub(r"<think>.*?</think>", "", text or "", flags=re.DOTALL).strip()
+
+    def _run_claude_hust_assist(self, request: CodeAssistRequest) -> str:
+        temp_dir = self._code_workbench.copy_workspace_to_temp(request.workspace_id)
+        try:
+            context = self._code_workbench.build_context(
+                CodeContextRequest(
+                    workspace_id=request.workspace_id,
+                    paths=request.paths,
+                    max_context_chars=request.max_context_chars,
+                )
+            )
+            temp_workspace = Path(temp_dir.name) / self._code_workbench.workspace_root(
+                request.workspace_id
+            ).name
+            paths = ", ".join(request.paths) if request.paths else "(auto-discover relevant files)"
+            prompt = (
+                "You are running as the Sage Mate code assistant through claude-hust.\n"
+                "This is a temporary local copy of the selected repository. Read files and run safe "
+                "inspection commands as needed, but do not claim that real user files were edited. "
+                "For this request, explain, inspect, and propose only.\n\n"
+                f"Task:\n{request.task}\n\n"
+                f"User-selected paths:\n{paths}\n\n"
+                f"Sage Mate context pack:\n{context.context}\n"
+            )
+            return self._run_claude_hust_print(prompt, temp_workspace)
+        finally:
+            temp_dir.cleanup()
+
+    def _run_claude_hust_propose(self, request: CodeProposeRequest) -> str:
+        temp_dir = self._code_workbench.copy_workspace_to_temp(request.workspace_id)
+        try:
+            _, user_prompt, _ = self._code_workbench.build_propose_prompt(request)
+            temp_workspace = Path(temp_dir.name) / self._code_workbench.workspace_root(
+                request.workspace_id
+            ).name
+            paths = ", ".join(request.paths) if request.paths else "(auto-discover relevant files)"
+            prompt = (
+                "You are running as Sage Mate's propose-only code backend through claude-hust.\n"
+                "This is a temporary copy of the user's repository. Do not claim that real files were "
+                "edited, saved, committed, pushed, or tested. Produce one JSON object with exactly these "
+                "keys: summary, affected_files, unified_diff, risks, suggested_tests. affected_files and "
+                "suggested_tests must be arrays of strings; unified_diff must be a single unified diff "
+                "string. If more context is required, leave unified_diff empty and explain in risks.\n\n"
+                f"Task:\n{request.task}\n\n"
+                f"User-selected paths:\n{paths}\n\n"
+                f"Sage Mate propose context:\n{user_prompt}\n"
+            )
+            return self._run_claude_hust_print(prompt, temp_workspace)
+        finally:
+            temp_dir.cleanup()
+
+    async def _answer_code_workbench_command(self, request: ChatRequest) -> ChatResponse:
+        workflow_trace: list[WorkflowTraceStep] = []
+        try:
+            command = self._code_workbench.parse_chat_command(request.question)
+            if command.action == "help":
+                answer = self._code_workbench.format_chat_help()
+            elif command.action == "workspaces":
+                answer = self._code_workbench.format_workspaces_for_chat()
+            elif command.action == "search":
+                response = self.search_code(
+                    CodeSearchRequest(
+                        workspace_id=command.workspace_id,
+                        query=command.query,
+                        glob=command.glob,
+                    )
+                )
+                answer = self._code_workbench.format_search_for_chat(response)
+            elif command.action == "read":
+                response = self.read_code_file(
+                    CodeFileReadRequest(
+                        workspace_id=command.workspace_id,
+                        path=command.path,
+                        start_line=command.start_line,
+                        max_lines=command.max_lines,
+                    )
+                )
+                answer = self._code_workbench.format_file_for_chat(response)
+            elif command.action == "list":
+                response = self.list_code_directory(
+                    CodeDirectoryListRequest(
+                        workspace_id=command.workspace_id,
+                        path=command.path or ".",
+                    )
+                )
+                answer = self._code_workbench.format_directory_for_chat(response)
+            elif command.action == "status":
+                response = self.get_code_git_status(
+                    CodeGitStatusRequest(workspace_id=command.workspace_id)
+                )
+                answer = self._code_workbench.format_git_status_for_chat(response)
+            elif command.action == "diff":
+                response = self.get_code_git_diff(
+                    CodeGitDiffRequest(
+                        workspace_id=command.workspace_id,
+                        path=command.path or None,
+                        staged=command.staged,
+                    )
+                )
+                answer = self._code_workbench.format_git_diff_for_chat(response)
+            elif command.action == "context":
+                response = self.build_code_context(
+                    CodeContextRequest(
+                        workspace_id=command.workspace_id,
+                        paths=command.paths,
+                    )
+                )
+                answer = self._code_workbench.format_context_for_chat(response)
+            elif command.action == "run":
+                response = self.run_code_command(
+                    CodeCommandRequest(
+                        workspace_id=command.workspace_id,
+                        command=command.command,
+                    )
+                )
+                answer = self._code_workbench.format_command_for_chat(response)
+            elif command.action == "ask":
+                response = await self.assist_with_code(
+                    CodeAssistRequest(
+                        workspace_id=command.workspace_id,
+                        task=command.task,
+                        paths=command.paths,
+                    )
+                )
+                context_note = (
+                    "\n\n上下文：" + "、".join(f"`{path}`" for path in response.context_paths)
+                    if response.context_paths
+                    else ""
+                )
+                answer = response.answer + context_note
+                workflow_trace = response.workflow_trace
+            elif command.action == "propose":
+                response = await self.propose_code_change(
+                    CodeProposeRequest(
+                        workspace_id=command.workspace_id,
+                        task=command.task,
+                        paths=command.paths,
+                    )
+                )
+                answer = self._code_workbench.format_propose_for_chat(response)
+                workflow_trace = response.workflow_trace
+            else:
+                answer = self._code_workbench.format_chat_help()
+        except Exception as exc:
+            answer = f"代码工作台命令没有执行：{exc}\n\n{self._code_workbench.format_chat_help()}"
+
+        return ChatResponse(
+            answer=answer,
+            owner_name=self._settings.owner_name,
+            used_model=self._llm_client.model_name,
+            conversation_id=request.conversation_id or str(uuid4()),
+            workflow_action="code_workbench",
+            decision_mode="admin_code_workbench",
+            workflow_trace=workflow_trace,
+        )
+
+    def _require_code_workbench_enabled(self) -> None:
+        if not self._code_workbench_available():
+            raise ValueError(
+                "Code tools are disabled. Install Faculty Twin locally and set "
+                "DIGITAL_TWIN_DEPLOYMENT_MODE=local_code plus "
+                "DIGITAL_TWIN_CODE_WORKBENCH_ENABLED=true to use local repositories."
+            )
+
+    def _code_workbench_available(self) -> bool:
+        return (
+            self._settings.deployment_mode == "local_code"
+            and self._settings.code_workbench_enabled
+            and self._settings.app_profile in {"code_assistant", "both"}
+        )
+
+    def _parse_code_proposal(self, text: str) -> dict[str, object]:
+        cleaned = text.strip()
+        if cleaned.startswith("```"):
+            lines = cleaned.splitlines()
+            if lines and lines[0].startswith("```"):
+                lines = lines[1:]
+            if lines and lines[-1].startswith("```"):
+                lines = lines[:-1]
+            cleaned = "\n".join(lines).strip()
+
+        try:
+            payload = json.loads(cleaned)
+        except json.JSONDecodeError:
+            payload = {}
+
+        if not isinstance(payload, dict):
+            payload = {}
+
+        summary = payload.get("summary")
+        affected_files = payload.get("affected_files")
+        unified_diff = payload.get("unified_diff")
+        risks = payload.get("risks")
+        suggested_tests = payload.get("suggested_tests")
+
+        if not isinstance(summary, str) or not summary.strip():
+            summary = cleaned.splitlines()[0][:4000] if cleaned else ""
+        if not isinstance(affected_files, list):
+            affected_files = []
+        if not isinstance(unified_diff, str):
+            unified_diff = self._extract_fenced_diff(text)
+        if not isinstance(risks, str):
+            risks = ""
+        if not isinstance(suggested_tests, list):
+            suggested_tests = []
+
+        return {
+            "summary": summary[:4000],
+            "affected_files": [
+                str(path)[:1000] for path in affected_files if str(path).strip()
+            ][:32],
+            "unified_diff": unified_diff[:50000],
+            "risks": risks[:4000],
+            "suggested_tests": [
+                str(test)[:1000] for test in suggested_tests if str(test).strip()
+            ][:32],
+        }
+
+    def _extract_fenced_diff(self, text: str) -> str:
+        match = re.search(r"```(?:diff)?\s*(.*?)```", text, flags=re.DOTALL | re.IGNORECASE)
+        if match:
+            return match.group(1).strip()
+        return ""
 
     def get_user_session(self, session_token: str | None) -> UserSessionResponse:
         support = self._build_support()

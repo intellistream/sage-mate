@@ -1,17 +1,24 @@
 #!/usr/bin/env bash
-# quickstart.sh — single entry point for sage-faculty-twin installation.
+# quickstart.sh — single entry point for Faculty Twin / Sage Mate installation.
 #
 # Usage:
-#   ./quickstart.sh                      # install env, deps, systemd units
-#   ./quickstart.sh --check              # preflight only — diagnose, do not change
-#   ./quickstart.sh --with-vllm          # also install vllm-hust (editable)
-#   ./quickstart.sh --with-vllm-engine   # enable vLLM engine systemd service
-#   ./quickstart.sh --with-vllm-proxy    # enable vLLM OpenAI auth proxy service
-#   ./quickstart.sh --with-site-proxy    # enable local nginx/python proxy service
-#   ./quickstart.sh --with-tunnel        # enable Cloudflare tunnel service
-#   ./quickstart.sh --start              # start systemd services after install
-#   ./quickstart.sh --no-systemd         # skip systemd unit install
-#   ./quickstart.sh --yes                # non-interactive (assume yes)
+#   ./quickstart.sh                                # hosted web install; code tools off
+#   ./quickstart.sh --target hosted-web --start    # server/web install + start systemd
+#   ./quickstart.sh --local-mac-app --start        # local Sage Mate app-style install
+#   ./quickstart.sh --mac-dmg                      # build dist/sage-mate-macos.dmg
+#   ./quickstart.sh --check                        # preflight only — diagnose, do not change
+#   ./quickstart.sh --with-vllm                    # also install vllm-hust (editable)
+#   ./quickstart.sh --with-vllm-engine             # enable vLLM engine systemd service
+#   ./quickstart.sh --with-vllm-proxy              # enable vLLM OpenAI auth proxy service
+#   ./quickstart.sh --with-site-proxy              # enable local nginx/python proxy service
+#   ./quickstart.sh --with-tunnel                  # enable Cloudflare tunnel service
+#   ./quickstart.sh --no-systemd                   # skip systemd unit install
+#   ./quickstart.sh --yes                          # non-interactive (assume yes)
+#
+# Install targets:
+#   hosted-web       Linux/server browser deployment. Default. Never enables code tools.
+#   local-mac-app    Local Sage Mate install; delegates to tools/install_local_code_mode.sh.
+#   mac-dmg          Build the macOS DMG package; delegates to tools/build_macos_local_code_package.sh.
 #
 # Environment overrides:
 #   PYTHON_BIN        Path to interpreter (default: python3 in PATH)
@@ -21,7 +28,7 @@
 # This script will NOT:
 #   - Download or launch any LLM model — use manage.sh for runtime operations.
 #   - Touch git history.
-#   - Edit .env if it already contains a value (only fills in missing keys).
+#   - Enable local code tools on hosted-web installs.
 
 set -euo pipefail
 
@@ -39,28 +46,144 @@ svc_engine=false
 svc_proxy=false
 svc_site=false
 svc_tunnel=false
+install_target="hosted-web"
+local_install_args=()
+mac_dmg_args=()
+local_target_hint=false
+local_claude_hust_dir_explicit=false
 
-for arg in "$@"; do
-	case "$arg" in
-	--check)          mode_check=true ;;
-	--with-vllm)      mode_with_vllm=true ;;
-	--with-vllm-engine) svc_engine=true ;;
-	--with-vllm-proxy)  svc_proxy=true ;;
-	--with-site-proxy)  svc_site=true ;;
-	--with-tunnel)      svc_tunnel=true ;;
-	--no-systemd)     mode_no_systemd=true ;;
-	--no-siblings)    mode_no_siblings=true ;;
-	--start)          mode_start=true ;;
-	--yes | -y)       mode_yes=true ;;
-	-h | --help)      sed -n '2,32p' "$0"; exit 0 ;;
-	*) echo "Unknown argument: $arg" >&2; exit 2 ;;
+usage() {
+	cat <<'EOF'
+quickstart.sh — single entry point for Faculty Twin / Sage Mate installation.
+
+Usage:
+  ./quickstart.sh                                # hosted web install; code tools off
+  ./quickstart.sh --target hosted-web --start    # server/web install + start systemd
+  ./quickstart.sh --local-mac-app --start        # local Sage Mate app-style install
+  ./quickstart.sh --mac-dmg                      # build dist/sage-mate-macos.dmg
+  ./quickstart.sh --check                        # preflight only
+
+Install targets:
+  hosted-web       Linux/server browser deployment. Default. Never enables code tools.
+  local-mac-app    Local Sage Mate install; delegates to tools/install_local_code_mode.sh.
+  mac-dmg          Build the macOS DMG package; delegates to tools/build_macos_local_code_package.sh.
+
+Hosted-web options:
+  --with-vllm, --with-vllm-engine, --with-vllm-proxy, --with-site-proxy, --with-tunnel
+  --no-systemd, --no-siblings, --start, --yes
+
+Local Sage Mate options:
+  --app-profile faculty_twin|code_assistant|both
+  --workspace PATH              Repeatable local repository allowlist.
+  --workspace-roots CSV         Comma-separated local repository allowlist.
+  --runtime-dir PATH
+  --llm-base-url URL
+  --api-key KEY
+  --model-name NAME
+  --code-backend auto|internal|claude_hust
+  --claude-hust-repo URL
+  --claude-hust-dir PATH
+  --skip-claude-hust
+  --prefill-env PATH
+  --port PORT
+  --python PATH
+  --venv PATH
+  --start
+
+DMG options:
+  --zip                         Also build a zip fallback.
+EOF
+}
+
+while [[ $# -gt 0 ]]; do
+	case "$1" in
+	--target)
+		[[ $# -ge 2 ]] || { echo "--target requires a value" >&2; exit 2; }
+		install_target="$2"
+		shift 2
+		;;
+	--target=*)
+		install_target="${1#*=}"
+		shift
+		;;
+	--hosted-web)
+		install_target="hosted-web"
+		shift
+		;;
+	--local-mac-app)
+		install_target="local-mac-app"
+		shift
+		;;
+	--mac-dmg | --build-mac-dmg)
+		install_target="mac-dmg"
+		shift
+		;;
+	--check)          mode_check=true; shift ;;
+	--with-vllm)      mode_with_vllm=true; shift ;;
+	--with-vllm-engine) svc_engine=true; shift ;;
+	--with-vllm-proxy)  svc_proxy=true; shift ;;
+	--with-site-proxy)  svc_site=true; shift ;;
+	--with-tunnel)      svc_tunnel=true; shift ;;
+	--no-systemd)     mode_no_systemd=true; shift ;;
+	--no-siblings)    mode_no_siblings=true; shift ;;
+	--start)
+		mode_start=true
+		local_install_args+=(--start)
+		shift
+		;;
+	--yes | -y)       mode_yes=true; shift ;;
+	--zip)
+		mac_dmg_args+=(--zip)
+		shift
+		;;
+	--workspace | --workspace-roots | --runtime-dir | --llm-base-url | --api-key | --model-name | --prefill-env | --port | --python | --venv | --app-profile | --code-backend | --claude-hust-repo | --claude-hust-dir)
+		[[ $# -ge 2 ]] || { echo "$1 requires a value" >&2; exit 2; }
+		local_target_hint=true
+		[[ "$1" == "--claude-hust-dir" ]] && local_claude_hust_dir_explicit=true
+		if [[ "$1" == "--app-profile" ]]; then
+			local_install_args+=(--profile "$2")
+		else
+			local_install_args+=("$1" "$2")
+		fi
+		shift 2
+		;;
+	--skip-claude-hust)
+		local_target_hint=true
+		local_install_args+=(--skip-claude-hust)
+		shift
+		;;
+	--profile)
+		[[ $# -ge 2 ]] || { echo "--profile requires a value" >&2; exit 2; }
+		case "$2" in
+			hosted-web|local-mac-app|mac-dmg) install_target="$2" ;;
+			faculty_twin|code_assistant|both)
+				local_target_hint=true
+				local_install_args+=(--profile "$2")
+				;;
+			*) echo "--profile must be a deployment target or app profile" >&2; exit 2 ;;
+		esac
+		shift 2
+		;;
+	-h | --help)      usage; exit 0 ;;
+	*) echo "Unknown argument: $1" >&2; exit 2 ;;
 	esac
 done
+
+if $local_target_hint && [[ "$install_target" == "hosted-web" ]]; then
+	install_target="local-mac-app"
+fi
+
+case "$install_target" in
+	hosted-web|local-mac-app|mac-dmg) ;;
+	*) echo "--target must be one of: hosted-web, local-mac-app, mac-dmg" >&2; exit 2 ;;
+esac
 
 log()  { printf '\033[1;36m[quickstart]\033[0m %s\n' "$*"; }
 warn() { printf '\033[1;33m[quickstart]\033[0m %s\n' "$*" >&2; }
 fail() { printf '\033[1;31m[quickstart]\033[0m %s\n' "$*" >&2; exit 1; }
 confirm() { $mode_yes && return 0; read -r -p "$1 [y/N] " ans; [[ "$ans" =~ ^[Yy]$ ]]; }
+
+log "Install target: $install_target"
 
 # ── 1. Preflight ─────────────────────────────────────────────────────────────
 log "Preflight: $repo_root"
@@ -87,6 +210,19 @@ else
 fi
 
 $mode_check && { log "Preflight only (--check). Done."; exit 0; }
+
+if [[ "$install_target" == "mac-dmg" ]]; then
+	log "Building Sage Mate macOS DMG"
+	exec "$repo_root/tools/build_macos_local_code_package.sh" "${mac_dmg_args[@]}"
+fi
+
+if [[ "$install_target" == "local-mac-app" ]]; then
+	if ! $local_claude_hust_dir_explicit; then
+		local_install_args+=(--claude-hust-dir "$parent_dir/claude-code-hust")
+	fi
+	log "Installing local Sage Mate app runtime"
+	exec "$repo_root/tools/install_local_code_mode.sh" "${local_install_args[@]}"
+fi
 
 # ── 3. Sibling repositories ─────────────────────────────────────────────────
 mkdir -p "$parent_dir"
@@ -158,6 +294,43 @@ ensure_env_kv DIGITAL_TWIN_CHAT_REQUEST_TIMEOUT_SECONDS 80
 ensure_env_kv DIGITAL_TWIN_LLM_TIMEOUT_SECONDS       60
 ensure_env_kv DIGITAL_TWIN_CHAT_SSE_KEEPALIVE_SECONDS 15
 ensure_env_kv DIGITAL_TWIN_CHAT_PROMPT_SOFT_CAP_CHARS 12000
+
+set_env_kv() {
+	local key="$1" value="$2"
+	if grep -qE "^[[:space:]]*${key}=" "$env_file" 2>/dev/null; then
+		"$python_bin" - "$env_file" "$key" "$value" <<'PY'
+from pathlib import Path
+import sys
+
+path = Path(sys.argv[1])
+key = sys.argv[2]
+value = sys.argv[3]
+lines = path.read_text(encoding="utf-8").splitlines()
+prefix = f"{key}="
+updated = False
+out = []
+for line in lines:
+    if line.strip().startswith(prefix):
+        out.append(f"{key}={value}")
+        updated = True
+    else:
+        out.append(line)
+if not updated:
+    out.append(f"{key}={value}")
+path.write_text("\n".join(out) + "\n", encoding="utf-8")
+PY
+	else
+		printf '%s=%s\n' "$key" "$value" >>"$env_file"
+	fi
+}
+
+if [[ "$install_target" == "hosted-web" ]]; then
+	log "Applying hosted web safety defaults: local code tools disabled"
+	set_env_kv DIGITAL_TWIN_DEPLOYMENT_MODE hosted
+	set_env_kv DIGITAL_TWIN_APP_PROFILE faculty_twin
+	set_env_kv DIGITAL_TWIN_CODE_WORKBENCH_ENABLED false
+	set_env_kv DIGITAL_TWIN_CODE_WORKSPACE_ROOTS ""
+fi
 
 # ── 6. Systemd service units ─────────────────────────────────────────────────
 # Renders templates from deploy/systemd/user/ and installs them.

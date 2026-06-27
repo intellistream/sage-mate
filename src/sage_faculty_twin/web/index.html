@@ -317,6 +317,7 @@
                                 </button>
                             </div>
                         </div>
+                        <div id="code-composer-context-row" class="code-composer-context-row" hidden></div>
                     </div>
                     <div id="composer-attachment-list" class="composer-attachment-list" hidden></div>
                 </form>
@@ -432,6 +433,71 @@
 
     <div id="modal-overlay" class="modal-overlay hidden"></div>
 
+    <section id="sage-mate-setup-modal" class="sage-mate-setup hidden" aria-hidden="true">
+        <div class="sage-mate-setup-panel">
+            <div class="sage-mate-setup-head">
+                <div>
+                    <p class="brand-kicker">Sage Mate</p>
+                    <h2>选择你的本地助手模式</h2>
+                </div>
+                <button type="button" id="sage-mate-setup-close" class="icon-button">关闭</button>
+            </div>
+            <form id="sage-mate-setup-form" class="sage-mate-setup-form">
+                <fieldset class="sage-mate-profile-grid">
+                    <legend class="sr-only">Sage Mate mode</legend>
+                    <label class="sage-mate-profile-option">
+                        <input type="radio" name="app_profile" value="faculty_twin" />
+                        <span>
+                            <strong>Faculty Twin</strong>
+                            <small>数字分身、知识库、问答和预约工作流。</small>
+                        </span>
+                    </label>
+                    <label class="sage-mate-profile-option">
+                        <input type="radio" name="app_profile" value="code_assistant" checked />
+                        <span>
+                            <strong>Code Assistant</strong>
+                            <small>只访问你允许的本地仓库，生成 propose-only 修改建议。</small>
+                        </span>
+                    </label>
+                    <label class="sage-mate-profile-option">
+                        <input type="radio" name="app_profile" value="both" />
+                        <span>
+                            <strong>Both</strong>
+                            <small>同时启用数字分身和本地代码助手。</small>
+                        </span>
+                    </label>
+                </fieldset>
+                <div class="sage-mate-setup-fields">
+                    <label>
+                        <span>LLM Base URL</span>
+                        <input id="sage-mate-setup-llm-base-url" name="llm_base_url" placeholder="https://your-vllm.example/v1" />
+                    </label>
+                    <label>
+                        <span>API Key</span>
+                        <input id="sage-mate-setup-api-key" name="api_key" type="password" placeholder="请输入 API key" />
+                    </label>
+                    <label>
+                        <span>Model Name</span>
+                        <input id="sage-mate-setup-model-name" name="model_name" placeholder="qwen3-32b" />
+                    </label>
+                    <label>
+                        <span>Runtime Folder</span>
+                        <input id="sage-mate-setup-runtime-dir" name="runtime_dir" placeholder="/Users/you/Library/Application Support/Sage Mate/runtime" />
+                    </label>
+                    <label id="sage-mate-setup-workspace-label">
+                        <span>Workspace Folders</span>
+                        <textarea id="sage-mate-setup-workspace-roots" name="workspace_roots" rows="3" placeholder="/Users/you/my-repo&#10;/Users/you/another-repo"></textarea>
+                    </label>
+                </div>
+                <div class="sage-mate-setup-actions">
+                    <button type="submit" class="primary-button">保存并开始使用</button>
+                    <button type="button" id="sage-mate-setup-open-settings" class="ghost-button">打开完整设置</button>
+                </div>
+                <div id="sage-mate-setup-response" class="inline-status inline-status-empty">保存后可以随时在设置中修改。</div>
+            </form>
+        </div>
+    </section>
+
     <aside id="settings-drawer" class="side-drawer hidden" aria-hidden="true" style="display:none">
         <div class="modal-head">
             <div>
@@ -455,6 +521,60 @@
             </div>
             <p id="user-session-copy" class="drawer-copy">当前未登录用户账号。</p>
             <button type="button" id="user-logout" class="ghost-button drawer-button">退出当前账号</button>
+        </div>
+        <div class="drawer-separator"></div>
+        <div id="local-code-config-panel" class="drawer-group drawer-card hidden">
+            <div class="drawer-group-head">
+                <p class="brand-kicker">Sage Mate</p>
+                <h3 class="drawer-group-title">本地应用配置</h3>
+            </div>
+            <p class="drawer-copy">首次安装后在这里选择使用模式，并配置模型服务、运行时数据目录和允许访问的本地仓库。</p>
+            <form id="local-code-config-form" class="stack-form">
+                <label>
+                    <span>Mode</span>
+                    <select id="local-code-app-profile" name="app_profile">
+                        <option value="faculty_twin">Faculty Twin</option>
+                        <option value="code_assistant">Code Assistant</option>
+                        <option value="both">Both</option>
+                    </select>
+                </label>
+                <label>
+                    <span>LLM Base URL</span>
+                    <input id="local-code-llm-base-url" name="llm_base_url" placeholder="https://your-vllm.example/v1" />
+                </label>
+                <label>
+                    <span>API Key</span>
+                    <input id="local-code-api-key" name="api_key" type="password" placeholder="留空则保持当前密钥" />
+                </label>
+                <label>
+                    <span>Model Name</span>
+                    <input id="local-code-model-name" name="model_name" placeholder="qwen3-32b" />
+                </label>
+                <label>
+                    <span>Runtime Folder</span>
+                    <input id="local-code-runtime-dir" name="runtime_dir" placeholder="/Users/you/Library/Application Support/Sage Mate/runtime" />
+                </label>
+                <label>
+                    <span>Workspace Folders</span>
+                    <textarea id="local-code-workspace-roots" name="workspace_roots" rows="3" placeholder="/Users/you/my-repo&#10;/Users/you/another-repo"></textarea>
+                </label>
+                <label>
+                    <span>Code Backend</span>
+                    <select id="local-code-agent-backend" name="code_agent_backend">
+                        <option value="internal">Sage Mate internal</option>
+                        <option value="claude_hust">Claude Code Hust CLI</option>
+                    </select>
+                </label>
+                <label id="local-code-claude-hust-cli-label">
+                    <span>Claude Hust CLI Path</span>
+                    <input id="local-code-claude-hust-cli-path" name="claude_hust_cli_path" placeholder="/Users/you/claude-code-hust/bin/claude-hust" />
+                </label>
+                <div class="actions-row">
+                    <button type="submit" class="primary-button">保存本地配置</button>
+                    <button type="button" id="refresh-local-code-config" class="ghost-button">刷新</button>
+                </div>
+            </form>
+            <div id="local-code-config-response" class="inline-status inline-status-empty">保存后即可使用 `/code workspaces` 查看仓库。</div>
         </div>
         <div class="drawer-separator"></div>
         <div class="drawer-group drawer-card">

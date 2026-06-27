@@ -7,6 +7,17 @@ repo_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 source "$repo_root/tools/lib/runtime_env.sh"
 app_port="${APP_PORT:-55601}"
 
+# --- Load .env before runtime defaults so installer-written paths take effect. ---
+if [[ -f "$repo_root/.env" ]]; then
+    while IFS= read -r line || [[ -n "$line" ]]; do
+        [[ -z "$line" || "$line" =~ ^[[:space:]]*# ]] && continue
+        key="${line%%=*}"
+        key="${key// /}"
+        [[ -z "$key" || -n "${!key:-}" ]] && continue
+        export "$line"
+    done < "$repo_root/.env"
+fi
+
 export_repo_runtime_env "$repo_root"
 python_exec="$PYTHON_BIN"
 
@@ -18,17 +29,6 @@ export HUGGINGFACE_HUB_CACHE="$hf_home/hub"
 export HF_HUB_CACHE="$hf_home/hub"
 export TRANSFORMERS_CACHE="$hf_home/hub"
 export HF_ENDPOINT="${HF_ENDPOINT:-https://hf-mirror.com}"
-
-# --- Load .env (existing env vars take precedence, but HF_HOME above wins) ---
-if [[ -f "$repo_root/.env" ]]; then
-    while IFS= read -r line || [[ -n "$line" ]]; do
-        [[ -z "$line" || "$line" =~ ^[[:space:]]*# ]] && continue
-        key="${line%%=*}"
-        key="${key// /}"
-        [[ -z "$key" || -n "${!key:-}" ]] && continue
-        export "$line"
-    done < "$repo_root/.env"
-fi
 
 # --- Validate and auto-install knowledge backend dependencies ---
 # sagevdb (C extension) and sage-anns (ANNS algorithms) are required when
@@ -51,7 +51,9 @@ _ensure_knowledge_deps() {
         echo "[runtime] Knowledge deps installed." >&2
     fi
 }
-_ensure_knowledge_deps "$python_exec"
+if [[ "${DIGITAL_TWIN_KNOWLEDGE_BACKEND:-neuromem}" == "sagevdb" ]]; then
+    _ensure_knowledge_deps "$python_exec"
+fi
 
 # --- Start server ---
 cd "$repo_root"

@@ -809,3 +809,199 @@ class ServiceControlResponse(BaseModel):
     success: bool
     message: str = Field(min_length=1, max_length=512)
     services: list[ManagedServiceStatus] = Field(default_factory=list)
+
+
+class CodeWorkspaceSummary(BaseModel):
+    workspace_id: str = Field(min_length=1, max_length=64)
+    label: str = Field(min_length=1, max_length=128)
+    root: str = Field(min_length=1, max_length=1000)
+    exists: bool = True
+
+
+class CodeWorkspaceListResponse(BaseModel):
+    workspaces: list[CodeWorkspaceSummary] = Field(default_factory=list)
+
+
+class CodeSearchRequest(BaseModel):
+    workspace_id: str = Field(min_length=1, max_length=64)
+    query: str = Field(min_length=1, max_length=256)
+    glob: str | None = Field(default=None, max_length=128)
+    max_results: int = Field(default=20, ge=1, le=100)
+
+
+class CodeSearchHit(BaseModel):
+    path: str = Field(min_length=1, max_length=1000)
+    line_number: int = Field(ge=1)
+    preview: str = Field(default="", max_length=1000)
+
+
+class CodeSearchResponse(BaseModel):
+    workspace_id: str
+    query: str
+    hits: list[CodeSearchHit] = Field(default_factory=list)
+    truncated: bool = False
+
+
+class CodeFileReadRequest(BaseModel):
+    workspace_id: str = Field(min_length=1, max_length=64)
+    path: str = Field(min_length=1, max_length=1000)
+    start_line: int = Field(default=1, ge=1)
+    max_lines: int = Field(default=200, ge=1, le=1000)
+
+
+class CodeFileReadResponse(BaseModel):
+    workspace_id: str
+    path: str
+    start_line: int = Field(ge=1)
+    end_line: int = Field(ge=0)
+    content: str
+    truncated: bool = False
+
+
+class CodeDirectoryListRequest(BaseModel):
+    workspace_id: str = Field(min_length=1, max_length=64)
+    path: str = Field(default=".", min_length=1, max_length=1000)
+    max_entries: int = Field(default=200, ge=1, le=1000)
+
+
+class CodeDirectoryEntry(BaseModel):
+    path: str = Field(min_length=1, max_length=1000)
+    name: str = Field(min_length=1, max_length=256)
+    kind: str = Field(pattern="^(file|directory|symlink|other)$")
+    size_bytes: int | None = Field(default=None, ge=0)
+    modified_at: datetime | None = None
+    hidden: bool = False
+
+
+class CodeDirectoryListResponse(BaseModel):
+    workspace_id: str
+    path: str
+    entries: list[CodeDirectoryEntry] = Field(default_factory=list)
+    truncated: bool = False
+
+
+class CodeGitStatusRequest(BaseModel):
+    workspace_id: str = Field(min_length=1, max_length=64)
+
+
+class CodeGitStatusResponse(BaseModel):
+    workspace_id: str
+    is_git_repo: bool
+    branch: str = Field(default="", max_length=256)
+    clean: bool = False
+    porcelain: str = Field(default="", max_length=20000)
+    message: str = Field(default="", max_length=512)
+
+
+class CodeGitDiffRequest(BaseModel):
+    workspace_id: str = Field(min_length=1, max_length=64)
+    path: str | None = Field(default=None, max_length=1000)
+    staged: bool = False
+    max_chars: int = Field(default=20000, ge=1000, le=50000)
+
+
+class CodeGitDiffResponse(BaseModel):
+    workspace_id: str
+    path: str | None = None
+    staged: bool = False
+    diff: str = Field(default="", max_length=50000)
+    truncated: bool = False
+    message: str = Field(default="", max_length=512)
+
+
+class CodeContextRequest(BaseModel):
+    workspace_id: str = Field(min_length=1, max_length=64)
+    paths: list[str] = Field(default_factory=list, max_length=16)
+    include_git_status: bool = True
+    max_context_chars: int = Field(default=20000, ge=1000, le=50000)
+
+
+class CodeContextResponse(BaseModel):
+    workspace_id: str
+    context: str = Field(default="", max_length=50000)
+    context_paths: list[str] = Field(default_factory=list)
+    truncated: bool = False
+
+
+class CodeCommandRequest(BaseModel):
+    workspace_id: str = Field(min_length=1, max_length=64)
+    command: str = Field(min_length=1, max_length=1000)
+    timeout_seconds: int | None = Field(default=None, ge=1, le=60)
+    allow_write: bool = False
+
+
+class CodeCommandResponse(BaseModel):
+    workspace_id: str
+    command: str
+    exit_code: int
+    stdout: str = Field(default="", max_length=20000)
+    stderr: str = Field(default="", max_length=12000)
+    duration_ms: int = Field(ge=0)
+    timed_out: bool = False
+    blocked: bool = False
+    message: str = Field(default="", max_length=512)
+
+
+class CodeAssistRequest(BaseModel):
+    workspace_id: str = Field(min_length=1, max_length=64)
+    task: str = Field(min_length=1, max_length=4000)
+    paths: list[str] = Field(default_factory=list, max_length=8)
+    max_context_chars: int = Field(default=12000, ge=1000, le=30000)
+
+
+class CodeAssistResponse(BaseModel):
+    workspace_id: str
+    answer: str
+    context_paths: list[str] = Field(default_factory=list)
+    used_model: str
+    workflow_trace: list[WorkflowTraceStep] = Field(default_factory=list)
+
+
+class CodeProposeRequest(BaseModel):
+    workspace_id: str = Field(min_length=1, max_length=64)
+    task: str = Field(min_length=1, max_length=4000)
+    paths: list[str] = Field(default_factory=list, max_length=8)
+    max_context_chars: int = Field(default=20000, ge=2000, le=50000)
+
+
+class CodeProposeResponse(BaseModel):
+    workspace_id: str
+    summary: str = Field(default="", max_length=4000)
+    affected_files: list[str] = Field(default_factory=list, max_length=32)
+    unified_diff: str = Field(default="", max_length=50000)
+    risks: str = Field(default="", max_length=4000)
+    suggested_tests: list[str] = Field(default_factory=list, max_length=32)
+    proposal: str = Field(default="", max_length=60000)
+    context_paths: list[str] = Field(default_factory=list)
+    used_model: str
+    workflow_trace: list[WorkflowTraceStep] = Field(default_factory=list)
+
+
+class LocalCodeConfigRequest(BaseModel):
+    app_profile: str = Field(
+        default="code_assistant",
+        pattern="^(faculty_twin|code_assistant|both)$",
+    )
+    llm_base_url: str = Field(min_length=1, max_length=1000)
+    api_key: str | None = Field(default=None, max_length=4000)
+    model_name: str | None = Field(default=None, max_length=256)
+    runtime_dir: str = Field(min_length=1, max_length=1000)
+    workspace_roots: list[str] = Field(default_factory=list, max_length=16)
+    code_agent_backend: str = Field(default="internal", pattern="^(internal|claude_hust)$")
+    claude_hust_cli_path: str | None = Field(default=None, max_length=1000)
+
+
+class LocalCodeConfigResponse(BaseModel):
+    app_name: str = "Sage Mate"
+    app_profile: str
+    deployment_mode: str
+    code_workbench_enabled: bool
+    llm_base_url: str
+    api_key: str = ""
+    api_key_set: bool
+    model_name: str = ""
+    runtime_dir: str
+    workspace_roots: list[str] = Field(default_factory=list)
+    code_agent_backend: str = "internal"
+    claude_hust_cli_path: str = ""
+    message: str = Field(default="", max_length=512)
