@@ -2,6 +2,26 @@
 
 ## Unreleased
 
+## v4.3.3 - 2026-06-28
+
+`v4.3.3` packages Sage Mate as a macOS local app release and stabilizes the multi-profile local experience.
+
+### Added
+
+- **Sage Mate macOS DMG**: one-click local app packaging with an embedded native WebKit shell and local backend launcher.
+- **Local Code Assistant Profile**: profile-specific entry, workspace guidance, code command surface, and propose-only coding workflow.
+- **Profile switcher**: local app users can switch between Faculty Twin and Code Assistant without mixing conversation history.
+
+### Fixed
+
+- **macOS window reopen lifecycle**: closing the red traffic-light window now hides the window instead of destroying it, and reopening the app/Dock icon restores the Sage Mate window.
+- **Profile isolation**: Faculty Twin and Code Assistant histories stay separate, preventing cross-profile context leakage in the local UI.
+- **Runtime bootstrapping**: local app startup prefers an existing cloned faculty-twin runtime repository before creating a fresh runtime folder.
+
+### Safety
+
+- Code Assistant remains local-only and propose-only by default. The hosted Faculty Twin web deployment does not receive, clone, store, or execute user repositories.
+
 ## v4.2.4 - 2026-06-20
 
 `v4.2.4` is a systematic overhaul of the answer basis ("依据") system. No more ad-hoc patches.
