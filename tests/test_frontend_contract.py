@@ -151,15 +151,14 @@ def test_account_entry_stays_in_sidebar_not_topbar() -> None:
     assert 'topbarUserBadge.classList.add("hidden")' in js
 
 
-def test_empty_chat_onboarding_and_composer_share_column() -> None:
-    """Faculty Twin onboarding should remain aligned with the composer."""
+def test_empty_chat_onboarding_sits_before_chat_stream() -> None:
+    """Faculty Twin onboarding uses the left empty column during guided mode."""
     html = (WEB_DIR / "index.html").read_text(encoding="utf-8")
     css = (WEB_DIR / "styles.css").read_text(encoding="utf-8")
     empty_chat_blocks = re.findall(r"(?m)^\.chat-shell\.chat-empty \{\n(.*?)\n\}", css, re.S)
-    chat_stream = html[html.index('id="chat-stream"'):html.index('id="status-view"')]
 
     assert empty_chat_blocks
-    assert 'id="onboarding-card"' in chat_stream
+    assert html.index('id="onboarding-card"') < html.index('id="chat-stream"')
     assert all("justify-content: center;" not in block for block in empty_chat_blocks)
     assert all("align-items: center;" not in block for block in empty_chat_blocks)
     assert ".chat-shell.chat-empty .onboarding-card" in css
@@ -179,10 +178,14 @@ def test_active_onboarding_keeps_chat_stream_visible() -> None:
 
 def test_active_onboarding_panel_stretches_to_composer() -> None:
     css = (WEB_DIR / "styles.css").read_text(encoding="utf-8")
+    shell_selector = "body.onboarding-active .chat-shell.chat-empty"
     selector = "body.onboarding-active .chat-shell.chat-empty .onboarding-card"
+    shell_block = re.search(rf"{re.escape(shell_selector)} \{{\n(.*?)\n\}}", css, re.S)
     block_match = re.search(rf"{re.escape(selector)} \{{\n(.*?)\n\}}", css, re.S)
 
+    assert shell_block, f"Missing CSS block for {shell_selector}"
+    assert "display: grid;" in shell_block.group(1)
+    assert "grid-template-columns:" in shell_block.group(1)
     assert block_match, f"Missing CSS block for {selector}"
-    assert "flex: 1 1 auto;" in block_match.group(1)
-    assert "body.onboarding-active .chat-shell.chat-empty .onboarding-nav,\nbody.onboarding-active .chat-shell.chat-empty .onboarding-done" in css
-    assert "margin-top: auto;" in css
+    assert "grid-column: 1;" in block_match.group(1)
+    assert "grid-row: 1 / 3;" in block_match.group(1)
