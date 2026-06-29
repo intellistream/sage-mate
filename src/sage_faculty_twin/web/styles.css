@@ -2788,6 +2788,61 @@ body.conversation-active .intro-card .message-body {
     margin: clamp(16px, 4vh, 42px) auto 12px;
 }
 
+body.onboarding-active .chat-shell.chat-empty {
+    position: relative;
+    justify-content: center;
+    gap: 0;
+}
+
+body.onboarding-active .chat-shell.chat-empty .chat-stream {
+    display: none;
+}
+
+body.onboarding-active .chat-shell.chat-empty .onboarding-card::before,
+body.onboarding-active .chat-shell.chat-empty .composer-shell::before {
+    content: "";
+    position: absolute;
+    left: 10px;
+    width: 2px;
+    border-radius: 999px;
+    background: linear-gradient(180deg, rgba(99, 102, 241, 0.12), rgba(99, 102, 241, 0.28), rgba(99, 102, 241, 0.12));
+}
+
+body.onboarding-active .chat-shell.chat-empty .onboarding-card::before {
+    top: 4px;
+    bottom: -18px;
+}
+
+body.onboarding-active .chat-shell.chat-empty .composer-shell {
+    position: relative;
+    width: min(100%, 820px);
+    max-width: 820px;
+    margin: 0 auto;
+    padding: 18px 0 0 28px;
+    overflow: visible;
+}
+
+body.onboarding-active .chat-shell.chat-empty .composer-shell::before {
+    top: 0;
+    bottom: 0;
+}
+
+body.onboarding-active .chat-shell.chat-empty .composer-inner {
+    width: 100%;
+    max-width: none;
+}
+
+body.onboarding-active .chat-shell.chat-empty .onboarding-card {
+    position: relative;
+    width: min(100%, 820px);
+    max-width: 820px;
+    margin: 0;
+    padding-left: 28px;
+    border-left: 0;
+    border-radius: 0 18px 18px 0;
+    overflow: visible;
+}
+
 /* --- Onboarding guided question card --- */
 .onboarding-card {
     display: flex;

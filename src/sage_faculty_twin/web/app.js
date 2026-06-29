@@ -1534,6 +1534,7 @@ function showOnboardingCard() {
         card.classList.remove("hidden");
         card.setAttribute("aria-hidden", "false");
     }
+    document.body.classList.add("onboarding-active");
     // Hide welcome greeting and seed chips while onboarding is visible
     document.getElementById("welcome-greeting")?.classList.add("hidden");
     document.getElementById("seed-chips")?.classList.add("hidden");
@@ -1545,6 +1546,7 @@ function hideOnboardingCard() {
         card.classList.add("hidden");
         card.setAttribute("aria-hidden", "true");
     }
+    document.body.classList.remove("onboarding-active");
     stopHintRotation();
     onboardingActive = false;
     // Only restore welcome greeting if no messages have been sent yet
