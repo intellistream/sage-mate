@@ -153,10 +153,13 @@ def test_account_entry_stays_in_sidebar_not_topbar() -> None:
 
 def test_empty_chat_onboarding_and_composer_share_column() -> None:
     """Faculty Twin onboarding should remain aligned with the composer."""
+    html = (WEB_DIR / "index.html").read_text(encoding="utf-8")
     css = (WEB_DIR / "styles.css").read_text(encoding="utf-8")
     empty_chat_blocks = re.findall(r"(?m)^\.chat-shell\.chat-empty \{\n(.*?)\n\}", css, re.S)
+    chat_stream = html[html.index('id="chat-stream"'):html.index('id="status-view"')]
 
     assert empty_chat_blocks
+    assert 'id="onboarding-card"' in chat_stream
     assert all("justify-content: center;" not in block for block in empty_chat_blocks)
     assert all("align-items: center;" not in block for block in empty_chat_blocks)
     assert ".chat-shell.chat-empty .onboarding-card" in css
