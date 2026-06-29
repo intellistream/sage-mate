@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+## v4.3.5 - 2026-06-29
+
+`v4.3.5` restores the Faculty Twin guided onboarding layout for hosted web users.
+
+### Fixed
+
+- **Onboarding side layout**: keeps the beginner guide in the left empty column while the chat
+  transcript and composer stay together in the right column, including after the first guided reply.
+- **Layout regression guardrails**: adds frontend contract checks so onboarding remains visible and
+  independent from the empty-chat state.
+
 ## v4.3.4 - 2026-06-29
 
 `v4.3.4` tightens the local Sage Mate Code Assistant integration and macOS packaging metadata.
