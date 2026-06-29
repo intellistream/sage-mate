@@ -2754,25 +2754,38 @@ body.conversation-active .intro-card .message-body {
     background: linear-gradient(180deg, rgba(247, 247, 248, 0) 0%, rgba(247, 247, 248, 0.94) 24%, rgba(247, 247, 248, 0.98) 100%);
 }
 
-/* ChatGPT-style centered input when chat is empty */
+/* Empty chat keeps onboarding, stream, and composer in one aligned column. */
 .chat-shell.chat-empty {
     display: flex;
     flex-direction: column;
-    align-items: center;
-    justify-content: center;
+    align-items: stretch;
+    justify-content: flex-start;
     height: 100%;
 }
 
 .chat-shell.chat-empty .chat-stream {
-    display: none;
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    justify-content: flex-start;
+    width: min(100%, 720px);
+    margin: 0 auto;
+    padding: 0 0 12px;
 }
 
 .chat-shell.chat-empty .composer-shell {
     position: relative;
     background: transparent;
-    padding: 0;
-    width: 100%;
+    padding: 0 0 calc(16px + var(--safe-bottom));
+    width: min(100%, 720px);
     max-width: 720px;
+    margin: 0 auto;
+}
+
+.chat-shell.chat-empty .onboarding-card {
+    width: min(100%, 720px);
+    max-width: 720px;
+    margin: clamp(16px, 4vh, 42px) auto 12px;
 }
 
 /* --- Onboarding guided question card --- */
@@ -7528,22 +7541,24 @@ body.profile-code-assistant .composer-tools-row {
     opacity: 0.5;
 }
 
-/* ChatGPT-style: center composer when empty */
+/* Empty chat alignment override: keep guidance and input in the same column. */
 .chat-shell.chat-empty {
     display: flex;
     flex-direction: column;
-    align-items: center;
-    justify-content: center;
+    align-items: stretch;
+    justify-content: flex-start;
     height: 100%;
 }
 
 .chat-shell.chat-empty .chat-stream {
     display: flex;
     flex-direction: column;
-    align-items: center;
-    justify-content: center;
+    align-items: stretch;
+    justify-content: flex-start;
     flex: 1;
-    padding-bottom: 12px;
+    width: min(100%, 720px);
+    margin: 0 auto;
+    padding: 0 0 12px;
 }
 
 .chat-shell.chat-empty .welcome-greeting {
@@ -7553,7 +7568,14 @@ body.profile-code-assistant .composer-tools-row {
 .chat-shell.chat-empty .composer-shell {
     position: relative;
     background: transparent;
-    padding: 0;
-    width: 100%;
+    padding: 0 0 calc(16px + var(--safe-bottom));
+    width: min(100%, 720px);
     max-width: 720px;
+    margin: 0 auto;
+}
+
+.chat-shell.chat-empty .onboarding-card {
+    width: min(100%, 720px);
+    max-width: 720px;
+    margin: clamp(16px, 4vh, 42px) auto 12px;
 }

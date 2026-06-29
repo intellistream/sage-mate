@@ -149,3 +149,16 @@ def test_account_entry_stays_in_sidebar_not_topbar() -> None:
     assert 'id="topbar-user-badge" class="topbar-user-badge hidden"' in html
     assert 'topbarUserBadge.classList.remove("hidden"' not in js
     assert 'topbarUserBadge.classList.add("hidden")' in js
+
+
+def test_empty_chat_onboarding_and_composer_share_column() -> None:
+    """Faculty Twin onboarding should remain aligned with the composer."""
+    css = (WEB_DIR / "styles.css").read_text(encoding="utf-8")
+    empty_chat_blocks = re.findall(r"(?m)^\.chat-shell\.chat-empty \{\n(.*?)\n\}", css, re.S)
+
+    assert empty_chat_blocks
+    assert all("justify-content: center;" not in block for block in empty_chat_blocks)
+    assert all("align-items: center;" not in block for block in empty_chat_blocks)
+    assert ".chat-shell.chat-empty .onboarding-card" in css
+    assert ".chat-shell.chat-empty .composer-shell" in css
+    assert "width: min(100%, 720px);" in css
