@@ -168,7 +168,7 @@ def test_empty_chat_onboarding_sits_before_chat_stream() -> None:
 
 def test_active_onboarding_keeps_chat_stream_visible() -> None:
     css = (WEB_DIR / "styles.css").read_text(encoding="utf-8")
-    selector = "body.onboarding-active .chat-shell.chat-empty .chat-stream"
+    selector = "body.onboarding-active .chat-shell .chat-stream"
     block_match = re.search(rf"{re.escape(selector)} \{{\n(.*?)\n\}}", css, re.S)
 
     assert block_match, f"Missing CSS block for {selector}"
@@ -176,10 +176,10 @@ def test_active_onboarding_keeps_chat_stream_visible() -> None:
     assert "display: flex;" in block_match.group(1)
 
 
-def test_active_onboarding_panel_stretches_to_composer() -> None:
+def test_active_onboarding_uses_left_column_even_after_chat_starts() -> None:
     css = (WEB_DIR / "styles.css").read_text(encoding="utf-8")
-    shell_selector = "body.onboarding-active .chat-shell.chat-empty"
-    selector = "body.onboarding-active .chat-shell.chat-empty .onboarding-card"
+    shell_selector = "body.onboarding-active .chat-shell"
+    selector = "body.onboarding-active .chat-shell .onboarding-card"
     shell_block = re.search(rf"{re.escape(shell_selector)} \{{\n(.*?)\n\}}", css, re.S)
     block_match = re.search(rf"{re.escape(selector)} \{{\n(.*?)\n\}}", css, re.S)
 
