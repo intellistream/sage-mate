@@ -187,6 +187,22 @@ const knowledgeForm = document.getElementById("knowledge-form");
 const bookingForm = document.getElementById("booking-form");
 const suggestionForm = document.getElementById("suggestion-form");
 const chatSubmitButton = chatForm?.querySelector('button[type="submit"]') || null;
+
+function setChatSubmitLoading(isLoading) {
+    if (!chatSubmitButton) {
+        return;
+    }
+    const loading = Boolean(isLoading);
+    chatSubmitButton.disabled = loading;
+    chatSubmitButton.classList.toggle("is-sending", loading);
+    chatSubmitButton.setAttribute("aria-busy", String(loading));
+    chatSubmitButton.setAttribute("aria-label", loading ? "正在发送问题" : "发送问题");
+    const label = chatSubmitButton.querySelector(".send-button-label");
+    if (label) {
+        label.textContent = "发送";
+    }
+}
+
 let deepThinkingExplicitlyEnabled = Boolean(deepThinkingCheckbox?.checked);
 let lastFailedQuestion = null;
 let codeAssistantWorkspaces = [];
@@ -498,7 +514,7 @@ function appProfileLabel(profile = currentAppProfile) {
 }
 
 function normalizeAppProfile(profile = currentAppProfile) {
-    return profile === "code_assistant" || profile === "both" ? "code_assistant" : "faculty_twin";
+    return profile === "code_assistant" ? "code_assistant" : "faculty_twin";
 }
 
 function shellQuote(value) {
@@ -707,11 +723,44 @@ function normalizeCodeAssistantQuestion(question) {
     return `/code ask ${shellQuote(workspaceId)} ${shellQuote(trimmed)}`;
 }
 
+function codeBackendDisplay(config = currentLocalCodeConfig || {}) {
+    const backend = config.code_agent_backend || "internal";
+    if (backend === "claude_hust") {
+        const hasCliStatus = Object.prototype.hasOwnProperty.call(config, "claude_hust_cli_available");
+        const cliOk = hasCliStatus ? Boolean(config.claude_hust_cli_available) : true;
+        return {
+            label: "Claude Code Hust",
+            detail: config.claude_hust_cli_resolved_path || config.claude_hust_cli_path || "未找到 CLI",
+            ok: cliOk,
+            statusKnown: hasCliStatus,
+            issue: config.claude_hust_cli_issue || "claude-hust CLI 不存在或不可执行。",
+        };
+    }
+    return {
+        label: "Internal propose-only",
+        detail: "内置代码建议后端",
+        ok: true,
+        statusKnown: true,
+        issue: "",
+    };
+}
+
 function codeAssistantLandingMarkup() {
     const selectedWorkspaceId = activeCodeWorkspaceId();
     const selectedWorkspace = selectedCodeWorkspace();
     const selectedLabel = selectedWorkspace?.label || selectedWorkspaceId || "未选择项目";
     const selectedRoot = compactPath(selectedWorkspace?.root || "");
+    const backend = codeBackendDisplay();
+    const backendStatusClass = backend.ok ? "is-ok" : "is-error";
+    const backendIssue = backend.ok || !backend.statusKnown
+        ? ""
+        : `
+            <div class="code-backend-repair" role="status">
+                <strong>需要修复 Claude Hust CLI</strong>
+                <span>${escapeHtml(backend.issue)}</span>
+                <button type="button" class="ghost-button" data-code-open-settings>打开设置</button>
+            </div>
+        `;
     const workspaceOptions = codeAssistantWorkspaces
         .map((workspace) => {
             const workspaceId = workspace.workspace_id || "";
@@ -738,35 +787,44 @@ function codeAssistantLandingMarkup() {
         `;
     return `
         <div class="code-assistant-landing">
-            <h1>${escapeHtml(selectedWorkspaceId ? `${selectedLabel} · 本地代码工作区` : "选择项目并开始本地代码任务")}</h1>
-            <div class="code-start-context">
-                ${workspaceControl}
+            <div class="code-landing-head">
+                <h1>${escapeHtml(selectedWorkspaceId ? selectedLabel : "Code Assistant")}</h1>
+                <p>${escapeHtml(selectedRoot || "添加一个本地项目，然后直接描述代码任务。")}</p>
+            </div>
+            <div class="code-project-entry" aria-label="添加项目">
+                <div class="code-project-entry-copy">
+                    <span class="code-project-entry-icon" aria-hidden="true">+</span>
+                    <div>
+                        <strong>添加项目</strong>
+                        <span>选择一个本地 repo，Sage Mate 只访问 allowlisted 项目目录。</span>
+                    </div>
+                </div>
                 <div class="code-add-project">
                     <input data-code-add-project-input type="text" placeholder="/Users/you/my-repo" aria-label="本地项目文件夹路径" />
                     <button type="button" class="primary-button code-add-project-button" data-code-add-project>添加项目</button>
-                    <button type="button" class="ghost-button code-add-project-settings" data-code-open-settings>设置</button>
                     <span data-code-add-project-status class="code-add-project-status"></span>
                 </div>
             </div>
-            <div class="code-guidance-panel" aria-label="代码助手使用步骤和命令">
-                <ol class="code-guidance-steps">
-                    <li><strong>1. 选择项目</strong><span>添加或选择一个 allowlisted 本地工作区。</span></li>
-                    <li><strong>2. 描述任务</strong><span>说明要解释、检查、补测试或生成建议的文件。</span></li>
-                    <li><strong>3. 审阅结果</strong><span>先看上下文、diff、风险和建议测试，再决定是否手动应用。</span></li>
-                </ol>
-                <div class="code-command-list" aria-label="可用代码命令">
-                    <code>/code workspaces</code>
-                    <code>/code ls &lt;workspace&gt; [path]</code>
-                    <code>/code search &lt;workspace&gt; &lt;query&gt; [--glob pattern]</code>
-                    <code>/code read &lt;workspace&gt; &lt;path&gt; [start] [lines]</code>
-                    <code>/code status &lt;workspace&gt;</code>
-                    <code>/code diff &lt;workspace&gt; [path] [--staged]</code>
-                    <code>/code context &lt;workspace&gt; [path ...]</code>
-                    <code>/code run &lt;workspace&gt; &lt;read-only command&gt;</code>
-                    <code>/code ask &lt;workspace&gt; &lt;task&gt; [-- path ...]</code>
-                    <code>/code propose &lt;workspace&gt; &lt;task&gt; [-- path ...]</code>
+            <div class="code-start-context">
+                ${workspaceControl}
+            </div>
+            <div class="code-status-row" aria-label="代码助手状态">
+                <div class="code-status-card">
+                    <span>当前代码后端</span>
+                    <strong>${escapeHtml(backend.label)}</strong>
+                    <small>${escapeHtml(compactPath(backend.detail))}</small>
+                </div>
+                <div class="code-status-card ${backendStatusClass}">
+                    <span>后端状态</span>
+                    <strong>${backend.ok ? "Ready" : "Needs repair"}</strong>
+                    <small>${backend.ok ? (backend.statusKnown ? "可以处理本地代码任务" : "运行诊断确认 CLI 状态") : "CLI 不存在或不可执行"}</small>
+                </div>
+                <div class="code-status-actions">
+                    <button type="button" class="ghost-button" data-code-command="/code doctor" data-code-submit>运行诊断</button>
+                    <button type="button" class="ghost-button" data-code-open-settings>设置</button>
                 </div>
             </div>
+            ${backendIssue}
             <div class="code-local-boundary">
                 <span>${escapeHtml(selectedRoot || "选择或添加本地项目")}</span>
                 <span>本地模式</span>
@@ -2400,8 +2458,7 @@ chatForm.addEventListener("submit", async (event) => {
     document.getElementById("chat-question").value = "";
     clearPendingChatAttachments();
     autoResizeTextarea();
-    chatSubmitButton.disabled = true;
-    chatSubmitButton.textContent = "发送中";
+    setChatSubmitLoading(true);
     let workflowRequestIdActive = workflowRequestId;
     await openWorkflowTraceStream(workflowRequestIdActive);
 
@@ -2475,8 +2532,7 @@ chatForm.addEventListener("submit", async (event) => {
             break;
         }
     }
-    chatSubmitButton.disabled = false;
-    chatSubmitButton.textContent = "\u53d1\u9001";
+    setChatSubmitLoading(false);
 
     // Auto-advance onboarding after chat response completes
     if (wasOnboarding && onboardingActive) {
@@ -2753,6 +2809,9 @@ function handleIntroQuickActionClick(event) {
             chatQuestion.value = command;
             autoResizeTextarea();
             chatQuestion.focus();
+            if (codeTrigger.hasAttribute("data-code-submit")) {
+                chatForm.requestSubmit(chatSubmitButton);
+            }
         }
         return;
     }
@@ -5782,7 +5841,10 @@ function renderLocalCodeConfig(data) {
     openProfileSwitcherButton?.classList.toggle("hidden", data.deployment_mode !== "local_code");
     codeAssistantWorkspacesLoaded = false;
     codeAssistantWorkspaces = [];
-    applyAppProfilePresentation(data);
+    const presentationData = data.deployment_mode === "local_code"
+        ? data
+        : { ...data, app_profile: "faculty_twin" };
+    applyAppProfilePresentation(presentationData);
     if (localCodeAppProfileInput) localCodeAppProfileInput.value = normalizeAppProfile(data.app_profile || "code_assistant");
     updateLocalCodeWorkspaceVisibility();
     if (localCodeLlmBaseUrlInput) localCodeLlmBaseUrlInput.value = data.llm_base_url || "";
@@ -6261,8 +6323,7 @@ function resetConversationViewForHistoryScopeSwitch() {
     syncIntroCardPresentation();
     syncConversationMode();
     renderWorkflowTrace([], latestWorkflowMeta);
-    chatSubmitButton.disabled = false;
-    chatSubmitButton.textContent = "发送";
+    setChatSubmitLoading(false);
 }
 
 function switchConversationHistoryScope(nextScope, { preserveCurrentSnapshot = true } = {}) {
@@ -6687,8 +6748,7 @@ function startFreshConversation() {
     renderConversationHistoryList();
     syncConversationMode();
     renderWorkflowTrace([], latestWorkflowMeta);
-    chatSubmitButton.disabled = false;
-    chatSubmitButton.textContent = "发送";
+    setChatSubmitLoading(false);
     chatQuestion?.focus();
 }
 

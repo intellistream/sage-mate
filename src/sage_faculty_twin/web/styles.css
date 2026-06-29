@@ -4234,9 +4234,88 @@ select {
 }
 
 .send-button {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
     min-width: 74px;
     padding: 10px 16px;
     box-shadow: none;
+    overflow: hidden;
+    isolation: isolate;
+}
+
+.send-button-label,
+.send-button-icon {
+    position: relative;
+    z-index: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform 180ms ease, opacity 180ms ease;
+}
+
+.send-button-icon svg {
+    display: block;
+}
+
+.send-button-spinner {
+    position: absolute;
+    z-index: 1;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    border: 2px solid rgba(255, 255, 255, 0.38);
+    border-top-color: #fff;
+    opacity: 0;
+    transform: scale(0.7);
+    transition: opacity 160ms ease, transform 160ms ease;
+}
+
+.send-button:hover .send-button-icon {
+    animation: send-arrow-nudge 520ms ease both;
+}
+
+.send-button.is-sending {
+    cursor: wait;
+    opacity: 1;
+    box-shadow: 0 0 0 0 rgba(47, 111, 237, 0.28);
+    animation: send-button-pulse 1200ms ease-in-out infinite;
+}
+
+.send-button.is-sending .send-button-label,
+.send-button.is-sending .send-button-icon {
+    opacity: 0;
+    transform: translateY(-4px);
+}
+
+.send-button.is-sending .send-button-spinner {
+    opacity: 1;
+    transform: scale(1);
+    animation: send-spinner-spin 780ms linear infinite;
+}
+
+@keyframes send-arrow-nudge {
+    0%, 100% { transform: translateX(0); }
+    45% { transform: translateX(3px); }
+}
+
+@keyframes send-button-pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(47, 111, 237, 0.20); }
+    50% { box-shadow: 0 0 0 8px rgba(47, 111, 237, 0); }
+}
+
+@keyframes send-spinner-spin {
+    to { transform: scale(1) rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .send-button:hover .send-button-icon,
+    .send-button.is-sending,
+    .send-button.is-sending .send-button-spinner {
+        animation: none;
+    }
 }
 
 .ghost-button,
@@ -5453,19 +5532,176 @@ body.workflow-shell-collapsed #workflow-toggle {
 }
 
 .code-assistant-landing h1 {
-    margin: 0 0 24px;
+    margin: 0;
     font-size: clamp(1.65rem, 2vw, 2.05rem);
     font-weight: 500;
     letter-spacing: 0;
+}
+
+.code-landing-head {
+    display: grid;
+    gap: 8px;
+    margin: 0 auto 22px;
+    max-width: 760px;
+}
+
+.code-landing-head p {
+    margin: 0;
+    color: var(--muted);
+    font-size: 0.95rem;
+}
+
+.code-project-entry {
+    display: grid;
+    gap: 14px;
+    max-width: 760px;
+    margin: 0 auto 12px;
+    padding: 16px;
+    border: 1px solid rgba(47, 111, 237, 0.18);
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.88);
+    box-shadow: 0 12px 32px rgba(15, 23, 42, 0.07);
+    text-align: left;
+}
+
+.code-project-entry-copy {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 0;
+}
+
+.code-project-entry-icon {
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    background: rgba(47, 111, 237, 0.1);
+    color: var(--accent-deep);
+    font-size: 1.2rem;
+    font-weight: 600;
+}
+
+.code-project-entry-copy strong,
+.code-project-entry-copy span {
+    display: block;
+}
+
+.code-project-entry-copy strong {
+    color: var(--ink);
+    font-size: 0.98rem;
+}
+
+.code-project-entry-copy span {
+    margin-top: 3px;
+    color: var(--muted);
+    font-size: 0.86rem;
+    line-height: 1.45;
 }
 
 .code-start-context {
     display: grid;
     grid-template-columns: minmax(0, 1fr);
     gap: 12px;
-    margin: 0 auto 14px;
+    margin: 0 auto 12px;
     max-width: 760px;
     text-align: left;
+}
+
+.code-status-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 0.9fr) auto;
+    gap: 10px;
+    align-items: stretch;
+    max-width: 760px;
+    margin: 0 auto 10px;
+    text-align: left;
+}
+
+.code-status-card {
+    display: grid;
+    gap: 4px;
+    min-width: 0;
+    padding: 12px 14px;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.74);
+}
+
+.code-status-card span {
+    color: var(--muted);
+    font-size: 0.76rem;
+    font-weight: 700;
+}
+
+.code-status-card strong {
+    color: var(--ink);
+    font-size: 0.94rem;
+}
+
+.code-status-card small {
+    min-width: 0;
+    color: var(--muted);
+    font-size: 0.78rem;
+    line-height: 1.35;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.code-status-card.is-error {
+    border-color: rgba(167, 53, 53, 0.22);
+    background: rgba(255, 246, 246, 0.92);
+}
+
+.code-status-card.is-error strong {
+    color: #8d2d2d;
+}
+
+.code-status-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+}
+
+.code-status-actions button {
+    min-height: 40px;
+    white-space: nowrap;
+}
+
+.code-backend-repair {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 4px 12px;
+    align-items: center;
+    max-width: 760px;
+    margin: 0 auto 10px;
+    padding: 12px 14px;
+    border: 1px solid rgba(167, 53, 53, 0.18);
+    border-radius: 10px;
+    background: rgba(255, 246, 246, 0.92);
+    text-align: left;
+}
+
+.code-backend-repair strong {
+    color: #8d2d2d;
+    font-size: 0.9rem;
+}
+
+.code-backend-repair span {
+    color: var(--muted);
+    font-size: 0.82rem;
+    line-height: 1.45;
+}
+
+.code-backend-repair button {
+    grid-row: 1 / span 2;
+    grid-column: 2;
+    white-space: nowrap;
 }
 
 .code-guidance-panel {
@@ -5605,7 +5841,7 @@ body.workflow-shell-collapsed #workflow-toggle {
 .code-workspace-empty {
     display: grid;
     gap: 4px;
-    margin: 0 0 18px;
+    margin: 0;
     padding: 12px 14px;
     border: 1px solid var(--line);
     border-radius: 8px;
@@ -5619,7 +5855,7 @@ body.workflow-shell-collapsed #workflow-toggle {
 
 .code-add-project {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) auto auto;
+    grid-template-columns: minmax(0, 1fr) auto;
     gap: 10px;
     align-items: center;
     margin: 0;
@@ -5766,7 +6002,8 @@ body.profile-code-assistant .composer-tools-row {
     }
 
     .code-guidance-panel,
-    .code-command-list {
+    .code-command-list,
+    .code-status-row {
         grid-template-columns: minmax(0, 1fr);
     }
 
@@ -5791,8 +6028,24 @@ body.profile-code-assistant .composer-tools-row {
         grid-template-columns: 1fr;
     }
 
+    .code-backend-repair {
+        grid-template-columns: 1fr;
+    }
+
+    .code-backend-repair button {
+        grid-row: auto;
+        grid-column: auto;
+        width: 100%;
+    }
+
+    .code-status-actions {
+        display: grid;
+        justify-content: stretch;
+    }
+
     .code-add-project-button,
-    .code-add-project-settings {
+    .code-add-project-settings,
+    .code-status-actions button {
         width: 100%;
     }
 }

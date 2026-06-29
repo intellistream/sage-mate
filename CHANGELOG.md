@@ -2,6 +2,30 @@
 
 ## Unreleased
 
+## v4.3.4 - 2026-06-29
+
+`v4.3.4` tightens the local Sage Mate Code Assistant integration and macOS packaging metadata.
+
+### Added
+
+- **Claude Hust backend adapter**: Code Assistant can delegate ask/propose flows to the local
+  `claude-hust` backend through a dedicated adapter while keeping Sage Mate in charge of profile,
+  workspace allowlist, trace, and safety boundaries.
+- **Code Assistant sessions**: adds a local runtime-private Code Session model and API surface for
+  future coding conversations, isolated from Faculty Twin chat history.
+- **Code doctor**: adds a `/code doctor` diagnostic path for local Code Assistant setup checks.
+
+### Changed
+
+- **macOS bundle versioning**: the DMG build now writes the project version into `Sage Mate.app`
+  instead of hardcoding `1.0`.
+- **Profile model**: local Sage Mate keeps a clear two-profile model: Faculty Twin or Code Assistant.
+
+### Safety
+
+- Hosted/web deployments reject `/code/*` APIs before admin fallback. Code tools remain local-only,
+  allowlist-bound, and propose-only by default.
+
 ## v4.3.3 - 2026-06-28
 
 `v4.3.3` packages Sage Mate as a macOS local app release and stabilizes the multi-profile local experience.

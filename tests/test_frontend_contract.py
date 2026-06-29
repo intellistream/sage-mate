@@ -112,3 +112,19 @@ def test_history_sync_uses_authenticated_session_email_only() -> None:
     assert "currentUserAccountEmail = authenticated ? String(session.account?.email || \"\").trim().toLowerCase() : \"\";" in js
     assert "return currentUserAccountEmail || \"\";" in js
     assert "student_email" not in js[js.index("async function syncConversationHistoryFromServer"):js.index("function setHistoryRailCollapsed")]
+
+
+def test_send_button_uses_animation_state() -> None:
+    html = (WEB_DIR / "index.html").read_text(encoding="utf-8")
+    css = (WEB_DIR / "styles.css").read_text(encoding="utf-8")
+    js = (WEB_DIR / "app.js").read_text(encoding="utf-8")
+
+    assert "send-button-label" in html
+    assert "send-button-icon" in html
+    assert "send-button-spinner" in html
+    assert "function setChatSubmitLoading(isLoading)" in js
+    assert "chatSubmitButton.classList.toggle(\"is-sending\", loading)" in js
+    assert "chatSubmitButton.textContent = \"发送中\"" not in js
+    assert ".send-button.is-sending" in css
+    assert "@keyframes send-spinner-spin" in css
+    assert "@keyframes send-button-pulse" in css

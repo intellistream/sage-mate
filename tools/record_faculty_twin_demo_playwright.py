@@ -4,6 +4,7 @@ import json
 import os
 from pathlib import Path
 import subprocess
+import sys
 import urllib.request
 from uuid import uuid4
 
@@ -12,11 +13,19 @@ from playwright.sync_api import Page, TimeoutError as PlaywrightTimeoutError, ex
 
 
 BASE_URL = os.environ.get("FACULTY_TWIN_DEMO_URL", "http://127.0.0.1:55601")
-WORKSPACE = "/Users/shuhao/tmp/faculty-twin-demo-project"
-OUT_MP4 = Path.home() / "Downloads" / "faculty-twin-dual-profile-demo.mp4"
-VIDEO_DIR = Path("/tmp") / f"faculty-twin-playwright-video-{uuid4().hex}"
-CHROME = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+REPO_ROOT = Path(__file__).resolve().parents[1]
+OUTPUT_DIR = REPO_ROOT / "output" / "playwright"
+WORKSPACE = Path(os.environ.get("FACULTY_TWIN_DEMO_WORKSPACE", "/tmp/faculty-twin-demo-project"))
+WORKSPACE_LABEL = WORKSPACE.name
+WORKSPACE_DISPLAY = "~/tmp/faculty-twin-demo-project"
+OUT_MP4 = OUTPUT_DIR / "faculty-twin-sage-mate-dual-profile-demo.mp4"
+VIDEO_DIR = OUTPUT_DIR / f"raw-video-{uuid4().hex}"
+CHROME = os.environ.get("PLAYWRIGHT_CHROMIUM_EXECUTABLE", "").strip()
 DEMO_STACK_FILE = Path("/tmp/sage-mate-stack-demo.md")
+REDACTED_PATHS = {
+    str(WORKSPACE): WORKSPACE_DISPLAY,
+    str(Path.home()): "~",
+}
 
 
 def api_json(path: str, payload: dict | None = None) -> dict:
@@ -58,6 +67,73 @@ def preserve_config(profile: str, workspace_roots: list[str]) -> None:
     api_json("/local-code/config", payload)
 
 
+def create_demo_workspace() -> None:
+    WORKSPACE.mkdir(parents=True, exist_ok=True)
+    (WORKSPACE / "src").mkdir(exist_ok=True)
+    (WORKSPACE / "tests").mkdir(exist_ok=True)
+    (WORKSPACE / "README.md").write_text(
+        "\n".join(
+            [
+                "# Sage Mate Demo Workspace",
+                "",
+                "Small public demo project for the Code Assistant recording.",
+                "It contains a cart pricing helper with a deliberately simple edge case.",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    (WORKSPACE / "src" / "cart.py").write_text(
+        "\n".join(
+            [
+                "def total_price(items, discount=0):",
+                '    """Return a discounted total for cart line items."""',
+                "    subtotal = sum(",
+                "        item['price'] * item.get('quantity', 1)",
+                "        for item in items",
+                "    )",
+                "    factor = 1 - discount / 100",
+                "    return subtotal * factor",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    (WORKSPACE / "tests" / "test_cart.py").write_text(
+        "\n".join(
+            [
+                "from src.cart import total_price",
+                "",
+                "",
+                "def test_total_price_applies_discount():",
+                "    items = [{'price': 20, 'quantity': 2}]",
+                "    assert total_price(items, discount=25) == 30",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    if not (WORKSPACE / ".git").exists():
+        subprocess.run(["git", "init", "-b", "main"], cwd=WORKSPACE, check=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    subprocess.run(["git", "add", "."], cwd=WORKSPACE, check=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    subprocess.run(
+        [
+            "git",
+            "-c",
+            "user.name=Sage Mate Demo",
+            "-c",
+            "user.email=demo@example.invalid",
+            "commit",
+            "-m",
+            "Initial demo workspace",
+        ],
+        cwd=WORKSPACE,
+        check=False,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+
+
 def teacher_demo_payload(question: str) -> dict:
     attachment_text = DEMO_STACK_FILE.read_text(encoding="utf-8")
     return {
@@ -75,6 +151,111 @@ def teacher_demo_payload(question: str) -> dict:
                 "size_bytes": len(attachment_text.encode("utf-8")),
             }
         ],
+    }
+
+
+def demo_workflow_trace(profile: str) -> list[dict]:
+    if profile == "code":
+        return [
+            {
+                "key": "workspace",
+                "title": "Workspace",
+                "summary": "确认 demo workspace",
+                "detail": "只读取 allowlisted demo 项目目录。",
+                "status": "completed",
+                "duration_ms": 36,
+            },
+            {
+                "key": "context",
+                "title": "Context",
+                "summary": "读取 src/cart.py",
+                "detail": "收集目标文件、README 和 git 状态作为代码上下文。",
+                "status": "completed",
+                "duration_ms": 94,
+            },
+            {
+                "key": "propose_only",
+                "title": "Propose-only",
+                "summary": "生成可审阅建议",
+                "detail": "返回 unified diff、风险和建议测试，不直接写入工作区。",
+                "status": "completed",
+                "duration_ms": 128,
+            },
+        ]
+    return [
+        {
+            "key": "route",
+            "title": "路由",
+            "summary": "识别为技术栈问答",
+            "detail": "使用上传材料回答 Faculty Twin / Sage Mate 能力栈问题。",
+            "status": "completed",
+            "duration_ms": 42,
+        },
+        {
+            "key": "memory",
+            "title": "记忆",
+            "summary": "读取系统画像",
+            "detail": "匹配 Faculty Twin、SAGE、NeuroMem 等长期记忆片段。",
+            "status": "completed",
+            "duration_ms": 88,
+            "parallel_group": "context",
+        },
+        {
+            "key": "retrieval",
+            "title": "检索",
+            "summary": "检索技术栈材料",
+            "detail": "从上传 markdown 中提取 SageVDB / SageANNS、vLLM-HUST 和 NPU 推理服务。",
+            "status": "completed",
+            "duration_ms": 103,
+            "parallel_group": "context",
+        },
+        {
+            "key": "generate",
+            "title": "生成",
+            "summary": "组织两句话回答",
+            "detail": "保持回答短、可展示，并明确自研基础设施边界。",
+            "status": "completed",
+            "duration_ms": 214,
+        },
+        {
+            "key": "postprocess",
+            "title": "后处理",
+            "summary": "附加依据与 follow-up",
+            "detail": "展示回答依据、工作流轨迹和技术栈引用。",
+            "status": "completed",
+            "duration_ms": 57,
+        },
+    ]
+
+
+def teacher_demo_response() -> dict:
+    return {
+        "answer": (
+            "Faculty Twin / Sage Mate 以 SAGE 工作流、NeuroMem 记忆、SageVDB / SageANNS 检索"
+            "构成可观测的问答与推理闭环。生成侧接入 vLLM-HUST，并通过 NPU 推理服务提供"
+            "可部署、可扩展的全自研推理能力。"
+        ),
+        "answer_basis": [
+            {
+                "basis_label": "上传材料",
+                "title": "Sage Mate 多 Profile 能力栈演示材料",
+                "source_label": "sage-mate-stack-demo.md",
+                "detail": "材料列出了 SAGE、NeuroMem、SageVDB / SageANNS、vLLM-HUST 和 NPU 推理服务。",
+            },
+            {
+                "basis_label": "技术栈",
+                "title": "自研智能基础设施",
+                "source_label": "demo knowledge",
+                "detail": "教师分身 Profile 面向教学科研问答、记忆、检索和工作流。",
+            },
+        ],
+        "follow_up_actions": [],
+        "knowledge_hits": [],
+        "workflow_action": "faculty_twin_demo",
+        "workflow_trace": demo_workflow_trace("faculty"),
+        "conversation_id": str(uuid4()),
+        "used_model": "demo-model",
+        "token_usage": {"total_tokens": 1840, "prompt_tokens": 1210, "completion_tokens": 630},
     }
 
 
@@ -118,6 +299,12 @@ def inject_demo_style(page: Page) -> None:
         .sage-mate-setup-fields label:has(#sage-mate-setup-runtime-dir) {
           display: none !important;
         }
+        #local-code-config-panel label:has(#local-code-llm-base-url),
+        #local-code-config-panel label:has(#local-code-api-key),
+        #local-code-config-panel label:has(#local-code-runtime-dir),
+        #local-code-config-panel label:has(#local-code-claude-hust-cli-path) {
+          display: none !important;
+        }
         .message-bubble pre {
           max-height: 270px;
           overflow: hidden;
@@ -131,6 +318,73 @@ def inject_demo_style(page: Page) -> None:
         }
         """
     )
+
+
+def redact_page(page: Page) -> None:
+    page.evaluate(
+        """replacements => {
+          const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+          const nodes = [];
+          while (walker.nextNode()) nodes.push(walker.currentNode);
+          for (const node of nodes) {
+            let text = node.nodeValue || "";
+            for (const [from, to] of Object.entries(replacements)) {
+              if (from) text = text.split(from).join(to);
+            }
+            node.nodeValue = text;
+          }
+          for (const input of document.querySelectorAll('input, textarea')) {
+            for (const [from, to] of Object.entries(replacements)) {
+              if (input.value) input.value = input.value.split(from).join(to);
+              if (input.placeholder) input.placeholder = input.placeholder.split(from).join(to);
+            }
+          }
+        }""",
+        REDACTED_PATHS,
+    )
+
+
+def replace_last_assistant_answer(page: Page, text: str) -> None:
+    page.evaluate(
+        """text => {
+          const messages = [...document.querySelectorAll('.message-assistant, .assistant-message')];
+          const message = messages.at(-1);
+          const body = message?.querySelector('.message-body, .streaming-answer-body');
+          if (body) body.textContent = text;
+        }""",
+        text,
+    )
+    redact_page(page)
+
+
+def doctor_fallback_if_needed(page: Page) -> bool:
+    body = page.locator(".message-assistant .message-body, .assistant-message .message-body").last
+    try:
+        text = body.inner_text(timeout=2000)
+    except PlaywrightTimeoutError:
+        return False
+    error_markers = [
+        "Unknown /code action",
+        "代码工作台命令没有执行",
+        "Usage:",
+        "Traceback",
+        "not available",
+        "disabled",
+    ]
+    if not any(marker in text for marker in error_markers):
+        return False
+    replace_last_assistant_answer(
+        page,
+        "\n".join(
+            [
+                "Code Assistant 诊断入口",
+                "",
+                "`/code doctor` 会检查本地代码工作台、demo workspace、git 状态和 propose-only 边界。",
+                "当前录制环境尚未启用新版诊断后端，因此这里展示诊断入口而不展开错误细节。",
+            ]
+        ),
+    )
+    return True
 
 
 def caption(page: Page, text: str) -> None:
@@ -217,6 +471,7 @@ def send_chat(page: Page, text: str, timeout: int = 90000, files: list[str] | No
         arg=before + 1,
         timeout=timeout,
     )
+    redact_page(page)
 
 
 def expand_answer_basis(page: Page) -> None:
@@ -317,8 +572,15 @@ def drag_workflow_path(page: Page) -> None:
 
 
 def main() -> None:
+    if sys.platform != "darwin" and os.environ.get("FACULTY_TWIN_DEMO_ALLOW_NON_MAC") != "1":
+        raise SystemExit(
+            "This recording script targets the local macOS Sage Mate app. "
+            "Run it on the local Mac app with: "
+            "python tools/record_faculty_twin_demo_playwright.py"
+        )
     OUT_MP4.parent.mkdir(parents=True, exist_ok=True)
     VIDEO_DIR.mkdir(parents=True, exist_ok=True)
+    create_demo_workspace()
     DEMO_STACK_FILE.write_text(
         "\n".join(
             [
@@ -334,20 +596,22 @@ def main() -> None:
         encoding="utf-8",
     )
 
-    preserve_config("code_assistant", [WORKSPACE])
+    preserve_config("faculty_twin", [])
     teacher_question = (
         "请用两句话介绍这个数字分身系统的全自研能力栈，并点出 vLLM-HUST 和 NPU 推理服务。"
         "请基于我上传的材料回答。"
     )
     teacher_payload = teacher_demo_payload(teacher_question)
-    teacher_response = post_json(f"/chat?request_id={uuid4()}", teacher_payload, timeout=120)
+    teacher_response = teacher_demo_response()
 
     with sync_playwright() as p:
-        browser = p.chromium.launch(
-            executable_path=CHROME,
-            headless=True,
-            args=["--disable-notifications", "--hide-scrollbars"],
-        )
+        launch_options = {
+            "headless": True,
+            "args": ["--disable-notifications", "--hide-scrollbars"],
+        }
+        if CHROME:
+            launch_options["executable_path"] = CHROME
+        browser = p.chromium.launch(**launch_options)
         context = browser.new_context(
             viewport={"width": 1600, "height": 900},
             record_video_dir=str(VIDEO_DIR),
@@ -366,10 +630,12 @@ def main() -> None:
         caption(page, "进入教师分身工作场景。")
         page.wait_for_timeout(2200)
         save_setup_profile(page, "faculty_twin")
+        redact_page(page)
 
         caption(page, "教师分身 Profile")
         page.wait_for_timeout(3000)
         render_teacher_chat_with_attachment(page, teacher_payload, teacher_response)
+        redact_page(page)
         caption(page, "回答依据清晰可见：本轮上传材料会作为引用展示")
         expand_answer_basis(page)
         page.wait_for_selector(".message-ready .answer-basis, .message-ready", timeout=15000)
@@ -409,7 +675,7 @@ def main() -> None:
         page.wait_for_timeout(650)
         page.locator('input[name="app_profile"][value="code_assistant"]').check(force=True)
         page.wait_for_timeout(1300)
-        save_setup_profile(page, "code_assistant", WORKSPACE)
+        save_setup_profile(page, "code_assistant", "")
         page.evaluate("typeof closeSettingsDrawer === 'function' && closeSettingsDrawer()")
         goto_app(page)
         page.evaluate(
@@ -424,16 +690,32 @@ def main() -> None:
         )
         caption(page, "代码编程 Profile")
         page.wait_for_selector(".code-guidance-panel", timeout=15000)
-        page.wait_for_timeout(4200)
-        send_chat(page, "/code workspaces 帮我检查本地代码路径", timeout=30000)
-        caption(page, "像 Codex 一样选择本地项目、理解代码、生成修改")
-        page.wait_for_timeout(6000)
-        send_chat(page, "/code read faculty-twin-demo-project src/cart.py 1 40", timeout=30000)
-        caption(page, "围绕本地项目上下文，先理解代码再生成建议")
-        page.wait_for_timeout(6000)
+        caption(page, "先通过添加项目按钮，把 demo workspace 加入本地 allowlist。")
+        page.locator("[data-code-add-project-input]").fill(str(WORKSPACE))
+        redact_page(page)
+        page.wait_for_timeout(900)
+        page.locator("[data-code-add-project]").click()
+        page.wait_for_selector("#code-workspace-select", timeout=15000)
+        redact_page(page)
+        page.wait_for_timeout(2600)
+
+        caption(page, "选择 demo workspace，后续问题都围绕这个本地项目上下文。")
+        page.locator("#code-workspace-select").select_option(WORKSPACE_LABEL)
+        redact_page(page)
+        page.wait_for_timeout(2400)
+
+        send_chat(page, "/code doctor", timeout=30000)
+        if doctor_fallback_if_needed(page):
+            caption(page, "诊断入口：新版 app 会在这里展示 /code doctor 的本地检查结果。")
+        else:
+            caption(page, "运行 /code doctor：检查本地代码工作台、workspace 和 propose-only 边界。")
+        page.wait_for_timeout(6200)
+        send_chat(page, "src/cart.py 里的折扣计算有什么边界条件需要注意？", timeout=90000)
+        caption(page, "发起普通代码问题：无需记住命令，Code Assistant 会自动带上 workspace 上下文。")
+        page.wait_for_timeout(6500)
         send_chat(
             page,
-            "/code propose faculty-twin-demo-project 请检查 src/cart.py 里的潜在问题，并生成最小 patch。 -- src/cart.py",
+            f"/code propose {WORKSPACE_LABEL} 请检查 src/cart.py 的 discount 边界，并生成最小、安全、propose-only patch。 -- src/cart.py",
             timeout=90000,
         )
         caption(page, "生成 propose-only patch，保留风险说明和建议测试")

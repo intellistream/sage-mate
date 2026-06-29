@@ -9,6 +9,11 @@ package_name="sage-mate-macos"
 volume_name="Sage Mate"
 build_zip=false
 work_dir=$(mktemp -d "${TMPDIR:-/tmp}/${package_name}.XXXXXX")
+app_version=$(sed -n 's/^version = "\([^"]*\)"/\1/p' "$repo_root/pyproject.toml" | head -n 1)
+if [[ -z "$app_version" ]]; then
+    echo "Could not read project version from pyproject.toml" >&2
+    exit 1
+fi
 
 cleanup() {
     rm -rf "$work_dir"
@@ -64,7 +69,7 @@ app_resources="$app_contents/Resources"
 mkdir -p "$app_macos" "$app_resources"
 mkdir -p "$work_dir/$package_name"
 
-cat > "$app_contents/Info.plist" <<'EOF'
+cat > "$app_contents/Info.plist" <<EOF
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
   "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -87,9 +92,9 @@ cat > "$app_contents/Info.plist" <<'EOF'
   <key>CFBundlePackageType</key>
   <string>APPL</string>
   <key>CFBundleShortVersionString</key>
-  <string>1.0</string>
+  <string>$app_version</string>
   <key>CFBundleVersion</key>
-  <string>1</string>
+  <string>$app_version</string>
   <key>LSMinimumSystemVersion</key>
   <string>12.0</string>
   <key>NSAppTransportSecurity</key>

@@ -44,7 +44,13 @@ class _CalendarHandler(BaseHTTPRequestHandler):
 
 
 def test_calendar_bridge_disabled_by_default() -> None:
-    client = CalendarBridgeClient(AppSettings())
+    client = CalendarBridgeClient(
+        AppSettings(
+            calendar_bridge_enabled=False,
+            calendar_bridge_url="",
+            calendar_bridge_token="",
+        )
+    )
 
     assert client.should_fetch_for_question("今天有什么安排？") is False
     assert client.describe_for_prompt("今天有什么安排？") == ""

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import shlex
 import shutil
 import subprocess
@@ -618,6 +619,8 @@ class CodeWorkbench:
         action = self._normalize_action(argv[0])
         if action == "workspaces":
             return CodeChatCommand(action=action)
+        if action == "doctor":
+            return CodeChatCommand(action=action)
         if action == "list":
             if len(argv) < 2:
                 raise ValueError("Usage: /code ls <workspace> [path]")
@@ -721,6 +724,7 @@ class CodeWorkbench:
         return "\n".join(
             [
                 "代码工作台可用命令：",
+                "`/code doctor` 检查本地代码工作台配置",
                 "`/code workspaces` 列出可用仓库",
                 "`/code ls <workspace> [path]` 浏览目录",
                 "`/code search <workspace> <query> [--glob <pattern>]` 搜索代码",
@@ -733,6 +737,132 @@ class CodeWorkbench:
                 "`/code propose <workspace> <task> [-- <path> ...]` 生成 propose-only unified diff 建议",
             ]
         )
+
+    def format_doctor_for_chat(self) -> str:
+        rows: list[tuple[str, str, str]] = []
+
+        def add(status: str, item: str, detail: str) -> None:
+            rows.append((status, item, detail))
+
+        deployment_mode = self._settings.deployment_mode
+        if deployment_mode == "local_code":
+            add("OK", "DIGITAL_TWIN_DEPLOYMENT_MODE", "local_code")
+        else:
+            add(
+                "ERROR",
+                "DIGITAL_TWIN_DEPLOYMENT_MODE",
+                f"当前为 {deployment_mode or '(empty)'}，本地代码能力只允许 local_code。",
+            )
+
+        app_profile = self._settings.app_profile
+        if app_profile == "code_assistant":
+            add("OK", "DIGITAL_TWIN_APP_PROFILE", "code_assistant")
+        else:
+            add(
+                "ERROR",
+                "DIGITAL_TWIN_APP_PROFILE",
+                f"当前为 {app_profile or '(empty)'}，需要 code_assistant。",
+            )
+
+        if self._settings.code_workbench_enabled:
+            add("OK", "DIGITAL_TWIN_CODE_WORKBENCH_ENABLED", "true")
+        else:
+            add("ERROR", "DIGITAL_TWIN_CODE_WORKBENCH_ENABLED", "需要设置为 true。")
+
+        configured_roots = [
+            Path(part.strip()).expanduser()
+            for part in self._settings.code_workspace_roots.split(",")
+            if part.strip()
+        ]
+        discovered_workspaces = self.list_workspaces().workspaces
+        if discovered_workspaces:
+            workspace_labels = ", ".join(
+                f"{workspace.workspace_id}={workspace.root}"
+                for workspace in discovered_workspaces[:5]
+            )
+            suffix = " ..." if len(discovered_workspaces) > 5 else ""
+            add(
+                "OK",
+                "workspace allowlist",
+                f"{len(discovered_workspaces)} 个可用 workspace："
+                f"{workspace_labels}{suffix}",
+            )
+        elif configured_roots:
+            invalid = ", ".join(str(root) for root in configured_roots[:5])
+            add("ERROR", "workspace allowlist", f"已配置但没有可用目录：{invalid}")
+        else:
+            add("ERROR", "workspace allowlist", "未配置 DIGITAL_TWIN_CODE_WORKSPACE_ROOTS。")
+
+        backend = self._settings.code_agent_backend
+        if backend in {"internal", "claude_hust"}:
+            add("OK", "DIGITAL_TWIN_CODE_AGENT_BACKEND", backend)
+        else:
+            add(
+                "ERROR",
+                "DIGITAL_TWIN_CODE_AGENT_BACKEND",
+                f"不支持的 backend：{backend or '(empty)'}",
+            )
+
+        claude_hust_path = self._settings.claude_hust_cli_path.strip()
+        if claude_hust_path:
+            executable_path = Path(claude_hust_path).expanduser()
+            if executable_path.is_file() and os.access(executable_path, os.X_OK):
+                add("OK", "DIGITAL_TWIN_CLAUDE_HUST_CLI_PATH", str(executable_path))
+            elif executable_path.exists():
+                add(
+                    "ERROR",
+                    "DIGITAL_TWIN_CLAUDE_HUST_CLI_PATH",
+                    f"{executable_path} 存在但不可执行。",
+                )
+            else:
+                add(
+                    "ERROR",
+                    "DIGITAL_TWIN_CLAUDE_HUST_CLI_PATH",
+                    f"{executable_path} 不存在。",
+                )
+        elif backend == "claude_hust":
+            add(
+                "ERROR",
+                "DIGITAL_TWIN_CLAUDE_HUST_CLI_PATH",
+                "backend=claude_hust 时必须配置可执行 CLI。",
+            )
+        else:
+            add(
+                "WARN",
+                "DIGITAL_TWIN_CLAUDE_HUST_CLI_PATH",
+                "未配置；当前 backend=internal，不需要 Claude Hust CLI。",
+            )
+
+        llm_base_url = self._settings.llm_base_url.strip()
+        if llm_base_url:
+            add("OK", "DIGITAL_TWIN_LLM_BASE_URL", llm_base_url)
+        else:
+            add("ERROR", "DIGITAL_TWIN_LLM_BASE_URL", "未配置。")
+
+        model_name = self._settings.model_name.strip()
+        if model_name:
+            add("OK", "DIGITAL_TWIN_MODEL_NAME", model_name)
+        else:
+            add("ERROR", "DIGITAL_TWIN_MODEL_NAME", "未配置。")
+
+        has_error = any(status == "ERROR" for status, _, _ in rows)
+        has_warn = any(status == "WARN" for status, _, _ in rows)
+        summary = "ERROR" if has_error else "WARN" if has_warn else "OK"
+        lines = [
+            "代码工作台诊断报告",
+            f"总体状态：{summary}",
+            "",
+        ]
+        lines.extend(f"[{status}] {item}：{detail}" for status, item, detail in rows)
+        lines.extend(
+            [
+                "",
+                "安全边界：`/code doctor` 只在 local_code + code_assistant + "
+                "code_workbench_enabled 下由聊天入口处理；hosted/web 模式不会暴露"
+                "本地代码 workspace 或 agent 能力。",
+            ]
+        )
+        return "\n".join(lines)
 
     def format_workspaces_for_chat(self) -> str:
         response = self.list_workspaces()
@@ -928,6 +1058,9 @@ class CodeWorkbench:
         aliases = {
             "workspace": "workspaces",
             "workspaces": "workspaces",
+            "doctor": "doctor",
+            "诊断": "doctor",
+            "检查": "doctor",
             "repos": "workspaces",
             "projects": "workspaces",
             "ls": "list",

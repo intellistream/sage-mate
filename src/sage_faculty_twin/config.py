@@ -78,6 +78,10 @@ class AppSettings(BaseSettings):
         default=REPO_ROOT.parent / "sage-faculty-twin-code-workspaces",
         description="Legacy managed workspace root used when code_workspace_roots is empty.",
     )
+    code_session_dir: Path = Field(
+        default=Path("data/code_sessions"),
+        description="Runtime-private storage for local Code Assistant sessions.",
+    )
     code_command_timeout_seconds: int = Field(default=20, ge=1, le=120)
     code_agent_backend: str = Field(
         default="internal",
@@ -327,6 +331,7 @@ class AppSettings(BaseSettings):
             "availability_schedule_path": runtime_root / "data/availability/current_week.json",
             "knowledge_base_dir": runtime_root / "data/knowledge_base",
             "conversation_memory_dir": runtime_root / "data/conversation_memory",
+            "code_session_dir": runtime_root / "data/code_sessions",
             "online_presence_dir": runtime_root / ".runtime/online_presence",
             "artifact_memory_draft_dir": runtime_root / "data/artifact_memory_drafts",
             "knowledge_gap_draft_dir": runtime_root / "data/knowledge_gap_drafts",

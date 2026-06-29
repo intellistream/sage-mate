@@ -4,7 +4,8 @@ import subprocess
 import pytest
 
 from sage_faculty_twin.code_workbench import CodeWorkbench
-from sage_faculty_twin.config import settings
+from sage_faculty_twin.code_session_store import CodeSessionStore
+from sage_faculty_twin.config import AppSettings, settings
 from sage_faculty_twin.models import (
     ChatRequest,
     CodeAssistRequest,
@@ -15,6 +16,9 @@ from sage_faculty_twin.models import (
     CodeGitDiffRequest,
     CodeGitStatusRequest,
     CodeProposeRequest,
+    CodeSessionAppendMessageRequest,
+    CodeSessionCreateRequest,
+    CodeSessionMessage,
     CodeSearchRequest,
 )
 
@@ -126,6 +130,61 @@ def test_code_workbench_formats_empty_workspace_state(tmp_path: Path) -> None:
     assert "还没有配置可用代码 workspace" in message
     assert "Workspace Folders" in message
     assert "~/tmp/faculty-twin-demo-project" in message
+
+
+def test_code_session_store_persists_runtime_private_records(tmp_path: Path) -> None:
+    runtime_dir = tmp_path / "runtime-private"
+    store = CodeSessionStore(
+        settings.model_copy(
+            update={
+                "runtime_dir": runtime_dir,
+                "code_session_dir": runtime_dir / "data" / "code_sessions",
+            }
+        )
+    )
+
+    session = store.create_session(
+        CodeSessionCreateRequest(
+            workspace_id="project-a",
+            title="Fix cart",
+            initial_message=CodeSessionMessage(role="user", content="Please inspect cart.py"),
+        ),
+        default_backend="internal",
+    )
+    updated = store.append_message(
+        session.session_id,
+        CodeSessionAppendMessageRequest(
+            role="assistant",
+            content="Found a likely rounding issue.",
+            last_proposal_summary="Use Decimal for currency math.",
+        ),
+    )
+
+    assert updated is not None
+    assert updated.workspace_id == "project-a"
+    assert updated.backend == "internal"
+    assert updated.last_proposal_summary == "Use Decimal for currency math."
+    assert len(updated.messages) == 2
+    assert (runtime_dir / "data" / "code_sessions" / f"{session.session_id}.json").is_file()
+
+    reloaded = CodeSessionStore(
+        settings.model_copy(
+            update={
+                "runtime_dir": runtime_dir,
+                "code_session_dir": runtime_dir / "data" / "code_sessions",
+            }
+        )
+    )
+    assert reloaded.get_session(session.session_id) == updated
+    assert [item.session_id for item in reloaded.list_sessions()] == [session.session_id]
+
+
+def test_code_session_settings_default_to_runtime_private_dir(tmp_path: Path) -> None:
+    runtime_dir = tmp_path / "runtime-private"
+    local_settings = AppSettings(runtime_dir=runtime_dir)
+
+    assert local_settings.code_session_dir == runtime_dir / "data" / "code_sessions"
+    assert not str(local_settings.code_session_dir).startswith(str(Path.cwd() / "data"))
 
 
 def test_code_workbench_searches_and_reads_files(tmp_path: Path) -> None:
@@ -429,7 +488,18 @@ async def test_code_service_propose_calls_llm_without_modifying_files(tmp_path: 
 
 @pytest.mark.asyncio
 async def test_code_service_can_delegate_ask_to_claude_hust_backend(tmp_path: Path) -> None:
+    from sage_faculty_twin.code_agent_backends import CodeAgentBackendResult
     from sage_faculty_twin.service import DigitalTwinService
+
+    class StubClaudeBackend:
+        def assist(self, request: CodeAssistRequest) -> CodeAgentBackendResult:
+            assert request.workspace_id == "project-a"
+            return CodeAgentBackendResult(
+                answer="delegated answer",
+                context_paths=request.paths,
+                used_model="stub-code-model",
+                backend="claude_hust",
+            )
 
     service = object.__new__(DigitalTwinService)
     service._settings = settings.model_copy(
@@ -447,14 +517,7 @@ async def test_code_service_can_delegate_ask_to_claude_hust_backend(tmp_path: Pa
     source.write_text("print(1)\n", encoding="utf-8")
     service._code_workbench = CodeWorkbench(service._settings)
     service._llm_client = type("StubLlm", (), {"model_name": "internal-model"})()
-    touched_paths: list[Path] = []
-
-    def fake_print(_prompt: str, cwd: Path) -> str:
-        touched_paths.append(cwd)
-        (cwd / "demo.py").write_text("print(2)\n", encoding="utf-8")
-        return "delegated answer"
-
-    service._run_claude_hust_print = fake_print
+    service._code_agent_backend = lambda: StubClaudeBackend()
 
     response = await service.assist_with_code(
         CodeAssistRequest(workspace_id="project-a", task="Explain this repo")
@@ -462,21 +525,18 @@ async def test_code_service_can_delegate_ask_to_claude_hust_backend(tmp_path: Pa
 
     assert response.answer == "delegated answer"
     assert response.used_model == "stub-code-model"
-    assert touched_paths and touched_paths[0] != tmp_path / "project-a"
     assert source.read_text(encoding="utf-8") == "print(1)\n"
 
 
-@pytest.mark.asyncio
-async def test_code_service_claude_hust_propose_uses_temp_copy(tmp_path: Path) -> None:
-    from sage_faculty_twin.service import DigitalTwinService
+def test_claude_hust_backend_propose_uses_temp_copy(tmp_path: Path) -> None:
+    from sage_faculty_twin.code_agent_backends import ClaudeHustCodeAgentBackend
 
     workspace = tmp_path / "project-a"
     workspace.mkdir()
     source = workspace / "demo.py"
     source.write_text("print(1)\n", encoding="utf-8")
 
-    service = object.__new__(DigitalTwinService)
-    service._settings = settings.model_copy(
+    backend_settings = settings.model_copy(
         update={
             "deployment_mode": "local_code",
             "app_profile": "code_assistant",
@@ -486,34 +546,90 @@ async def test_code_service_claude_hust_propose_uses_temp_copy(tmp_path: Path) -
             "model_name": "stub-code-model",
         }
     )
-    service._code_workbench = CodeWorkbench(service._settings)
-    service._llm_client = type("StubLlm", (), {"model_name": "internal-model"})()
     touched_paths: list[Path] = []
 
-    def fake_print(_prompt: str, cwd: Path) -> str:
+    def fake_print(_prompt: str, cwd: Path, *, output_format: str = "text") -> str:
+        assert output_format == "json"
         touched_paths.append(cwd)
         (cwd / "demo.py").write_text("print(2)\n", encoding="utf-8")
         return (
-            '{"summary":"Change demo","affected_files":["demo.py"],'
-            '"unified_diff":"--- a/demo.py\\n+++ b/demo.py\\n@@ -1 +1 @@\\n-print(1)\\n+print(2)\\n",'
-            '"risks":"Low","suggested_tests":["python demo.py"]}'
+            '{"content":[{"type":"text","text":"{\\"summary\\":\\"Change demo\\",'
+            '\\"affected_files\\":[\\"demo.py\\"],'
+            '\\"unified_diff\\":\\"--- a/demo.py\\\\n+++ b/demo.py\\\\n@@ -1 +1 @@\\\\n-print(1)\\\\n+print(2)\\\\n\\",'
+            '\\"risks\\":\\"Low\\",\\"suggested_tests\\":[\\"python demo.py\\"]}"}]}'
         )
 
-    service._run_claude_hust_print = fake_print
+    backend = ClaudeHustCodeAgentBackend(
+        settings=backend_settings,
+        workbench=CodeWorkbench(backend_settings),
+        llm_client=type("StubLlm", (), {"model_name": "internal-model"})(),
+        print_runner=fake_print,
+    )
 
-    response = await service.propose_code_change(
+    result = backend.propose(
         CodeProposeRequest(workspace_id="project-a", task="Change demo")
     )
 
     assert touched_paths
     assert touched_paths[0] != workspace
     assert source.read_text(encoding="utf-8") == "print(1)\n"
-    assert response.summary == "Change demo"
-    assert "+print(2)" in response.unified_diff
-    assert response.workflow_trace
-    assert response.workflow_trace[2].summary == (
-        "已通过 Claude Code Hust 本地 CLI 执行修改建议流程。"
+    assert '"summary":"Change demo"' in result.answer
+    assert "+print(2)" in result.answer
+    assert result.context_paths == ["demo.py"]
+    assert result.backend == "claude_hust"
+
+
+def test_claude_hust_json_output_extracts_text_tools_and_diff(tmp_path: Path) -> None:
+    from sage_faculty_twin.code_agent_backends import ClaudeHustCodeAgentBackend
+
+    calls: list[str] = []
+
+    def fake_print(_prompt: str, _cwd: Path, *, output_format: str = "text") -> str:
+        calls.append(output_format)
+        return (
+            '{"content":[{"type":"text","text":"Done"}],'
+            '"events":[{"type":"tool_use","name":"Read","input":{"file_path":"demo.py"}}],'
+            '"unified_diff":"--- a/demo.py\\n+++ b/demo.py\\n@@ -1 +1 @@\\n-print(1)\\n+print(2)\\n"}'
+        )
+
+    backend = ClaudeHustCodeAgentBackend(
+        settings=settings,
+        workbench=_workbench(tmp_path),
+        llm_client=type("StubLlm", (), {"model_name": "internal-model"})(),
+        print_runner=fake_print,
     )
+
+    result = backend._run_structured_or_text("task", tmp_path)
+
+    assert calls == ["json"]
+    assert "Done" in result
+    assert "+print(2)" in result
+    assert "Inspected files: demo.py" in result
+    assert "Tool calls: Read" in result
+
+
+def test_claude_hust_text_fallback_when_json_output_unavailable(tmp_path: Path) -> None:
+    from sage_faculty_twin.code_agent_backends import ClaudeHustCodeAgentBackend
+
+    calls: list[str] = []
+
+    def fake_print(_prompt: str, _cwd: Path, *, output_format: str = "text") -> str:
+        calls.append(output_format)
+        if output_format == "json":
+            raise RuntimeError("Error: invalid --output-format json")
+        return "plain fallback"
+
+    backend = ClaudeHustCodeAgentBackend(
+        settings=settings,
+        workbench=_workbench(tmp_path),
+        llm_client=type("StubLlm", (), {"model_name": "internal-model"})(),
+        print_runner=fake_print,
+    )
+
+    result = backend._run_structured_or_text("task", tmp_path)
+
+    assert result == "plain fallback"
+    assert calls == ["json", "text"]
 
 
 @pytest.mark.asyncio
@@ -578,6 +694,8 @@ def test_code_workbench_parses_chat_commands(tmp_path: Path) -> None:
         "/code propose twin fix parser -- src/a.py src/b.py"
     )
     chinese = workbench.parse_chat_command("代码 搜 twin 工作台")
+    doctor = workbench.parse_chat_command("/code doctor")
+    chinese_doctor = workbench.parse_chat_command("代码 诊断")
 
     assert workbench.is_chat_command("/code workspaces") is True
     assert search.action == "search"
@@ -602,3 +720,98 @@ def test_code_workbench_parses_chat_commands(tmp_path: Path) -> None:
     assert propose.paths == ["src/a.py", "src/b.py"]
     assert chinese.action == "search"
     assert chinese.query == "工作台"
+    assert doctor.action == "doctor"
+    assert chinese_doctor.action == "doctor"
+
+
+def test_code_workbench_doctor_reports_ok_warn_and_error(tmp_path: Path) -> None:
+    workspace = tmp_path / "project-a"
+    workspace.mkdir()
+    cli = tmp_path / "claude-hust"
+    cli.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+    cli.chmod(0o755)
+
+    healthy = CodeWorkbench(
+        settings.model_copy(
+            update={
+                "deployment_mode": "local_code",
+                "app_profile": "code_assistant",
+                "code_workbench_enabled": True,
+                "code_workspace_roots": str(workspace),
+                "code_agent_backend": "claude_hust",
+                "claude_hust_cli_path": str(cli),
+                "llm_base_url": "http://127.0.0.1:8000/v1",
+                "model_name": "qwen-code",
+            }
+        )
+    )
+
+    healthy_report = healthy.format_doctor_for_chat()
+
+    assert "代码工作台诊断报告" in healthy_report
+    assert "总体状态：OK" in healthy_report
+    assert "[OK] DIGITAL_TWIN_DEPLOYMENT_MODE：local_code" in healthy_report
+    assert "[OK] workspace allowlist：1 个可用 workspace" in healthy_report
+    assert "[OK] DIGITAL_TWIN_CLAUDE_HUST_CLI_PATH" in healthy_report
+
+    missing_llm = CodeWorkbench(
+        settings.model_copy(
+            update={
+                "deployment_mode": "local_code",
+                "app_profile": "code_assistant",
+                "code_workbench_enabled": True,
+                "code_workspace_roots": str(workspace),
+                "code_agent_backend": "internal",
+                "claude_hust_cli_path": "",
+                "llm_base_url": "",
+                "model_name": "",
+            }
+        )
+    )
+
+    missing_report = missing_llm.format_doctor_for_chat()
+
+    assert "总体状态：ERROR" in missing_report
+    assert "[WARN] DIGITAL_TWIN_CLAUDE_HUST_CLI_PATH" in missing_report
+    assert "[ERROR] DIGITAL_TWIN_LLM_BASE_URL：未配置。" in missing_report
+    assert "[ERROR] DIGITAL_TWIN_MODEL_NAME：未配置。" in missing_report
+
+
+def test_code_doctor_not_available_in_hosted_web_mode(tmp_path: Path) -> None:
+    workspace = tmp_path / "project-a"
+    workspace.mkdir()
+    hosted_settings = settings.model_copy(
+        update={
+            "deployment_mode": "hosted",
+            "app_profile": "code_assistant",
+            "code_workbench_enabled": True,
+            "code_workspace_roots": str(workspace),
+            "model_name": "stub-code-model",
+        }
+    )
+
+    workbench = CodeWorkbench(hosted_settings)
+
+    exposed_in_chat = (
+        hosted_settings.deployment_mode == "local_code"
+        and hosted_settings.code_workbench_enabled
+        and hosted_settings.app_profile == "code_assistant"
+    )
+
+    assert exposed_in_chat is False
+    assert workbench.list_workspaces().workspaces == []
+
+
+def test_code_api_rejects_hosted_mode_before_admin_fallback(monkeypatch: pytest.MonkeyPatch) -> None:
+    from fastapi import HTTPException
+
+    from sage_faculty_twin import api
+
+    monkeypatch.setattr(api.settings, "deployment_mode", "hosted")
+    monkeypatch.setattr(api.settings, "app_profile", "code_assistant")
+    monkeypatch.setattr(api.settings, "code_workbench_enabled", True)
+
+    with pytest.raises(HTTPException) as exc_info:
+        api.require_code_access(None)  # type: ignore[arg-type]
+
+    assert exc_info.value.status_code == 403

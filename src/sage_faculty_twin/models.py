@@ -977,6 +977,46 @@ class CodeProposeResponse(BaseModel):
     workflow_trace: list[WorkflowTraceStep] = Field(default_factory=list)
 
 
+class CodeSessionMessage(BaseModel):
+    role: str = Field(pattern="^(user|assistant|system|tool)$")
+    content: str = Field(min_length=1, max_length=20000)
+    created_at: datetime | None = None
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class CodeSessionSummary(BaseModel):
+    session_id: str = Field(min_length=1, max_length=128)
+    workspace_id: str = Field(min_length=1, max_length=64)
+    backend: str = Field(pattern="^(internal|claude_hust)$")
+    title: str = Field(min_length=1, max_length=256)
+    created_at: datetime
+    updated_at: datetime
+    message_count: int = Field(ge=0)
+    last_proposal_summary: str | None = Field(default=None, max_length=4000)
+
+
+class CodeSessionRecord(CodeSessionSummary):
+    messages: list[CodeSessionMessage] = Field(default_factory=list, max_length=500)
+
+
+class CodeSessionListResponse(BaseModel):
+    sessions: list[CodeSessionSummary] = Field(default_factory=list)
+
+
+class CodeSessionCreateRequest(BaseModel):
+    workspace_id: str = Field(min_length=1, max_length=64)
+    backend: str | None = Field(default=None, pattern="^(internal|claude_hust)$")
+    title: str | None = Field(default=None, max_length=256)
+    initial_message: CodeSessionMessage | None = None
+
+
+class CodeSessionAppendMessageRequest(BaseModel):
+    role: str = Field(pattern="^(user|assistant|system|tool)$")
+    content: str = Field(min_length=1, max_length=20000)
+    last_proposal_summary: str | None = Field(default=None, max_length=4000)
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
 class LocalCodeConfigRequest(BaseModel):
     app_profile: str = Field(
         default="code_assistant",

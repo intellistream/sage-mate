@@ -70,6 +70,10 @@ from .models import (
     CodeGitStatusResponse,
     CodeProposeRequest,
     CodeProposeResponse,
+    CodeSessionAppendMessageRequest,
+    CodeSessionCreateRequest,
+    CodeSessionListResponse,
+    CodeSessionRecord,
     CodeSearchRequest,
     CodeSearchResponse,
     CodeWorkspaceListResponse,
@@ -770,7 +774,17 @@ def require_code_access(request: Request) -> dict:
         and settings.app_profile == "code_assistant"
     ):
         return {"mode": "local_code"}
-    return require_admin_session(request)
+    raise HTTPException(status_code=403, detail="Code tools require local Code Assistant mode.")
+
+
+def require_code_session_access(request: Request) -> dict:
+    if (
+        settings.deployment_mode == "local_code"
+        and settings.code_workbench_enabled
+        and settings.app_profile == "code_assistant"
+    ):
+        return {"mode": "local_code", "profile": "code_assistant"}
+    raise HTTPException(status_code=403, detail="Code sessions require the Code Assistant profile.")
 
 
 def require_local_code_config_access(request: Request) -> dict:
@@ -949,6 +963,7 @@ def _runtime_path_env_updates(runtime_root: str) -> dict[str, str]:
         "DIGITAL_TWIN_AVAILABILITY_SCHEDULE_PATH": str(root / "data/availability/current_week.json"),
         "DIGITAL_TWIN_INSTALLED_SKILL_PROMPT_PATH": str(root / "data/installed_skills/fixed_prompt_skills.md"),
         "DIGITAL_TWIN_USER_ACCOUNT_STORE_DIR": str(root / "data/user_accounts"),
+        "DIGITAL_TWIN_CODE_SESSION_DIR": str(root / "data/code_sessions"),
         "DIGITAL_TWIN_CAPABILITY_PLUGIN_DIR": str(root / "data/capability_plugins"),
         "DIGITAL_TWIN_WORKFLOW_POLICY_PATH": str(root / "data/workflow_policies/faculty-default-2026-05.json"),
         "DIGITAL_TWIN_WORKFLOW_SCENARIO_PATH": str(root / "data/workflow_scenarios/v3_preview_scenarios.json"),
@@ -963,6 +978,7 @@ def _apply_runtime_path_settings(runtime_root: str) -> None:
     settings.availability_schedule_path = root / "data/availability/current_week.json"
     settings.installed_skill_prompt_path = root / "data/installed_skills/fixed_prompt_skills.md"
     settings.user_account_store_dir = root / "data/user_accounts"
+    settings.code_session_dir = root / "data/code_sessions"
     settings.capability_plugin_dir = root / "data/capability_plugins"
     settings.workflow_policy_path = root / "data/workflow_policies/faculty-default-2026-05.json"
     settings.workflow_scenario_path = root / "data/workflow_scenarios/v3_preview_scenarios.json"
@@ -1130,6 +1146,48 @@ async def list_code_workspaces(
     _: dict = Depends(require_code_access),
 ) -> CodeWorkspaceListResponse:
     return service.list_code_workspaces()
+
+
+@llm_app.get("/code/sessions", response_model=CodeSessionListResponse)
+async def list_code_sessions(
+    workspace_id: str | None = Query(default=None, max_length=64),
+    _: dict = Depends(require_code_session_access),
+) -> CodeSessionListResponse:
+    return service.list_code_sessions(workspace_id=workspace_id)
+
+
+@llm_app.post("/code/sessions", response_model=CodeSessionRecord)
+async def create_code_session(
+    payload: CodeSessionCreateRequest,
+    _: dict = Depends(require_code_session_access),
+) -> CodeSessionRecord:
+    try:
+        return service.create_code_session(payload)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@llm_app.get("/code/sessions/{session_id}", response_model=CodeSessionRecord)
+async def get_code_session(
+    session_id: str,
+    _: dict = Depends(require_code_session_access),
+) -> CodeSessionRecord:
+    record = service.get_code_session(session_id)
+    if record is None:
+        raise HTTPException(status_code=404, detail="Code session not found.")
+    return record
+
+
+@llm_app.post("/code/sessions/{session_id}/messages", response_model=CodeSessionRecord)
+async def append_code_session_message(
+    session_id: str,
+    payload: CodeSessionAppendMessageRequest,
+    _: dict = Depends(require_code_session_access),
+) -> CodeSessionRecord:
+    record = service.append_code_session_message(session_id, payload)
+    if record is None:
+        raise HTTPException(status_code=404, detail="Code session not found.")
+    return record
 
 
 @llm_app.get("/local-code/config", response_model=LocalCodeConfigResponse)
