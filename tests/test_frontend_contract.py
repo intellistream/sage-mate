@@ -175,3 +175,14 @@ def test_active_onboarding_keeps_chat_stream_visible() -> None:
     assert block_match, f"Missing CSS block for {selector}"
     assert "display: none;" not in block_match.group(1)
     assert "display: flex;" in block_match.group(1)
+
+
+def test_active_onboarding_panel_stretches_to_composer() -> None:
+    css = (WEB_DIR / "styles.css").read_text(encoding="utf-8")
+    selector = "body.onboarding-active .chat-shell.chat-empty .onboarding-card"
+    block_match = re.search(rf"{re.escape(selector)} \{{\n(.*?)\n\}}", css, re.S)
+
+    assert block_match, f"Missing CSS block for {selector}"
+    assert "flex: 1 1 auto;" in block_match.group(1)
+    assert "body.onboarding-active .chat-shell.chat-empty .onboarding-nav,\nbody.onboarding-active .chat-shell.chat-empty .onboarding-done" in css
+    assert "margin-top: auto;" in css
