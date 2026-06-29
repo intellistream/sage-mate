@@ -209,7 +209,7 @@ cat > "$work_dir/SageMateApp.swift" <<'EOF'
 import Cocoa
 import WebKit
 
-final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNavigationDelegate {
+final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNavigationDelegate, WKScriptMessageHandler {
     private var window: NSWindow!
     private var webView: WKWebView!
     private var statusLabel: NSTextField!
@@ -259,12 +259,70 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
         return false
     }
 
+    func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
+        guard message.name == "sageMatePickDirectory" else { return }
+        let payload = message.body as? [String: Any]
+        showDirectoryPicker(requestId: payload?["requestId"] as? String ?? "")
+    }
+
+    private func showDirectoryPicker(requestId: String) {
+        DispatchQueue.main.async {
+            let panel = NSOpenPanel()
+            panel.title = "选择本地项目文件夹"
+            panel.prompt = "添加项目"
+            panel.canChooseFiles = false
+            panel.canChooseDirectories = true
+            panel.allowsMultipleSelection = false
+            panel.canCreateDirectories = false
+            panel.directoryURL = FileManager.default.homeDirectoryForCurrentUser
+            let completion: (NSApplication.ModalResponse) -> Void = { response in
+                let path = (response == .OK) ? panel.url?.path : nil
+                self.resolveDirectoryPicker(requestId: requestId, path: path)
+            }
+            if let window = self.window {
+                panel.beginSheetModal(for: window, completionHandler: completion)
+            } else {
+                completion(panel.runModal())
+            }
+        }
+    }
+
+    private func resolveDirectoryPicker(requestId: String, path: String?) {
+        guard !requestId.isEmpty else { return }
+        let value = path.map(jsonString) ?? "null"
+        let script = """
+        (function() {
+            var callbacks = window.__sageMateDirectoryPickerCallbacks || {};
+            var callback = callbacks[\(jsonString(requestId))];
+            if (!callback) return;
+            delete callbacks[\(jsonString(requestId))];
+            callback(\(value));
+        })();
+        """
+        webView.evaluateJavaScript(script, completionHandler: nil)
+    }
+
     private func buildWindow() {
         if window != nil {
             return
         }
 
         let config = WKWebViewConfiguration()
+        let userContentController = WKUserContentController()
+        userContentController.add(self, name: "sageMatePickDirectory")
+        let bridgeScript = """
+        window.sageMateDesktop = window.sageMateDesktop || {};
+        window.sageMateDesktop.pickWorkspaceDirectory = function() {
+            return new Promise(function(resolve) {
+                var requestId = "pick-" + Date.now() + "-" + Math.random().toString(16).slice(2);
+                window.__sageMateDirectoryPickerCallbacks = window.__sageMateDirectoryPickerCallbacks || {};
+                window.__sageMateDirectoryPickerCallbacks[requestId] = resolve;
+                window.webkit.messageHandlers.sageMatePickDirectory.postMessage({ requestId: requestId });
+            });
+        };
+        """
+        userContentController.addUserScript(WKUserScript(source: bridgeScript, injectionTime: .atDocumentStart, forMainFrameOnly: true))
+        config.userContentController = userContentController
         webView = WKWebView(frame: .zero, configuration: config)
         webView.navigationDelegate = self
 
@@ -486,6 +544,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
 
     private func shellQuote(_ value: String) -> String {
         "'" + value.replacingOccurrences(of: "'", with: "'\\''") + "'"
+    }
+
+    private func jsonString(_ value: String) -> String {
+        if let data = try? JSONSerialization.data(withJSONObject: value),
+           let text = String(data: data, encoding: .utf8) {
+            return text
+        }
+        return "\"\""
     }
 
     private func showStatus(_ text: String) {

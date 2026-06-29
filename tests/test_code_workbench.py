@@ -266,6 +266,40 @@ def test_code_workbench_runs_read_only_allowlisted_command(tmp_path: Path) -> No
     assert "# Demo" in response.stdout
 
 
+def test_code_run_full_approval_mode_allows_write_intent(tmp_path: Path) -> None:
+    from sage_faculty_twin.service import DigitalTwinService
+
+    workbench = _workbench(tmp_path)
+    workspace_root = tmp_path / "project-a"
+    (workspace_root / "demo.py").write_text("print(1)\n", encoding="utf-8")
+    subprocess.run(["git", "init"], cwd=workspace_root, check=True, capture_output=True)
+
+    service = object.__new__(DigitalTwinService)
+    service._settings = workbench._settings
+    service._code_workbench = workbench
+    service._llm_client = type("StubLlm", (), {"model_name": "stub-model"})()
+
+    blocked = service.run_code_command(
+        CodeCommandRequest(
+            workspace_id="project-a",
+            command="git add demo.py",
+            code_approval_mode="ask",
+        )
+    )
+    allowed = service.run_code_command(
+        CodeCommandRequest(
+            workspace_id="project-a",
+            command="git add demo.py",
+            code_approval_mode="full",
+        )
+    )
+
+    assert blocked.blocked is True
+    assert "allow_write" in blocked.message
+    assert allowed.blocked is False
+    assert allowed.exit_code == 0
+
+
 def test_code_workbench_reports_git_status_and_diff(tmp_path: Path) -> None:
     workbench = _workbench(tmp_path)
     workspace_root = tmp_path / "project-a"
@@ -335,7 +369,7 @@ def test_code_workbench_builds_default_context_when_paths_are_empty(tmp_path: Pa
 def test_code_workbench_builds_assist_prompt_with_file_context(tmp_path: Path) -> None:
     workbench = _workbench(tmp_path)
     (tmp_path / "project-a" / "README.md").write_text(
-        "# Demo\nCodex-like helper\n",
+        "# Demo\nCode-agent helper\n",
         encoding="utf-8",
     )
 
@@ -347,10 +381,10 @@ def test_code_workbench_builds_assist_prompt_with_file_context(tmp_path: Path) -
         )
     )
 
-    assert "Codex/Copilot-like" in system_prompt
+    assert "code-agent style" in system_prompt
     assert "README.md" in context_paths
     assert "Git Status" in user_prompt
-    assert "Codex-like helper" in user_prompt
+    assert "Code-agent helper" in user_prompt
 
 
 def test_code_workbench_builds_propose_prompt_with_status_diff_and_files(
@@ -775,6 +809,24 @@ def test_code_workbench_doctor_reports_ok_warn_and_error(tmp_path: Path) -> None
     assert "[WARN] DIGITAL_TWIN_CLAUDE_HUST_CLI_PATH" in missing_report
     assert "[ERROR] DIGITAL_TWIN_LLM_BASE_URL：未配置。" in missing_report
     assert "[ERROR] DIGITAL_TWIN_MODEL_NAME：未配置。" in missing_report
+
+
+@pytest.mark.asyncio
+async def test_code_chat_doctor_runs_diagnostics(tmp_path: Path) -> None:
+    from sage_faculty_twin.service import DigitalTwinService
+
+    workbench = _workbench(tmp_path)
+    service = object.__new__(DigitalTwinService)
+    service._settings = workbench._settings
+    service._code_workbench = workbench
+    service._llm_client = type("StubLlm", (), {"model_name": "stub-model"})()
+
+    response = await service._answer_code_workbench_command(
+        ChatRequest(student_name="tester", question="/code doctor")
+    )
+
+    assert "代码工作台诊断报告" in response.answer
+    assert "代码工作台可用命令" not in response.answer
 
 
 def test_code_doctor_not_available_in_hosted_web_mode(tmp_path: Path) -> None:

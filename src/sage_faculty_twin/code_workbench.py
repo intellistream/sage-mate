@@ -509,7 +509,7 @@ class CodeWorkbench:
 
         system_prompt = (
             "You are the code workbench inside SAGE Faculty Twin. Help the admin "
-            "reason about local repositories with a Codex/Copilot-like style. Be "
+            "reason about local repositories with a code-agent style. Be "
             "concrete, cite file paths from the provided context, and do not claim "
             "that you edited files or executed commands unless the prompt explicitly "
             "includes such output."

@@ -128,3 +128,14 @@ def test_send_button_uses_animation_state() -> None:
     assert ".send-button.is-sending" in css
     assert "@keyframes send-spinner-spin" in css
     assert "@keyframes send-button-pulse" in css
+
+
+def test_local_code_setup_does_not_block_or_auto_open_profile_modal() -> None:
+    js = (WEB_DIR / "app.js").read_text(encoding="utf-8")
+    setup_fn = js[js.index("function shouldShowSageMateSetup"):js.index("async function maybeOpenSageMateSetup")]
+
+    assert 'params.get("setup") === "local-code"' in setup_fn
+    assert "return !data.api_key_set" not in setup_fn
+    assert "const localCodeConfigPromise = maybeOpenSageMateSetup();" in js
+    assert "await maybeOpenSageMateSetup();" not in js
+    assert "initializePage().catch(" in js

@@ -5,6 +5,7 @@ import json
 import logging
 import os
 import secrets
+import shutil
 import socket
 import threading
 import time
@@ -931,6 +932,7 @@ def _sync_local_code_settings_from_env() -> None:
 
 
 def _local_code_config_response(*, message: str = "") -> LocalCodeConfigResponse:
+    cli_status = _claude_hust_cli_status(settings.claude_hust_cli_path)
     return LocalCodeConfigResponse(
         app_profile=settings.app_profile,
         deployment_mode=settings.deployment_mode,
@@ -950,8 +952,31 @@ def _local_code_config_response(*, message: str = "") -> LocalCodeConfigResponse
         ],
         code_agent_backend=settings.code_agent_backend,
         claude_hust_cli_path=settings.claude_hust_cli_path,
+        claude_hust_cli_available=cli_status["available"] == "true",
+        claude_hust_cli_resolved_path=cli_status["resolved_path"],
+        claude_hust_cli_issue=cli_status["issue"],
         message=message,
     )
+
+
+def _claude_hust_cli_status(configured_path: str = "") -> dict[str, str]:
+    candidates = [
+        configured_path.strip(),
+        shutil.which("claude-hust") or "",
+        str(Path.home() / "claude-code-hust/bin/claude-hust"),
+        str(Path.home() / "Documents/claude-code-hust/bin/claude-hust"),
+    ]
+    for candidate in candidates:
+        if not candidate:
+            continue
+        path = Path(candidate).expanduser()
+        if path.is_file() and os.access(path, os.X_OK):
+            return {"available": "true", "resolved_path": str(path), "issue": ""}
+    return {
+        "available": "false",
+        "resolved_path": "",
+        "issue": "claude-hust CLI 不存在或不可执行。请设置 Claude Hust CLI Path。",
+    }
 
 
 def _runtime_path_env_updates(runtime_root: str) -> dict[str, str]:

@@ -6441,7 +6441,10 @@ class DigitalTwinService:
 
     def run_code_command(self, request: CodeCommandRequest) -> CodeCommandResponse:
         self._require_code_workbench_enabled()
-        return self._code_workbench.run_command(request)
+        effective_request = request
+        if request.code_approval_mode == "full" and not request.allow_write:
+            effective_request = request.model_copy(update={"allow_write": True})
+        return self._code_workbench.run_command(effective_request)
 
     async def assist_with_code(self, request: CodeAssistRequest) -> CodeAssistResponse:
         self._require_code_workbench_enabled()
@@ -6574,6 +6577,8 @@ class DigitalTwinService:
                 answer = self._code_workbench.format_chat_help()
             elif command.action == "workspaces":
                 answer = self._code_workbench.format_workspaces_for_chat()
+            elif command.action == "doctor":
+                answer = self._code_workbench.format_doctor_for_chat()
             elif command.action == "search":
                 response = self.search_code(
                     CodeSearchRequest(
@@ -6628,6 +6633,7 @@ class DigitalTwinService:
                     CodeCommandRequest(
                         workspace_id=command.workspace_id,
                         command=command.command,
+                        code_approval_mode=request.code_approval_mode,
                     )
                 )
                 answer = self._code_workbench.format_command_for_chat(response)

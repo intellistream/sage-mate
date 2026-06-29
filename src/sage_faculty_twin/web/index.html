@@ -265,6 +265,60 @@
                                 class="composer-plus-button" aria-label="上传材料" title="上传材料">
                                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
                             </button>
+                            <div id="code-approval-menu" class="code-approval-menu hidden">
+                                <button type="button" id="code-approval-toggle" class="code-approval-toggle"
+                                    aria-haspopup="menu" aria-expanded="false" aria-label="代码操作审批模式">
+                                    <svg class="code-approval-icon" width="18" height="18" viewBox="0 0 24 24" fill="none"
+                                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                                        aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg>
+                                    <span id="code-approval-current">请求批准</span>
+                                    <svg class="code-approval-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none"
+                                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                                        aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+                                </button>
+                                <div id="code-approval-popover" class="code-approval-popover" role="menu" hidden>
+                                    <div class="code-approval-popover-head">
+                                        <span>应如何批准 Code Assistant 操作？</span>
+                                        <button type="button" class="code-approval-help" data-code-open-settings>了解更多</button>
+                                    </div>
+                                    <button type="button" class="code-approval-option" role="menuitemradio"
+                                        aria-checked="true" data-code-approval-mode="ask">
+                                        <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 11V6a3 3 0 0 0-6 0v5"/><path d="M14 10V5a3 3 0 0 0-6 0v7"/><path d="M10 12.5V7a3 3 0 0 0-6 0v8a7 7 0 0 0 7 7h1a7 7 0 0 0 7-7v-4"/></svg>
+                                        <span>
+                                            <strong>请求批准</strong>
+                                            <small>写入本地项目或联网前始终要求确认</small>
+                                        </span>
+                                        <svg class="code-approval-check" width="18" height="18" viewBox="0 0 24 24" fill="none"
+                                            stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"
+                                            aria-hidden="true"><path d="m20 6-11 11-5-5"/></svg>
+                                    </button>
+                                    <button type="button" class="code-approval-option" role="menuitemradio"
+                                        aria-checked="false" data-code-approval-mode="auto">
+                                        <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/><path d="m9 12 2 2 4-4"/></svg>
+                                        <span>
+                                            <strong>替我审批</strong>
+                                            <small>仅对检测到的风险操作要求确认</small>
+                                        </span>
+                                        <svg class="code-approval-check" width="18" height="18" viewBox="0 0 24 24" fill="none"
+                                            stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"
+                                            aria-hidden="true"><path d="m20 6-11 11-5-5"/></svg>
+                                    </button>
+                                    <button type="button" class="code-approval-option" role="menuitemradio"
+                                        aria-checked="false" data-code-approval-mode="full">
+                                        <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2v20"/><path d="M2 12h20"/><path d="m5 5 14 14"/><path d="m19 5-14 14"/></svg>
+                                        <span>
+                                            <strong>完全访问权限</strong>
+                                            <small>允许受控命令写入已授权的本地项目</small>
+                                        </span>
+                                        <svg class="code-approval-check" width="18" height="18" viewBox="0 0 24 24" fill="none"
+                                            stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"
+                                            aria-hidden="true"><path d="m20 6-11 11-5-5"/></svg>
+                                    </button>
+                                </div>
+                            </div>
                             <textarea id="chat-question" name="question" rows="1" required placeholder="请写下你的问题..."></textarea>
                             <button type="button" id="voice-input-button"
                                 class="composer-mic-button" aria-label="语音输入" title="点击开始语音输入">
@@ -277,11 +331,11 @@
                                 <span class="mic-recording-indicator" aria-hidden="true"></span>
                             </button>
                             <button type="submit" class="send-button" aria-label="发送问题">
-                                <span class="send-button-label">发送</span>
+                                <span class="send-button-label sr-only">发送</span>
                                 <span class="send-button-icon" aria-hidden="true">
-                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
-                                        <path d="M5 12h14"/>
-                                        <path d="m13 6 6 6-6 6"/>
+                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.35" stroke-linecap="round" stroke-linejoin="round">
+                                        <path d="M20 4v7a4 4 0 0 1-4 4H5"/>
+                                        <path d="m10 10-5 5 5 5"/>
                                     </svg>
                                 </span>
                                 <span class="send-button-spinner" aria-hidden="true"></span>
@@ -567,7 +621,7 @@
                 <label>
                     <span>Code Backend</span>
                     <select id="local-code-agent-backend" name="code_agent_backend">
-                        <option value="internal">Sage Mate internal</option>
+                        <option value="internal">内置代码后端</option>
                         <option value="claude_hust">Claude Code Hust CLI</option>
                     </select>
                 </label>

@@ -28,6 +28,7 @@ class ChatRequest(BaseModel):
     deep_thinking: bool = Field(default=True)
     deep_thinking_explicit: bool = Field(default=False)
     web_search: bool = Field(default=False)
+    code_approval_mode: str = Field(default="ask", pattern="^(ask|auto|full)$")
 
 
 class OnlinePresenceHeartbeatRequest(BaseModel):
@@ -928,6 +929,7 @@ class CodeCommandRequest(BaseModel):
     command: str = Field(min_length=1, max_length=1000)
     timeout_seconds: int | None = Field(default=None, ge=1, le=60)
     allow_write: bool = False
+    code_approval_mode: str = Field(default="ask", pattern="^(ask|auto|full)$")
 
 
 class CodeCommandResponse(BaseModel):
@@ -1044,4 +1046,7 @@ class LocalCodeConfigResponse(BaseModel):
     workspace_roots: list[str] = Field(default_factory=list)
     code_agent_backend: str = "internal"
     claude_hust_cli_path: str = ""
+    claude_hust_cli_available: bool = False
+    claude_hust_cli_resolved_path: str = ""
+    claude_hust_cli_issue: str = ""
     message: str = Field(default="", max_length=512)
