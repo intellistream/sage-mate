@@ -42,6 +42,7 @@ from .auth import (
     resolve_admin_session_identity,
     validate_admin_credentials,
 )
+from .calendar_bridge import CalendarBridgeClient
 from .code_workbench import CodeWorkbench
 from .config import AppSettings
 from .escalation_store import EscalationQueueStore
@@ -653,6 +654,7 @@ class FacultyTwinWorkflowSupport:
         self._suggestion_store = suggestion_store
         self._user_store = user_store
         self._meeting_service = meeting_service
+        self._calendar_bridge = CalendarBridgeClient(settings)
         self._llm_client = llm_client
         self._email_notifier = email_notifier
         self._digest_store = digest_store
@@ -3038,6 +3040,7 @@ class FacultyTwinWorkflowSupport:
             request.question, interaction_intent
         )
         availability_context = self._meeting_service.describe_current_availability()
+        live_calendar_context = self._calendar_bridge.describe_for_prompt(request.question)
         return (
             "Response instructions:\n"
             "Respond as the digital twin of the faculty owner. Keep the answer grounded and concise. "
@@ -3059,6 +3062,7 @@ class FacultyTwinWorkflowSupport:
             f"{teaching_guidance}"
             f"{research_guidance}"
             f"{availability_context}"
+            f"{live_calendar_context}"
             f"{attachment_context}"
             f"{resolved_recent_session_context}"
             f"{memory_context}"
@@ -5944,6 +5948,7 @@ class DigitalTwinService:
         self._online_presence_store = OnlinePresenceStore(settings)
         self._digest_store = ConversationDigestStore(settings.context_digest_dir)
         self._meeting_service = MeetingService(settings)
+        self._calendar_bridge = CalendarBridgeClient(settings)
         self._email_notifier = BookingEmailNotifier(settings)
         self._runtime_manager = ServiceRuntimeManager(settings)
         self._code_workbench = CodeWorkbench(settings)

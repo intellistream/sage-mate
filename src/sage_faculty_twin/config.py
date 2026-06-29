@@ -118,6 +118,22 @@ class AppSettings(BaseSettings):
     meeting_duration_minutes: int = Field(default=30, ge=15, le=120)
     availability_schedule_path: Path = Field(default=Path("data/availability/current_week.json"))
     booking_notification_email: str = Field(default="faculty@example.edu")
+    calendar_bridge_enabled: bool = Field(
+        default=False,
+        description="Enable read-only access to the owner's live calendar through a local bridge.",
+    )
+    calendar_bridge_url: str = Field(
+        default="",
+        description="Base URL for the read-only yxcal bridge, typically an SSH reverse tunnel on 127.0.0.1.",
+    )
+    calendar_bridge_token: str = Field(
+        default="",
+        description="Bearer token required by the read-only yxcal bridge.",
+    )
+    calendar_bridge_lookahead_days: int = Field(default=14, ge=1, le=31)
+    calendar_bridge_max_events: int = Field(default=40, ge=1, le=100)
+    calendar_bridge_timeout_seconds: float = Field(default=2.5, ge=0.2, le=15.0)
+    calendar_bridge_include_description: bool = Field(default=False)
     smtp_host: str | None = Field(default=None)
     smtp_port: int = Field(default=587, ge=1, le=65535)
     smtp_username: str | None = Field(default=None)
