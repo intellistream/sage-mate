@@ -139,3 +139,13 @@ def test_local_code_setup_does_not_block_or_auto_open_profile_modal() -> None:
     assert "const localCodeConfigPromise = maybeOpenSageMateSetup();" in js
     assert "await maybeOpenSageMateSetup();" not in js
     assert "initializePage().catch(" in js
+
+
+def test_account_entry_stays_in_sidebar_not_topbar() -> None:
+    html = (WEB_DIR / "index.html").read_text(encoding="utf-8")
+    js = (WEB_DIR / "app.js").read_text(encoding="utf-8")
+
+    assert 'id="sidebar-user-icon"' in html
+    assert 'id="topbar-user-badge" class="topbar-user-badge hidden"' in html
+    assert 'topbarUserBadge.classList.remove("hidden"' not in js
+    assert 'topbarUserBadge.classList.add("hidden")' in js

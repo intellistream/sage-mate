@@ -2171,7 +2171,6 @@ document.getElementById("auth-register-form")?.addEventListener("submit", async 
 
 document.getElementById("open-settings-drawer")?.addEventListener("click", openSettingsDrawer);
 document.getElementById("open-status-drawer")?.addEventListener("click", openStatusDrawer);
-topbarUserBadge?.addEventListener("click", openSettingsDrawer);
 document.getElementById("sidebar-user-icon")?.addEventListener("click", (e) => {
     e.preventDefault();
     openSettingsDrawer();
@@ -3833,7 +3832,8 @@ function applyUserSession(session) {
         const account = session.account;
         userSessionCopy.textContent = `当前账号：${account.name} · ${account.email}`;
         if (topbarUserBadge) {
-            topbarUserBadge.classList.remove("hidden", "mobile-auth-entry");
+            topbarUserBadge.classList.add("hidden");
+            topbarUserBadge.classList.remove("mobile-auth-entry");
             const profileLabel = VISITOR_PROFILE_CONFIGS[account.visitor_profile]?.label || "已登录";
             topbarUserBadge.title = `${account.name} · ${account.email}`;
             topbarUserBadge.setAttribute("aria-label", `当前账号：${account.name}，${profileLabel}`);
