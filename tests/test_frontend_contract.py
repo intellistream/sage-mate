@@ -165,3 +165,13 @@ def test_empty_chat_onboarding_and_composer_share_column() -> None:
     assert ".chat-shell.chat-empty .onboarding-card" in css
     assert ".chat-shell.chat-empty .composer-shell" in css
     assert "width: min(100%, 720px);" in css
+
+
+def test_active_onboarding_keeps_chat_stream_visible() -> None:
+    css = (WEB_DIR / "styles.css").read_text(encoding="utf-8")
+    selector = "body.onboarding-active .chat-shell.chat-empty .chat-stream"
+    block_match = re.search(rf"{re.escape(selector)} \{{\n(.*?)\n\}}", css, re.S)
+
+    assert block_match, f"Missing CSS block for {selector}"
+    assert "display: none;" not in block_match.group(1)
+    assert "display: flex;" in block_match.group(1)
