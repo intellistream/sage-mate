@@ -47,16 +47,27 @@ fi
 export_repo_runtime_env "$repo_root"
 python_bin="$PYTHON_BIN"
 
+usage() {
+    cat <<EOF
+Usage: $0 <status|start|stop|restart|logs|install|repair-sagevdb|check-inference|reserve-vllm-devices|configure-slack-twin> [flags]
+  Flags: --all --with-vllm-engine --with-vllm-proxy --with-site-proxy --with-tunnel --json
+  Logs:  $0 logs <app|engine|proxy|site|tunnel|model>
+EOF
+}
+
 # ── Parse arguments ──────────────────────────────────────────────────────────
 if [[ $# -lt 1 ]]; then
-    echo "Usage: $0 <status|start|stop|restart|logs|repair-sagevdb|check-inference|reserve-vllm-devices|configure-slack-twin> [flags]" >&2
-    echo "  Flags: --all --with-vllm-engine --with-vllm-proxy --with-site-proxy --with-tunnel --json" >&2
-    echo "  Logs:  $0 logs <app|engine|proxy|site|tunnel|model>" >&2
+    usage >&2
     exit 1
 fi
 
 action="$1"
 shift
+
+if [[ "$action" == "-h" || "$action" == "--help" || "$action" == "help" ]]; then
+    usage
+    exit 0
+fi
 
 # Delegate install to quickstart.sh
 if [[ "$action" == "install" ]]; then

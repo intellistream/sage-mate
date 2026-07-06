@@ -7,6 +7,8 @@
 #   ./quickstart.sh --local-mac-app --start        # local Sage Mate app-style install
 #   ./quickstart.sh --mac-dmg                      # build dist/sage-mate-macos.dmg
 #   ./quickstart.sh --check                        # preflight only — diagnose, do not change
+#   ./quickstart.sh --systemd-only                 # refresh systemd units only; no pip, no start
+#   ./quickstart.sh --skip-python-install          # skip editable pip install steps
 #   ./quickstart.sh --with-vllm                    # also install vllm-hust (editable)
 #   ./quickstart.sh --with-vllm-engine             # enable vLLM engine systemd service
 #   ./quickstart.sh --with-vllm-proxy              # enable vLLM OpenAI auth proxy service
@@ -37,6 +39,9 @@ parent_dir="${FACULTY_TWIN_PARENT_DIR:-$(dirname "$repo_root")}"
 
 # ── CLI flags ────────────────────────────────────────────────────────────────
 mode_check=false
+mode_systemd_only=false
+mode_skip_python_install=false
+pip_timeout_seconds="${PIP_INSTALL_TIMEOUT_SECONDS:-0}"
 mode_with_vllm=false
 mode_no_systemd=false
 mode_no_siblings=false
@@ -61,7 +66,8 @@ Usage:
   ./quickstart.sh --target hosted-web --start    # server/web install + start systemd
   ./quickstart.sh --local-mac-app --start        # local Sage Mate app-style install
   ./quickstart.sh --mac-dmg                      # build dist/sage-mate-macos.dmg
-  ./quickstart.sh --check                        # preflight only
+  ./quickstart.sh --check                        # static/preflight checks only
+  ./quickstart.sh --systemd-only                 # refresh systemd user units only
 
 Install targets:
   hosted-web       Linux/server browser deployment. Default. Never enables code tools.
@@ -70,7 +76,7 @@ Install targets:
 
 Hosted-web options:
   --with-vllm, --with-vllm-engine, --with-vllm-proxy, --with-site-proxy, --with-tunnel
-  --no-systemd, --no-siblings, --start, --yes
+  --no-systemd, --no-siblings, --skip-python-install, --pip-timeout SECONDS, --start, --yes
 
 Local Sage Mate options:
   --app-profile faculty_twin|code_assistant
@@ -119,6 +125,22 @@ while [[ $# -gt 0 ]]; do
 		shift
 		;;
 	--check)          mode_check=true; shift ;;
+	--systemd-only)
+		mode_systemd_only=true
+		mode_no_siblings=true
+		mode_skip_python_install=true
+		shift
+		;;
+	--skip-python-install) mode_skip_python_install=true; shift ;;
+	--pip-timeout)
+		[[ $# -ge 2 ]] || { echo "--pip-timeout requires a value" >&2; exit 2; }
+		pip_timeout_seconds="$2"
+		shift 2
+		;;
+	--pip-timeout=*)
+		pip_timeout_seconds="${1#*=}"
+		shift
+		;;
 	--with-vllm)      mode_with_vllm=true; shift ;;
 	--with-vllm-engine) svc_engine=true; shift ;;
 	--with-vllm-proxy)  svc_proxy=true; shift ;;
@@ -183,6 +205,62 @@ warn() { printf '\033[1;33m[quickstart]\033[0m %s\n' "$*" >&2; }
 fail() { printf '\033[1;31m[quickstart]\033[0m %s\n' "$*" >&2; exit 1; }
 confirm() { $mode_yes && return 0; read -r -p "$1 [y/N] " ans; [[ "$ans" =~ ^[Yy]$ ]]; }
 
+run_with_optional_timeout() {
+	if [[ "$pip_timeout_seconds" =~ ^[0-9]+$ ]] && (( pip_timeout_seconds > 0 )) && command -v timeout >/dev/null 2>&1; then
+		timeout "$pip_timeout_seconds" "$@"
+	else
+		"$@"
+	fi
+}
+
+run_static_checks() {
+	log "Static checks: shell entrypoints"
+	local shell_scripts=(
+		manage.sh
+		quickstart.sh
+		tools/run_app_server.sh
+		tools/run_vllm_engine.sh
+		tools/run_vllm_openai_proxy.sh
+		tools/run_local_proxy.sh
+		tools/run_named_tunnel.sh
+		tools/monitor_twin_inference.sh
+		tools/reserve_vllm_devices.sh
+	)
+	local script=""
+	for script in "${shell_scripts[@]}"; do
+		[[ -f "$repo_root/$script" ]] || continue
+		bash -n "$repo_root/$script"
+		log "  ok: $script"
+	done
+
+	log "Static checks: Python entrypoints"
+	local py_files=(
+		src/sage_faculty_twin/vllm_openai_proxy.py
+		tools/openai_key_proxy.py
+		tools/repair_sagevdb.py
+	)
+	local py_file=""
+	for py_file in "${py_files[@]}"; do
+		[[ -f "$repo_root/$py_file" ]] || continue
+		"$python_bin" -m py_compile "$repo_root/$py_file"
+		log "  ok: $py_file"
+	done
+
+	log "Static checks: vLLM-HUST dev-hub launcher"
+	local dev_hub_launcher="$repo_root/deps/vllm-hust-dev-hub/scripts/run_vllm_hust_engine.sh"
+	[[ -x "$dev_hub_launcher" ]] || fail "missing executable dev-hub launcher: $dev_hub_launcher"
+	bash -n "$dev_hub_launcher"
+	log "  ok: deps/vllm-hust-dev-hub/scripts/run_vllm_hust_engine.sh"
+
+	log "Static checks: systemd templates"
+	local unit=""
+	for unit in "$repo_root"/deploy/systemd/user/*.service "$repo_root"/deploy/systemd/user/*.timer; do
+		[[ -f "$unit" ]] || continue
+		grep -q "__REPO_ROOT__" "$unit" || [[ "$(basename "$unit")" == *.timer ]] || warn "  $(basename "$unit") has no __REPO_ROOT__ placeholder"
+		log "  ok: deploy/systemd/user/$(basename "$unit")"
+	done
+}
+
 log "Install target: $install_target"
 
 # ── 1. Preflight ─────────────────────────────────────────────────────────────
@@ -202,14 +280,21 @@ py_ver=$("$python_bin" -c 'import sys; print("%d.%d"%sys.version_info[:2])')
 log "  python: $python_bin ($py_ver)"
 case "$py_ver" in 3.1[0-9] | 3.[2-9][0-9]) ;; *) warn "  expected Python >=3.10, got $py_ver" ;; esac
 
-if command -v nvidia-smi >/dev/null 2>&1; then
+if command -v npu-smi >/dev/null 2>&1; then
+	npu_count=$(npu-smi info 2>/dev/null | awk '/^[|][[:space:]]*[0-9]+[[:space:]]+910/ { count++ } END { print count+0 }')
+	log "  npu-smi: $npu_count Ascend NPU(s)"
+elif command -v nvidia-smi >/dev/null 2>&1; then
 	gpu_count=$(nvidia-smi -L 2>/dev/null | wc -l)
 	log "  nvidia-smi: $gpu_count GPU(s)"
 else
-	warn "  nvidia-smi not found — vllm-hust will need a host with NVIDIA/Ascend drivers"
+	warn "  neither npu-smi nor nvidia-smi found — local vLLM serving needs Ascend/NVIDIA drivers"
 fi
 
-$mode_check && { log "Preflight only (--check). Done."; exit 0; }
+if $mode_check; then
+	run_static_checks
+	log "Preflight/static checks only (--check). Done."
+	exit 0
+fi
 
 if [[ "$install_target" == "mac-dmg" ]]; then
 	log "Building Sage Mate macOS DMG"
@@ -248,26 +333,30 @@ else
 fi
 
 # ── 4. Python dependencies ───────────────────────────────────────────────────
-log "Installing sage-faculty-twin (editable, with vdb-anns extras)"
-"$python_bin" -m pip install --quiet --upgrade pip
-if ! "$python_bin" -m pip install --quiet -e "$repo_root[vdb-anns]"; then
-	warn "vdb-anns extras failed (C extensions may need CANN/C++ toolchain)"
-	warn "Falling back to base install"
-	"$python_bin" -m pip install --quiet -e "$repo_root"
-fi
-
-if [[ -d "$parent_dir/sageVDB" ]]; then
-	log "Repairing sageVDB native extension wiring"
-	if ! "$python_bin" "$repo_root/tools/repair_sagevdb.py" --sagevdb-root "$parent_dir/sageVDB"; then
-		warn "sageVDB repair failed; sagevdb backend may be unavailable for this Python"
-		warn "  Retry with: ./manage.sh repair-sagevdb"
+if $mode_skip_python_install; then
+	log "Skipping Python dependency installation (--skip-python-install)"
+else
+	log "Installing sage-faculty-twin (editable, with vdb-anns extras)"
+	run_with_optional_timeout "$python_bin" -m pip install --quiet --upgrade pip
+	if ! run_with_optional_timeout "$python_bin" -m pip install --quiet -e "$repo_root[vdb-anns]"; then
+		warn "vdb-anns extras failed (C extensions may need CANN/C++ toolchain)"
+		warn "Falling back to base install"
+		run_with_optional_timeout "$python_bin" -m pip install --quiet -e "$repo_root"
 	fi
-fi
 
-if $mode_with_vllm && [[ -d "$parent_dir/vllm-hust" ]]; then
-	log "Installing vllm-hust (editable, may take several minutes)"
-	"$python_bin" -m pip install --quiet -e "$parent_dir/vllm-hust" \
-		|| warn "vllm-hust install failed; build deps (CUDA/ninja, Ascend toolkit) may be missing"
+	if [[ -d "$parent_dir/sageVDB" ]]; then
+		log "Repairing sageVDB native extension wiring"
+		if ! "$python_bin" "$repo_root/tools/repair_sagevdb.py" --sagevdb-root "$parent_dir/sageVDB"; then
+			warn "sageVDB repair failed; sagevdb backend may be unavailable for this Python"
+			warn "  Retry with: ./manage.sh repair-sagevdb"
+		fi
+	fi
+
+	if $mode_with_vllm && [[ -d "$parent_dir/vllm-hust" ]]; then
+		log "Installing vllm-hust (editable, may take several minutes)"
+		run_with_optional_timeout "$python_bin" -m pip install --quiet -e "$parent_dir/vllm-hust" \
+			|| warn "vllm-hust install failed; build deps (CUDA/ninja, Ascend toolkit) may be missing"
+	fi
 fi
 
 # ── 5. .env bootstrap ────────────────────────────────────────────────────────
