@@ -164,9 +164,21 @@ for entry in "${services[@]}"; do
     service_units+=("${entry#*:}")
 done
 
+cleanup_vllm_engine_residuals() {
+    $include_engine || return 0
+    [[ -x "$repo_root/tools/cleanup_vllm_engine.sh" ]] || return 0
+    "$repo_root/tools/cleanup_vllm_engine.sh" || true
+}
+
 # ── Execute action ───────────────────────────────────────────────────────────
 if [[ "$action" != "status" ]]; then
+    if [[ "$action" == "restart" ]]; then
+        cleanup_vllm_engine_residuals
+    fi
     systemctl --user "$action" "${service_units[@]}"
+    if [[ "$action" == "stop" ]]; then
+        cleanup_vllm_engine_residuals
+    fi
 fi
 
 # ── Collect status for each service ──────────────────────────────────────────
