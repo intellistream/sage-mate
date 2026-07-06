@@ -41,7 +41,7 @@ def load_proxy_settings() -> ProxySettings:
         )
 
     listen_port_text = os.environ.get("VLLM_PROXY_PORT", "18001")
-    upstream_base_url = os.environ.get("VLLM_PROXY_UPSTREAM_BASE_URL", "http://127.0.0.1:18000/v1")
+    upstream_base_url = os.environ.get("VLLM_PROXY_UPSTREAM_BASE_URL", "http://127.0.0.1:8000/v1")
     path_prefix = os.environ.get("VLLM_PROXY_PATH_PREFIX", "/v1")
     upstream_api_key = os.environ.get("VLLM_PROXY_UPSTREAM_API_KEY", "").strip()
 

@@ -52,7 +52,7 @@ def _upstream_unavailable_payload(exc: Exception) -> bytes:
 class OpenAIKeyProxyHandler(BaseHTTPRequestHandler):
     protocol_version = "HTTP/1.1"
     upstream_host = "127.0.0.1"
-    upstream_port = 18000
+    upstream_port = 8000
     path_prefix = "/v1"
     required_api_key = ""
     upstream_api_key = ""
@@ -194,7 +194,7 @@ def main() -> None:
 
     listen_host = os.environ.get("VLLM_PROXY_HOST", "127.0.0.1")
     listen_port = int(os.environ.get("VLLM_PROXY_PORT", "18001"))
-    upstream_base_url = os.environ.get("VLLM_PROXY_UPSTREAM_BASE_URL", "http://127.0.0.1:18000/v1")
+    upstream_base_url = os.environ.get("VLLM_PROXY_UPSTREAM_BASE_URL", "http://127.0.0.1:8000/v1")
     parsed = urlsplit(upstream_base_url)
     if parsed.scheme not in {"http", ""}:
         raise SystemExit("VLLM_PROXY_UPSTREAM_BASE_URL must be an http URL.")
