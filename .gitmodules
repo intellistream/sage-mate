@@ -9,4 +9,8 @@
 [submodule "deps/vllm-ascend-hust"]
 	path = deps/vllm-ascend-hust
 	url = git@github.com:vLLM-HUST/vllm-ascend-hust.git
-	branch = main
+	branch = faculty-twin-runtime
+[submodule "deps/ascend-runtime-manager"]
+	path = deps/ascend-runtime-manager
+	url = git@github.com:vLLM-HUST/ascend-runtime-manager.git
+	branch = faculty-twin-runtime
