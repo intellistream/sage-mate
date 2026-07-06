@@ -16,8 +16,19 @@
 - 同级目录存在：`../SAGE`、`../neuromem`、`../sageVDB`
 - vLLM 推理引擎运行在 Docker 容器内（设置 `VLLM_ENGINE_CONTAINER`）
 - vLLM-HUST 运行依赖默认锁定在本仓库 `deps/` submodules：
-  `deps/vllm-hust-dev-hub`、`deps/vllm-hust`、`deps/vllm-ascend-hust`
+  `deps/vllm-hust-dev-hub`、`deps/vllm-hust`、`deps/vllm-ascend-hust`、
+  `deps/ascend-runtime-manager`
 - 本机可访问 vllm-hust OpenAI 端点（默认 `127.0.0.1:8000`）
+
+Hosted Faculty Twin 的 vLLM-HUST runtime 不允许使用共享开发仓库
+`/home/shuhao/vllm-hust*`，也不允许复用共享开发容器。生产启动路径必须是：
+
+```text
+faculty-twin/tools/run_vllm_engine.sh
+  -> deps/vllm-hust-dev-hub/scripts/run_vllm_hust_engine.sh
+  -> Docker container faculty_twin_vllm_hust
+  -> /workspace mounted from faculty-twin/deps
+```
 
 ## 本地 Sage Mate sibling 布局
 
@@ -120,10 +131,14 @@ vLLM 推理引擎配置（用于 `--with-vllm-engine`）：
 ./manage.sh start  --all               # 启动全部
 ./manage.sh stop   --all               # 停止全部
 ./manage.sh restart --with-vllm-engine # 重启推理引擎
+./manage.sh status --with-tunnel       # 只查看公网隧道
 ./manage.sh logs   app                 # 跟踪 app 日志
 ./manage.sh logs   engine              # 跟踪推理引擎日志
 ./manage.sh install --start            # 重装 systemd 服务并启动（转发到 quickstart.sh）
 ```
+
+Cloudflare tunnel token/config 属于 private runtime 数据，默认放在
+`$DIGITAL_TWIN_RUNTIME_DIR/cloudflared/`，不要放进代码仓库。
 
 ## OpenAI 代理（可选）
 

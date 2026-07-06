@@ -1,47 +1,65 @@
 # Runtime Data Boundary
 
-This repository tracks the my-twin deployment state in Git so a fresh deploy can
-recover the current knowledge base, conversation memory, queues, and user state.
-The source-control boundary is therefore not "code only"; it is "code plus the
-deployment data we intentionally want to recreate on another machine."
+Faculty Twin has three separate state boundaries. Keep them separate so
+deployment work does not accidentally commit secrets or depend on shared host
+checkouts.
 
-## Tracked Deployment State
+## Code Repository
 
-These paths are expected to stay versioned because they define or preserve the
-current deployable twin state:
+`intellistream/sage-faculty-twin` tracks application source, docs, tests, systemd
+entrypoints, examples, and pinned runtime submodules under `deps/`.
 
-- `data/_seed_faq.json`
-- `data/persona/style_profile.md`
-- `data/availability/current_week.json`
-- `data/availability/history/`
-- `data/knowledge_base/`
-- `data/conversation_memory/`
-- `data/artifact_memory_drafts/`
-- `data/knowledge_gap_drafts/`
-- `data/escalations/`
-- `data/follow_up_actions/`
-- `data/operations_task_state/`
-- `data/suggestions/`
-- `data/user_accounts/`
-- `data/workflow_policies/`
-- `data/workflow_scenarios/`
-- `tools/cloudflared-config.example.yml`
+The hosted vLLM-HUST runtime must use these submodules:
 
-## Ignored Backup And Scratch Artifacts
+- `deps/vllm-hust-dev-hub`
+- `deps/vllm-hust`
+- `deps/vllm-ascend-hust`
+- `deps/ascend-runtime-manager`
 
-These paths are intentionally ignored because they are backup snapshots,
-temporary export artifacts, or local scratch copies rather than the canonical
-deployment state:
+Do not point Faculty Twin production startup at shared development checkouts
+such as `/home/shuhao/vllm-hust`, `/home/shuhao/vllm-ascend-hust`, or
+`/home/shuhao/vllm-hust-dev-hub`.
 
-- `data.pre_recovery_*/`
-- `data/*.backup-*/`
-- `data/homepage/`
-- `*.bak.*`
-- `.runtime/`
+## Private Runtime Directory
 
-## Operational Guidance
+`DIGITAL_TWIN_RUNTIME_DIR` stores deployment data and secrets that should not be
+committed to the code repository. On 180-ascend-bench this is:
 
-- Treat tracked data changes as deploy-state changes and review them before committing.
-- Keep ad hoc recovery snapshots under the ignored backup naming patterns instead of mixing them with canonical tracked data.
-- Use environment variables or mounted volumes when you want storage outside the repo, but keep the tracked dataset coherent enough for redeploy fallback.
+```bash
+/home/shuhao/sage-faculty-twin-runtime-private
+```
+
+Runtime-private data includes:
+
+- knowledge base and conversation memory
+- user accounts and operational queues
+- local deployment `.env` material
+- Cloudflare tunnel tokens or credentials under `cloudflared/`
+
+Cloudflare tunnel token-file mode expects:
+
+```bash
+$DIGITAL_TWIN_RUNTIME_DIR/cloudflared/token
+```
+
+The token file should be mode `0600`.
+
+## Local Scratch State
+
+The code repository's `.runtime/` directory is ignored and is only for local
+scratch artifacts such as pid files, proxy config generated during development,
+temporary audio files, or one-off experiments. It is not the canonical
+production runtime directory.
+
+## Operational Rules
+
 - Keep `.env` local and publish only `.env.example`.
+- Keep Cloudflare tokens, API keys, origin certificates, and tunnel credentials
+  in the private runtime directory.
+- Use `./manage.sh status --all` to inspect all services.
+- Use `./manage.sh status --with-tunnel` or `./manage.sh restart --with-tunnel`
+  when you only want to operate the tunnel service; explicit service flags no
+  longer imply app stop/start.
+- For hosted deployments, the dedicated vLLM-HUST container is
+  `faculty_twin_vllm_hust`, with this repository's `deps/` mounted at
+  `/workspace`.

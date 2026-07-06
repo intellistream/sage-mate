@@ -110,18 +110,31 @@ The management entry points are:
 
 ## 4. Tunnel Configuration
 
-The repository ships a generic Cloudflare Tunnel example:
+Production tunnel credentials are runtime-private material. Keep them under
+`DIGITAL_TWIN_RUNTIME_DIR`, not under the code repository.
+
+The preferred production shape is token-file mode:
 
 ```bash
-mkdir -p .runtime/cloudflared
-cp tools/cloudflared-config.example.yml .runtime/cloudflared/config.yml
+mkdir -p "$DIGITAL_TWIN_RUNTIME_DIR/cloudflared"
+install -m 600 /path/to/cloudflare-tunnel-token "$DIGITAL_TWIN_RUNTIME_DIR/cloudflared/token"
+./manage.sh restart --with-tunnel
 ```
 
-Replace the placeholder tunnel id and hostname in that file, then run:
+`tools/run_named_tunnel.sh` also supports a named tunnel config file at
+`$DIGITAL_TWIN_RUNTIME_DIR/cloudflared/config.yml`, or an explicit
+`TUNNEL_CONFIG_PATH`. The repository's `.runtime/cloudflared/config.yml`
+fallback is only for local scratch deployments.
+
+For the 180-ascend-bench hosted deployment, `twin.sage.org.ai` is served by the
+Cloudflare named tunnel `sage-local-235b`; the token is stored in the private
+runtime directory:
 
 ```bash
-./tools/run_named_tunnel.sh
+$DIGITAL_TWIN_RUNTIME_DIR/cloudflared/token
 ```
+
+Do not commit Cloudflare tokens, origin certificates, or tunnel credentials.
 
 ## 5. Public Branding
 

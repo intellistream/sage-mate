@@ -27,12 +27,17 @@ changes that came out of it.
   `VLLM_PROXY_HOST:VLLM_PROXY_PORT` is already occupied.
 - `tools/run_vllm_engine.sh` is a thin compatibility wrapper. It loads the
   Faculty Twin `.env`, maps the historical `VLLM_ENGINE_*` variables, and then
-  delegates to `deps/vllm-hust-dev-hub/scripts/run_vllm_hust_engine.sh`
-  (falling back to `/home/shuhao/vllm-hust-dev-hub` only when the submodule is
-  absent). This keeps the host -> Docker -> conda -> vLLM-HUST launch path in
-  dev-hub instead of maintaining a drifting copy in Faculty Twin.
+  delegates to `deps/vllm-hust-dev-hub/scripts/run_vllm_hust_engine.sh`.
+  It must not fall back to `/home/shuhao/vllm-hust*` shared checkouts. The
+  engine container mounts this repository's `deps/` directory at `/workspace`,
+  so `/workspace/vllm-hust`, `/workspace/vllm-ascend-hust`, and
+  `/workspace/vllm-hust-dev-hub` are always the pinned Faculty Twin submodules.
 - The vLLM-HUST runtime dependencies are pinned through repository submodules:
-  `deps/vllm-hust-dev-hub`, `deps/vllm-hust`, and `deps/vllm-ascend-hust`.
+  `deps/vllm-hust-dev-hub`, `deps/vllm-hust`, `deps/vllm-ascend-hust`, and
+  `deps/ascend-runtime-manager`.
+- The dedicated runtime container is `faculty_twin_vllm_hust`. Do not reuse
+  shared development containers such as `vllm_hust_ws_21rc` for production
+  Faculty Twin service startup.
 
 ## What changed on the host
 
@@ -49,28 +54,27 @@ Environment=XDG_RUNTIME_DIR=/run/user/22629
   `/etc/systemd/system/user@22629.service.d/override.conf`
 - This file is host-specific and is not tracked by the repository.
 
-## Current operational shape on train05
+## Current operational shape on 180-ascend-bench
 
 - `sage-faculty-twin-app.service` is managed by `systemd --user`.
 - `sage-faculty-twin-site.service` is managed by `systemd --user`.
-- `sage-faculty-twin-vllm-openai-proxy.service` stays disabled by default on
-  this host because port `18001` is already occupied by a direct `vllm-hust`
-  process.
-- Public Cloudflare ingress is currently handled by the shared host-level user
-  service `sage-public-cloudflared.service`, which reuses the existing named
-  tunnel config under `sage-faculty-twin/.runtime/cloudflared/`.
+- `sage-faculty-twin-vllm-engine.service` is managed by `systemd --user` and
+  starts the dedicated `faculty_twin_vllm_hust` container from pinned
+  submodules.
+- `sage-faculty-twin-vllm-openai-proxy.service` is managed by `systemd --user`
+  and proxies `127.0.0.1:18001/v1` to the vLLM-HUST engine.
+- `sage-faculty-twin-tunnel.service` is managed by `systemd --user`. It runs
+  `cloudflared` with a token stored under the private runtime directory:
+  `$DIGITAL_TWIN_RUNTIME_DIR/cloudflared/token`.
+- Public Cloudflare ingress for `twin.sage.org.ai` is handled by the named
+  tunnel `sage-local-235b`, whose remote ingress points
+  `twin.sage.org.ai -> http://localhost:55601`.
 
 ## Verification commands
 
 ```bash
-export XDG_RUNTIME_DIR=/run/user/22629
-export DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/22629/bus
-
-systemctl --user status sage-faculty-twin-app.service
-systemctl --user status sage-faculty-twin-site.service
-systemctl --user status sage-public-cloudflared.service
+./manage.sh status --all
 
 curl http://127.0.0.1:55601/health
-curl https://shuhao.sage.org.ai/
-curl https://openai.sage.org.ai/v1/models
+curl https://twin.sage.org.ai/health
 ```
