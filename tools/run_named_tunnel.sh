@@ -80,4 +80,8 @@ if [[ -f "$token_file" ]]; then
     exec "$cloudflared_bin" tunnel --protocol "$protocol" run --token-file "$token_file"
 fi
 
-exec "$cloudflared_bin" tunnel --protocol "$protocol" run --token "$TUNNEL_TOKEN"
+# Avoid putting tunnel secrets in argv where ps/pgrep can expose them.
+env_token_file="$runtime_dir/cloudflared/token.from-env"
+umask 077
+printf '%s\n' "$TUNNEL_TOKEN" >"$env_token_file"
+exec "$cloudflared_bin" tunnel --protocol "$protocol" run --token-file "$env_token_file"
