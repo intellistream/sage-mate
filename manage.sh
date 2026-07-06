@@ -97,19 +97,25 @@ include_proxy=false
 include_site=false
 include_tunnel=false
 include_model=false
+include_app=false
+explicit_service_selection=false
 
 for arg in "$@"; do
     case "$arg" in
         --json)              json_output="true" ;;
         --foreground)        foreground="true" ;;
-        --all)               include_engine=true; include_proxy=true; include_site=true; include_tunnel=true ;;
-        --with-vllm-engine)  include_engine=true ;;
-        --with-vllm-proxy)   include_proxy=true ;;
-        --with-site-proxy)   include_site=true ;;
-        --with-tunnel)       include_tunnel=true ;;
-        --with-model)        include_model=true ;;
+        --all)               explicit_service_selection=true; include_app=true; include_engine=true; include_proxy=true; include_site=true; include_tunnel=true ;;
+        --with-vllm-engine)  explicit_service_selection=true; include_engine=true ;;
+        --with-vllm-proxy)   explicit_service_selection=true; include_proxy=true ;;
+        --with-site-proxy)   explicit_service_selection=true; include_site=true ;;
+        --with-tunnel)       explicit_service_selection=true; include_tunnel=true ;;
+        --with-model)        explicit_service_selection=true; include_model=true ;;
     esac
 done
+
+if ! $explicit_service_selection; then
+    include_app=true
+fi
 
 # ── Service registry ─────────────────────────────────────────────────────────
 # Format: "display_name:systemd_unit"
@@ -118,7 +124,7 @@ services=()
 $include_engine && services+=("推理引擎:sage-faculty-twin-vllm-engine.service")
 $include_proxy  && services+=("模型代理:sage-faculty-twin-vllm-openai-proxy.service")
 
-services+=("应用服务:sage-faculty-twin-app.service")
+$include_app    && services+=("应用服务:sage-faculty-twin-app.service")
 
 $include_site   && services+=("本地代理:sage-faculty-twin-site.service")
 $include_tunnel && services+=("公网隧道:sage-faculty-twin-tunnel.service")
