@@ -1,190 +1,69 @@
 #!/usr/bin/env bash
-# run_vllm_engine.sh — Launch the vLLM-HUST inference engine inside Docker.
+# run_vllm_engine.sh — Faculty Twin compatibility wrapper for vLLM-HUST.
 #
-# All tuneable knobs are read from the repo .env file (or the process
-# environment).  Defaults are conservative for a 4× Ascend 910B3 TP=4
-# deployment with graph mode enabled (no --enforce-eager).
-#
-# The engine always runs inside a Docker container that already has NPU
-# devices, CANN toolkit, and vllm-hust installed.  Set VLLM_ENGINE_CONTAINER
-# in .env to the container name/id.
+# The real vLLM-HUST launch path lives in vllm-hust-dev-hub:
+#   host -> docker exec -> conda activation -> Ascend/CANN env -> vLLM-HUST.
+# Keep this file thin so the Faculty Twin systemd unit can stay stable without
+# maintaining a second, drifting copy of the engine launcher.
 
 set -euo pipefail
 
 repo_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
+default_dev_hub_root="$repo_root/deps/vllm-hust-dev-hub"
+if [[ ! -x "$default_dev_hub_root/scripts/run_vllm_hust_engine.sh" ]]; then
+    default_dev_hub_root="/home/shuhao/vllm-hust-dev-hub"
+fi
+dev_hub_root="${VLLM_HUST_DEV_HUB_ROOT:-$default_dev_hub_root}"
+launcher="$dev_hub_root/scripts/run_vllm_hust_engine.sh"
 
-# ── Load .env ────────────────────────────────────────────────────────────────
-if [[ -f "$repo_root/.env" ]]; then
+if [[ ! -x "$launcher" ]]; then
+    echo "ERROR: vLLM-HUST dev-hub launcher not found or not executable: $launcher" >&2
+    exit 1
+fi
+
+load_dotenv() {
+    local env_file="$1"
+    [[ -f "$env_file" ]] || return 0
     while IFS= read -r line || [[ -n "$line" ]]; do
         [[ -z "$line" || "$line" =~ ^[[:space:]]*# ]] && continue
-        key="${line%%=*}"
+        local key="${line%%=*}"
         key="${key// /}"
         [[ -z "$key" || -n "${!key:-}" ]] && continue
         export "$line"
-    done < "$repo_root/.env"
+    done < "$env_file"
+}
+
+load_dotenv "$repo_root/.env"
+
+# Map Faculty Twin's historical engine variables onto dev-hub's canonical
+# launcher variables. Existing env always wins so operators can override from
+# systemd without editing this repo.
+export VLLM_ENGINE_CONTAINER="${VLLM_ENGINE_CONTAINER:-vllm_hust_ws_21rc}"
+export VLLM_ENGINE_MODEL_PATH="${VLLM_ENGINE_MODEL_PATH:-/data/shared_models/modelscope_cache/Qwen/Qwen3-32B}"
+export VLLM_ENGINE_SERVED_MODEL_NAME="${VLLM_ENGINE_SERVED_MODEL_NAME:-${DIGITAL_TWIN_MODEL_NAME:-qwen3-32b}}"
+export VLLM_ENGINE_HOST="${VLLM_ENGINE_HOST:-0.0.0.0}"
+export VLLM_ENGINE_PORT="${VLLM_ENGINE_PORT:-8000}"
+export VLLM_ENGINE_TP_SIZE="${VLLM_ENGINE_TP_SIZE:-4}"
+export VLLM_ENGINE_MAX_MODEL_LEN="${VLLM_ENGINE_MAX_MODEL_LEN:-32768}"
+export VLLM_ENGINE_MAX_NUM_BATCHED_TOKENS="${VLLM_ENGINE_MAX_NUM_BATCHED_TOKENS:-$VLLM_ENGINE_MAX_MODEL_LEN}"
+export VLLM_ENGINE_GPU_MEM_UTIL="${VLLM_ENGINE_GPU_MEM_UTIL:-0.9}"
+export VLLM_ENGINE_MAX_NUM_SEQS="${VLLM_ENGINE_MAX_NUM_SEQS:-16}"
+export VLLM_ENGINE_DTYPE="${VLLM_ENGINE_DTYPE:-bfloat16}"
+export VLLM_ENGINE_NPU_DEVICES="${VLLM_ENGINE_NPU_DEVICES:-${ASCEND_RT_VISIBLE_DEVICES:-0,1,2,3}}"
+export ASCEND_RT_VISIBLE_DEVICES="${ASCEND_RT_VISIBLE_DEVICES:-$VLLM_ENGINE_NPU_DEVICES}"
+export ASCEND_VISIBLE_DEVICES="${ASCEND_VISIBLE_DEVICES:-$VLLM_ENGINE_NPU_DEVICES}"
+export VLLM_ENGINE_CONDA_ENV="${VLLM_ENGINE_CONDA_ENV:-vllm-hust-dev}"
+export VLLM_ENGINE_BIN="${VLLM_ENGINE_BIN:-vllm-hust}"
+export VLLM_ENGINE_BASE_PYTHONPATH="${VLLM_ENGINE_BASE_PYTHONPATH:-/workspace/vllm-hust:/workspace/vllm-ascend-hust}"
+export VLLM_ENGINE_CONTAINER_LOG_FILE="${VLLM_ENGINE_CONTAINER_LOG_FILE:-/tmp/sage-faculty-twin-vllm-engine.redacted.log}"
+export VLLM_ENGINE_AUTO_CREATE_CONTAINER="${VLLM_ENGINE_AUTO_CREATE_CONTAINER:-false}"
+export VLLM_ENGINE_REPLACE_EXISTING="${VLLM_ENGINE_REPLACE_EXISTING:-true}"
+export VLLM_ENGINE_AUTO_PREPARE_ENV="${VLLM_ENGINE_AUTO_PREPARE_ENV:-0}"
+export VLLM_ENGINE_LOAD_REPO_ENV=false
+
+if [[ -z "${VLLM_HUST_API_KEY:-}" && -n "${DIGITAL_TWIN_API_KEY:-}" ]]; then
+    export VLLM_ENGINE_API_KEY="$DIGITAL_TWIN_API_KEY"
 fi
 
-# ── Configuration (all overridable via env / .env) ────────────────────────────
-container="${VLLM_ENGINE_CONTAINER:-}"
-if [[ -z "$container" ]]; then
-    echo "ERROR: VLLM_ENGINE_CONTAINER is not set." >&2
-    echo "  Set it in .env to the name of a running Docker container" >&2
-    echo "  with vllm-hust and Ascend NPU support." >&2
-    exit 1
-fi
-
-model_path="${VLLM_ENGINE_MODEL_PATH:-/data/shared-models/Qwen3-32B}"
-served_model_name="${DIGITAL_TWIN_MODEL_NAME:-Qwen3-32B}"
-host="${VLLM_ENGINE_HOST:-0.0.0.0}"
-port="${VLLM_ENGINE_PORT:-8000}"
-tp_size="${VLLM_ENGINE_TP_SIZE:-4}"
-max_model_len="${VLLM_ENGINE_MAX_MODEL_LEN:-32768}"
-gpu_mem_util="${VLLM_ENGINE_GPU_MEM_UTIL:-0.85}"
-max_num_seqs="${VLLM_ENGINE_MAX_NUM_SEQS:-16}"
-dtype="${VLLM_ENGINE_DTYPE:-bfloat16}"
-api_key="${VLLM_HUST_API_KEY:-${DIGITAL_TWIN_API_KEY:-}}"
-vllm_bin="${VLLM_ENGINE_BIN:-vllm-hust}"
-replace_existing="${VLLM_ENGINE_REPLACE_EXISTING:-true}"
-compilation_config="${VLLM_ENGINE_COMPILATION_CONFIG:-}"
-
-if [[ -z "$api_key" || "$api_key" == "EMPTY" ]]; then
-    echo "ERROR: vllm-hust must be started with a real API key." >&2
-    echo "  Set VLLM_HUST_API_KEY in .env; DIGITAL_TWIN_API_KEY should match it for direct local access." >&2
-    exit 1
-fi
-
-if [[ -n "${DIGITAL_TWIN_API_KEY:-}" && "$DIGITAL_TWIN_API_KEY" != "$api_key" ]]; then
-    echo "ERROR: DIGITAL_TWIN_API_KEY does not match VLLM_HUST_API_KEY." >&2
-    echo "  The app and vllm-hust engine would disagree on authentication." >&2
-    exit 1
-fi
-
-# NPU device selection (Ascend).  Leave empty to let the runtime pick.
-npu_devices="${ASCEND_RT_VISIBLE_DEVICES:-}"
-
-# vllm-hust needs VLLM_TARGET_DEVICE=npu to detect Ascend hardware.
-export VLLM_TARGET_DEVICE="${VLLM_TARGET_DEVICE:-npu}"
-
-# ── Resolve Docker CLI ───────────────────────────────────────────────────────
-docker_cmd="docker"
-if ! command -v docker >/dev/null 2>&1; then
-    echo "ERROR: docker not found on PATH." >&2; exit 1
-fi
-# Auto-escalate to sudo if the user cannot access the Docker socket.
-if ! docker info >/dev/null 2>&1; then
-    if sudo -n docker info >/dev/null 2>&1; then
-        docker_cmd="sudo docker"
-    else
-        echo "ERROR: cannot access Docker socket (try adding user to docker group)." >&2
-        exit 1
-    fi
-fi
-
-# ── Verify container is running ────────────────────────────────────────────────
-if ! $docker_cmd inspect "$container" >/dev/null 2>&1; then
-    echo "ERROR: Docker container '$container' not found." >&2
-    echo "  Start the container first." >&2
-    exit 1
-fi
-
-# ── Print config summary ─────────────────────────────────────────────────────
-echo "[vllm-engine] container        = $container"
-echo "[vllm-engine] model_path       = $model_path"
-echo "[vllm-engine] served_model_name = $served_model_name"
-echo "[vllm-engine] host:port         = $host:$port"
-echo "[vllm-engine] tp_size           = $tp_size"
-echo "[vllm-engine] max_model_len     = $max_model_len"
-echo "[vllm-engine] gpu_mem_util      = $gpu_mem_util"
-echo "[vllm-engine] max_num_seqs      = $max_num_seqs"
-echo "[vllm-engine] dtype             = $dtype"
-echo "[vllm-engine] graph_mode        = ON (no --enforce-eager)"
-if [[ -n "$compilation_config" ]]; then
-    echo "[vllm-engine] compilation_config = $compilation_config"
-fi
-
-# A docker-exec launched vLLM process can survive a failed/restarted systemd
-# wrapper.  Before binding the fixed service port, clean up only matching
-# vLLM serve processes in the target container and on the target port.
-if [[ "$replace_existing" == "true" ]]; then
-    cleanup_script=$(cat <<'PY'
-import os
-import signal
-import subprocess
-import sys
-import time
-
-port = sys.argv[1]
-rows = subprocess.check_output(["ps", "-eo", "pid=,args="], text=True)
-matches: list[int] = []
-for row in rows.splitlines():
-    parts = row.strip().split(None, 1)
-    if len(parts) != 2:
-        continue
-    pid_text, cmd = parts
-    try:
-        pid = int(pid_text)
-    except ValueError:
-        continue
-    haystack = f" {cmd} "
-    if "vllm" not in cmd or " serve " not in haystack:
-        continue
-    if f"--port {port}" not in cmd and f"--port={port}" not in cmd:
-        continue
-    if pid == os.getpid():
-        continue
-    matches.append(pid)
-
-if matches:
-    print(" ".join(str(pid) for pid in matches))
-    for pid in matches:
-        try:
-            os.kill(pid, signal.SIGTERM)
-        except ProcessLookupError:
-            pass
-    time.sleep(5)
-    for pid in matches:
-        try:
-            os.kill(pid, 0)
-        except ProcessLookupError:
-            continue
-        os.kill(pid, signal.SIGKILL)
-PY
-)
-    cleaned_pids=$($docker_cmd exec "$container" python3 -c "$cleanup_script" "$port" 2>/dev/null || true)
-    if [[ -n "$cleaned_pids" ]]; then
-        echo "[vllm-engine] stopped existing vLLM process(es) on port $port: $cleaned_pids"
-    fi
-fi
-
-# ── Build argument list ──────────────────────────────────────────────────────
-vllm_args=(
-    "$vllm_bin" serve "$model_path"
-    --served-model-name "$served_model_name"
-    --host "$host"
-    --port "$port"
-    --tensor-parallel-size "$tp_size"
-    --max-model-len "$max_model_len"
-    --max-num-batched-tokens "$max_model_len"
-    --gpu-memory-utilization "$gpu_mem_util"
-    --dtype "$dtype"
-    --load-format auto
-    --trust-remote-code
-    --max-num-seqs "$max_num_seqs"
-    --enable-prefix-caching
-    --enable-chunked-prefill
-    --api-key "$api_key"
-)
-
-if [[ -n "$compilation_config" ]]; then
-    vllm_args+=(--compilation-config "$compilation_config")
-fi
-
-# ── Launch inside Docker container ───────────────────────────────────────────
-# Use login shell so CANN/NPU environment is sourced.
-# Pass critical env vars through docker exec --env.
-docker_env_args=(
-    --env "VLLM_TARGET_DEVICE=$VLLM_TARGET_DEVICE"
-)
-[[ -n "$npu_devices" ]] && docker_env_args+=(--env "ASCEND_RT_VISIBLE_DEVICES=$npu_devices")
-printf -v cmd_str '%q ' "${vllm_args[@]}"
-exec $docker_cmd exec "${docker_env_args[@]}" "$container" bash -lc "$cmd_str"
+echo "[faculty-twin] delegating vLLM-HUST launch to $launcher"
+exec "$launcher"

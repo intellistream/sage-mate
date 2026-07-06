@@ -15,6 +15,8 @@
 - Python 3.11
 - 同级目录存在：`../SAGE`、`../neuromem`、`../sageVDB`
 - vLLM 推理引擎运行在 Docker 容器内（设置 `VLLM_ENGINE_CONTAINER`）
+- vLLM-HUST 运行依赖默认锁定在本仓库 `deps/` submodules：
+  `deps/vllm-hust-dev-hub`、`deps/vllm-hust`、`deps/vllm-ascend-hust`
 - 本机可访问 vllm-hust OpenAI 端点（默认 `127.0.0.1:8000`）
 
 ## 本地 Sage Mate sibling 布局

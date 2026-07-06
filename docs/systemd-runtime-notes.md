@@ -25,8 +25,14 @@ changes that came out of it.
   `systemd --user` launches.
 - `tools/run_vllm_openai_proxy.sh` fails fast when
   `VLLM_PROXY_HOST:VLLM_PROXY_PORT` is already occupied.
-- `tools/run_vllm_engine.sh` launches vllm-hust with config from `.env`
-  (VLLM_ENGINE_* variables). Graph mode is enabled by default.
+- `tools/run_vllm_engine.sh` is a thin compatibility wrapper. It loads the
+  Faculty Twin `.env`, maps the historical `VLLM_ENGINE_*` variables, and then
+  delegates to `deps/vllm-hust-dev-hub/scripts/run_vllm_hust_engine.sh`
+  (falling back to `/home/shuhao/vllm-hust-dev-hub` only when the submodule is
+  absent). This keeps the host -> Docker -> conda -> vLLM-HUST launch path in
+  dev-hub instead of maintaining a drifting copy in Faculty Twin.
+- The vLLM-HUST runtime dependencies are pinned through repository submodules:
+  `deps/vllm-hust-dev-hub`, `deps/vllm-hust`, and `deps/vllm-ascend-hust`.
 
 ## What changed on the host
 
