@@ -599,63 +599,12 @@ fi
 if $mode_no_systemd; then
 	log "Skipping systemd install (--no-systemd)"
 else
-	source_dir="$repo_root/deploy/systemd/user"
 	target_dir="${XDG_CONFIG_HOME:-$HOME/.config}/systemd/user"
-	user_runtime_dir="/run/user/$(id -u)"
-	user_bus_path="$user_runtime_dir/bus"
-
-	if [[ -z "${XDG_RUNTIME_DIR:-}" && -d "$user_runtime_dir" ]]; then
-		export XDG_RUNTIME_DIR="$user_runtime_dir"
-	fi
-	if [[ -z "${DBUS_SESSION_BUS_ADDRESS:-}" && -S "$user_bus_path" ]]; then
-		export DBUS_SESSION_BUS_ADDRESS="unix:path=$user_bus_path"
-	fi
-
-	# Resolve Python binary (prefer PYTHON_BIN env var, then python3 in PATH)
-	resolve_python_bin() {
-		if [[ -n "${PYTHON_BIN:-}" && -x "$PYTHON_BIN" ]]; then
-			printf '%s\n' "$PYTHON_BIN"; return 0
-		fi
-		local conda_env_name="${CONDA_ENV_NAME:-vllm-hust-dev}"
-		for candidate in \
-			"$HOME/miniconda3/envs/$conda_env_name/bin/python3" \
-			"$HOME/anaconda3/envs/$conda_env_name/bin/python3"; do
-			if [[ -x "$candidate" ]]; then
-				printf '%s\n' "$candidate"; return 0
-			fi
-		done
-		printf '%s\n' "$python_bin"
-	}
-	render_python_bin=$(resolve_python_bin)
+	setup_systemd_user_env
+	render_python_bin=$(resolve_systemd_python_bin "$python_bin")
 	log "Installing systemd --user units (python=$render_python_bin)"
-
-	mkdir -p "$target_dir"
-
-	# Render and install all .service and .timer templates
-	for unit in "$source_dir"/*.service "$source_dir"/*.timer; do
-		[[ -f "$unit" ]] || continue
-		rendered="$target_dir/$(basename "$unit")"
-		sed \
-			-e "s|__REPO_ROOT__|$repo_root|g" \
-			-e "s|__PYTHON_BIN__|$render_python_bin|g" \
-			"$unit" >"$rendered"
-		chmod 0644 "$rendered"
-		log "  installed: $(basename "$unit")"
-	done
-
-	# Clean up legacy PYTHON_BIN override
-	_override_dir="$target_dir/sage-faculty-twin-app.service.d"
-	_override_file="$_override_dir/override.conf"
-	if [[ -f "$_override_file" ]] && awk '
-		/^[[:space:]]*$/ { next }
-		/^\[Service\]$/ { next }
-		/^Environment=PYTHON_BIN=/ { next }
-		{ exit 1 }
-	' "$_override_file"; then
-		rm -f "$_override_file"
-		rmdir "$_override_dir" 2>/dev/null || true
-		log "  removed legacy PYTHON_BIN override"
-	fi
+	install_systemd_user_units "$repo_root" "$render_python_bin"
+	cleanup_legacy_python_override "$target_dir"
 
 	systemctl --user daemon-reload
 

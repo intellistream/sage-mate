@@ -191,3 +191,73 @@ PY
         deploy_fail "Python cannot import pinned vllm-hust from $vllm_hust_root. Run: ./quickstart.sh --target hosted-web --with-nvidia-vllm-engine --with-vllm-proxy"
     fi
 }
+
+setup_systemd_user_env() {
+    local user_runtime_dir="/run/user/$(id -u)"
+    local user_bus_path="$user_runtime_dir/bus"
+
+    if [[ -z "${XDG_RUNTIME_DIR:-}" && -d "$user_runtime_dir" ]]; then
+        export XDG_RUNTIME_DIR="$user_runtime_dir"
+    fi
+    if [[ -z "${DBUS_SESSION_BUS_ADDRESS:-}" && -S "$user_bus_path" ]]; then
+        export DBUS_SESSION_BUS_ADDRESS="unix:path=$user_bus_path"
+    fi
+}
+
+resolve_systemd_python_bin() {
+    local fallback_python="$1"
+
+    if [[ -n "${PYTHON_BIN:-}" && -x "$PYTHON_BIN" ]]; then
+        printf '%s\n' "$PYTHON_BIN"
+        return 0
+    fi
+
+    local conda_env_name="${CONDA_ENV_NAME:-vllm-hust-dev}"
+    local candidate=""
+    for candidate in \
+        "$HOME/miniconda3/envs/$conda_env_name/bin/python3" \
+        "$HOME/anaconda3/envs/$conda_env_name/bin/python3"; do
+        if [[ -x "$candidate" ]]; then
+            printf '%s\n' "$candidate"
+            return 0
+        fi
+    done
+
+    printf '%s\n' "$fallback_python"
+}
+
+install_systemd_user_units() {
+    local repo_root="$1" render_python_bin="$2"
+    local source_dir="$repo_root/deploy/systemd/user"
+    local target_dir="${XDG_CONFIG_HOME:-$HOME/.config}/systemd/user"
+    local unit="" rendered=""
+
+    mkdir -p "$target_dir"
+    for unit in "$source_dir"/*.service "$source_dir"/*.timer; do
+        [[ -f "$unit" ]] || continue
+        rendered="$target_dir/$(basename "$unit")"
+        sed \
+            -e "s|__REPO_ROOT__|$repo_root|g" \
+            -e "s|__PYTHON_BIN__|$render_python_bin|g" \
+            "$unit" > "$rendered"
+        chmod 0644 "$rendered"
+        deploy_log "  installed: $(basename "$unit")"
+    done
+}
+
+cleanup_legacy_python_override() {
+    local target_dir="${1:-${XDG_CONFIG_HOME:-$HOME/.config}/systemd/user}"
+    local override_dir="$target_dir/sage-faculty-twin-app.service.d"
+    local override_file="$override_dir/override.conf"
+
+    if [[ -f "$override_file" ]] && awk '
+        /^[[:space:]]*$/ { next }
+        /^\[Service\]$/ { next }
+        /^Environment=PYTHON_BIN=/ { next }
+        { exit 1 }
+    ' "$override_file"; then
+        rm -f "$override_file"
+        rmdir "$override_dir" 2>/dev/null || true
+        deploy_log "  removed legacy PYTHON_BIN override"
+    fi
+}
