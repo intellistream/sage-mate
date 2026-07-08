@@ -127,9 +127,6 @@ const openOnboardingHelpButton = document.getElementById("open-onboarding-help")
 const openProfileSwitcherButton = document.getElementById("open-profile-switcher");
 const profileSwitcherCurrent = document.getElementById("profile-switcher-current");
 const isLocalCodeSetupUrl = new URLSearchParams(globalThis.location?.search || "").get("setup") === "local-code";
-if (isLocalCodeSetupUrl) {
-    openProfileSwitcherButton?.classList.remove("hidden");
-}
 const homepageLink = document.getElementById("homepage-link");
 const chatQuestion = document.getElementById("chat-question");
 const chatFileInput = document.getElementById("chat-file-input");
@@ -590,7 +587,9 @@ function toggleCodeApprovalMenu() {
 }
 
 function syncCodeApprovalMenu() {
-    const isCode = isCodeAssistantProfile();
+    const isCode = isCodeAssistantProfile()
+        && currentLocalCodeConfig?.deployment_mode === "local_code"
+        && currentLocalCodeConfig?.code_workbench_enabled === true;
     codeApprovalMenu?.classList.toggle("hidden", !isCode);
     if (!isCode) {
         closeCodeApprovalMenu();
@@ -782,7 +781,11 @@ async function pickAndAddCodeAssistantWorkspace() {
 }
 
 async function loadCodeAssistantWorkspaces({ force = false } = {}) {
-    if (!isCodeAssistantProfile()) {
+    if (
+        !isCodeAssistantProfile()
+        || currentLocalCodeConfig?.deployment_mode !== "local_code"
+        || currentLocalCodeConfig?.code_workbench_enabled !== true
+    ) {
         return [];
     }
     if (codeAssistantWorkspaceLoadPromise && !force) {
@@ -953,7 +956,11 @@ function renderCodeComposerContext() {
     if (!codeComposerContextRow) {
         return;
     }
-    if (!isCodeAssistantProfile()) {
+    if (
+        !isCodeAssistantProfile()
+        || currentLocalCodeConfig?.deployment_mode !== "local_code"
+        || currentLocalCodeConfig?.code_workbench_enabled !== true
+    ) {
         codeComposerContextRow.hidden = true;
         codeComposerContextRow.innerHTML = "";
         return;
@@ -6000,8 +6007,12 @@ async function apiRequest(path, options = {}) {
 function renderLocalCodeConfig(data) {
     if (!data || !localCodeConfigPanel) return;
     currentLocalCodeConfig = data;
-    localCodeConfigPanel.classList.toggle("hidden", data.deployment_mode !== "local_code");
-    openProfileSwitcherButton?.classList.toggle("hidden", data.deployment_mode !== "local_code");
+    const localCodeMode = data.deployment_mode === "local_code";
+    localCodeConfigPanel.classList.toggle("hidden", !localCodeMode);
+    openProfileSwitcherButton?.classList.toggle("hidden", !localCodeMode);
+    if (!localCodeMode) {
+        closeSageMateSetup();
+    }
     codeAssistantWorkspacesLoaded = false;
     codeAssistantWorkspaces = [];
     const presentationData = data.deployment_mode === "local_code"
@@ -6106,9 +6117,7 @@ async function maybeOpenSageMateSetup() {
             openSageMateSetup();
         }
     } catch {
-        if (!isLocalCodeSetupUrl) {
-            openProfileSwitcherButton?.classList.add("hidden");
-        }
+        openProfileSwitcherButton?.classList.add("hidden");
         closeSageMateSetup();
     }
 }
@@ -6120,7 +6129,9 @@ async function openProfileSwitcher() {
     } catch {
         // The switcher should still expose the lightweight Profile chooser.
     }
-    openSageMateSetup();
+    if (currentLocalCodeConfig?.deployment_mode === "local_code") {
+        openSageMateSetup();
+    }
 }
 
 async function saveSageMateSetup(event) {
@@ -6166,9 +6177,8 @@ async function loadLocalCodeConfig() {
         setInlineStatus(localCodeConfigResponse, message, data.api_key_set ? "success" : "empty");
     } catch {
         localCodeConfigPanel.classList.add("hidden");
-        if (!isLocalCodeSetupUrl) {
-            openProfileSwitcherButton?.classList.add("hidden");
-        }
+        openProfileSwitcherButton?.classList.add("hidden");
+        closeSageMateSetup();
     }
 }
 

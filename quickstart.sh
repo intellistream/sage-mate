@@ -11,6 +11,7 @@
 #   ./quickstart.sh --skip-python-install          # skip editable pip install steps
 #   ./quickstart.sh --with-vllm                    # also install vllm-hust (editable)
 #   ./quickstart.sh --with-vllm-engine             # enable vLLM engine systemd service
+#   ./quickstart.sh --with-nvidia-vllm-engine      # enable local NVIDIA/CUDA vLLM engine
 #   ./quickstart.sh --with-vllm-proxy              # enable vLLM OpenAI auth proxy service
 #   ./quickstart.sh --with-site-proxy              # enable local nginx/python proxy service
 #   ./quickstart.sh --with-tunnel                  # enable Cloudflare tunnel service
@@ -43,11 +44,13 @@ mode_systemd_only=false
 mode_skip_python_install=false
 pip_timeout_seconds="${PIP_INSTALL_TIMEOUT_SECONDS:-0}"
 mode_with_vllm=false
+mode_with_nvidia_vllm=false
 mode_no_systemd=false
 mode_no_siblings=false
 mode_start=false
 mode_yes=false
 svc_engine=false
+svc_nvidia_engine=false
 svc_proxy=false
 svc_site=false
 svc_tunnel=false
@@ -75,7 +78,7 @@ Install targets:
   mac-dmg          Build the macOS DMG package; delegates to tools/build_macos_local_code_package.sh.
 
 Hosted-web options:
-  --with-vllm, --with-vllm-engine, --with-vllm-proxy, --with-site-proxy, --with-tunnel
+  --with-vllm, --with-vllm-engine, --with-nvidia-vllm-engine, --with-vllm-proxy, --with-site-proxy, --with-tunnel
   --no-systemd, --no-siblings, --skip-python-install, --pip-timeout SECONDS, --start, --yes
 
 Local Sage Mate options:
@@ -143,6 +146,7 @@ while [[ $# -gt 0 ]]; do
 		;;
 	--with-vllm)      mode_with_vllm=true; shift ;;
 	--with-vllm-engine) svc_engine=true; shift ;;
+	--with-nvidia-vllm-engine) svc_nvidia_engine=true; mode_with_nvidia_vllm=true; shift ;;
 	--with-vllm-proxy)  svc_proxy=true; shift ;;
 	--with-site-proxy)  svc_site=true; shift ;;
 	--with-tunnel)      svc_tunnel=true; shift ;;
@@ -205,12 +209,145 @@ warn() { printf '\033[1;33m[quickstart]\033[0m %s\n' "$*" >&2; }
 fail() { printf '\033[1;31m[quickstart]\033[0m %s\n' "$*" >&2; exit 1; }
 confirm() { $mode_yes && return 0; read -r -p "$1 [y/N] " ans; [[ "$ans" =~ ^[Yy]$ ]]; }
 
+source "$repo_root/tools/lib/deploy_common.sh"
+
 run_with_optional_timeout() {
 	if [[ "$pip_timeout_seconds" =~ ^[0-9]+$ ]] && (( pip_timeout_seconds > 0 )) && command -v timeout >/dev/null 2>&1; then
 		timeout "$pip_timeout_seconds" "$@"
 	else
 		"$@"
 	fi
+}
+
+bootstrap_python311_venv() {
+	local venv_dir="${FACULTY_TWIN_VENV:-$repo_root/.venv}"
+	local venv_python="$venv_dir/bin/python"
+
+	if [[ -x "$venv_python" ]] && python_meets_min_version "$venv_python"; then
+		printf '%s\n' "$venv_python"
+		return 0
+	fi
+
+	local uv_bin=""
+	uv_bin=$(command -v uv 2>/dev/null || true)
+	if [[ -z "$uv_bin" && -x "$HOME/.local/bin/uv" ]]; then
+		uv_bin="$HOME/.local/bin/uv"
+	fi
+	if [[ -z "$uv_bin" ]]; then
+		log "Installing uv to bootstrap a user-space Python 3.11 runtime" >&2
+		"$python_bin" -m pip install --user --quiet uv >&2
+		uv_bin="$HOME/.local/bin/uv"
+	fi
+	[[ -x "$uv_bin" ]] || fail "uv was not installed at $uv_bin"
+
+	log "Installing user-space Python 3.11 and virtualenv" >&2
+	"$uv_bin" python install 3.11 >&2
+	"$uv_bin" venv "$venv_dir" --python 3.11 >&2
+	"$venv_python" -m ensurepip --upgrade >/dev/null 2>&1 || true
+	printf '%s\n' "$venv_python"
+}
+
+install_nvidia_vllm_hust_runtime() {
+	local uv_bin=""
+	uv_bin=$(resolve_uv_bin)
+	local attempt=1
+	local max_attempts="${VLLM_NVIDIA_INSTALL_ATTEMPTS:-3}"
+	local vllm_hust_root="${VLLM_HUST_ROOT:-$repo_root/deps/vllm-hust}"
+	local uv_http_timeout="${UV_HTTP_TIMEOUT:-300}"
+	local torch_backend="${VLLM_NVIDIA_TORCH_BACKEND:-cu129}"
+	assert_pinned_vllm_hust_checkout "$vllm_hust_root"
+	check_nvidia_driver_for_vllm_hust
+
+	while (( attempt <= max_attempts )); do
+		log "Installing pinned vllm-hust runtime for NVIDIA (attempt $attempt/$max_attempts; may take several minutes)"
+		if [[ -n "$uv_bin" ]]; then
+			if UV_HTTP_TIMEOUT="$uv_http_timeout" VLLM_USE_PRECOMPILED="${VLLM_USE_PRECOMPILED:-1}" run_with_optional_timeout "$uv_bin" pip install --python "$python_bin" -e "$vllm_hust_root" --torch-backend="$torch_backend"; then
+				return 0
+			fi
+		else
+			if VLLM_USE_PRECOMPILED="${VLLM_USE_PRECOMPILED:-1}" run_with_optional_timeout "$python_bin" -m pip install --quiet --retries 10 --timeout 120 -e "$vllm_hust_root"; then
+				return 0
+			fi
+		fi
+		(( attempt++ ))
+		sleep 5
+	done
+
+	return 1
+}
+
+env_get() {
+	local key="$1"
+	[[ -f "$env_file" ]] || return 0
+	awk -F= -v key="$key" '
+		$0 ~ "^[[:space:]]*#" { next }
+		$1 == key { sub(/^[^=]*=/, ""); print; exit }
+	' "$env_file"
+}
+
+prepare_hosted_runtime_data() {
+	local runtime_dir
+	runtime_dir=$(env_get DIGITAL_TWIN_RUNTIME_DIR)
+	if [[ -z "$runtime_dir" ]]; then
+		runtime_dir="$parent_dir/sage-faculty-twin-runtime-private"
+	fi
+	runtime_dir="${runtime_dir/#\~/$HOME}"
+
+	if ! mkdir -p "$runtime_dir" 2>/dev/null; then
+		local fallback_runtime="$parent_dir/sage-faculty-twin-runtime-private"
+		warn "DIGITAL_TWIN_RUNTIME_DIR is not writable; using $fallback_runtime"
+		runtime_dir="$fallback_runtime"
+		mkdir -p "$runtime_dir"
+		set_env_kv DIGITAL_TWIN_RUNTIME_DIR "$runtime_dir"
+	fi
+	runtime_dir=$(cd "$runtime_dir" && pwd -P)
+
+	log "Preparing hosted runtime data folder: $runtime_dir"
+	mkdir -p \
+		"$runtime_dir/.runtime/online_presence" \
+		"$runtime_dir/data/alerts" \
+		"$runtime_dir/data/artifact_memory_drafts" \
+		"$runtime_dir/data/availability/history" \
+		"$runtime_dir/data/capability_plugins" \
+		"$runtime_dir/data/code_sessions" \
+		"$runtime_dir/data/conversation_memory/digests" \
+		"$runtime_dir/data/escalations" \
+		"$runtime_dir/data/follow_up_actions" \
+		"$runtime_dir/data/homepage" \
+		"$runtime_dir/data/installed_skills" \
+		"$runtime_dir/data/knowledge_base" \
+		"$runtime_dir/data/knowledge_gap_drafts" \
+		"$runtime_dir/data/operations_task_state" \
+		"$runtime_dir/data/persona" \
+		"$runtime_dir/data/skills" \
+		"$runtime_dir/data/slack_user_links" \
+		"$runtime_dir/data/suggestions" \
+		"$runtime_dir/data/user_accounts" \
+		"$runtime_dir/data/workflow_policies" \
+		"$runtime_dir/data/workflow_scenarios"
+
+	[[ -f "$runtime_dir/data/persona/style_profile.md" ]] || printf '%s\n' "# Faculty Twin style profile" > "$runtime_dir/data/persona/style_profile.md"
+	[[ -f "$runtime_dir/data/installed_skills/fixed_prompt_skills.md" ]] || printf '%s\n' "# Installed skills prompt" > "$runtime_dir/data/installed_skills/fixed_prompt_skills.md"
+	[[ -f "$runtime_dir/data/availability/current_week.json" ]] || printf '%s\n' '{"timezone":"Asia/Shanghai","slots":[]}' > "$runtime_dir/data/availability/current_week.json"
+	[[ -f "$runtime_dir/data/changelog.json" ]] || printf '%s\n' '[]' > "$runtime_dir/data/changelog.json"
+	[[ -f "$runtime_dir/data/workflow_policies/faculty-default-2026-05.json" ]] || printf '%s\n' '{"policy_version":"faculty-default-2026-05"}' > "$runtime_dir/data/workflow_policies/faculty-default-2026-05.json"
+	[[ -f "$runtime_dir/data/workflow_scenarios/v3_preview_scenarios.json" ]] || printf '%s\n' '[]' > "$runtime_dir/data/workflow_scenarios/v3_preview_scenarios.json"
+}
+
+ensure_hosted_knowledge_defaults() {
+	if "$python_bin" - <<'PY' >/dev/null 2>&1
+from sagevdb import DatabaseConfig  # noqa: F401
+import sage_anns  # noqa: F401
+PY
+	then
+		return 0
+	fi
+
+	warn "sageVDB/SageANNS is not fully available; using neuromem/bm25 hosted defaults"
+	set_env_kv DIGITAL_TWIN_KNOWLEDGE_BACKEND neuromem
+	set_env_kv DIGITAL_TWIN_NEUROMEM_INDEX_TYPE bm25
+	set_env_kv DIGITAL_TWIN_CONVERSATION_MEMORY_COLLECTION_TYPE unified
+	set_env_kv DIGITAL_TWIN_CONVERSATION_MEMORY_INDEX_TYPE segment
 }
 
 run_static_checks() {
@@ -220,6 +357,7 @@ run_static_checks() {
 		quickstart.sh
 		tools/run_app_server.sh
 		tools/run_vllm_engine.sh
+		tools/run_vllm_nvidia_engine.sh
 		tools/run_vllm_openai_proxy.sh
 		tools/run_local_proxy.sh
 		tools/run_named_tunnel.sh
@@ -238,6 +376,7 @@ run_static_checks() {
 		src/sage_faculty_twin/vllm_openai_proxy.py
 		tools/openai_key_proxy.py
 		tools/repair_sagevdb.py
+		tools/verify_hosted_web_deploy.py
 	)
 	local py_file=""
 	for py_file in "${py_files[@]}"; do
@@ -278,16 +417,44 @@ fi
 
 py_ver=$("$python_bin" -c 'import sys; print("%d.%d"%sys.version_info[:2])')
 log "  python: $python_bin ($py_ver)"
-case "$py_ver" in 3.1[0-9] | 3.[2-9][0-9]) ;; *) warn "  expected Python >=3.10, got $py_ver" ;; esac
+if ! python_meets_min_version "$python_bin"; then
+	if $mode_check; then
+		warn "  expected Python >=3.11, got $py_ver"
+	else
+		warn "  expected Python >=3.11, got $py_ver; bootstrapping a local runtime"
+		python_bin=$(bootstrap_python311_venv)
+		export PYTHON_BIN="$python_bin"
+		py_ver=$("$python_bin" -c 'import sys; print("%d.%d"%sys.version_info[:2])')
+		log "  python: $python_bin ($py_ver)"
+	fi
+fi
 
+has_npu=false
+has_nvidia=false
 if command -v npu-smi >/dev/null 2>&1; then
 	npu_count=$(npu-smi info 2>/dev/null | awk '/^[|][[:space:]]*[0-9]+[[:space:]]+910/ { count++ } END { print count+0 }')
 	log "  npu-smi: $npu_count Ascend NPU(s)"
-elif command -v nvidia-smi >/dev/null 2>&1; then
+	if (( npu_count > 0 )); then
+		has_npu=true
+	fi
+fi
+if command -v nvidia-smi >/dev/null 2>&1; then
 	gpu_count=$(nvidia-smi -L 2>/dev/null | wc -l)
 	log "  nvidia-smi: $gpu_count GPU(s)"
-else
+	if (( gpu_count > 0 )); then
+		has_nvidia=true
+	fi
+fi
+if ! $has_npu && ! $has_nvidia; then
 	warn "  neither npu-smi nor nvidia-smi found — local vLLM serving needs Ascend/NVIDIA drivers"
+fi
+
+if $svc_engine && ! $has_npu && $has_nvidia; then
+	fail "--with-vllm-engine is the Ascend vLLM-HUST engine and this host only has NVIDIA GPUs. Use --with-nvidia-vllm-engine for A6000/CUDA hosts."
+fi
+
+if ($mode_with_nvidia_vllm || $svc_nvidia_engine) && $has_nvidia; then
+	check_nvidia_driver_for_vllm_hust
 fi
 
 if $mode_check; then
@@ -357,6 +524,12 @@ else
 		run_with_optional_timeout "$python_bin" -m pip install --quiet -e "$parent_dir/vllm-hust" \
 			|| warn "vllm-hust install failed; build deps (CUDA/ninja, Ascend toolkit) may be missing"
 	fi
+
+	if $mode_with_nvidia_vllm || $svc_nvidia_engine; then
+		if ! install_nvidia_vllm_hust_runtime; then
+			fail "vllm-hust install failed; check CUDA/PyTorch/driver compatibility and retry"
+		fi
+	fi
 fi
 
 # ── 5. .env bootstrap ────────────────────────────────────────────────────────
@@ -419,6 +592,32 @@ if [[ "$install_target" == "hosted-web" ]]; then
 	set_env_kv DIGITAL_TWIN_APP_PROFILE faculty_twin
 	set_env_kv DIGITAL_TWIN_CODE_WORKBENCH_ENABLED false
 	set_env_kv DIGITAL_TWIN_CODE_WORKSPACE_ROOTS ""
+	if $svc_nvidia_engine; then
+		set_env_kv DIGITAL_TWIN_LLM_BASE_URL "http://127.0.0.1:18001/v1"
+		set_env_kv VLLM_PROXY_UPSTREAM_BASE_URL "http://127.0.0.1:8000/v1"
+		ensure_env_kv VLLM_NVIDIA_MODEL "Qwen/Qwen2.5-14B-Instruct-AWQ"
+		ensure_env_kv DIGITAL_TWIN_MODEL_NAME "Qwen/Qwen2.5-14B-Instruct-AWQ"
+		ensure_env_kv VLLM_NVIDIA_SERVED_MODEL_NAME "\${DIGITAL_TWIN_MODEL_NAME}"
+		ensure_env_kv VLLM_NVIDIA_HOST "127.0.0.1"
+		ensure_env_kv VLLM_NVIDIA_PORT "8000"
+		ensure_env_kv VLLM_NVIDIA_GPU_MEMORY_UTILIZATION "0.88"
+		ensure_env_kv VLLM_NVIDIA_MAX_MODEL_LEN "16384"
+		ensure_env_kv VLLM_NVIDIA_MAX_NUM_SEQS "8"
+		set_env_kv TWIN_MONITOR_ENGINE_FLAG "--with-nvidia-vllm-engine"
+		set_env_kv TWIN_MONITOR_ENGINE_UNIT "sage-faculty-twin-vllm-nvidia-engine.service"
+	fi
+	prepare_hosted_runtime_data
+
+	vllm_hust_api_key=$(env_get VLLM_HUST_API_KEY)
+	digital_twin_api_key=$(env_get DIGITAL_TWIN_API_KEY)
+	if [[ -n "$vllm_hust_api_key" && ( -z "$digital_twin_api_key" || "$digital_twin_api_key" == "EMPTY" ) ]]; then
+		set_env_kv DIGITAL_TWIN_API_KEY "$vllm_hust_api_key"
+	fi
+	vllm_proxy_upstream_key=$(env_get VLLM_PROXY_UPSTREAM_API_KEY)
+	if [[ -n "$vllm_hust_api_key" && -z "$vllm_proxy_upstream_key" ]]; then
+		set_env_kv VLLM_PROXY_UPSTREAM_API_KEY "$vllm_hust_api_key"
+	fi
+	ensure_hosted_knowledge_defaults
 fi
 
 # ── 6. Systemd service units ─────────────────────────────────────────────────
@@ -494,6 +693,7 @@ else
 	$svc_tunnel && service_units+=(sage-faculty-twin-tunnel.service)
 	$svc_proxy  && service_units+=(sage-faculty-twin-vllm-openai-proxy.service)
 	$svc_engine && service_units+=(sage-faculty-twin-vllm-engine.service)
+	$svc_nvidia_engine && service_units+=(sage-faculty-twin-vllm-nvidia-engine.service)
 
 	systemctl --user enable "${service_units[@]}"
 	log "  enabled: ${service_units[*]}"
@@ -517,6 +717,19 @@ else
 	warn "App not yet listening on :$app_port — run: ./manage.sh restart, or ./quickstart.sh --start"
 fi
 
+if $mode_start && [[ "$install_target" == "hosted-web" ]]; then
+	log "Hosted/web verification: safety boundaries and model wiring"
+	verify_args=(--app-url "http://127.0.0.1:$app_port")
+	if $svc_nvidia_engine; then
+		verify_vllm_port=$(env_get VLLM_NVIDIA_PORT)
+		verify_vllm_port="${verify_vllm_port:-8000}"
+		verify_args+=(--vllm-url "http://127.0.0.1:$verify_vllm_port/v1")
+	fi
+	if ! "$python_bin" "$repo_root/tools/verify_hosted_web_deploy.py" "${verify_args[@]}"; then
+		fail "hosted/web verification failed; fix the issues above before exposing the service"
+	fi
+fi
+
 # ── 8. Next steps ────────────────────────────────────────────────────────────
 cat <<EOM
 
@@ -528,12 +741,14 @@ Next steps
      DIGITAL_TWIN_OWNER_NAME, DIGITAL_TWIN_OWNER_ROLE
      DIGITAL_TWIN_LLM_BASE_URL  e.g. http://<vllm-host>:8080/v1
      DIGITAL_TWIN_API_KEY       e.g. change-me-please
-     DIGITAL_TWIN_MODEL_NAME    e.g. qwen3-32b
+     DIGITAL_TWIN_MODEL_NAME    e.g. Qwen/Qwen2.5-14B-Instruct-AWQ
      DIGITAL_TWIN_ADMIN_PASSWORD
 
-2. The vLLM engine runs inside a Docker container.
-   Make sure VLLM_ENGINE_CONTAINER is set in .env, then:
-     ./manage.sh start --with-vllm-engine
+2. Local inference:
+   - NVIDIA/CUDA hosts:
+       ./manage.sh start --with-nvidia-vllm-engine --with-vllm-proxy
+   - Ascend/NPU hosts:
+       ./manage.sh start --with-vllm-engine --with-vllm-proxy
 
 3. Manage the stack:
      ./manage.sh status --all

@@ -1,0 +1,18 @@
+[Unit]
+Description=Sage Faculty Twin NVIDIA vLLM inference engine
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=__REPO_ROOT__
+Environment=PYTHON_BIN=__PYTHON_BIN__
+ExecStart=__REPO_ROOT__/tools/run_vllm_nvidia_engine.sh
+Restart=on-failure
+RestartSec=10
+TimeoutStartSec=900
+TimeoutStopSec=120
+KillMode=control-group
+
+[Install]
+WantedBy=default.target

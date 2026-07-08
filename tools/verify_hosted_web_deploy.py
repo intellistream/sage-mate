@@ -1,0 +1,224 @@
+#!/usr/bin/env python3
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import sys
+import time
+import urllib.error
+import urllib.request
+from pathlib import Path
+from typing import Any
+
+
+SECRET_KEYS = ("TOKEN", "KEY", "SECRET", "PASSWORD")
+
+
+def load_env(repo_root: Path) -> dict[str, str]:
+    env = dict(os.environ)
+    env_path = repo_root / ".env"
+    if not env_path.exists():
+        return env
+    for raw in env_path.read_text(encoding="utf-8", errors="replace").splitlines():
+        line = raw.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        env.setdefault(key.strip(), value.strip().strip("\"'"))
+    return env
+
+
+def masked_env_value(key: str, value: str) -> str:
+    if any(part in key.upper() for part in SECRET_KEYS):
+        return "<set>" if value else "<empty>"
+    return value
+
+
+def request_json(
+    url: str,
+    *,
+    method: str = "GET",
+    api_key: str = "",
+    timeout: float = 10.0,
+) -> tuple[int, Any]:
+    headers = {
+        "Accept": "application/json",
+        "User-Agent": "sage-faculty-twin-deploy-verify/1.0",
+    }
+    if api_key:
+        headers["Authorization"] = f"Bearer {api_key}"
+    req = urllib.request.Request(url, headers=headers, method=method)
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            text = resp.read(1024 * 1024).decode("utf-8", errors="replace")
+            try:
+                return int(resp.status), json.loads(text)
+            except json.JSONDecodeError:
+                return int(resp.status), text[:500]
+    except urllib.error.HTTPError as exc:
+        text = exc.read(4096).decode("utf-8", errors="replace")
+        try:
+            body: Any = json.loads(text)
+        except json.JSONDecodeError:
+            body = text[:500]
+        return int(exc.code), body
+    except Exception as exc:
+        return 0, f"{exc.__class__.__name__}: {exc}"
+
+
+def request_status(url: str, *, timeout: float = 10.0) -> tuple[int, str]:
+    req = urllib.request.Request(
+        url,
+        headers={
+            "Accept": "*/*",
+            "User-Agent": "sage-faculty-twin-deploy-verify/1.0",
+        },
+        method="GET",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            return int(resp.status), resp.headers.get("Content-Type", "")
+    except urllib.error.HTTPError as exc:
+        return int(exc.code), exc.headers.get("Content-Type", "")
+    except Exception as exc:
+        return 0, f"{exc.__class__.__name__}: {exc}"
+
+
+def check(condition: bool, label: str, detail: str, failures: list[dict[str, str]]) -> None:
+    status = "OK" if condition else "FAIL"
+    print(f"{status} {label}: {detail}")
+    if not condition:
+        failures.append({"label": label, "detail": detail})
+
+
+def env_bool_false(value: str) -> bool:
+    return value.strip().lower() in {"", "0", "false", "no", "off"}
+
+
+def wait_for_models(vllm_url: str, *, timeout: float, api_key: str) -> tuple[int, Any]:
+    deadline = time.time() + timeout
+    last_status = 0
+    last_body: Any = ""
+    while time.time() < deadline:
+        last_status, last_body = request_json(
+            f"{vllm_url.rstrip('/')}/models",
+            api_key=api_key,
+            timeout=min(10.0, max(1.0, deadline - time.time())),
+        )
+        if last_status == 200:
+            return last_status, last_body
+        time.sleep(2)
+    return last_status, last_body
+
+
+def model_ids(models_body: Any) -> tuple[list[str], list[str]]:
+    if not isinstance(models_body, dict):
+        return [], []
+    rows = models_body.get("data")
+    if not isinstance(rows, list):
+        return [], []
+    ids: list[str] = []
+    roots: list[str] = []
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        if isinstance(row.get("id"), str):
+            ids.append(row["id"])
+        if isinstance(row.get("root"), str):
+            roots.append(row["root"])
+    return ids, roots
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description="Verify hosted/web Faculty Twin deployment safety and LLM wiring.")
+    parser.add_argument("--repo-root", type=Path, default=Path(__file__).resolve().parents[1])
+    parser.add_argument("--app-url", default="http://127.0.0.1:55601")
+    parser.add_argument("--vllm-url", default="")
+    parser.add_argument("--public-url", default="")
+    parser.add_argument("--timeout", type=float, default=120.0)
+    parser.add_argument("--allow-model-alias", action="store_true")
+    args = parser.parse_args()
+
+    repo_root = args.repo_root.resolve()
+    env = load_env(repo_root)
+    failures: list[dict[str, str]] = []
+
+    deployment_mode = env.get("DIGITAL_TWIN_DEPLOYMENT_MODE", "")
+    app_profile = env.get("DIGITAL_TWIN_APP_PROFILE", "")
+    code_enabled = env.get("DIGITAL_TWIN_CODE_WORKBENCH_ENABLED", "")
+    workspace_roots = env.get("DIGITAL_TWIN_CODE_WORKSPACE_ROOTS", "")
+
+    check(deployment_mode == "hosted", "deployment mode", f"DIGITAL_TWIN_DEPLOYMENT_MODE={deployment_mode or '<empty>'}", failures)
+    check(app_profile == "faculty_twin", "app profile", f"DIGITAL_TWIN_APP_PROFILE={app_profile or '<empty>'}", failures)
+    check(env_bool_false(code_enabled), "code workbench disabled", f"DIGITAL_TWIN_CODE_WORKBENCH_ENABLED={code_enabled or '<empty>'}", failures)
+    check(not workspace_roots.strip(), "workspace roots empty", "DIGITAL_TWIN_CODE_WORKSPACE_ROOTS is empty", failures)
+
+    app_url = args.app_url.rstrip("/")
+    status, body = request_json(f"{app_url}/healthz", timeout=10)
+    check(status == 200 and isinstance(body, dict) and body.get("status") == "ok", "app healthz", f"status={status}", failures)
+    status, content_type = request_status(f"{app_url}/", timeout=10)
+    check(status == 200, "app root", f"status={status} content_type={content_type}", failures)
+    status, _ = request_json(f"{app_url}/local-code/config", timeout=10)
+    check(status == 403, "local-code config blocked", f"status={status}", failures)
+    status, _ = request_json(f"{app_url}/code/workspaces", timeout=10)
+    check(status == 403, "code workspaces blocked", f"status={status}", failures)
+
+    if args.public_url:
+        public_url = args.public_url.rstrip("/")
+        status, body = request_json(f"{public_url}/healthz", timeout=15)
+        check(status == 200 and isinstance(body, dict) and body.get("status") == "ok", "public healthz", f"status={status}", failures)
+
+    vllm_url = args.vllm_url.strip() or f"http://{env.get('VLLM_NVIDIA_HOST', '127.0.0.1')}:{env.get('VLLM_NVIDIA_PORT', '8000')}/v1"
+    vllm_api_key = env.get("VLLM_NVIDIA_API_KEY", "")
+    status, models_body = wait_for_models(vllm_url, timeout=args.timeout, api_key=vllm_api_key)
+    check(status == 200, "vLLM models", f"status={status} url={vllm_url}", failures)
+    ids, roots = model_ids(models_body)
+    expected_model = env.get("VLLM_NVIDIA_MODEL", "").strip()
+    served_model = env.get("VLLM_NVIDIA_SERVED_MODEL_NAME", "").strip()
+    app_model = env.get("DIGITAL_TWIN_MODEL_NAME", "").strip()
+    if served_model == "${DIGITAL_TWIN_MODEL_NAME}":
+        served_model = app_model
+
+    if expected_model:
+        check(expected_model in roots or expected_model in ids, "actual model exposed", f"expected={expected_model}", failures)
+    if served_model:
+        check(served_model in ids, "served model exposed", f"served={served_model}", failures)
+    if app_model:
+        check(app_model in ids, "app model matches served models", f"DIGITAL_TWIN_MODEL_NAME={app_model}", failures)
+    if expected_model and served_model and not args.allow_model_alias:
+        check(
+            served_model == expected_model,
+            "served model is not a misleading alias",
+            f"served={served_model} actual={expected_model}",
+            failures,
+        )
+    if expected_model and app_model and not args.allow_model_alias:
+        check(
+            app_model == expected_model,
+            "app model is not a misleading alias",
+            f"app={app_model} actual={expected_model}",
+            failures,
+        )
+
+    print("Config keys checked:")
+    for key in (
+        "DIGITAL_TWIN_DEPLOYMENT_MODE",
+        "DIGITAL_TWIN_APP_PROFILE",
+        "DIGITAL_TWIN_CODE_WORKBENCH_ENABLED",
+        "DIGITAL_TWIN_CODE_WORKSPACE_ROOTS",
+        "DIGITAL_TWIN_MODEL_NAME",
+        "VLLM_NVIDIA_MODEL",
+        "VLLM_NVIDIA_SERVED_MODEL_NAME",
+    ):
+        print(f"  {key}={masked_env_value(key, env.get(key, ''))}")
+
+    if failures:
+        print(f"Hosted/web verification failed with {len(failures)} issue(s).", file=sys.stderr)
+        return 1
+    print("Hosted/web verification passed.")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

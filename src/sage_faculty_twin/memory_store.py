@@ -461,7 +461,7 @@ class NeuroMemConversationStore:
                 "metric": "cosine",
                 "ann_algorithm": algorithm,
                 "backend_name": self._settings.sagevdb_backend,
-                "allow_faiss_fallback": False,
+                "allow_faiss_fallback": True,
             }
         return {}
 

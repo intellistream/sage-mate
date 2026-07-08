@@ -9,12 +9,14 @@
 #   logs      Follow journal for a service (usage: manage.sh logs <name>)
 #   repair-sagevdb  Repair sageVDB native extension wiring
 #   check-inference  Run one inference health check
+#   verify-hosted-web  Verify hosted/web safety boundaries and model wiring
 #   reserve-vllm-devices  Pin vllm-hust to specific Ascend device IDs
 #   configure-slack-twin  Configure Slack /twin command secret and access
 #
 # Flags (combine with any action):
 #   --all                Include all optional services
-#   --with-vllm-engine   vLLM inference engine
+#   --with-vllm-engine   Ascend vLLM-HUST inference engine
+#   --with-nvidia-vllm-engine  NVIDIA/CUDA vLLM inference engine
 #   --with-vllm-proxy    OpenAI-compatible auth proxy
 #   --with-site-proxy    Local nginx/python site proxy
 #   --with-tunnel        Cloudflare tunnel
@@ -25,6 +27,7 @@
 # Examples:
 #   ./manage.sh status --all
 #   ./manage.sh start  --all
+#   ./manage.sh restart --with-nvidia-vllm-engine --with-vllm-proxy
 #   ./manage.sh restart --with-vllm-engine
 #   ./manage.sh logs   app
 #   ./manage.sh logs   engine
@@ -49,9 +52,9 @@ python_bin="$PYTHON_BIN"
 
 usage() {
     cat <<EOF
-Usage: $0 <status|start|stop|restart|logs|install|repair-sagevdb|check-inference|reserve-vllm-devices|configure-slack-twin> [flags]
-  Flags: --all --with-vllm-engine --with-vllm-proxy --with-site-proxy --with-tunnel --json
-  Logs:  $0 logs <app|engine|proxy|site|tunnel|model>
+Usage: $0 <status|start|stop|restart|logs|install|repair-sagevdb|check-inference|verify-hosted-web|reserve-vllm-devices|configure-slack-twin> [flags]
+  Flags: --all --with-vllm-engine --with-nvidia-vllm-engine --with-vllm-proxy --with-site-proxy --with-tunnel --json
+  Logs:  $0 logs <app|engine|nvidia-engine|proxy|site|tunnel|model>
 EOF
 }
 
@@ -82,6 +85,10 @@ if [[ "$action" == "check-inference" ]]; then
     exec "$repo_root/tools/monitor_twin_inference.sh" "$@"
 fi
 
+if [[ "$action" == "verify-hosted-web" ]]; then
+    exec "$python_bin" "$repo_root/tools/verify_hosted_web_deploy.py" "$@"
+fi
+
 if [[ "$action" == "reserve-vllm-devices" ]]; then
     exec "$repo_root/tools/reserve_vllm_devices.sh" "$@"
 fi
@@ -93,6 +100,7 @@ fi
 json_output="false"
 foreground="false"
 include_engine=false
+include_nvidia_engine=false
 include_proxy=false
 include_site=false
 include_tunnel=false
@@ -106,6 +114,7 @@ for arg in "$@"; do
         --foreground)        foreground="true" ;;
         --all)               explicit_service_selection=true; include_app=true; include_engine=true; include_proxy=true; include_site=true; include_tunnel=true ;;
         --with-vllm-engine)  explicit_service_selection=true; include_engine=true ;;
+        --with-nvidia-vllm-engine) explicit_service_selection=true; include_nvidia_engine=true ;;
         --with-vllm-proxy)   explicit_service_selection=true; include_proxy=true ;;
         --with-site-proxy)   explicit_service_selection=true; include_site=true ;;
         --with-tunnel)       explicit_service_selection=true; include_tunnel=true ;;
@@ -122,6 +131,7 @@ fi
 # Order: model/engine → proxy → app → site → tunnel
 services=()
 $include_engine && services+=("推理引擎:sage-faculty-twin-vllm-engine.service")
+$include_nvidia_engine && services+=("NVIDIA推理引擎:sage-faculty-twin-vllm-nvidia-engine.service")
 $include_proxy  && services+=("模型代理:sage-faculty-twin-vllm-openai-proxy.service")
 
 $include_app    && services+=("应用服务:sage-faculty-twin-app.service")
@@ -135,11 +145,12 @@ if [[ "$action" == "logs" ]]; then
     case "$target" in
         app)     unit="sage-faculty-twin-app.service" ;;
         engine)  unit="sage-faculty-twin-vllm-engine.service" ;;
+        nvidia-engine|nvidia) unit="sage-faculty-twin-vllm-nvidia-engine.service" ;;
         proxy)   unit="sage-faculty-twin-vllm-openai-proxy.service" ;;
         site)    unit="sage-faculty-twin-site.service" ;;
         tunnel)  unit="sage-faculty-twin-tunnel.service" ;;
         model)   echo "Model runs outside systemd — use: journalctl or docker logs"; exit 0 ;;
-        *)       echo "Unknown service: $target (app|engine|proxy|site|tunnel|model)" >&2; exit 1 ;;
+        *)       echo "Unknown service: $target (app|engine|nvidia-engine|proxy|site|tunnel|model)" >&2; exit 1 ;;
     esac
     exec journalctl --user -u "$unit" -f
 fi
@@ -148,6 +159,9 @@ fi
 if [[ "$action" == "start" ]] && $include_model; then
     if $foreground || true; then
         echo "[manage] Launching vLLM engine in foreground..."
+        if $include_nvidia_engine; then
+            exec "$repo_root/tools/run_vllm_nvidia_engine.sh"
+        fi
         exec "$repo_root/tools/run_vllm_engine.sh"
     fi
 fi

@@ -51,9 +51,15 @@ build_repo_pythonpath() {
     local entries=(
         "$repo_root/src"
         "$repo_root/../SAGE/src"
-        "$repo_root/../sageVDB"
         "$repo_root/../neuromem"
     )
+
+    # Only put a sibling sageVDB checkout on PYTHONPATH when its native
+    # extension is built for this host. Otherwise it shadows the pip-installed
+    # isage-vdb wheel and breaks imports such as ``DatabaseConfig``.
+    if compgen -G "$repo_root/../sageVDB/sagevdb/*.so" >/dev/null; then
+        entries+=("$repo_root/../sageVDB")
+    fi
 
     local resolved=""
     local entry=""

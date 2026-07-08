@@ -76,7 +76,7 @@ PY
 
 engine_is_active() {
     command -v systemctl >/dev/null 2>&1 || return 1
-    systemctl --user is-active --quiet sage-faculty-twin-vllm-engine.service
+    systemctl --user is-active --quiet "${TWIN_MONITOR_ENGINE_UNIT:-sage-faculty-twin-vllm-engine.service}"
 }
 
 looks_like_engine_booting() {
@@ -130,7 +130,7 @@ if looks_like_engine_booting && within_engine_boot_grace; then
 fi
 
 log "restarting via manage.sh"
-"$repo_root/manage.sh" restart --with-vllm-engine --with-vllm-proxy >>"$log_file" 2>&1 || true
+"$repo_root/manage.sh" restart "${TWIN_MONITOR_ENGINE_FLAG:---with-vllm-engine}" --with-vllm-proxy >>"$log_file" 2>&1 || true
 sleep "${TWIN_MONITOR_RECHECK_DELAY_SECONDS:-20}"
 
 if "$PYTHON_BIN" "$repo_root/tools/check_twin_inference.py" --repo-root "$repo_root" --mode completion --timeout "${TWIN_MONITOR_TIMEOUT_SECONDS:-25}" --json >"$state_file.tmp" 2>&1; then
