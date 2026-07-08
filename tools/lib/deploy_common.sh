@@ -74,6 +74,60 @@ load_dotenv_file() {
     done < "$env_file"
 }
 
+env_file_has_key() {
+    local env_file="$1" key="$2"
+    [[ -f "$env_file" ]] || return 1
+    awk -F= -v key="$key" '
+        $0 ~ "^[[:space:]]*#" { next }
+        $1 == key { found=1; exit }
+        END { exit(found ? 0 : 1) }
+    ' "$env_file"
+}
+
+env_file_get() {
+    local env_file="$1" key="$2"
+    [[ -f "$env_file" ]] || return 0
+    awk -F= -v key="$key" '
+        $0 ~ "^[[:space:]]*#" { next }
+        $1 == key { sub(/^[^=]*=/, ""); print; exit }
+    ' "$env_file"
+}
+
+env_file_ensure() {
+    local env_file="$1" key="$2" default="$3"
+    env_file_has_key "$env_file" "$key" && return 0
+    printf '%s=%s\n' "$key" "$default" >> "$env_file"
+}
+
+env_file_set() {
+    local env_file="$1" key="$2" value="$3" python_bin="${4:-python3}"
+    if [[ -f "$env_file" ]] && env_file_has_key "$env_file" "$key"; then
+        "$python_bin" - "$env_file" "$key" "$value" <<'PY'
+from pathlib import Path
+import sys
+
+path = Path(sys.argv[1])
+key = sys.argv[2]
+value = sys.argv[3]
+lines = path.read_text(encoding="utf-8").splitlines()
+prefix = f"{key}="
+out = []
+updated = False
+for line in lines:
+    if line.strip().startswith(prefix):
+        out.append(f"{key}={value}")
+        updated = True
+    else:
+        out.append(line)
+if not updated:
+    out.append(f"{key}={value}")
+path.write_text("\n".join(out) + "\n", encoding="utf-8")
+PY
+    else
+        printf '%s=%s\n' "$key" "$value" >> "$env_file"
+    fi
+}
+
 nvidia_driver_version() {
     nvidia-smi --query-gpu=driver_version --format=csv,noheader 2>/dev/null \
         | head -n1 \

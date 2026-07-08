@@ -276,15 +276,6 @@ install_nvidia_vllm_hust_runtime() {
 	return 1
 }
 
-env_get() {
-	local key="$1"
-	[[ -f "$env_file" ]] || return 0
-	awk -F= -v key="$key" '
-		$0 ~ "^[[:space:]]*#" { next }
-		$1 == key { sub(/^[^=]*=/, ""); print; exit }
-	' "$env_file"
-}
-
 prepare_hosted_runtime_data() {
 	local runtime_dir
 	runtime_dir=$(env_get DIGITAL_TWIN_RUNTIME_DIR)
@@ -545,11 +536,16 @@ if [[ ! -f "$env_file" ]]; then
 fi
 
 # Ensure required keys exist (append only if absent — never overwrite).
+env_get() {
+	env_file_get "$env_file" "$1"
+}
+
 ensure_env_kv() {
 	local key="$1" default="$2"
-	grep -qE "^[[:space:]]*${key}=" "$env_file" 2>/dev/null && return
-	printf '%s=%s\n' "$key" "$default" >>"$env_file"
-	log "  appended $key=$default"
+	if ! env_file_has_key "$env_file" "$key"; then
+		env_file_ensure "$env_file" "$key" "$default"
+		log "  appended $key"
+	fi
 }
 ensure_env_kv DIGITAL_TWIN_STREAM_CHAT_ANSWER       true
 ensure_env_kv DIGITAL_TWIN_CHAT_REQUEST_TIMEOUT_SECONDS 80
@@ -559,31 +555,7 @@ ensure_env_kv DIGITAL_TWIN_CHAT_PROMPT_SOFT_CAP_CHARS 12000
 
 set_env_kv() {
 	local key="$1" value="$2"
-	if grep -qE "^[[:space:]]*${key}=" "$env_file" 2>/dev/null; then
-		"$python_bin" - "$env_file" "$key" "$value" <<'PY'
-from pathlib import Path
-import sys
-
-path = Path(sys.argv[1])
-key = sys.argv[2]
-value = sys.argv[3]
-lines = path.read_text(encoding="utf-8").splitlines()
-prefix = f"{key}="
-updated = False
-out = []
-for line in lines:
-    if line.strip().startswith(prefix):
-        out.append(f"{key}={value}")
-        updated = True
-    else:
-        out.append(line)
-if not updated:
-    out.append(f"{key}={value}")
-path.write_text("\n".join(out) + "\n", encoding="utf-8")
-PY
-	else
-		printf '%s=%s\n' "$key" "$value" >>"$env_file"
-	fi
+	env_file_set "$env_file" "$key" "$value" "$python_bin"
 }
 
 if [[ "$install_target" == "hosted-web" ]]; then
