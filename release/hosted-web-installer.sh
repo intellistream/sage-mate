@@ -502,8 +502,32 @@ run_hosted_web_install() {
         progress 35 "Installing Faculty Twin hosted/web. This can take a while..."
     fi
     export FACULTY_TWIN_DIR="$repo_dir"
+    local monitor_pid=""
+    monitor_hosted_progress() {
+        tail -n 0 -F "$log_file" 2>/dev/null | while IFS= read -r line; do
+            case "$line" in
+                "[hosted-web] waiting for hosted/web verification "*)
+                    progress 70 "Starting services and waiting for hosted/web verification..."
+                    ;;
+                "[hosted-web] progress: "*)
+                    progress 75 "${line#"[hosted-web] "}"
+                    ;;
+                "[hosted-web] model: "*)
+                    progress 90 "${line#"[hosted-web] "}"
+                    ;;
+            esac
+        done
+    }
+    monitor_hosted_progress &
+    monitor_pid="$!"
+    cleanup_monitor() {
+        [[ -z "${monitor_pid:-}" ]] || kill "$monitor_pid" >/dev/null 2>&1 || true
+    }
+    trap cleanup_monitor RETURN
     FACULTY_TWIN_ENCRYPTED_SECRETS_FILE="${FACULTY_TWIN_ENCRYPTED_SECRETS_FILE:-$script_dir/secrets.env.enc}" \
         bash "$hosted_web_script" "${installer_args[@]}" >>"$log_file" 2>&1
+    cleanup_monitor
+    trap - RETURN
     progress 92 "Running final hosted/web verification..."
     if [[ -x "$repo_dir/manage.sh" ]]; then
         (cd "$repo_dir" && ./manage.sh verify-hosted-web) >>"$log_file" 2>&1 || fail "Hosted/web verification failed. See $log_file"

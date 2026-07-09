@@ -503,7 +503,7 @@ progress_monitor() {
         local gpu_summary="n/a"
         if command -v nvidia-smi >/dev/null 2>&1; then
             gpu_summary=$(nvidia-smi --query-gpu=memory.used,memory.total --format=csv,noheader,nounits 2>/dev/null \
-                | awk '{gsub(/ /,""); printf "%s/%sMiB%s", $1, $2, (NR==0?"":" ")}' \
+                | awk -F, '{gsub(/ /,"",$1); gsub(/ /,"",$2); printf "%s%s/%sMiB", (NR == 1 ? "" : " "), $1, $2}' \
                 | sed 's/[[:space:]]*$//')
             [[ -n "$gpu_summary" ]] || gpu_summary="n/a"
         fi
@@ -732,7 +732,7 @@ main() {
             if [[ "$model_preset" == "qwen3-next-80b-awq" ]]; then
                 verify_timeout=7200
             elif [[ "$model_preset" == "qwen3-32b" ]]; then
-                verify_timeout=3600
+                verify_timeout=7200
             else
                 verify_timeout=900
             fi
