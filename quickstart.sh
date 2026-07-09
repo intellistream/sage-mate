@@ -235,7 +235,20 @@ bootstrap_python311_venv() {
 	fi
 	if [[ -z "$uv_bin" ]]; then
 		log "Installing uv to bootstrap a user-space Python 3.11 runtime" >&2
-		"$python_bin" -m pip install --user --quiet uv >&2
+		if command -v curl >/dev/null 2>&1; then
+			curl -LsSf https://astral.sh/uv/install.sh | sh >&2 || true
+			uv_bin=$(command -v uv 2>/dev/null || true)
+			if [[ -z "$uv_bin" && -x "$HOME/.local/bin/uv" ]]; then
+				uv_bin="$HOME/.local/bin/uv"
+			fi
+		fi
+	fi
+	if [[ -z "$uv_bin" ]]; then
+		if command -v timeout >/dev/null 2>&1; then
+			timeout 300 "$python_bin" -m pip install --user uv >&2
+		else
+			"$python_bin" -m pip install --user uv >&2
+		fi
 		uv_bin="$HOME/.local/bin/uv"
 	fi
 	[[ -x "$uv_bin" ]] || fail "uv was not installed at $uv_bin"
@@ -471,11 +484,28 @@ fi
 mkdir -p "$parent_dir"
 clone_if_missing() {
 	local name="$1" url="$2"
+	local tmp_askpass="" github_token=""
 	if [[ ! -d "$parent_dir/$name" ]]; then
 		log "Cloning $name into $parent_dir"
-		if ! git clone --depth=1 "$url" "$parent_dir/$name" 2>/dev/null; then
+		github_token="${GITHUB_TOKEN:-}"
+		if [[ -z "$github_token" && -f "$repo_root/.env" ]]; then
+			github_token="$(env_file_get "$repo_root/.env" GITHUB_TOKEN || true)"
+		fi
+		if [[ -n "$github_token" && "$url" =~ ^https://github.com/ ]]; then
+			tmp_askpass=$(mktemp)
+			chmod 0700 "$tmp_askpass"
+			cat >"$tmp_askpass" <<'EOF'
+#!/usr/bin/env bash
+case "$1" in
+	*Username*) printf '%s\n' x-access-token ;;
+	*) printf '%s\n' "${GITHUB_TOKEN:-}" ;;
+esac
+EOF
+		fi
+		if ! GITHUB_TOKEN="$github_token" GIT_ASKPASS="${tmp_askpass:-}" GIT_TERMINAL_PROMPT=0 git clone --depth=1 "$url" "$parent_dir/$name" 2>/dev/null; then
 			warn "  could not clone $name (may need GITHUB_TOKEN for private repos)"
 		fi
+		[[ -z "$tmp_askpass" ]] || rm -f "$tmp_askpass"
 	else
 		log "  sibling repo present: $parent_dir/$name"
 	fi
