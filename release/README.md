@@ -126,6 +126,9 @@ downloading model shards and warming up vLLM. For NVIDIA hosted/web installs,
 the installer pre-downloads this model with a single Hugging Face cache process
 before starting vLLM, then starts vLLM in offline-cache mode to avoid multi-worker
 mirror rate limits. Set `FACULTY_TWIN_PREDOWNLOAD_MODEL=0` to skip that behavior.
+If the mirror cannot complete the 80B pre-download, the installer falls back to
+`Qwen/Qwen3-32B` by default so first install can still complete; set
+`FACULTY_TWIN_ALLOW_MODEL_FALLBACK=0` to make that condition fatal instead.
 Set `FACULTY_TWIN_VERIFY_TIMEOUT_SECONDS` if a very slow network needs an even
 longer first-start window.
 

@@ -438,7 +438,7 @@ predownload_model_if_needed() {
     [[ "$model" != /* ]] || return 0
 
     log "pre-downloading large model into Hugging Face cache: $model"
-    "$python_bin" - "$model" <<'PY'
+    if "$python_bin" - "$model" <<'PY'
 import os
 import sys
 from huggingface_hub import snapshot_download
@@ -449,11 +449,34 @@ path = snapshot_download(
     repo_id=model_id,
     token=token or None,
     resume_download=True,
+    max_workers=1,
 )
 print(f"[hosted-web] model cache ready: {path}", flush=True)
 PY
-    export HF_HUB_OFFLINE=1
-    log "model cache ready; enabling HF_HUB_OFFLINE=1 for vLLM startup"
+    then
+        export HF_HUB_OFFLINE=1
+        log "model cache ready; enabling HF_HUB_OFFLINE=1 for vLLM startup"
+        return 0
+    fi
+
+    if [[ "${FACULTY_TWIN_ALLOW_MODEL_FALLBACK:-1}" == "0" ]]; then
+        fail "pre-download failed for $model; set FACULTY_TWIN_ALLOW_MODEL_FALLBACK=1 or choose a smaller preset"
+    fi
+
+    warn "pre-download failed for $model; falling back to Qwen/Qwen3-32B for a reliable first install"
+    model_preset="qwen3-32b"
+    model="Qwen/Qwen3-32B"
+    served_model="${served_model_override:-$model}"
+    tp="${tp_override:-$([[ "$(gpu_count)" -ge 2 ]] && echo 2 || echo 1)}"
+    max_model_len="${VLLM_NVIDIA_MAX_MODEL_LEN:-32768}"
+    max_num_seqs="${VLLM_NVIDIA_MAX_NUM_SEQS:-8}"
+    set_env_kv "$env_file" DIGITAL_TWIN_MODEL_NAME "$served_model"
+    set_env_kv "$env_file" VLLM_NVIDIA_MODEL "$model"
+    set_env_kv "$env_file" VLLM_NVIDIA_SERVED_MODEL_NAME "$served_model"
+    set_env_kv "$env_file" VLLM_NVIDIA_TENSOR_PARALLEL_SIZE "$tp"
+    set_env_kv "$env_file" VLLM_NVIDIA_MAX_MODEL_LEN "$max_model_len"
+    set_env_kv "$env_file" VLLM_NVIDIA_MAX_NUM_SEQS "$max_num_seqs"
+    set_env_kv "$env_file" VLLM_NVIDIA_CHAT_TEMPLATE ""
 }
 
 select_model() {
