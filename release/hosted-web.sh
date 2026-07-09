@@ -819,9 +819,24 @@ main() {
             [[ -z "${progress_pid:-}" ]] || kill "$progress_pid" >/dev/null 2>&1 || true
         }
         trap cleanup_progress RETURN
-        env -u HTTP_PROXY -u HTTPS_PROXY -u ALL_PROXY -u http_proxy -u https_proxy -u all_proxy \
-            NO_PROXY="127.0.0.1,localhost" \
-            ./manage.sh verify-hosted-web "${verify_args[@]}"
+        local verify_attempts="${FACULTY_TWIN_VERIFY_ATTEMPTS:-3}"
+        local verify_ok=false verify_attempt
+        for ((verify_attempt = 1; verify_attempt <= verify_attempts; verify_attempt++)); do
+            if env -u HTTP_PROXY -u HTTPS_PROXY -u ALL_PROXY -u http_proxy -u https_proxy -u all_proxy \
+                NO_PROXY="127.0.0.1,localhost" \
+                ./manage.sh verify-hosted-web "${verify_args[@]}"; then
+                verify_ok=true
+                break
+            fi
+            [[ "$verify_attempt" -lt "$verify_attempts" ]] || break
+            warn "hosted/web verification attempt ${verify_attempt}/${verify_attempts} failed; retrying after services settle"
+            sleep "${FACULTY_TWIN_VERIFY_RETRY_DELAY_SECONDS:-20}"
+        done
+        if ! $verify_ok; then
+            cleanup_progress
+            trap - RETURN
+            fail "hosted/web verification failed after ${verify_attempts} attempt(s)"
+        fi
         cleanup_progress
         trap - RETURN
         ./manage.sh status "${manage_services[@]}"
