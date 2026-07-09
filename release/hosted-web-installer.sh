@@ -19,8 +19,10 @@ branch="${FACULTY_TWIN_BRANCH:-main}"
 hosted_web_script="${FACULTY_TWIN_HOSTED_WEB_SCRIPT:-$script_dir/hosted-web.sh}"
 release_url="${FACULTY_TWIN_RELEASE_URL:-https://github.com/intellistream/sage-faculty-twin/releases/download/v4.4.0}"
 min_driver="${VLLM_NVIDIA_MIN_DRIVER_VERSION:-575.51.03}"
+default_key_file="$HOME/.config/sage-faculty-twin/release-secrets.key"
 resume=false
 assume_yes=false
+no_secrets_mode=false
 
 mkdir -p "$state_dir"
 touch "$log_file"
@@ -111,6 +113,29 @@ say_info() {
     fi
 }
 
+choose() {
+    local title="$1" text="$2"
+    shift 2
+    local choices=("$@")
+    if $gui; then
+        zenity --list \
+            --title="$title" \
+            --text="$text" \
+            --column="Option" \
+            "${choices[@]}"
+    else
+        local i answer
+        printf '%s\n\n%s\n' "$title" "$text"
+        for ((i = 0; i < ${#choices[@]}; i++)); do
+            printf '  %d) %s\n' "$((i + 1))" "${choices[$i]}"
+        done
+        read -r -p "Choose [1-${#choices[@]}]: " answer
+        [[ "$answer" =~ ^[0-9]+$ ]] || return 1
+        (( answer >= 1 && answer <= ${#choices[@]} )) || return 1
+        printf '%s\n' "${choices[$((answer - 1))]}"
+    fi
+}
+
 confirm() {
     local message="$1"
     if $assume_yes; then
@@ -187,6 +212,86 @@ load_resume_args() {
             installer_args=("${INSTALLER_ARGS[@]}")
         fi
     fi
+}
+
+has_arg() {
+    local needle="$1" arg
+    for arg in "${installer_args[@]}"; do
+        [[ "$arg" == "$needle" ]] && return 0
+    done
+    return 1
+}
+
+append_arg_once() {
+    local arg="$1"
+    has_arg "$arg" || installer_args+=("$arg")
+}
+
+ensure_release_key_or_choose_mode() {
+    [[ -n "${FACULTY_TWIN_SECRETS_KEY_FILE:-}" || -n "${FACULTY_TWIN_SECRETS_PASSPHRASE:-}" ]] && return 0
+    if [[ -f "$default_key_file" ]]; then
+        export FACULTY_TWIN_SECRETS_KEY_FILE="$default_key_file"
+        log "using release secrets key file at default path"
+        return 0
+    fi
+
+    local enc_file="${FACULTY_TWIN_ENCRYPTED_SECRETS_FILE:-$script_dir/secrets.env.enc}"
+    [[ -f "$enc_file" ]] || return 0
+
+    if $assume_yes; then
+        no_secrets_mode=true
+        append_arg_once --no-secrets
+        append_arg_once --no-tunnel
+        log "release key missing; continuing without encrypted secrets or tunnel because --yes was used"
+        return 0
+    fi
+
+    local choice
+    choice=$(choose \
+        "Faculty Twin Release Key" \
+        "This package includes encrypted deployment secrets, but no release key was found at:\n\n$default_key_file\n\nInternal one-click deployment needs that key. Without it, the installer can still set up a local hosted/web service, but private GitHub, Hugging Face, Cloudflare tunnel, and app keys must be configured separately." \
+        "I placed the key; check again" \
+        "Continue local install without encrypted secrets" \
+        "Exit") || fail "No release key option was selected."
+
+    case "$choice" in
+        "I placed the key; check again")
+            if [[ -f "$default_key_file" ]]; then
+                export FACULTY_TWIN_SECRETS_KEY_FILE="$default_key_file"
+                return 0
+            fi
+            fail "Release key still not found: $default_key_file"
+            ;;
+        "Continue local install without encrypted secrets")
+            no_secrets_mode=true
+            append_arg_once --no-secrets
+            append_arg_once --no-tunnel
+            say_info "Continuing without encrypted secrets.\n\nThe installer will not configure Cloudflare tunnel or private tokens automatically. Local service install will continue where possible."
+            ;;
+        *)
+            fail "Installation cancelled before secrets were configured."
+            ;;
+    esac
+}
+
+install_summary() {
+    local mode="internal deployment with encrypted secrets"
+    if $no_secrets_mode || has_arg --no-secrets; then
+        mode="local install without encrypted secrets"
+    fi
+    local tunnel="enabled when credentials are available"
+    has_arg --no-tunnel && tunnel="disabled"
+    printf 'Mode: %s\nRepo dir: %s\nTunnel: %s\nLog: %s\n' "$mode" "$repo_dir" "$tunnel" "$log_file"
+}
+
+confirm_install_summary() {
+    local summary
+    summary=$(install_summary)
+    if $assume_yes; then
+        log "install summary: ${summary//$'\n'/; }"
+        return 0
+    fi
+    confirm "Ready to install Faculty Twin hosted/web.\n\n$summary\n\nContinue?" || fail "Installation cancelled."
 }
 
 decrypt_initial_secrets() {
@@ -325,6 +430,8 @@ main() {
     load_resume_args
     progress_start
     progress 3 "Checking machine..."
+    ensure_release_key_or_choose_mode
+    confirm_install_summary
     maybe_upgrade_nvidia_driver
     run_hosted_web_install
     clear_state

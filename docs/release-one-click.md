@@ -47,6 +47,22 @@ FACULTY_TWIN_SECRETS_KEY_FILE=~/.config/sage-faculty-twin/release-secrets.key \
   ./install.sh
 ```
 
+如果 release key 已经放在默认路径，也可以直接：
+
+```bash
+./install.sh
+```
+
+如果安装器找不到 release key，会先解释这个 key 用来解密私有部署密钥，
+然后给用户三个选择：
+
+1. 我已经放好 key，请重新检查；
+2. 继续无密钥本地安装；
+3. 退出。
+
+选择无密钥安装时，安装器会自动加上 `--no-secrets --no-tunnel`。这条路径不会自动配置
+GitHub/HF/Cloudflare/API key，只适合本地验证或后续手动配置。
+
 如果机器安装了 `zenity`，会出现进度条和确认弹窗：
 
 1. 检查机器和硬件。
