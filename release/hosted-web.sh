@@ -479,6 +479,38 @@ PY
     set_env_kv "$env_file" VLLM_NVIDIA_CHAT_TEMPLATE ""
 }
 
+model_cache_path_hint() {
+    local model_id="$1"
+    [[ "$model_id" != /* ]] || return 1
+    printf '%s/hub/models--%s\n' "${HF_HOME:-$HOME/.cache/huggingface}" "${model_id//\//--}"
+}
+
+progress_monitor() {
+    local model_id="$1" engine_port="$2" interval="${FACULTY_TWIN_PROGRESS_INTERVAL_SECONDS:-60}"
+    local cache_path=""
+    cache_path=$(model_cache_path_hint "$model_id" 2>/dev/null || true)
+    while true; do
+        sleep "$interval" || true
+        local listen_state="not-listening"
+        if command -v ss >/dev/null 2>&1 && ss -lnt 2>/dev/null | awk '{print $4}' | grep -Eq "(^|:)${engine_port}$"; then
+            listen_state="listening"
+        fi
+        local cache_size="n/a"
+        if [[ -n "$cache_path" && -e "$cache_path" ]]; then
+            cache_size=$(du -sh "$cache_path" 2>/dev/null | awk '{print $1}')
+            [[ -n "$cache_size" ]] || cache_size="n/a"
+        fi
+        local gpu_summary="n/a"
+        if command -v nvidia-smi >/dev/null 2>&1; then
+            gpu_summary=$(nvidia-smi --query-gpu=memory.used,memory.total --format=csv,noheader,nounits 2>/dev/null \
+                | awk '{gsub(/ /,""); printf "%s/%sMiB%s", $1, $2, (NR==0?"":" ")}' \
+                | sed 's/[[:space:]]*$//')
+            [[ -n "$gpu_summary" ]] || gpu_summary="n/a"
+        fi
+        log "progress: vLLM port ${engine_port}=${listen_state}; model cache=${cache_size}; gpu_mem=${gpu_summary}"
+    done
+}
+
 select_model() {
     local gpus min_mem
     gpus=$(gpu_count)
@@ -677,6 +709,8 @@ main() {
     log "installing hosted/web $accelerator stack"
     if [[ "$model_preset" == "qwen3-next-80b-awq" ]]; then
         log "large model selected; first start may download model shards and can take 30-60 minutes on a fresh host"
+    elif [[ "$model_preset" == "qwen3-32b" ]]; then
+        log "32B model selected; first start may download model shards and can take several minutes on a fresh host"
     fi
     ./quickstart.sh "${quickstart_args[@]}"
 
@@ -697,6 +731,8 @@ main() {
         if [[ -z "$verify_timeout" ]]; then
             if [[ "$model_preset" == "qwen3-next-80b-awq" ]]; then
                 verify_timeout=7200
+            elif [[ "$model_preset" == "qwen3-32b" ]]; then
+                verify_timeout=3600
             else
                 verify_timeout=900
             fi
@@ -706,9 +742,22 @@ main() {
         if $with_tunnel; then
             verify_args+=(--public-url "https://$public_hostname")
         fi
+        local progress_pid=""
+        if [[ "$accelerator" == "nvidia" || "$accelerator" == "ascend" ]]; then
+            local engine_port="8000"
+            [[ "$accelerator" == "nvidia" ]] && engine_port="18000"
+            progress_monitor "$model" "$engine_port" &
+            progress_pid="$!"
+        fi
+        cleanup_progress() {
+            [[ -z "${progress_pid:-}" ]] || kill "$progress_pid" >/dev/null 2>&1 || true
+        }
+        trap cleanup_progress RETURN
         env -u HTTP_PROXY -u HTTPS_PROXY -u ALL_PROXY -u http_proxy -u https_proxy -u all_proxy \
             NO_PROXY="127.0.0.1,localhost" \
             ./manage.sh verify-hosted-web "${verify_args[@]}"
+        cleanup_progress
+        trap - RETURN
         ./manage.sh status "${manage_services[@]}"
     fi
 

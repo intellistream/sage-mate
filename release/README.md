@@ -93,6 +93,8 @@ app keys separately.
 - Installs pinned dependencies and submodules.
 - Starts systemd user services.
 - Runs hosted/web verification.
+- During first model startup, prints progress for vLLM readiness, Hugging Face
+  cache size, and GPU memory so long downloads do not look frozen.
 
 ## Hosted/Web Safety
 
