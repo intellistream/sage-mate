@@ -120,6 +120,7 @@ selection, or local command execution.
 ./install.sh --accelerator ascend
 ./install.sh --no-tunnel
 ./install.sh --model-preset qwen3-32b-awq
+./install.sh --model-preset qwen3-14b-awq
 ./install.sh --model-preset qwen2.5-14b-awq
 ./install.sh --model-preset qwen3-next-80b-awq
 ```
@@ -137,6 +138,9 @@ If the mirror cannot complete the 80B pre-download, the installer falls back to
 `FACULTY_TWIN_ALLOW_MODEL_FALLBACK=0` to make that condition fatal instead.
 Unless `HF_ENDPOINT` is explicitly set, this fallback uses the official
 Hugging Face endpoint to avoid mirror API rate limits.
+If the 32B AWQ download repeatedly fails on an unstable network, the installer
+falls back again to `Qwen/Qwen3-14B-AWQ` so the deployment can still complete
+with a current Qwen3 model.
 Set `FACULTY_TWIN_VERIFY_TIMEOUT_SECONDS` if a very slow network needs an even
 longer first-start window.
 

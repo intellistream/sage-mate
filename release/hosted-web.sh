@@ -37,7 +37,7 @@ Options:
   --repo-url URL              Primary git URL. Defaults to SSH intellistream repo.
   --branch NAME               Git branch/ref. Defaults to main.
   --accelerator KIND          auto|nvidia|ascend|none. Defaults to auto.
-  --model-preset PRESET       auto|qwen3-32b-awq|qwen3-32b|qwen3-next-80b-awq|qwen2.5-14b-awq.
+  --model-preset PRESET       auto|qwen3-32b-awq|qwen3-14b-awq|qwen3-32b|qwen3-next-80b-awq|qwen2.5-14b-awq.
   --model MODEL_OR_PATH       Explicit HF model id or local model path.
   --served-model-name NAME    Served OpenAI model name. Defaults to model value.
   --tensor-parallel-size N    Override tensor parallel size.
@@ -435,14 +435,23 @@ EOF
 predownload_model_if_needed() {
     [[ "$accelerator" == "nvidia" ]] || return 0
     case "$model_preset" in
-        qwen3-next-80b-awq|qwen3-32b-awq) ;;
+        qwen3-next-80b-awq|qwen3-32b-awq|qwen3-14b-awq) ;;
         *) return 0 ;;
     esac
     [[ "${FACULTY_TWIN_PREDOWNLOAD_MODEL:-1}" != "0" ]] || return 0
     [[ "$model" != /* ]] || return 0
 
     log "pre-downloading model into Hugging Face cache: $model"
-    if "$python_bin" - "$model" <<'PY'
+    local attempts="${FACULTY_TWIN_PREDOWNLOAD_ATTEMPTS:-}"
+    if [[ -z "$attempts" ]]; then
+        [[ "$model_preset" == "qwen3-next-80b-awq" ]] && attempts=1 || attempts=4
+    fi
+    local attempt
+    for ((attempt = 1; attempt <= attempts; attempt++)); do
+        if [[ "$attempts" -gt 1 ]]; then
+            log "pre-download attempt ${attempt}/${attempts}: $model"
+        fi
+        if "$python_bin" - "$model" <<'PY'
 import os
 import sys
 from huggingface_hub import snapshot_download
@@ -457,13 +466,36 @@ path = snapshot_download(
 )
 print(f"[hosted-web] model cache ready: {path}", flush=True)
 PY
-    then
-        export HF_HUB_OFFLINE=1
-        log "model cache ready; enabling HF_HUB_OFFLINE=1 for vLLM startup"
+        then
+            export HF_HUB_OFFLINE=1
+            log "model cache ready; enabling HF_HUB_OFFLINE=1 for vLLM startup"
+            return 0
+        fi
+        [[ "$attempt" -lt "$attempts" ]] || break
+        warn "pre-download attempt ${attempt}/${attempts} failed for $model; retrying with resume"
+        sleep "${FACULTY_TWIN_PREDOWNLOAD_RETRY_DELAY_SECONDS:-15}"
+    done
+
+    if [[ "$model_preset" == "qwen3-32b-awq" && "${FACULTY_TWIN_ALLOW_MODEL_FALLBACK:-1}" != "0" ]]; then
+        warn "pre-download failed for $model; falling back to Qwen/Qwen3-14B-AWQ for a reliable first install"
+        model_preset="qwen3-14b-awq"
+        model="Qwen/Qwen3-14B-AWQ"
+        served_model="${served_model_override:-$model}"
+        tp="${tp_override:-1}"
+        max_model_len="${VLLM_NVIDIA_MAX_MODEL_LEN:-32768}"
+        max_num_seqs="${VLLM_NVIDIA_MAX_NUM_SEQS:-8}"
+        set_env_kv "$env_file" DIGITAL_TWIN_MODEL_NAME "$served_model"
+        set_env_kv "$env_file" VLLM_NVIDIA_MODEL "$model"
+        set_env_kv "$env_file" VLLM_NVIDIA_SERVED_MODEL_NAME "$served_model"
+        set_env_kv "$env_file" VLLM_NVIDIA_TENSOR_PARALLEL_SIZE "$tp"
+        set_env_kv "$env_file" VLLM_NVIDIA_MAX_MODEL_LEN "$max_model_len"
+        set_env_kv "$env_file" VLLM_NVIDIA_MAX_NUM_SEQS "$max_num_seqs"
+        set_env_kv "$env_file" VLLM_NVIDIA_CHAT_TEMPLATE ""
+        predownload_model_if_needed
         return 0
     fi
 
-    if [[ "$model_preset" == "qwen3-32b-awq" ]]; then
+    if [[ "$model_preset" == "qwen3-32b-awq" || "$model_preset" == "qwen3-14b-awq" ]]; then
         fail "pre-download failed for $model; check network/Hugging Face access or choose --model-preset qwen2.5-14b-awq"
     fi
 
@@ -575,6 +607,13 @@ select_model() {
             max_model_len="${VLLM_NVIDIA_MAX_MODEL_LEN:-32768}"
             max_num_seqs="${VLLM_NVIDIA_MAX_NUM_SEQS:-8}"
             ;;
+        qwen3-14b-awq)
+            model="Qwen/Qwen3-14B-AWQ"
+            served_model="${served_model_override:-$model}"
+            tp="${tp_override:-1}"
+            max_model_len="${VLLM_NVIDIA_MAX_MODEL_LEN:-32768}"
+            max_num_seqs="${VLLM_NVIDIA_MAX_NUM_SEQS:-8}"
+            ;;
         qwen3-32b)
             if [[ "$accelerator" == "ascend" ]]; then
                 model="${FACULTY_TWIN_MODEL:-/data/shared-models/Qwen3-32B}"
@@ -664,7 +703,7 @@ main() {
     fi
     apply_encrypted_release_secrets "$env_file"
 
-    if [[ "$accelerator" == "nvidia" && "$model_preset" == "qwen3-32b-awq" ]] && ! $hf_endpoint_explicit; then
+    if [[ "$accelerator" == "nvidia" && ( "$model_preset" == "qwen3-32b-awq" || "$model_preset" == "qwen3-14b-awq" ) ]] && ! $hf_endpoint_explicit; then
         export HF_ENDPOINT="${FACULTY_TWIN_FALLBACK_HF_ENDPOINT:-https://huggingface.co}"
         log "using Hugging Face endpoint for Qwen3 AWQ preset: $HF_ENDPOINT"
     fi
@@ -736,8 +775,8 @@ main() {
     log "installing hosted/web $accelerator stack"
     if [[ "$model_preset" == "qwen3-next-80b-awq" ]]; then
         log "large model selected; first start may download model shards and can take 30-60 minutes on a fresh host"
-    elif [[ "$model_preset" == "qwen3-32b" || "$model_preset" == "qwen3-32b-awq" ]]; then
-        log "32B model selected; first start may download model shards and can take several minutes on a fresh host"
+    elif [[ "$model_preset" == "qwen3-32b" || "$model_preset" == "qwen3-32b-awq" || "$model_preset" == "qwen3-14b-awq" ]]; then
+        log "Qwen3 model selected; first start may download model shards and can take several minutes on a fresh host"
     fi
     ./quickstart.sh "${quickstart_args[@]}"
 
@@ -758,7 +797,7 @@ main() {
         if [[ -z "$verify_timeout" ]]; then
             if [[ "$model_preset" == "qwen3-next-80b-awq" ]]; then
                 verify_timeout=7200
-            elif [[ "$model_preset" == "qwen3-32b" || "$model_preset" == "qwen3-32b-awq" ]]; then
+            elif [[ "$model_preset" == "qwen3-32b" || "$model_preset" == "qwen3-32b-awq" || "$model_preset" == "qwen3-14b-awq" ]]; then
                 verify_timeout=7200
             else
                 verify_timeout=900
