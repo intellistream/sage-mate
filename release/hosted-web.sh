@@ -434,11 +434,14 @@ EOF
 
 predownload_model_if_needed() {
     [[ "$accelerator" == "nvidia" ]] || return 0
-    [[ "$model_preset" == "qwen3-next-80b-awq" ]] || return 0
+    case "$model_preset" in
+        qwen3-next-80b-awq|qwen3-32b-awq) ;;
+        *) return 0 ;;
+    esac
     [[ "${FACULTY_TWIN_PREDOWNLOAD_MODEL:-1}" != "0" ]] || return 0
     [[ "$model" != /* ]] || return 0
 
-    log "pre-downloading large model into Hugging Face cache: $model"
+    log "pre-downloading model into Hugging Face cache: $model"
     if "$python_bin" - "$model" <<'PY'
 import os
 import sys
@@ -458,6 +461,10 @@ PY
         export HF_HUB_OFFLINE=1
         log "model cache ready; enabling HF_HUB_OFFLINE=1 for vLLM startup"
         return 0
+    fi
+
+    if [[ "$model_preset" == "qwen3-32b-awq" ]]; then
+        fail "pre-download failed for $model; check network/Hugging Face access or choose --model-preset qwen2.5-14b-awq"
     fi
 
     if [[ "${FACULTY_TWIN_ALLOW_MODEL_FALLBACK:-1}" == "0" ]]; then
@@ -483,6 +490,7 @@ PY
     set_env_kv "$env_file" VLLM_NVIDIA_MAX_MODEL_LEN "$max_model_len"
     set_env_kv "$env_file" VLLM_NVIDIA_MAX_NUM_SEQS "$max_num_seqs"
     set_env_kv "$env_file" VLLM_NVIDIA_CHAT_TEMPLATE ""
+    predownload_model_if_needed
 }
 
 model_cache_path_hint() {
