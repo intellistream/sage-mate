@@ -554,7 +554,11 @@ main() {
     $with_tunnel && quickstart_args+=(--with-tunnel)
     $yes && quickstart_args+=(--yes)
 
-    log "installing hosted/web NVIDIA stack"
+    if [[ "$accelerator" == "nvidia" && -z "${VLLM_NVIDIA_INSTALLER:-}" ]]; then
+        export VLLM_NVIDIA_INSTALLER=pip
+    fi
+
+    log "installing hosted/web $accelerator stack"
     ./quickstart.sh "${quickstart_args[@]}"
 
     if $start_services; then
