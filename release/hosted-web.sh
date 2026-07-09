@@ -36,7 +36,7 @@ Options:
   --repo-url URL              Primary git URL. Defaults to SSH intellistream repo.
   --branch NAME               Git branch/ref. Defaults to main.
   --accelerator KIND          auto|nvidia|ascend|none. Defaults to auto.
-  --model-preset PRESET       auto|qwen3-32b|qwen3-next-80b-awq|qwen2.5-14b-awq.
+  --model-preset PRESET       auto|qwen3-32b-awq|qwen3-32b|qwen3-next-80b-awq|qwen2.5-14b-awq.
   --model MODEL_OR_PATH       Explicit HF model id or local model path.
   --served-model-name NAME    Served OpenAI model name. Defaults to model value.
   --tensor-parallel-size N    Override tensor parallel size.
@@ -463,11 +463,11 @@ PY
         fail "pre-download failed for $model; set FACULTY_TWIN_ALLOW_MODEL_FALLBACK=1 or choose a smaller preset"
     fi
 
-    warn "pre-download failed for $model; falling back to Qwen/Qwen3-32B for a reliable first install"
-    model_preset="qwen3-32b"
-    model="Qwen/Qwen3-32B"
+    warn "pre-download failed for $model; falling back to Qwen/Qwen3-32B-AWQ for a reliable first install"
+    model_preset="qwen3-32b-awq"
+    model="Qwen/Qwen3-32B-AWQ"
     served_model="${served_model_override:-$model}"
-    tp="${tp_override:-$([[ "$(gpu_count)" -ge 2 ]] && echo 2 || echo 1)}"
+    tp="${tp_override:-1}"
     max_model_len="${VLLM_NVIDIA_MAX_MODEL_LEN:-32768}"
     max_num_seqs="${VLLM_NVIDIA_MAX_NUM_SEQS:-8}"
     set_env_kv "$env_file" DIGITAL_TWIN_MODEL_NAME "$served_model"
@@ -535,7 +535,7 @@ select_model() {
         if [[ "$accelerator" == "ascend" ]]; then
             model_preset="qwen3-32b"
         elif [[ "$min_mem" -ge 70000 ]]; then
-            model_preset="qwen3-32b"
+            model_preset="qwen3-32b-awq"
         else
             model_preset="qwen2.5-14b-awq"
         fi
@@ -553,6 +553,13 @@ select_model() {
                 max_model_len="${VLLM_NVIDIA_MAX_MODEL_LEN:-32768}"
                 max_num_seqs="${VLLM_NVIDIA_MAX_NUM_SEQS:-8}"
             fi
+            ;;
+        qwen3-32b-awq)
+            model="Qwen/Qwen3-32B-AWQ"
+            served_model="${served_model_override:-$model}"
+            tp="${tp_override:-1}"
+            max_model_len="${VLLM_NVIDIA_MAX_MODEL_LEN:-32768}"
+            max_num_seqs="${VLLM_NVIDIA_MAX_NUM_SEQS:-8}"
             ;;
         qwen3-32b)
             if [[ "$accelerator" == "ascend" ]]; then
@@ -709,7 +716,7 @@ main() {
     log "installing hosted/web $accelerator stack"
     if [[ "$model_preset" == "qwen3-next-80b-awq" ]]; then
         log "large model selected; first start may download model shards and can take 30-60 minutes on a fresh host"
-    elif [[ "$model_preset" == "qwen3-32b" ]]; then
+    elif [[ "$model_preset" == "qwen3-32b" || "$model_preset" == "qwen3-32b-awq" ]]; then
         log "32B model selected; first start may download model shards and can take several minutes on a fresh host"
     fi
     ./quickstart.sh "${quickstart_args[@]}"
@@ -731,7 +738,7 @@ main() {
         if [[ -z "$verify_timeout" ]]; then
             if [[ "$model_preset" == "qwen3-next-80b-awq" ]]; then
                 verify_timeout=7200
-            elif [[ "$model_preset" == "qwen3-32b" ]]; then
+            elif [[ "$model_preset" == "qwen3-32b" || "$model_preset" == "qwen3-32b-awq" ]]; then
                 verify_timeout=7200
             else
                 verify_timeout=900

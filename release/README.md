@@ -119,9 +119,13 @@ selection, or local command execution.
 ./install.sh --accelerator nvidia
 ./install.sh --accelerator ascend
 ./install.sh --no-tunnel
+./install.sh --model-preset qwen3-32b-awq
 ./install.sh --model-preset qwen2.5-14b-awq
 ./install.sh --model-preset qwen3-next-80b-awq
 ```
+
+On NVIDIA hosts with large GPUs, `auto` uses a practical Qwen3 32B AWQ model by
+default. Its served model name is the actual model id: `Qwen/Qwen3-32B-AWQ`.
 
 Large presets such as `qwen3-next-80b-awq` can spend a long time on first start
 downloading model shards and warming up vLLM. For NVIDIA hosted/web installs,
@@ -129,7 +133,7 @@ the installer pre-downloads this model with a single Hugging Face cache process
 before starting vLLM, then starts vLLM in offline-cache mode to avoid multi-worker
 mirror rate limits. Set `FACULTY_TWIN_PREDOWNLOAD_MODEL=0` to skip that behavior.
 If the mirror cannot complete the 80B pre-download, the installer falls back to
-`Qwen/Qwen3-32B` by default so first install can still complete; set
+`Qwen/Qwen3-32B-AWQ` by default so first install can still complete; set
 `FACULTY_TWIN_ALLOW_MODEL_FALLBACK=0` to make that condition fatal instead.
 Set `FACULTY_TWIN_VERIFY_TIMEOUT_SECONDS` if a very slow network needs an even
 longer first-start window.
