@@ -480,6 +480,7 @@ main() {
     python_bin=$(detect_python) || fail "could not find Python; set PYTHON_BIN"
     export PYTHON_BIN="$python_bin"
     export HF_ENDPOINT="${HF_ENDPOINT:-https://hf-mirror.com}"
+    export HF_HUB_DISABLE_XET="${HF_HUB_DISABLE_XET:-1}"
 
     detect_accelerator
     if [[ "$accelerator" == "nvidia" ]]; then
@@ -527,9 +528,7 @@ main() {
         set_env_kv "$env_file" VLLM_PROXY_UPSTREAM_BASE_URL "${VLLM_PROXY_UPSTREAM_BASE_URL:-http://127.0.0.1:8000/v1}"
     fi
     set_env_kv "$env_file" HF_ENDPOINT "$HF_ENDPOINT"
-    if [[ -n "${HF_HUB_DISABLE_XET:-}" ]]; then
-        set_env_kv "$env_file" HF_HUB_DISABLE_XET "$HF_HUB_DISABLE_XET"
-    fi
+    set_env_kv "$env_file" HF_HUB_DISABLE_XET "$HF_HUB_DISABLE_XET"
 
     if [[ "$accelerator" == "nvidia" && "$model_preset" == "qwen3-next-80b-awq" ]]; then
         set_env_kv "$env_file" VLLM_NVIDIA_CHAT_TEMPLATE "$(prepare_qwen3_next_template "$runtime_dir")"
