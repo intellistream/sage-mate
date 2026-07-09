@@ -644,7 +644,7 @@ main() {
         local verify_timeout="${FACULTY_TWIN_VERIFY_TIMEOUT_SECONDS:-}"
         if [[ -z "$verify_timeout" ]]; then
             if [[ "$model_preset" == "qwen3-next-80b-awq" ]]; then
-                verify_timeout=3600
+                verify_timeout=7200
             else
                 verify_timeout=900
             fi

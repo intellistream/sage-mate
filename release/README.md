@@ -124,7 +124,8 @@ selection, or local command execution.
 Large presets such as `qwen3-next-80b-awq` can spend a long time on first start
 downloading model shards and warming up vLLM. The installer keeps waiting for
 the OpenAI-compatible `/v1/models` endpoint instead of treating this as a
-failure.
+failure. Set `FACULTY_TWIN_VERIFY_TIMEOUT_SECONDS` if a very slow network needs
+an even longer first-start window.
 
 ## Logs
 
