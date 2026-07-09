@@ -122,10 +122,12 @@ selection, or local command execution.
 ```
 
 Large presets such as `qwen3-next-80b-awq` can spend a long time on first start
-downloading model shards and warming up vLLM. The installer keeps waiting for
-the OpenAI-compatible `/v1/models` endpoint instead of treating this as a
-failure. Set `FACULTY_TWIN_VERIFY_TIMEOUT_SECONDS` if a very slow network needs
-an even longer first-start window.
+downloading model shards and warming up vLLM. For NVIDIA hosted/web installs,
+the installer pre-downloads this model with a single Hugging Face cache process
+before starting vLLM, then starts vLLM in offline-cache mode to avoid multi-worker
+mirror rate limits. Set `FACULTY_TWIN_PREDOWNLOAD_MODEL=0` to skip that behavior.
+Set `FACULTY_TWIN_VERIFY_TIMEOUT_SECONDS` if a very slow network needs an even
+longer first-start window.
 
 ## Logs
 

@@ -431,6 +431,31 @@ EOF
     log "Cloudflare tunnel ready for https://$public_hostname/"
 }
 
+predownload_model_if_needed() {
+    [[ "$accelerator" == "nvidia" ]] || return 0
+    [[ "$model_preset" == "qwen3-next-80b-awq" ]] || return 0
+    [[ "${FACULTY_TWIN_PREDOWNLOAD_MODEL:-1}" != "0" ]] || return 0
+    [[ "$model" != /* ]] || return 0
+
+    log "pre-downloading large model into Hugging Face cache: $model"
+    "$python_bin" - "$model" <<'PY'
+import os
+import sys
+from huggingface_hub import snapshot_download
+
+model_id = sys.argv[1]
+token = os.environ.get("HF_TOKEN") or os.environ.get("HUGGING_FACE_HUB_TOKEN")
+path = snapshot_download(
+    repo_id=model_id,
+    token=token or None,
+    resume_download=True,
+)
+print(f"[hosted-web] model cache ready: {path}", flush=True)
+PY
+    export HF_HUB_OFFLINE=1
+    log "model cache ready; enabling HF_HUB_OFFLINE=1 for vLLM startup"
+}
+
 select_model() {
     local gpus min_mem
     gpus=$(gpu_count)
@@ -600,6 +625,10 @@ main() {
     fi
     if $with_tunnel; then
         configure_cloudflare_tunnel "$runtime_dir"
+    fi
+    predownload_model_if_needed
+    if [[ "${HF_HUB_OFFLINE:-}" == "1" ]]; then
+        set_env_kv "$env_file" HF_HUB_OFFLINE "1"
     fi
 
     local quickstart_args=(
