@@ -544,7 +544,7 @@ main() {
         --with-site-proxy
         --skip-vdb-extras
         --pip-timeout
-        "${FACULTY_TWIN_PIP_TIMEOUT_SECONDS:-900}"
+        "${FACULTY_TWIN_PIP_TIMEOUT_SECONDS:-3600}"
     )
     if [[ "$accelerator" == "nvidia" ]]; then
         quickstart_args+=(--with-nvidia-vllm-engine)
