@@ -161,6 +161,10 @@ def test_knowledge_store_backfills_metadata_for_legacy_records(tmp_path: Path) -
 def test_knowledge_store_supports_sagevdb_backend(tmp_path: Path) -> None:
     if find_spec("sagevdb") is None:
         pytest.skip("sagevdb is not installed in this environment")
+    try:
+        from sagevdb import DatabaseConfig  # noqa: F401
+    except ImportError:
+        pytest.skip("installed sagevdb package does not expose the required API")
 
     settings = AppSettings(
         knowledge_base_dir=tmp_path,

@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from sage_faculty_twin.config import AppSettings
+from sage_faculty_twin.config import AppSettings, DEFAULT_RUNTIME_SEED_DATA_DIR
 
 
 def test_runtime_dir_supplies_mutable_store_defaults(tmp_path: Path, monkeypatch) -> None:
@@ -16,7 +16,7 @@ def test_runtime_dir_supplies_mutable_store_defaults(tmp_path: Path, monkeypatch
     assert settings.changelog_path == tmp_path / "data/changelog.json"
     assert (
         settings.workflow_scenario_path
-        == tmp_path / "data/workflow_scenarios/v3_preview_scenarios.json"
+        == DEFAULT_RUNTIME_SEED_DATA_DIR / "workflow_scenarios/v3_preview_scenarios.json"
     )
     assert (
         settings.installed_skill_prompt_path

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -36,7 +36,7 @@ def test_generate_lucky_question_includes_onboarding_step_in_prompt() -> None:
     client._record_request_success = MagicMock()
     client._record_request_error = MagicMock()
 
-    result = client.generate_lucky_question_sync(
+    client.generate_lucky_question_sync(
         owner_name="张老师",
         owner_role="教授",
         visitor_profile="lab_member",
@@ -74,7 +74,7 @@ def test_generate_lucky_question_without_onboarding_step_works() -> None:
     client._record_request_success = MagicMock()
     client._record_request_error = MagicMock()
 
-    result = client.generate_lucky_question_sync(
+    client.generate_lucky_question_sync(
         owner_name="张老师",
         owner_role="教授",
         visitor_profile="general_visitor",

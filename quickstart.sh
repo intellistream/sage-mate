@@ -223,6 +223,7 @@ fail() { printf '\033[1;31m[quickstart]\033[0m %s\n' "$*" >&2; exit 1; }
 confirm() { $mode_yes && return 0; read -r -p "$1 [y/N] " ans; [[ "$ans" =~ ^[Yy]$ ]]; }
 
 source "$repo_root/tools/lib/deploy_common.sh"
+source "$repo_root/tools/lib/runtime_seed.sh"
 
 run_with_optional_timeout() {
 	if [[ "$pip_timeout_seconds" =~ ^[0-9]+$ ]] && (( pip_timeout_seconds > 0 )) && command -v timeout >/dev/null 2>&1; then
@@ -395,6 +396,7 @@ prepare_hosted_runtime_data() {
 		"$runtime_dir/data/workflow_policies" \
 		"$runtime_dir/data/workflow_scenarios"
 
+	seed_runtime_data "$repo_root" "$runtime_dir"
 	[[ -f "$runtime_dir/data/persona/style_profile.md" ]] || printf '%s\n' "# Faculty Twin style profile" > "$runtime_dir/data/persona/style_profile.md"
 	[[ -f "$runtime_dir/data/installed_skills/fixed_prompt_skills.md" ]] || printf '%s\n' "# Installed skills prompt" > "$runtime_dir/data/installed_skills/fixed_prompt_skills.md"
 	[[ -f "$runtime_dir/data/availability/current_week.json" ]] || printf '%s\n' '{"timezone":"Asia/Shanghai","slots":[]}' > "$runtime_dir/data/availability/current_week.json"
@@ -642,7 +644,12 @@ fi
 
 # Ensure required keys exist (append only if absent — never overwrite).
 env_get() {
-	env_file_get "$env_file" "$1"
+	local key="$1"
+	if [[ -n "${!key:-}" ]]; then
+		printf '%s\n' "${!key}"
+		return 0
+	fi
+	env_file_get "$env_file" "$key"
 }
 
 ensure_env_kv() {

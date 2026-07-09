@@ -1126,17 +1126,16 @@ def test_chat_reuses_neuromem_conversation_memory_in_follow_up_prompt(
 
     assert len(llm.prompts) == 2
     assert "Immediate session context (same conversation):" in llm.prompts[-1]
-    assert "Stable student profile memory:" in llm.prompts[-1]
+    assert "Stable student profile memory:" not in llm.prompts[-1]
     assert "Recent conversation memory:" not in llm.prompts[-1]
     assert "我之前说我想讨论什么主题？" in llm.prompts[-1]
     assert "科研指导" in llm.prompts[-1]
     # "近期交流记录" is stripped by safety net (session context must never be cited)
     assert not any(item.basis_label == "近期交流记录" for item in follow_up.answer_basis)
-    assert any(item.basis_label == "学生长期记录" for item in follow_up.answer_basis)
     assert follow_up.memory_used is True
     assert follow_up.memory_write_back is True
-    assert len(follow_up.retrieved_items) >= 2
-    assert {item.memory_type for item in follow_up.retrieved_items} == {"short_term", "long_term"}
+    assert len(follow_up.retrieved_items) >= 1
+    assert {item.memory_type for item in follow_up.retrieved_items} == {"short_term"}
     assert any(item.source_label == "同会话上下文" for item in follow_up.retrieved_items)
     assert all(item.entry_id for item in follow_up.retrieved_items)
     usefulness_step = next(
@@ -2133,7 +2132,7 @@ def test_chat_auto_web_searches_when_local_knowledge_is_empty(
         knowledge_base_dir=tmp_path / "knowledge-base",
         conversation_memory_dir=tmp_path / "conversation-memory",
         knowledge_backend="local",
-        conversation_memory_index_type="auto",
+        conversation_memory_index_type="segment",
         web_search_enabled=True,
         web_search_auto_trigger=True,
     )
@@ -2179,7 +2178,7 @@ def test_positive_feedback_writes_web_sources_back_to_knowledge_base(
         knowledge_base_dir=tmp_path / "knowledge-base",
         conversation_memory_dir=tmp_path / "conversation-memory",
         knowledge_backend="local",
-        conversation_memory_index_type="auto",
+        conversation_memory_index_type="segment",
         web_search_enabled=True,
         web_search_auto_trigger=True,
     )

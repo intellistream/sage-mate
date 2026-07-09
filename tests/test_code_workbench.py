@@ -486,6 +486,7 @@ async def test_code_service_propose_calls_llm_without_modifying_files(tmp_path: 
             "app_profile": "code_assistant",
             "code_workbench_enabled": True,
             "code_workspace_roots": str(tmp_path / "project-a"),
+            "code_agent_backend": "internal",
         }
     )
     (tmp_path / "project-a").mkdir()
@@ -691,6 +692,7 @@ async def test_code_chat_propose_command_exposes_workflow_trace(tmp_path: Path) 
             "app_profile": "code_assistant",
             "code_workbench_enabled": True,
             "code_workspace_roots": str(workspace),
+            "code_agent_backend": "internal",
         }
     )
     service._code_workbench = CodeWorkbench(service._settings)

@@ -5,6 +5,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_RUNTIME_DIR = REPO_ROOT.parent / "sage-faculty-twin-runtime-private"
+DEFAULT_RUNTIME_SEED_DATA_DIR = REPO_ROOT / "release/runtime-seed/data"
 
 
 class AppSettings(BaseSettings):
@@ -119,7 +120,9 @@ class AppSettings(BaseSettings):
         "logs, account records, and mutable state should live here instead of "
         "inside the code repository.",
     )
-    owner_style_profile_path: Path = Field(default=Path("data/persona/style_profile.md"))
+    owner_style_profile_path: Path = Field(
+        default=DEFAULT_RUNTIME_SEED_DATA_DIR / "persona/style_profile.md"
+    )
     homepage_dir: Path = Field(default=REPO_ROOT / "data/homepage")
     homepage_public_url: str = Field(default="")
     booking_timezone: str = Field(default="Asia/Shanghai")
@@ -180,10 +183,12 @@ class AppSettings(BaseSettings):
     user_account_store_dir: Path = Field(default=Path("data/user_accounts"))
     slack_user_link_dir: Path = Field(default=Path("data/slack_user_links"))
     workflow_policy_path: Path = Field(
-        default=Path("data/workflow_policies/faculty-default-2026-05.json")
+        default=DEFAULT_RUNTIME_SEED_DATA_DIR
+        / "workflow_policies/faculty-default-2026-05.json"
     )
     workflow_scenario_path: Path = Field(
-        default=Path("data/workflow_scenarios/v3_preview_scenarios.json")
+        default=DEFAULT_RUNTIME_SEED_DATA_DIR
+        / "workflow_scenarios/v3_preview_scenarios.json"
     )
     planner_comparison_dir: Path | None = Field(default=None)
     planner_metrics_dir: Path | None = Field(default=None)
@@ -222,7 +227,9 @@ class AppSettings(BaseSettings):
     sagevdb_backend: str = Field(default="cpp")
     sagevdb_anns_algorithm: str = Field(default="faiss_hnsw")
     service_manager_script: Path = Field(default=REPO_ROOT / "manage.sh")
-    capability_plugin_dir: Path = Field(default=Path("data/capability_plugins"))
+    capability_plugin_dir: Path = Field(
+        default=DEFAULT_RUNTIME_SEED_DATA_DIR / "capability_plugins"
+    )
     skill_dir: Path = Field(default=Path("data/skills"))
     changelog_path: Path = Field(default=Path("data/changelog.json"))
     # --- Context Digest (rolling conversation compression) ---
@@ -332,7 +339,6 @@ class AppSettings(BaseSettings):
     def apply_runtime_dir_defaults(self) -> "AppSettings":
         runtime_root = self.runtime_dir
         defaults: dict[str, Path] = {
-            "owner_style_profile_path": runtime_root / "data/persona/style_profile.md",
             "homepage_dir": runtime_root / "data/homepage",
             "availability_schedule_path": runtime_root / "data/availability/current_week.json",
             "knowledge_base_dir": runtime_root / "data/knowledge_base",
@@ -347,11 +353,6 @@ class AppSettings(BaseSettings):
             "suggestion_board_dir": runtime_root / "data/suggestions",
             "user_account_store_dir": runtime_root / "data/user_accounts",
             "slack_user_link_dir": runtime_root / "data/slack_user_links",
-            "workflow_policy_path": runtime_root
-            / "data/workflow_policies/faculty-default-2026-05.json",
-            "workflow_scenario_path": runtime_root
-            / "data/workflow_scenarios/v3_preview_scenarios.json",
-            "capability_plugin_dir": runtime_root / "data/capability_plugins",
             "skill_dir": runtime_root / "data/skills",
             "changelog_path": runtime_root / "data/changelog.json",
             "context_digest_dir": runtime_root / "data/conversation_memory/digests",

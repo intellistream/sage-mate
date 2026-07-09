@@ -14,6 +14,10 @@
 set -euo pipefail
 
 repo_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
+if [[ -f "$repo_root/tools/lib/runtime_seed.sh" ]]; then
+    # shellcheck source=/dev/null
+    source "$repo_root/tools/lib/runtime_seed.sh"
+fi
 venv_dir="$repo_root/.venv"
 python_bin="${PYTHON_BIN:-}"
 app_port="${APP_PORT:-55601}"
@@ -471,6 +475,9 @@ mkdir -p \
     "$runtime_dir/data/workflow_policies" \
     "$runtime_dir/data/workflow_scenarios"
 
+if declare -F seed_runtime_data >/dev/null 2>&1; then
+    seed_runtime_data "$repo_root" "$runtime_dir"
+fi
 [[ -f "$runtime_dir/data/persona/style_profile.md" ]] || printf '%s\n' "# Local Sage Mate style profile" > "$runtime_dir/data/persona/style_profile.md"
 [[ -f "$runtime_dir/data/availability/current_week.json" ]] || printf '%s\n' '{"timezone":"Asia/Shanghai","slots":[]}' > "$runtime_dir/data/availability/current_week.json"
 [[ -f "$runtime_dir/data/changelog.json" ]] || printf '%s\n' '[]' > "$runtime_dir/data/changelog.json"

@@ -113,7 +113,7 @@ from .models import (
 from .history_auth import resolve_authenticated_history_email
 from .service import DigitalTwinService, build_stack_versions_payload, build_hardware_payload
 from .capability_plugins import CapabilityPluginRegistry, CapabilityPluginStatus
-from .slack_link_store import SlackUserLinkRecord, SlackUserLinkStore
+from .slack_link_store import SlackUserLinkStore
 
 
 _logger = logging.getLogger(__name__)

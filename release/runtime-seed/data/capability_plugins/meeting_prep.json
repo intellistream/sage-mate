@@ -1,0 +1,55 @@
+{
+  "plugin_id": "meeting_prep",
+  "name": "Meeting Prep Pack",
+  "description": "1-on-1 会议准备扩展包：检索团队日程、历史 blocker 和待办跟进项，生成结构化会议议程。",
+  "min_app_version": "3.3.0",
+  "enabled": true,
+  "steps": [
+    {
+      "step_id": "retrieve_team_schedule",
+      "description": "检索团队周工作安排和近期会议记录。",
+      "required_inputs": ["question", "profile_context"],
+      "produces_outputs": ["team_schedule_hits"],
+      "side_effect": "none",
+      "admin_only": false,
+      "timeout_budget_ms": 1200,
+      "retry_policy": "idempotent",
+      "trace_key": "plugin_team_schedule"
+    },
+    {
+      "step_id": "retrieve_blocker_memory",
+      "description": "检索上次会议记录的 blocker 和待解决项。",
+      "required_inputs": ["question", "session_identity", "interaction_intent"],
+      "produces_outputs": ["blocker_hits"],
+      "side_effect": "none",
+      "admin_only": false,
+      "timeout_budget_ms": 1200,
+      "retry_policy": "none",
+      "trace_key": "plugin_blocker_memory"
+    },
+    {
+      "step_id": "retrieve_follow_up_artifacts",
+      "description": "检索 follow-up action 和 artifact memory。",
+      "required_inputs": ["question", "session_identity"],
+      "produces_outputs": ["follow_up_artifact_hits"],
+      "side_effect": "none",
+      "admin_only": false,
+      "timeout_budget_ms": 1200,
+      "retry_policy": "none",
+      "trace_key": "plugin_follow_up_artifacts"
+    },
+    {
+      "step_id": "draft_meeting_agenda",
+      "description": "起草结构化会议议程草案。",
+      "required_inputs": ["question", "blocker_hits", "follow_up_artifact_hits", "profile_context"],
+      "produces_outputs": ["meeting_agenda_draft"],
+      "side_effect": "draft_write",
+      "admin_only": false,
+      "timeout_budget_ms": 1800,
+      "retry_policy": "none",
+      "trace_key": "plugin_meeting_agenda_draft"
+    }
+  ],
+  "policy_requirements": [],
+  "test_scenario_ids": []
+}

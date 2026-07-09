@@ -16,6 +16,7 @@ from sage_faculty_twin.capability_plugins import (
     load_manifest,
     validate_plugin_steps,
 )
+from sage_faculty_twin.config import DEFAULT_RUNTIME_SEED_DATA_DIR
 from sage_faculty_twin.workflow_steps import get_default_step_registry
 
 
@@ -264,7 +265,7 @@ def test_registry_empty_dir(tmp_path: Path) -> None:
 
 def test_real_course_advising_manifest_loads() -> None:
     """The shipped course_advising.json manifest must be valid."""
-    manifest_path = Path("data/capability_plugins/course_advising.json")
+    manifest_path = DEFAULT_RUNTIME_SEED_DATA_DIR / "capability_plugins/course_advising.json"
     if not manifest_path.is_file():
         pytest.skip("course_advising.json not found")
     manifest = load_manifest(manifest_path)
@@ -280,7 +281,7 @@ def test_real_course_advising_manifest_loads() -> None:
 
 def test_real_paper_feedback_manifest_loads() -> None:
     """The shipped paper_feedback.json manifest must be valid."""
-    manifest_path = Path("data/capability_plugins/paper_feedback.json")
+    manifest_path = DEFAULT_RUNTIME_SEED_DATA_DIR / "capability_plugins/paper_feedback.json"
     if not manifest_path.is_file():
         pytest.skip("paper_feedback.json not found")
     manifest = load_manifest(manifest_path)
@@ -296,7 +297,7 @@ def test_real_paper_feedback_manifest_loads() -> None:
 
 def test_real_research_mentoring_manifest_loads() -> None:
     """The shipped research_mentoring.json manifest must be valid."""
-    manifest_path = Path("data/capability_plugins/research_mentoring.json")
+    manifest_path = DEFAULT_RUNTIME_SEED_DATA_DIR / "capability_plugins/research_mentoring.json"
     if not manifest_path.is_file():
         pytest.skip("research_mentoring.json not found")
     manifest = load_manifest(manifest_path)
@@ -312,7 +313,7 @@ def test_real_research_mentoring_manifest_loads() -> None:
 
 def test_real_meeting_prep_manifest_loads() -> None:
     """The shipped meeting_prep.json manifest must be valid."""
-    manifest_path = Path("data/capability_plugins/meeting_prep.json")
+    manifest_path = DEFAULT_RUNTIME_SEED_DATA_DIR / "capability_plugins/meeting_prep.json"
     if not manifest_path.is_file():
         pytest.skip("meeting_prep.json not found")
     manifest = load_manifest(manifest_path)
@@ -328,7 +329,7 @@ def test_real_meeting_prep_manifest_loads() -> None:
 
 def test_real_thesis_review_manifest_loads() -> None:
     """The shipped thesis_review.json manifest must be valid."""
-    manifest_path = Path("data/capability_plugins/thesis_review.json")
+    manifest_path = DEFAULT_RUNTIME_SEED_DATA_DIR / "capability_plugins/thesis_review.json"
     if not manifest_path.is_file():
         pytest.skip("thesis_review.json not found")
     manifest = load_manifest(manifest_path)
@@ -348,7 +349,7 @@ def test_all_real_plugins_no_step_collisions() -> None:
     from sage_faculty_twin import __version__
 
     registry = CapabilityPluginRegistry(
-        plugin_dir=Path("data/capability_plugins"),
+        plugin_dir=DEFAULT_RUNTIME_SEED_DATA_DIR / "capability_plugins",
         current_version=__version__,
     )
     registry.load()
@@ -371,7 +372,7 @@ def test_all_real_plugins_draft_steps_have_trace_keys() -> None:
     from sage_faculty_twin import __version__
 
     registry = CapabilityPluginRegistry(
-        plugin_dir=Path("data/capability_plugins"),
+        plugin_dir=DEFAULT_RUNTIME_SEED_DATA_DIR / "capability_plugins",
         current_version=__version__,
     )
     registry.load()

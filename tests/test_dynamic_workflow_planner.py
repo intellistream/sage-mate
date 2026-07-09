@@ -404,13 +404,12 @@ def test_record_artifact_memory_is_enabled_for_explicit_archive_requests() -> No
 
 def _planner_with_plugins() -> DeterministicWorkflowPlanner:
     """Create a planner with the merged core + plugin step registry."""
-    from pathlib import Path
-
     from sage_faculty_twin import __version__
     from sage_faculty_twin.capability_plugins import CapabilityPluginRegistry
+    from sage_faculty_twin.config import DEFAULT_RUNTIME_SEED_DATA_DIR
 
     registry = CapabilityPluginRegistry(
-        plugin_dir=Path("data/capability_plugins"),
+        plugin_dir=DEFAULT_RUNTIME_SEED_DATA_DIR / "capability_plugins",
         current_version=__version__,
     )
     registry.load()

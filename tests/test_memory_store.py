@@ -22,7 +22,7 @@ def test_store_persists_neuromem_collections_without_records_or_profiles_dirs(
     settings = AppSettings(
         knowledge_base_dir=tmp_path / "knowledge",
         conversation_memory_dir=tmp_path / "conversation-memory",
-        conversation_memory_index_type="auto",
+        conversation_memory_index_type="segment",
     )
     store = NeuroMemConversationStore(settings)
 
@@ -129,7 +129,7 @@ def test_store_migrates_legacy_json_layout_once_and_removes_it(tmp_path: Path) -
     settings = AppSettings(
         knowledge_base_dir=tmp_path / "knowledge",
         conversation_memory_dir=base_dir,
-        conversation_memory_index_type="auto",
+        conversation_memory_index_type="segment",
     )
 
     store = NeuroMemConversationStore(settings)
@@ -157,7 +157,7 @@ def test_profile_upsert_replaces_existing_collection_entry(tmp_path: Path) -> No
     settings = AppSettings(
         knowledge_base_dir=tmp_path / "knowledge",
         conversation_memory_dir=tmp_path / "conversation-memory",
-        conversation_memory_index_type="auto",
+        conversation_memory_index_type="segment",
     )
     store = NeuroMemConversationStore(settings)
 
@@ -205,7 +205,7 @@ def test_store_canonicalizes_duplicate_profile_entries_on_startup(
     settings = AppSettings(
         knowledge_base_dir=tmp_path / "knowledge",
         conversation_memory_dir=tmp_path / "conversation-memory",
-        conversation_memory_index_type="auto",
+        conversation_memory_index_type="segment",
     )
     store = NeuroMemConversationStore(settings)
 
