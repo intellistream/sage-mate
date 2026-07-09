@@ -401,9 +401,9 @@ PY
 		return 0
 	fi
 
-	warn "sageVDB/SageANNS is not fully available; using neuromem/bm25 hosted defaults"
+	warn "sageVDB/SageANNS is not fully available; using neuromem/segment hosted defaults"
 	set_env_kv DIGITAL_TWIN_KNOWLEDGE_BACKEND neuromem
-	set_env_kv DIGITAL_TWIN_NEUROMEM_INDEX_TYPE bm25
+	set_env_kv DIGITAL_TWIN_NEUROMEM_INDEX_TYPE segment
 	set_env_kv DIGITAL_TWIN_CONVERSATION_MEMORY_COLLECTION_TYPE unified
 	set_env_kv DIGITAL_TWIN_CONVERSATION_MEMORY_INDEX_TYPE segment
 }

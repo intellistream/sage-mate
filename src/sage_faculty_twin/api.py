@@ -1037,7 +1037,7 @@ def _apply_local_code_config(payload: LocalCodeConfigRequest) -> LocalCodeConfig
         "DIGITAL_TWIN_CODE_AGENT_BACKEND": payload.code_agent_backend,
         "DIGITAL_TWIN_CLAUDE_HUST_CLI_PATH": (payload.claude_hust_cli_path or "").strip(),
         "DIGITAL_TWIN_KNOWLEDGE_BACKEND": "neuromem",
-        "DIGITAL_TWIN_NEUROMEM_INDEX_TYPE": "bm25",
+        "DIGITAL_TWIN_NEUROMEM_INDEX_TYPE": "segment",
         "DIGITAL_TWIN_CONVERSATION_MEMORY_COLLECTION_TYPE": "unified",
         "DIGITAL_TWIN_CONVERSATION_MEMORY_INDEX_TYPE": "segment",
         "DIGITAL_TWIN_WARM_SERVICE_ON_STARTUP": "false",
@@ -1061,7 +1061,7 @@ def _apply_local_code_config(payload: LocalCodeConfigRequest) -> LocalCodeConfig
     if payload.api_key is not None:
         settings.api_key = payload.api_key
     settings.knowledge_backend = "neuromem"
-    settings.neuromem_index_type = "bm25"
+    settings.neuromem_index_type = "segment"
     settings.conversation_memory_collection_type = "unified"
     settings.conversation_memory_index_type = "segment"
     settings.warm_service_on_startup = False

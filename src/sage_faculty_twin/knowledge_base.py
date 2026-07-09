@@ -133,12 +133,13 @@ class LocalKnowledgeStore:
         raw_index_type = (settings.neuromem_index_type or "auto").strip().lower()
         if raw_index_type == "auto":
             # Prefer faiss (dense retrieval) when sentence-transformers is available;
-            # fall back to bm25 (sparse) otherwise.
+            # fall back to segment otherwise because current neuromem builds do not
+            # always ship a bm25 index implementation.
             try:
                 import sentence_transformers  # noqa: F401
                 raw_index_type = "faiss"
             except ImportError:
-                raw_index_type = "bm25"
+                raw_index_type = "segment"
         self._neuromem_index_type = raw_index_type
         self._neuromem_embedder = None
         self._np = None
@@ -623,8 +624,12 @@ class LocalKnowledgeStore:
 
         self._neuromem_collection.add_index(
             "search",
-            "bm25",
-            {"backend": "numpy", "csc_backend": "numpy"},
+            self._neuromem_index_type,
+            (
+                {"backend": "numpy", "csc_backend": "numpy"}
+                if self._neuromem_index_type == "bm25"
+                else {}
+            ),
         )
         if self._build_neuromem_search_index_batch():
             return
