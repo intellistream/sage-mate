@@ -26,6 +26,7 @@ use_encrypted_secrets=true
 start_services=true
 with_tunnel=true
 yes=false
+hf_endpoint_explicit=false
 
 usage() {
     cat <<'EOF'
@@ -470,6 +471,11 @@ PY
     tp="${tp_override:-1}"
     max_model_len="${VLLM_NVIDIA_MAX_MODEL_LEN:-32768}"
     max_num_seqs="${VLLM_NVIDIA_MAX_NUM_SEQS:-8}"
+    if ! $hf_endpoint_explicit; then
+        export HF_ENDPOINT="${FACULTY_TWIN_FALLBACK_HF_ENDPOINT:-https://huggingface.co}"
+        set_env_kv "$env_file" HF_ENDPOINT "$HF_ENDPOINT"
+        log "using Hugging Face endpoint for fallback model: $HF_ENDPOINT"
+    fi
     set_env_kv "$env_file" DIGITAL_TWIN_MODEL_NAME "$served_model"
     set_env_kv "$env_file" VLLM_NVIDIA_MODEL "$model"
     set_env_kv "$env_file" VLLM_NVIDIA_SERVED_MODEL_NAME "$served_model"
@@ -630,6 +636,7 @@ main() {
     command -v git >/dev/null 2>&1 || fail "git is required"
     python_bin=$(detect_python) || fail "could not find Python; set PYTHON_BIN"
     export PYTHON_BIN="$python_bin"
+    [[ -n "${HF_ENDPOINT:-}" ]] && hf_endpoint_explicit=true
     export HF_ENDPOINT="${HF_ENDPOINT:-https://hf-mirror.com}"
     export HF_HUB_DISABLE_XET="${HF_HUB_DISABLE_XET:-1}"
 
@@ -648,6 +655,11 @@ main() {
         cp "$repo_dir/.env.example" "$env_file"
     fi
     apply_encrypted_release_secrets "$env_file"
+
+    if [[ "$accelerator" == "nvidia" && "$model_preset" == "qwen3-32b-awq" ]] && ! $hf_endpoint_explicit; then
+        export HF_ENDPOINT="${FACULTY_TWIN_FALLBACK_HF_ENDPOINT:-https://huggingface.co}"
+        log "using Hugging Face endpoint for Qwen3 AWQ preset: $HF_ENDPOINT"
+    fi
 
     local runtime_dir="${DIGITAL_TWIN_RUNTIME_DIR:-$repo_dir/../sage-faculty-twin-runtime-private}"
     set_env_kv "$env_file" DIGITAL_TWIN_DEPLOYMENT_MODE hosted
