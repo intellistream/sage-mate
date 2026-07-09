@@ -623,10 +623,14 @@ main() {
     fi
 
     log "installing hosted/web $accelerator stack"
+    if [[ "$model_preset" == "qwen3-next-80b-awq" ]]; then
+        log "large model selected; first start may download model shards and can take 30-60 minutes on a fresh host"
+    fi
     ./quickstart.sh "${quickstart_args[@]}"
 
     if $start_services; then
         local manage_services=(
+            --with-app
             --with-vllm-proxy
             --with-site-proxy
         )
@@ -637,7 +641,16 @@ main() {
         fi
         $with_tunnel && manage_services+=(--with-tunnel)
         ./manage.sh restart "${manage_services[@]}"
-        local verify_args=(--timeout "${FACULTY_TWIN_VERIFY_TIMEOUT_SECONDS:-900}")
+        local verify_timeout="${FACULTY_TWIN_VERIFY_TIMEOUT_SECONDS:-}"
+        if [[ -z "$verify_timeout" ]]; then
+            if [[ "$model_preset" == "qwen3-next-80b-awq" ]]; then
+                verify_timeout=3600
+            else
+                verify_timeout=900
+            fi
+        fi
+        log "waiting for hosted/web verification timeout=${verify_timeout}s"
+        local verify_args=(--timeout "$verify_timeout")
         if $with_tunnel; then
             verify_args+=(--public-url "https://$public_hostname")
         fi

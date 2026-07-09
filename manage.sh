@@ -53,7 +53,7 @@ python_bin="$PYTHON_BIN"
 usage() {
     cat <<EOF
 Usage: $0 <status|start|stop|restart|logs|install|repair-sagevdb|check-inference|verify-hosted-web|reserve-vllm-devices|configure-slack-twin> [flags]
-  Flags: --all --with-vllm-engine --with-nvidia-vllm-engine --with-vllm-proxy --with-site-proxy --with-tunnel --json
+  Flags: --all --with-app --with-vllm-engine --with-nvidia-vllm-engine --with-vllm-proxy --with-site-proxy --with-tunnel --json
   Logs:  $0 logs <app|engine|nvidia-engine|proxy|site|tunnel|model>
 EOF
 }
@@ -113,6 +113,7 @@ for arg in "$@"; do
         --json)              json_output="true" ;;
         --foreground)        foreground="true" ;;
         --all)               explicit_service_selection=true; include_app=true; include_engine=true; include_proxy=true; include_site=true; include_tunnel=true ;;
+        --with-app)          explicit_service_selection=true; include_app=true ;;
         --with-vllm-engine)  explicit_service_selection=true; include_engine=true ;;
         --with-nvidia-vllm-engine) explicit_service_selection=true; include_nvidia_engine=true ;;
         --with-vllm-proxy)   explicit_service_selection=true; include_proxy=true ;;

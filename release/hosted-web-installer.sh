@@ -276,6 +276,21 @@ has_arg() {
     return 1
 }
 
+arg_value() {
+    local needle="$1" i
+    for ((i = 0; i < ${#installer_args[@]}; i++)); do
+        if [[ "${installer_args[$i]}" == "$needle" ]]; then
+            printf '%s\n' "${installer_args[$((i + 1))]:-}"
+            return 0
+        fi
+        if [[ "${installer_args[$i]}" == "$needle="* ]]; then
+            printf '%s\n' "${installer_args[$i]#*=}"
+            return 0
+        fi
+    done
+    return 1
+}
+
 append_arg_once() {
     local arg="$1"
     has_arg "$arg" || installer_args+=("$arg")
@@ -479,7 +494,13 @@ maybe_upgrade_nvidia_driver() {
 run_hosted_web_install() {
     download_hosted_web_script
     save_state "installing-web"
-    progress 35 "Installing Faculty Twin hosted/web. This can take a while..."
+    local preset
+    preset="$(arg_value --model-preset || true)"
+    if [[ "$preset" == "qwen3-next-80b-awq" ]]; then
+        progress 35 "Installing hosted/web and preparing a large Qwen3-Next model. First start can take 30-60 minutes."
+    else
+        progress 35 "Installing Faculty Twin hosted/web. This can take a while..."
+    fi
     export FACULTY_TWIN_DIR="$repo_dir"
     FACULTY_TWIN_ENCRYPTED_SECRETS_FILE="${FACULTY_TWIN_ENCRYPTED_SECRETS_FILE:-$script_dir/secrets.env.enc}" \
         bash "$hosted_web_script" "${installer_args[@]}" >>"$log_file" 2>&1
