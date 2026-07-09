@@ -23,30 +23,22 @@ runtime_dir_explicit=false
 llm_base_url="${DIGITAL_TWIN_LLM_BASE_URL:-http://127.0.0.1:8000/v1}"
 api_key="${DIGITAL_TWIN_API_KEY:-EMPTY}"
 model_name="${DIGITAL_TWIN_MODEL_NAME:-}"
+local_model_backend="${DIGITAL_TWIN_LOCAL_MODEL_BACKEND:-auto}"
+local_model_runtime="${SAGE_MATE_INSTALL_LOCAL_MODEL_RUNTIME:-auto}"
+vllm_metal_dir="${SAGE_MATE_VLLM_METAL_DIR:-$repo_root/deps/vllm-metal-hust}"
+vllm_metal_model="${VLLM_METAL_MODEL:-}"
 code_agent_backend="${DIGITAL_TWIN_CODE_AGENT_BACKEND:-auto}"
-claude_hust_repo="${SAGE_MATE_CLAUDE_HUST_REPO:-https://github.com/vLLM-HUST/claude-code-hust.git}"
+claude_hust_repo="${SAGE_MATE_CLAUDE_HUST_REPO:-}"
 claude_hust_dir="${SAGE_MATE_CLAUDE_HUST_DIR:-$(dirname "$repo_root")/claude-code-hust}"
 claude_hust_cli_path="${DIGITAL_TWIN_CLAUDE_HUST_CLI_PATH:-}"
 skip_claude_hust=false
+skip_python_install=false
 start_app=false
 workspace_roots=()
+workspace_roots_explicit=false
 
 prefill_env="${SAGE_MATE_PREFILL_ENV:-}"
-if [[ -z "$prefill_env" ]]; then
-    for candidate in \
-        "$HOME/vllm-hust-dev-hub/.env" \
-        "$HOME/Documents/vllm-hust-dev-hub/.env" \
-        "$HOME/dev-hub/.env" \
-        "$HOME/Documents/dev-hub/.env" \
-        "$HOME/Documents/sage-faculty-twin-runtime-private/deployment/vllm-hust-cloudflare.env" \
-        "$HOME/qixin-gaoke-sage-faculty-twin-runtime-private/deployment/vllm-hust-cloudflare.env" \
-        "$HOME/Documents/qixin-gaoke-sage-faculty-twin-runtime-private/deployment/vllm-hust-cloudflare.env"; do
-        if [[ -f "$candidate" ]]; then
-            prefill_env="$candidate"
-            break
-        fi
-    done
-fi
+prefill_env_explicit=false
 llm_base_url_explicit=false
 api_key_explicit=false
 model_name_explicit=false
@@ -67,15 +59,22 @@ Flags:
   --llm-base-url URL      OpenAI-compatible /v1 endpoint.
   --api-key KEY           API key for the LLM endpoint. Defaults to EMPTY.
   --model-name NAME       Model name sent to the LLM endpoint.
+  --local-model-backend NAME
+                          auto, none, or vllm_metal. auto uses vllm_metal on Apple Silicon.
+  --skip-local-model-runtime
+                          Do not install the selected local model runtime.
+  --vllm-metal-dir PATH   Bundled/source vllm-metal-hust checkout.
+  --vllm-metal-model NAME Default Apple GPU model. Defaults to a small MLX checkpoint.
   --prefill-env PATH      Read default LLM URL/API key/model from this env file.
   --code-backend NAME     auto, internal, or claude_hust. Defaults to auto.
-  --claude-hust-repo URL  Git URL for the local claude-code-hust dependency.
+  --claude-hust-repo URL  Optional developer fallback; clone only when explicitly set.
   --claude-hust-dir PATH  Sibling checkout for claude-code-hust. Defaults to ../claude-code-hust.
   --skip-claude-hust      Do not auto-install claude-code-hust.
+  --skip-python-install   Reuse an existing virtualenv and only refresh local config.
   --port PORT             Local app port. Defaults to 55601.
   --python PATH           Python 3.11+ interpreter used to create the venv.
   --venv PATH             Virtualenv directory. Defaults to .venv.
-  --start                 Start the local web app after installation.
+  --start                 Start the local Sage Mate web service after installation.
   -h, --help              Show this help.
 EOF
 }
@@ -85,14 +84,19 @@ while [[ $# -gt 0 ]]; do
         --workspace)
             [[ $# -ge 2 ]] || fail "--workspace requires a path"
             workspace_roots+=("$2")
+            workspace_roots_explicit=true
             shift 2
             ;;
         --workspace-roots)
             [[ $# -ge 2 ]] || fail "--workspace-roots requires a comma-separated value"
-            IFS=',' read -r -a _roots <<< "$2"
-            for root in "${_roots[@]}"; do
-                [[ -n "${root// }" ]] && workspace_roots+=("$root")
-            done
+            workspace_roots_explicit=true
+            _roots=()
+            if [[ -n "$2" ]]; then
+                IFS=',' read -r -a _roots <<< "$2"
+                for root in "${_roots[@]}"; do
+                    [[ -n "${root// }" ]] && workspace_roots+=("$root")
+                done
+            fi
             shift 2
             ;;
         --profile)
@@ -124,6 +128,25 @@ while [[ $# -gt 0 ]]; do
             model_name_explicit=true
             shift 2
             ;;
+        --local-model-backend)
+            [[ $# -ge 2 ]] || fail "--local-model-backend requires a value"
+            local_model_backend="$2"
+            shift 2
+            ;;
+        --skip-local-model-runtime)
+            local_model_runtime="skip"
+            shift
+            ;;
+        --vllm-metal-dir)
+            [[ $# -ge 2 ]] || fail "--vllm-metal-dir requires a path"
+            vllm_metal_dir="${2/#\~/$HOME}"
+            shift 2
+            ;;
+        --vllm-metal-model)
+            [[ $# -ge 2 ]] || fail "--vllm-metal-model requires a value"
+            vllm_metal_model="$2"
+            shift 2
+            ;;
         --code-backend)
             [[ $# -ge 2 ]] || fail "--code-backend requires a value"
             code_agent_backend="$2"
@@ -143,9 +166,14 @@ while [[ $# -gt 0 ]]; do
             skip_claude_hust=true
             shift
             ;;
+        --skip-python-install)
+            skip_python_install=true
+            shift
+            ;;
         --prefill-env)
             [[ $# -ge 2 ]] || fail "--prefill-env requires a path"
             prefill_env="${2/#\~/$HOME}"
+            prefill_env_explicit=true
             shift 2
             ;;
         --port)
@@ -186,6 +214,10 @@ case "$code_agent_backend" in
     auto|internal|claude_hust) ;;
     *) fail "--code-backend must be one of: auto, internal, claude_hust" ;;
 esac
+case "$local_model_backend" in
+    auto|none|vllm_metal) ;;
+    *) fail "--local-model-backend must be one of: auto, none, vllm_metal" ;;
+esac
 
 if [[ -n "$prefill_env" && -f "$prefill_env" ]]; then
     set -a
@@ -201,7 +233,44 @@ if [[ -n "$prefill_env" && -f "$prefill_env" ]]; then
     if ! $model_name_explicit; then
         model_name="${DIGITAL_TWIN_MODEL_NAME:-${VLLM_HUST_MODEL:-$model_name}}"
     fi
-    log "Using local model prefill: $prefill_env"
+    if $prefill_env_explicit; then
+        log "Using explicit model prefill: $prefill_env"
+    else
+        log "Using model prefill from SAGE_MATE_PREFILL_ENV: $prefill_env"
+    fi
+fi
+
+is_apple_silicon() {
+    [[ "$(uname -s)" == "Darwin" && "$(uname -m)" == "arm64" ]]
+}
+
+resolved_local_model_backend="none"
+existing_llm_user_configured=false
+if [[ "${DIGITAL_TWIN_LLM_USER_CONFIGURED:-}" == "true" ]]; then
+    existing_llm_user_configured=true
+elif [[ -f "$repo_root/.env" ]] && grep -q '^DIGITAL_TWIN_LLM_USER_CONFIGURED=true$' "$repo_root/.env"; then
+    existing_llm_user_configured=true
+elif [[ -n "${DIGITAL_TWIN_LLM_BASE_URL:-}" && "${DIGITAL_TWIN_LLM_BASE_URL:-}" != "http://127.0.0.1:8000/v1" ]]; then
+    existing_llm_user_configured=true
+elif [[ -n "${DIGITAL_TWIN_API_KEY:-}" && "${DIGITAL_TWIN_API_KEY:-}" != "EMPTY" ]]; then
+    existing_llm_user_configured=true
+fi
+if [[ "$local_model_backend" == "vllm_metal" ]]; then
+    is_apple_silicon || fail "vllm_metal requires macOS on Apple Silicon arm64."
+    resolved_local_model_backend="vllm_metal"
+elif [[ "$local_model_backend" == "auto" ]] && is_apple_silicon && ! $llm_base_url_explicit && ! $api_key_explicit && [[ -z "$prefill_env" ]] && ! $existing_llm_user_configured; then
+    resolved_local_model_backend="vllm_metal"
+fi
+
+if [[ "$resolved_local_model_backend" == "vllm_metal" ]]; then
+    llm_base_url="http://127.0.0.1:${VLLM_METAL_PORT:-8000}/v1"
+    api_key="EMPTY"
+    if [[ -z "$vllm_metal_model" ]]; then
+        vllm_metal_model="${model_name:-mlx-community/gemma-3-1b-it-qat-4bit}"
+    fi
+    if [[ -z "$model_name" ]]; then
+        model_name="$vllm_metal_model"
+    fi
 fi
 
 discover_existing_runtime_dir() {
@@ -238,6 +307,12 @@ github_clone_url() {
 }
 
 ensure_bun() {
+    local bundled_bun
+    bundled_bun="$(dirname "$claude_hust_dir")/bin/bun"
+    if [[ -x "$bundled_bun" ]]; then
+        printf '%s\n' "$bundled_bun"
+        return 0
+    fi
     if command -v bun >/dev/null 2>&1; then
         command -v bun
         return 0
@@ -268,9 +343,13 @@ install_claude_hust() {
         return 0
     fi
 
-    command -v git >/dev/null 2>&1 || return 1
     mkdir -p "$(dirname "$claude_hust_dir")"
     if [[ ! -d "$claude_hust_dir" ]]; then
+        if [[ -z "$claude_hust_repo" ]]; then
+            warn "Bundled claude-code-hust was not found at $claude_hust_dir"
+            return 1
+        fi
+        command -v git >/dev/null 2>&1 || return 1
         log "Cloning sibling claude-code-hust into: $claude_hust_dir"
         local clone_url
         clone_url=$(github_clone_url "$claude_hust_repo")
@@ -399,14 +478,26 @@ mkdir -p \
 [[ -f "$runtime_dir/data/workflow_scenarios/v3_preview_scenarios.json" ]] || printf '%s\n' '[]' > "$runtime_dir/data/workflow_scenarios/v3_preview_scenarios.json"
 
 log "Creating virtualenv: $venv_dir"
-"$python_bin" -m venv "$venv_dir"
 venv_python="$venv_dir/bin/python"
+if $skip_python_install; then
+    [[ -x "$venv_python" ]] || fail "--skip-python-install requires an existing virtualenv at $venv_dir"
+    log "Reusing existing virtualenv: $venv_dir"
+else
+    "$python_bin" -m venv "$venv_dir"
 
-log "Installing sage-faculty-twin into the virtualenv"
-"$venv_python" -m pip install --quiet --upgrade pip
-if ! "$venv_python" -m pip install --quiet -e "$repo_root[vdb-anns]"; then
-    warn "vdb-anns extras failed; falling back to base install."
-    "$venv_python" -m pip install --quiet -e "$repo_root"
+    log "Installing sage-faculty-twin into the virtualenv"
+    "$venv_python" -m pip install --quiet --upgrade pip
+    if ! "$venv_python" -m pip install --quiet -e "$repo_root[vdb-anns]"; then
+        warn "vdb-anns extras failed; falling back to base install."
+        "$venv_python" -m pip install --quiet -e "$repo_root"
+    fi
+fi
+
+if [[ "$resolved_local_model_backend" == "vllm_metal" && "$local_model_runtime" != "skip" ]]; then
+    log "Installing local Apple GPU model runtime from vllm-metal-hust"
+    "$repo_root/tools/install_vllm_metal_runtime.sh" --source-dir "$vllm_metal_dir"
+elif [[ "$resolved_local_model_backend" == "vllm_metal" ]]; then
+    log "Skipping vllm-metal-hust runtime install by request"
 fi
 
 resolved_code_agent_backend="internal"
@@ -438,12 +529,21 @@ if [[ ! -f "$env_file" ]]; then
 fi
 
 log "Writing local-code configuration: $env_file"
+llm_user_configured=false
+if $llm_base_url_explicit || $api_key_explicit || $model_name_explicit || [[ -n "$prefill_env" ]]; then
+    llm_user_configured=true
+fi
 export INSTALL_APP_PROFILE="$app_profile"
 export INSTALL_CODE_WORKSPACE_ROOTS="$workspace_csv"
+export INSTALL_CODE_WORKSPACE_ROOTS_EXPLICIT="$workspace_roots_explicit"
 export INSTALL_RUNTIME_DIR="$runtime_dir"
 export INSTALL_LLM_BASE_URL="$llm_base_url"
 export INSTALL_API_KEY="$api_key"
 export INSTALL_MODEL_NAME="$model_name"
+export INSTALL_LLM_USER_CONFIGURED="$llm_user_configured"
+export INSTALL_LOCAL_MODEL_BACKEND="$resolved_local_model_backend"
+export INSTALL_VLLM_METAL_DIR="$vllm_metal_dir"
+export INSTALL_VLLM_METAL_MODEL="$vllm_metal_model"
 export INSTALL_CODE_AGENT_BACKEND="$resolved_code_agent_backend"
 export INSTALL_CLAUDE_HUST_CLI_PATH="$claude_hust_cli_path"
 "$venv_python" - "$env_file" <<'PY'
@@ -460,11 +560,6 @@ updates = {
     "DIGITAL_TWIN_CODE_WORKBENCH_ENABLED": (
         "true" if os.environ["INSTALL_APP_PROFILE"] == "code_assistant" else "false"
     ),
-    "DIGITAL_TWIN_CODE_WORKSPACE_ROOTS": (
-        os.environ["INSTALL_CODE_WORKSPACE_ROOTS"]
-        if os.environ["INSTALL_APP_PROFILE"] == "code_assistant"
-        else ""
-    ),
     "DIGITAL_TWIN_CODE_AGENT_BACKEND": os.environ["INSTALL_CODE_AGENT_BACKEND"],
     "DIGITAL_TWIN_CLAUDE_HUST_CLI_PATH": os.environ["INSTALL_CLAUDE_HUST_CLI_PATH"],
     "DIGITAL_TWIN_RUNTIME_DIR": os.environ["INSTALL_RUNTIME_DIR"],
@@ -479,6 +574,14 @@ updates = {
     "DIGITAL_TWIN_WORKFLOW_SCENARIO_PATH": str(Path(os.environ["INSTALL_RUNTIME_DIR"]) / "data/workflow_scenarios/v3_preview_scenarios.json"),
     "DIGITAL_TWIN_LLM_BASE_URL": os.environ["INSTALL_LLM_BASE_URL"],
     "DIGITAL_TWIN_API_KEY": os.environ["INSTALL_API_KEY"],
+    "DIGITAL_TWIN_LLM_USER_CONFIGURED": os.environ["INSTALL_LLM_USER_CONFIGURED"],
+    "DIGITAL_TWIN_LOCAL_MODEL_BACKEND": os.environ["INSTALL_LOCAL_MODEL_BACKEND"],
+    "SAGE_MATE_VLLM_METAL_DIR": os.environ["INSTALL_VLLM_METAL_DIR"],
+    "VLLM_METAL_MODEL": os.environ["INSTALL_VLLM_METAL_MODEL"],
+    "VLLM_METAL_HOST": "127.0.0.1",
+    "VLLM_METAL_PORT": "8000",
+    "VLLM_METAL_SERVED_MODEL_NAME": os.environ["INSTALL_MODEL_NAME"],
+    "VLLM_METAL_BUILD_FROM_SOURCE": "1",
     "DIGITAL_TWIN_KNOWLEDGE_BACKEND": "neuromem",
     "DIGITAL_TWIN_NEUROMEM_INDEX_TYPE": "segment",
     "DIGITAL_TWIN_CONVERSATION_MEMORY_COLLECTION_TYPE": "unified",
@@ -486,6 +589,15 @@ updates = {
     "DIGITAL_TWIN_STREAM_CHAT_ANSWER": "true",
     "DIGITAL_TWIN_WARM_SERVICE_ON_STARTUP": "false",
 }
+if (
+    os.environ["INSTALL_CODE_WORKSPACE_ROOTS_EXPLICIT"] == "true"
+    or "DIGITAL_TWIN_CODE_WORKSPACE_ROOTS" not in env_path.read_text(encoding="utf-8", errors="ignore")
+):
+    updates["DIGITAL_TWIN_CODE_WORKSPACE_ROOTS"] = (
+        os.environ["INSTALL_CODE_WORKSPACE_ROOTS"]
+        if os.environ["INSTALL_APP_PROFILE"] == "code_assistant"
+        else ""
+    )
 model_name = os.environ.get("INSTALL_MODEL_NAME", "").strip()
 if model_name:
     updates["DIGITAL_TWIN_MODEL_NAME"] = model_name
@@ -525,15 +637,20 @@ $(set +u; if [[ ${#resolved_roots[@]} -gt 0 ]]; then printf '  - %s\n' "${resolv
 Runtime data folder:
   $runtime_dir
 
+Local model backend:
+  $resolved_local_model_backend
+$(if [[ "$resolved_local_model_backend" == "vllm_metal" ]]; then printf '  model: %s\n  endpoint: %s\n' "$model_name" "$llm_base_url"; fi)
+
 Code backend:
   $resolved_code_agent_backend
 $(if [[ "$resolved_code_agent_backend" == "claude_hust" ]]; then printf '  %s\n' "$claude_hust_cli_path"; else printf '  internal propose-only harness\n'; fi)
 $(if [[ "$resolved_code_agent_backend" == "claude_hust" ]]; then printf 'Sibling dependency:\n  %s\n' "$claude_hust_dir"; fi)
 
-Run it with:
-  PYTHON_BIN="$venv_python" APP_PORT="$app_port" tools/run_app_server.sh
+Run the local service with:
+  PYTHON_BIN="$venv_python" APP_PORT="$app_port" tools/run_local_code_services.sh
+$(if [[ "$resolved_local_model_backend" == "vllm_metal" ]]; then printf '\nStart the local Apple GPU model engine with:\n  tools/run_vllm_metal_engine.sh\n'; fi)
 
-Then open:
+Browser/debug entry:
   http://127.0.0.1:$app_port/
 
 Try in chat:
@@ -542,11 +659,11 @@ Try in chat:
 EOF
 
 if $start_app; then
-    log "Starting local app on http://127.0.0.1:$app_port/"
+    log "Starting local Sage Mate service on http://127.0.0.1:$app_port/"
     if command -v open >/dev/null 2>&1; then
         (sleep 8; open "http://127.0.0.1:$app_port/?setup=local-code") >/dev/null 2>&1 &
     fi
     export PYTHON_BIN="$venv_python"
     export APP_PORT="$app_port"
-    exec "$repo_root/tools/run_app_server.sh"
+    exec "$repo_root/tools/run_local_code_services.sh"
 fi

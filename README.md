@@ -30,9 +30,17 @@ faculty-twin/tools/run_vllm_engine.sh
   -> /workspace mounted from faculty-twin/deps
 ```
 
-## 本地 Sage Mate sibling 布局
+## 本地 Sage Mate 代码后端布局
 
-本地代码编程版会把 `claude-code-hust` 作为同级依赖仓库管理，默认布局如下：
+macOS DMG 会随包携带 `claude-code-hust` 和所需的本地 Bun 运行时。用户双击
+`Sage Mate.app` 后，应用会把它同步到：
+
+```text
+~/Library/Application Support/Sage Mate/claude-code-hust/
+~/Library/Application Support/Sage Mate/bin/bun
+```
+
+源码安装时仍可显式传入一个本地 `claude-code-hust` 目录，常见开发布局如下：
 
 ```text
 parent/
@@ -91,23 +99,34 @@ DIGITAL_TWIN_CODE_WORKSPACE_ROOTS=
 它会作为独立 macOS 应用启动，在应用窗口内选择 Faculty Twin 或 Code Assistant 模式，
 并完成 LLM、运行时数据目录和本地仓库 allowlist 配置。`sage-studio` 已保留给 SAGE
 画布/低代码流水线 UI，这个桌面助手命名为 Sage Mate。
-LLM URL、API key 和模型名会优先从本机 `SAGE_MATE_PREFILL_ENV` 指向的 env 文件预填；
-没有显式指定时会尝试读取 `~/vllm-hust-dev-hub/.env` 或 runtime 私有仓库中的部署 env。
-代码后端默认使用内置 propose-only harness；本地安装也可以在设置里切到 sibling
-`claude-code-hust` 的 `claude-hust` CLI 后端。选择 Code Assistant 模式时，
-本地安装器会尝试自动 clone/install `../claude-code-hust`，并把本机 `bin/claude-hust` 路径写入 Sage Mate 配置；
-服务器 hosted-web 部署不会安装或启用代码功能。
+LLM URL 默认指向本机 `http://127.0.0.1:8000/v1`，API key 默认为 `EMPTY`。Sage Mate
+不会自动读取远端 vLLM-HUST/Cloudflare env，也不会默认连接 `api.sage.org.ai`；只有用户在 UI
+里保存 URL/API key，或安装时显式传入 `SAGE_MATE_PREFILL_ENV` / `--prefill-env`，才会使用远端端点。
+Apple Silicon 上，默认本地模型后端为 `vllm-metal-hust`（我们的
+`vLLM-HUST/vllm-metal-hust` fork），安装器会使用包内/`deps/` 中的源码安装本地 MLX/Metal
+runtime，并基于随仓库固定的 `deps/vllm-hust` core 构建，不会默认下载或切换到官方 vLLM。
+运行时会把 LLM endpoint 指向 `http://127.0.0.1:8000/v1`。
+代码后端默认使用 Code Assistant profile。macOS DMG 安装会优先使用包内
+`claude-code-hust` 的 `claude-hust` CLI 后端，并把包内同步后的 CLI 路径写入
+Sage Mate 配置；`vllm-metal-hust` 会基于包内固定的 `deps/vllm-hust` core 安装；
+不会在用户机器上临时 clone 这些依赖。服务器 hosted-web 部署不会安装或启用代码功能。
 
 维护者构建 DMG：
 
 ```bash
 ./quickstart.sh --target mac-dmg
+# 如需指定打包用的 claude-code-hust checkout:
+./quickstart.sh --target mac-dmg --claude-hust-dir "$HOME/Documents/claude-code-hust"
+# 如需指定打包用的 vllm-metal-hust checkout:
+./quickstart.sh --target mac-dmg --vllm-metal-dir "$HOME/Documents/vllm-metal-hust"
 ```
 
-本机脚本化安装（不走 DMG）：
+本机脚本化安装（不走 DMG，启动的是本地服务/浏览器调试入口，不是 `.app` wrapper）：
 
 ```bash
 ./quickstart.sh --target local-mac-app --app-profile code_assistant --workspace "$HOME/my-repo" --start
+# 启动 Apple Silicon 本地模型引擎：
+tools/run_vllm_metal_engine.sh
 ```
 
 ## 启动后验证
@@ -128,6 +147,17 @@ curl -s -N http://127.0.0.1:55601/chat \
 - `DIGITAL_TWIN_API_KEY`（本地直连可用 `EMPTY`；如果启用 systemd OpenAI 代理，请换成真实密钥）
 - `DIGITAL_TWIN_MODEL_NAME`（例如 `qwen3-32b`）
 - `DIGITAL_TWIN_STREAM_CHAT_ANSWER=true`
+
+macOS Apple GPU 本地模型后端：
+
+- `DIGITAL_TWIN_LOCAL_MODEL_BACKEND=vllm_metal`
+- `SAGE_MATE_VLLM_METAL_DIR`（默认 `deps/vllm-metal-hust` 或包内同步路径）
+- `VLLM_METAL_MODEL`（默认 `mlx-community/gemma-3-1b-it-qat-4bit`）
+- `VLLM_METAL_PORT=8000`
+- `VLLM_METAL_BUILD_FROM_SOURCE=1`（source 安装默认值；用户机器只需要 Command Line Tools）
+
+正常 macOS 安装会使用随仓库/DMG 固定的 `deps/vllm-hust`。只有在维护者显式不提供
+`deps/vllm-hust` 时，`vllm-metal-hust` 安装补丁才会回退到缓存源码包或上游下载。
 
 vLLM 推理引擎配置（用于 `--with-vllm-engine`）：
 

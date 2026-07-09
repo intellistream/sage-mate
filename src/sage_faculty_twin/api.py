@@ -825,21 +825,6 @@ def _runtime_prefill_env_path() -> Path | None:
         explicit_path = Path(explicit).expanduser()
         if explicit_path.exists():
             return explicit_path
-    candidates = [
-        Path.home() / "vllm-hust-dev-hub/.env",
-        Path.home() / "Documents/vllm-hust-dev-hub/.env",
-        Path.home() / "dev-hub/.env",
-        Path.home() / "Documents/dev-hub/.env",
-        Path.home()
-        / "Documents/sage-faculty-twin-runtime-private/deployment/vllm-hust-cloudflare.env",
-        Path.home()
-        / "qixin-gaoke-sage-faculty-twin-runtime-private/deployment/vllm-hust-cloudflare.env",
-        Path.home()
-        / "Documents/qixin-gaoke-sage-faculty-twin-runtime-private/deployment/vllm-hust-cloudflare.env",
-    ]
-    for candidate in candidates:
-        if candidate.exists():
-            return candidate
     return None
 
 
@@ -963,6 +948,7 @@ def _claude_hust_cli_status(configured_path: str = "") -> dict[str, str]:
     candidates = [
         configured_path.strip(),
         shutil.which("claude-hust") or "",
+        str(Path.home() / "Library/Application Support/Sage Mate/claude-code-hust/bin/claude-hust"),
         str(Path.home() / "claude-code-hust/bin/claude-hust"),
         str(Path.home() / "Documents/claude-code-hust/bin/claude-hust"),
     ]
@@ -1034,6 +1020,7 @@ def _apply_local_code_config(payload: LocalCodeConfigRequest) -> LocalCodeConfig
         "DIGITAL_TWIN_RUNTIME_DIR": resolved_runtime,
         "DIGITAL_TWIN_LLM_BASE_URL": payload.llm_base_url.strip(),
         "DIGITAL_TWIN_MODEL_NAME": (payload.model_name or "").strip(),
+        "DIGITAL_TWIN_LLM_USER_CONFIGURED": "true",
         "DIGITAL_TWIN_CODE_AGENT_BACKEND": payload.code_agent_backend,
         "DIGITAL_TWIN_CLAUDE_HUST_CLI_PATH": (payload.claude_hust_cli_path or "").strip(),
         "DIGITAL_TWIN_KNOWLEDGE_BACKEND": "neuromem",

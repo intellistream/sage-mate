@@ -373,6 +373,7 @@ class ClaudeHustCodeAgentBackend:
         candidates = [
             configured,
             shutil.which("claude-hust") or "",
+            str(Path.home() / "Library/Application Support/Sage Mate/claude-code-hust/bin/claude-hust"),
             str(Path.home() / "claude-code-hust/bin/claude-hust"),
             str(Path.home() / "Documents/claude-code-hust/bin/claude-hust"),
         ]
@@ -387,6 +388,12 @@ class ClaudeHustCodeAgentBackend:
 
     def _env(self) -> dict[str, str]:
         env = os.environ.copy()
+        configured = self._settings.claude_hust_cli_path.strip()
+        if configured:
+            cli_path = Path(configured).expanduser()
+            support_bin = cli_path.parent.parent.parent / "bin"
+            if support_bin.is_dir():
+                env["PATH"] = str(support_bin) + os.pathsep + env.get("PATH", "")
         env["CC_HUST_SKIP_DOTENV"] = "1"
         env["PATH"] = f"{Path.home() / '.bun/bin'}:{env.get('PATH', '')}"
         env["API_TIMEOUT_MS"] = str(self._settings.claude_hust_timeout_seconds * 1000)

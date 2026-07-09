@@ -1,0 +1,36 @@
+diff --git a/csrc/cpu/utils.hpp b/csrc/cpu/utils.hpp
+index ec10a0f35..8517afba1 100644
+--- a/csrc/cpu/utils.hpp
++++ b/csrc/cpu/utils.hpp
+@@ -4,6 +4,9 @@
+ #include <atomic>
+ #include <string>
+ #include <unistd.h>
++#if defined(__APPLE__)
++#include <sys/sysctl.h>
++#endif
+ #include <ATen/cpu/Utils.h>
+ 
+ #include "cpu/cpu_types.hpp"
+@@ -59,7 +62,20 @@ struct Counter {
+ };
+ 
+ inline int64_t get_available_l2_size() {
+-#if defined(__s390x__) || defined(__powerpc__)
++#if defined(__APPLE__)
++  static int64_t size = []() {
++    uint32_t l2_cache_size = 0;
++    size_t len = sizeof(l2_cache_size);
++    if (sysctlbyname("hw.l2cachesize", &l2_cache_size, &len, nullptr, 0) != 0) {
++      l2_cache_size = 0;
++    }
++    if (l2_cache_size == 0) {
++      l2_cache_size = 256 * 1024;
++    }
++    return static_cast<int64_t>(l2_cache_size) >> 1;  // use 50% of L2 cache
++  }();
++  return size;
++#elif defined(__s390x__) || defined(__powerpc__)
+   static int64_t size = []() {
+     uint32_t l2_cache_size = 0;
+     auto caps = at::cpu::get_cpu_capabilities();

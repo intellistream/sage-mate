@@ -19,6 +19,12 @@ class AppSettings(BaseSettings):
     owner_role: str = Field(default="华中科技大学计算机学院教师")
     model_name: str = Field(default="")
     llm_base_url: str = Field(default="http://127.0.0.1:8000/v1")
+    local_model_backend: str = Field(
+        default="none",
+        pattern="^(none|vllm_metal)$",
+        description="Local model runtime selected by Sage Mate installers. "
+        "Remote endpoints should only be used when the user explicitly configures them.",
+    )
     vllm_metrics_url: str = Field(
         default="",
         description="Optional authenticated vLLM Prometheus metrics URL. "

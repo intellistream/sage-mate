@@ -124,7 +124,9 @@ Code Assistant 首页支持：
 - `--claude-hust-dir`
 - `--skip-claude-hust`
 
-默认 profile 是 `code_assistant`，默认 backend 是 `auto`。当 profile 为 `code_assistant` 且未跳过 claude-hust 时，脚本会尝试安装 sibling `claude-code-hust`，用 Bun 安装依赖，成功后写入：
+默认 profile 是 `code_assistant`，默认 backend 是 `auto`。macOS DMG 会随包携带
+`claude-code-hust` 和 Bun；当 profile 为 `code_assistant` 且未跳过 claude-hust 时，脚本会优先使用包内同步出的
+`claude-code-hust` 或显式传入的 `--claude-hust-dir`，成功后写入：
 
 - `DIGITAL_TWIN_CODE_AGENT_BACKEND=claude_hust`
 - `DIGITAL_TWIN_CLAUDE_HUST_CLI_PATH=<...>/bin/claude-hust`
@@ -275,7 +277,7 @@ local_code 模式下应该允许的能力是“用户本机、用户显式授权
 - 运行受限、默认只读的 inspection command。
 - 使用 internal backend 做代码问答和 propose-only diff。
 - 使用 claude_hust backend 在临时 workspace 副本中做代码问答和 propose-only diff。
-- 允许远程 LLM endpoint 做推理，但不应让 hosted Sage Mate server 接触 repo。
+- 允许用户显式配置远程 LLM endpoint 做推理，但默认安装必须指向本机 endpoint，且不应让 hosted Sage Mate server 接触 repo。
 - 前端允许 Code Assistant profile 的自然语言问题自动转换为 `/code ask`。
 - 前端允许用户显式触发 `/code propose` 并审阅 diff、风险和建议测试。
 
@@ -383,13 +385,15 @@ internal backend 与 claude_hust backend 都应返回 `CodeWorkbench.build_*_pro
 
 - 如果产品目标是让 Code Assistant 优先使用 claude_hust，可在 setup modal 中显示当前 backend 状态，或提供“高级设置”链接。
 
-### 6.8 安装脚本会自动 clone 并安装 claude-code-hust
+### 6.8 安装脚本不应默认 clone claude-code-hust
 
-`install_local_code_mode.sh` 在 `code_assistant` + backend `auto` 下会尝试 clone `https://github.com/vLLM-HUST/claude-code-hust.git` 并运行 `bun install`。这符合当前文档，但有供应链和授权边界风险。
+`install_local_code_mode.sh` 在 `code_assistant` + backend `auto` 下应使用 DMG 内置或用户显式提供的
+`claude-code-hust`。只有开发者显式传入 `--claude-hust-repo` 时才允许 clone。
 
 风险：
 
-- 自动 clone 和 dependency install 会执行网络下载。
+- 默认安装路径不能依赖 GitHub 可达性，也不能在用户机器上临时下载代码依赖。
+- 显式 `--claude-hust-repo` 仍会执行网络下载，应只用于开发/内部调试。
 - `docs/local-code-mode.md` 已记录 claude-code-hust 来源与许可边界敏感性；需要确保分发和安装提示足够明确。
 
 建议：

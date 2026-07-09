@@ -17,6 +17,7 @@
 #   --all                Include all optional services
 #   --with-vllm-engine   Ascend vLLM-HUST inference engine
 #   --with-nvidia-vllm-engine  NVIDIA/CUDA vLLM inference engine
+#   --with-vllm-metal-engine  Apple Silicon vLLM Metal inference engine
 #   --with-vllm-proxy    OpenAI-compatible auth proxy
 #   --with-site-proxy    Local nginx/python site proxy
 #   --with-tunnel        Cloudflare tunnel
@@ -53,8 +54,8 @@ python_bin="$PYTHON_BIN"
 usage() {
     cat <<EOF
 Usage: $0 <status|start|stop|restart|logs|install|repair-sagevdb|check-inference|verify-hosted-web|reserve-vllm-devices|configure-slack-twin> [flags]
-  Flags: --all --with-app --with-vllm-engine --with-nvidia-vllm-engine --with-vllm-proxy --with-site-proxy --with-tunnel --json
-  Logs:  $0 logs <app|engine|nvidia-engine|proxy|site|tunnel|model>
+  Flags: --all --with-app --with-vllm-engine --with-nvidia-vllm-engine --with-vllm-metal-engine --with-vllm-proxy --with-site-proxy --with-tunnel --json
+  Logs:  $0 logs <app|engine|nvidia-engine|metal-engine|proxy|site|tunnel|model>
 EOF
 }
 
@@ -101,6 +102,7 @@ json_output="false"
 foreground="false"
 include_engine=false
 include_nvidia_engine=false
+include_metal_engine=false
 include_proxy=false
 include_site=false
 include_tunnel=false
@@ -116,6 +118,7 @@ for arg in "$@"; do
         --with-app)          explicit_service_selection=true; include_app=true ;;
         --with-vllm-engine)  explicit_service_selection=true; include_engine=true ;;
         --with-nvidia-vllm-engine) explicit_service_selection=true; include_nvidia_engine=true ;;
+        --with-vllm-metal-engine) explicit_service_selection=true; include_metal_engine=true; include_model=true ;;
         --with-vllm-proxy)   explicit_service_selection=true; include_proxy=true ;;
         --with-site-proxy)   explicit_service_selection=true; include_site=true ;;
         --with-tunnel)       explicit_service_selection=true; include_tunnel=true ;;
@@ -147,6 +150,7 @@ if [[ "$action" == "logs" ]]; then
         app)     unit="sage-faculty-twin-app.service" ;;
         engine)  unit="sage-faculty-twin-vllm-engine.service" ;;
         nvidia-engine|nvidia) unit="sage-faculty-twin-vllm-nvidia-engine.service" ;;
+        metal-engine|metal) echo "Metal engine runs outside systemd - logs are in the terminal running tools/run_vllm_metal_engine.sh"; exit 0 ;;
         proxy)   unit="sage-faculty-twin-vllm-openai-proxy.service" ;;
         site)    unit="sage-faculty-twin-site.service" ;;
         tunnel)  unit="sage-faculty-twin-tunnel.service" ;;
@@ -162,6 +166,9 @@ if [[ "$action" == "start" ]] && $include_model; then
         echo "[manage] Launching vLLM engine in foreground..."
         if $include_nvidia_engine; then
             exec "$repo_root/tools/run_vllm_nvidia_engine.sh"
+        fi
+        if $include_metal_engine; then
+            exec "$repo_root/tools/run_vllm_metal_engine.sh"
         fi
         exec "$repo_root/tools/run_vllm_engine.sh"
     fi

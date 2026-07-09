@@ -8,8 +8,8 @@ Faculty Twin still has two deployment profiles:
 - `hosted`: multi-user server mode for chat, scheduling, knowledge, and voice. It must not read,
   clone, store, or execute user repositories.
 - `local_code`: user-installed mode where the Faculty Twin harness runs on the user's own machine
-  next to their code, while the LLM endpoint may still be a remote vLLM-HUST/OpenAI-compatible
-  service.
+  next to their code. The default model endpoint is local-only; users may explicitly configure a
+  remote OpenAI-compatible endpoint if they want one.
 
 ## Recommended Architecture
 
@@ -21,16 +21,18 @@ User machine
     - code tools
     - local workspace allowlist
     - local command execution
+  Local OpenAI-compatible model endpoint
+    - default URL: http://127.0.0.1:8000/v1
+    - preferred runtime: local vLLM-HUST when supported by the host
 
-Remote server
-  vLLM-HUST / OpenAI-compatible endpoint
-    - model inference only
-    - no user repository storage
-    - no user command execution
+Optional user-provided endpoint
+  Remote vLLM-HUST / OpenAI-compatible service
+    - used only after the user explicitly saves URL/API key or passes --prefill-env
 ```
 
 This keeps the harness close to the code and avoids routing local file and command operations
-through a hosted Faculty Twin server.
+through a hosted Faculty Twin server. The app must not auto-discover or auto-connect to a hosted
+vLLM-HUST service.
 
 ## Configuration
 
@@ -55,11 +57,15 @@ The app-level profile is:
 The important first-run settings in the UI are:
 
 - LLM endpoint: `DIGITAL_TWIN_LLM_BASE_URL`, `DIGITAL_TWIN_API_KEY`, and optionally
-  `DIGITAL_TWIN_MODEL_NAME`. This can point at a vLLM-HUST/OpenAI-compatible server.
-  The local app pre-fills these fields from `SAGE_MATE_PREFILL_ENV` when set, otherwise from common
-  local checkouts such as `~/vllm-hust-dev-hub/.env` or the private runtime repository's
-  `deployment/vllm-hust-cloudflare.env`. The values are shown only in the local setup UI and are
-  persisted back to the app's local `.env` after the user saves.
+  `DIGITAL_TWIN_MODEL_NAME`. Defaults are local-only: `http://127.0.0.1:8000/v1` and `EMPTY`.
+  The local app does not scan runtime-private Cloudflare/vLLM env files. It reads model defaults
+  only from an explicit `SAGE_MATE_PREFILL_ENV` or `--prefill-env`, and remote URLs are used only
+  after the user intentionally saves them.
+- Local Apple GPU runtime: on Apple Silicon, `--local-model-backend auto` resolves to
+  `vllm_metal` when no explicit remote LLM endpoint is supplied. The runtime comes from the
+  `vLLM-HUST/vllm-metal-hust` fork and is bundled in the DMG as `vllm-metal-hust` source, then
+  synced into `~/Library/Application Support/Sage Mate/vllm-metal-hust`. Its vLLM core is the
+  pinned local `deps/vllm-hust` checkout, not the official upstream vLLM release.
 - Runtime data: `DIGITAL_TWIN_RUNTIME_DIR`. On first install, Sage Mate first looks for an existing
   private runtime-data checkout such as `~/Documents/sage-faculty-twin-runtime-private` or
   `~/Documents/qixin-gaoke-sage-faculty-twin-runtime-private` and uses it automatically. Only when no
@@ -74,9 +80,12 @@ To build a DMG package for other Mac users:
 ```
 
 Share `dist/sage-mate-macos.dmg`; the recipient opens it and double-clicks `Sage Mate.app`.
+The DMG includes `claude-code-hust`, `vllm-metal-hust`, and the pinned `deps/vllm-hust` core so
+first launch does not clone those repositories on the user's Mac.
 Pass `--zip` only if you also need a zip fallback.
 
-For scripted installs:
+For scripted installs, this starts the local service/browser debug entry. The native
+`Sage Mate.app` wrapper is produced by the `mac-dmg` target.
 
 ```bash
 ./quickstart.sh --target local-mac-app \
@@ -89,6 +98,23 @@ For scripted installs:
   --model-name "qwen3-32b"
 ```
 
+For local Apple GPU inference without a remote endpoint:
+
+```bash
+./quickstart.sh --target local-mac-app \
+  --app-profile code_assistant \
+  --workspace "$HOME/my-repo" \
+  --local-model-backend vllm_metal \
+  --vllm-metal-model "mlx-community/gemma-3-1b-it-qat-4bit"
+
+tools/run_vllm_metal_engine.sh
+```
+
+`tools/install_vllm_metal_runtime.sh` applies Sage Mate's installer patch so the bundled
+`vllm-metal-hust` source installs on top of the pinned local `deps/vllm-hust` core. A cached
+upstream source tarball is only a maintainer fallback when `deps/vllm-hust` is intentionally not
+available.
+
 Manual environment equivalent:
 
 ```bash
@@ -99,23 +125,25 @@ export DIGITAL_TWIN_CODE_WORKSPACE_ROOTS="$HOME/my-repo,$HOME/another-repo"
 export DIGITAL_TWIN_RUNTIME_DIR="$HOME/Library/Application Support/Sage Mate/runtime"
 export DIGITAL_TWIN_LLM_BASE_URL="https://your-vllm-hust.example/v1"
 export DIGITAL_TWIN_API_KEY="..."
+export DIGITAL_TWIN_LOCAL_MODEL_BACKEND=none
 ```
 
 In hosted deployments, code tools remain disabled even if workspace paths are configured.
 
 ### Optional Claude Code Hust Backend
 
-Sage Mate's default code backend is `internal`: a small Python/FastAPI local harness with
-propose-only behavior. Local macOS installs now try to install `claude-code-hust` automatically
-when the selected profile is `code_assistant`. If that succeeds, the installer writes
-the local `bin/claude-hust` path into `.env` and switches Sage Mate to the external CLI adapter:
+Sage Mate's fallback code backend is `internal`: a small Python/FastAPI local harness with
+propose-only behavior. The macOS DMG bundles `claude-code-hust` as an app resource and syncs it into
+`~/Library/Application Support/Sage Mate/claude-code-hust` on launch. Code Assistant installs then
+write that bundled `bin/claude-hust` path into `.env` and use the external CLI adapter without
+cloning anything on the user's Mac:
 
 ```bash
 ./quickstart.sh --target local-mac-app --app-profile code_assistant --workspace "$HOME/my-repo"
 ```
 
-The checkout is managed as a Sage Mate sibling repository, matching the existing source-checkout
-pattern used by `SAGE`, `neuromem`, and `sageVDB`:
+For source/developer installs, the dependency can still be supplied as a sibling directory, matching
+the existing source-checkout pattern used by `SAGE`, `neuromem`, and `sageVDB`:
 
 ```text
 parent/
@@ -126,9 +154,9 @@ parent/
   claude-code-hust/
 ```
 
-When `FACULTY_TWIN_PARENT_DIR` is set, `quickstart.sh --target local-mac-app` places the sibling at
+When `FACULTY_TWIN_PARENT_DIR` is set, `quickstart.sh --target local-mac-app` looks for the sibling at
 `$FACULTY_TWIN_PARENT_DIR/claude-code-hust`. Otherwise it defaults to `../claude-code-hust` relative
-to this repository. In the packaged DMG app, the equivalent sibling lives under
+to this repository. In the packaged DMG app, the bundled dependency lives under
 `~/Library/Application Support/Sage Mate/claude-code-hust`, next to the installed app source.
 
 Useful installer controls:
@@ -136,8 +164,8 @@ Useful installer controls:
 ```bash
 ./quickstart.sh --target local-mac-app --code-backend internal
 ./quickstart.sh --target local-mac-app --code-backend claude_hust
-./quickstart.sh --target local-mac-app --claude-hust-repo https://github.com/vLLM-HUST/claude-code-hust.git
 ./quickstart.sh --target local-mac-app --claude-hust-dir "$HOME/Documents/claude-code-hust"
+./quickstart.sh --target local-mac-app --claude-hust-repo https://github.com/vLLM-HUST/claude-code-hust.git
 ./quickstart.sh --target local-mac-app --skip-claude-hust
 ```
 
@@ -231,9 +259,10 @@ user confirmation.
 Its package exposes a `claude-hust` CLI through `bin/claude-hust`, and its headless path supports
 `--print`, `--input-format`, and `--output-format` flows.
 
-Do not vendor or copy its source into Sage Mate. The repository's own LICENSE/README state that it
-was repaired from leaked Anthropic Claude Code source and is limited to educational/research use.
-Sage Mate integrates it as a separate local dependency installed by the local macOS installer.
+Do not merge its source into the Sage Mate Python package or hosted deployment. The repository's own
+LICENSE/README state that it was repaired from leaked Anthropic Claude Code source and is limited to
+educational/research use. Sage Mate integrates it as a separate macOS app resource for local
+Code Assistant releases, not as a server-side dependency.
 Hosted web deployments must not install it, expose it, or enable code tools.
 
 The intended split is:

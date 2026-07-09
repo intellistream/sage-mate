@@ -4,7 +4,7 @@
 # Usage:
 #   ./quickstart.sh                                # hosted web install; code tools off
 #   ./quickstart.sh --target hosted-web --start    # server/web install + start systemd
-#   ./quickstart.sh --local-mac-app --start        # local Sage Mate app-style install
+#   ./quickstart.sh --local-mac-app --start        # scripted local Sage Mate service install
 #   ./quickstart.sh --mac-dmg                      # build dist/sage-mate-macos.dmg
 #   ./quickstart.sh --check                        # preflight only — diagnose, do not change
 #   ./quickstart.sh --systemd-only                 # refresh systemd units only; no pip, no start
@@ -20,7 +20,7 @@
 #
 # Install targets:
 #   hosted-web       Linux/server browser deployment. Default. Never enables code tools.
-#   local-mac-app    Local Sage Mate install; delegates to tools/install_local_code_mode.sh.
+#   local-mac-app    Scripted local Sage Mate service install; delegates to tools/install_local_code_mode.sh.
 #   mac-dmg          Build the macOS DMG package; delegates to tools/build_macos_local_code_package.sh.
 #
 # Environment overrides:
@@ -68,14 +68,14 @@ quickstart.sh — single entry point for Faculty Twin / Sage Mate installation.
 Usage:
   ./quickstart.sh                                # hosted web install; code tools off
   ./quickstart.sh --target hosted-web --start    # server/web install + start systemd
-  ./quickstart.sh --local-mac-app --start        # local Sage Mate app-style install
+  ./quickstart.sh --local-mac-app --start        # scripted local Sage Mate service install
   ./quickstart.sh --mac-dmg                      # build dist/sage-mate-macos.dmg
   ./quickstart.sh --check                        # static/preflight checks only
   ./quickstart.sh --systemd-only                 # refresh systemd user units only
 
 Install targets:
   hosted-web       Linux/server browser deployment. Default. Never enables code tools.
-  local-mac-app    Local Sage Mate install; delegates to tools/install_local_code_mode.sh.
+  local-mac-app    Scripted local Sage Mate service install; delegates to tools/install_local_code_mode.sh.
   mac-dmg          Build the macOS DMG package; delegates to tools/build_macos_local_code_package.sh.
 
 Hosted-web options:
@@ -90,6 +90,10 @@ Local Sage Mate options:
   --llm-base-url URL
   --api-key KEY
   --model-name NAME
+  --local-model-backend auto|none|vllm_metal
+  --skip-local-model-runtime
+  --vllm-metal-dir PATH
+  --vllm-metal-model NAME
   --code-backend auto|internal|claude_hust
   --claude-hust-repo URL
   --claude-hust-dir PATH
@@ -164,16 +168,23 @@ while [[ $# -gt 0 ]]; do
 		mac_dmg_args+=(--zip)
 		shift
 		;;
-	--workspace | --workspace-roots | --runtime-dir | --llm-base-url | --api-key | --model-name | --prefill-env | --port | --python | --venv | --app-profile | --code-backend | --claude-hust-repo | --claude-hust-dir)
+	--workspace | --workspace-roots | --runtime-dir | --llm-base-url | --api-key | --model-name | --local-model-backend | --vllm-metal-dir | --vllm-metal-model | --prefill-env | --port | --python | --venv | --app-profile | --code-backend | --claude-hust-repo | --claude-hust-dir)
 		[[ $# -ge 2 ]] || { echo "$1 requires a value" >&2; exit 2; }
 		local_target_hint=true
 		[[ "$1" == "--claude-hust-dir" ]] && local_claude_hust_dir_explicit=true
+		[[ "$1" == "--claude-hust-dir" ]] && mac_dmg_args+=(--claude-hust-dir "$2")
+		[[ "$1" == "--vllm-metal-dir" ]] && mac_dmg_args+=(--vllm-metal-dir "$2")
 		if [[ "$1" == "--app-profile" ]]; then
 			local_install_args+=(--profile "$2")
 		else
 			local_install_args+=("$1" "$2")
 		fi
 		shift 2
+		;;
+	--skip-local-model-runtime)
+		local_target_hint=true
+		local_install_args+=(--skip-local-model-runtime)
+		shift
 		;;
 	--skip-claude-hust)
 		local_target_hint=true
@@ -523,7 +534,11 @@ fi
 
 if [[ "$install_target" == "mac-dmg" ]]; then
 	log "Building Sage Mate macOS DMG"
-	exec "$repo_root/tools/build_macos_local_code_package.sh" "${mac_dmg_args[@]}"
+	if (( ${#mac_dmg_args[@]} > 0 )); then
+		exec "$repo_root/tools/build_macos_local_code_package.sh" "${mac_dmg_args[@]}"
+	else
+		exec "$repo_root/tools/build_macos_local_code_package.sh"
+	fi
 fi
 
 if [[ "$install_target" == "local-mac-app" ]]; then

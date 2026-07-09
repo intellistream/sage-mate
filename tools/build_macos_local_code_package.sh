@@ -20,20 +20,43 @@ cleanup() {
 }
 trap cleanup EXIT
 
-for arg in "$@"; do
-    case "$arg" in
+claude_hust_source="${SAGE_MATE_CLAUDE_HUST_DIR:-}"
+vllm_metal_source="${SAGE_MATE_VLLM_METAL_DIR:-$repo_root/deps/vllm-metal-hust}"
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
         --zip) build_zip=true ;;
+        --claude-hust-dir)
+            shift
+            [[ $# -ge 1 ]] || { echo "--claude-hust-dir requires a path" >&2; exit 2; }
+            claude_hust_source="${1/#\~/$HOME}"
+            ;;
+        --claude-hust-dir=*)
+            claude_hust_source="${1#*=}"
+            claude_hust_source="${claude_hust_source/#\~/$HOME}"
+            ;;
+        --vllm-metal-dir)
+            shift
+            [[ $# -ge 1 ]] || { echo "--vllm-metal-dir requires a path" >&2; exit 2; }
+            vllm_metal_source="${1/#\~/$HOME}"
+            ;;
+        --vllm-metal-dir=*)
+            vllm_metal_source="${1#*=}"
+            vllm_metal_source="${vllm_metal_source/#\~/$HOME}"
+            ;;
         -h|--help)
             cat <<'EOF'
-Usage: tools/build_macos_local_code_package.sh [--zip]
+Usage: tools/build_macos_local_code_package.sh [--zip] [--claude-hust-dir PATH] [--vllm-metal-dir PATH]
 
 Builds dist/sage-mate-macos.dmg for macOS users.
 Pass --zip to also build a zip fallback.
+The DMG includes claude-code-hust, vllm-metal-hust, and pinned deps/vllm-hust source so Code Assistant does not clone them on user Macs.
 EOF
             exit 0
             ;;
-        *) echo "Unknown argument: $arg" >&2; exit 2 ;;
+        *) echo "Unknown argument: $1" >&2; exit 2 ;;
     esac
+    shift
 done
 
 mkdir -p "$dist_dir"
@@ -50,16 +73,45 @@ rsync -a \
     --exclude '.runtime' \
     --exclude '__pycache__' \
     --exclude '*.pyc' \
-    --exclude 'dist' \
-    --exclude 'build' \
-    --exclude 'logs' \
-    --exclude 'data' \
-    --exclude 'data.pre_recovery_*' \
+    --exclude '/dist' \
+    --exclude '/build' \
+    --exclude '/logs' \
+    --exclude '/data' \
+    --exclude '/data.pre_recovery_*' \
     --exclude '*.egg-info' \
     "$repo_root/" "$payload_dir/"
 
+if git -C "$repo_root/deps/vllm-hust" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+    vllm_hust_version=$(python3 - "$repo_root/deps/vllm-hust" <<'PY'
+from __future__ import annotations
+
+import json
+import subprocess
+import sys
+from pathlib import Path
+
+root = Path(sys.argv[1])
+metadata = json.loads((root / "upstream_version.json").read_text(encoding="utf-8"))
+release = metadata["release_version"]
+upstream_commit = metadata["upstream_commit"]
+distance = subprocess.check_output(
+    ["git", "-C", str(root), "rev-list", "--count", f"{upstream_commit}..HEAD"],
+    text=True,
+).strip()
+short = subprocess.check_output(
+    ["git", "-C", str(root), "rev-parse", "--short", "HEAD"],
+    text=True,
+).strip()
+print(f"{release}.post1.dev{distance}+g{short}")
+PY
+)
+    printf '%s\n' "$vllm_hust_version" > "$payload_dir/deps/vllm-hust/.sage-mate-vllm-hust-version"
+fi
+
 chmod +x "$payload_dir/tools/install_local_code_mode.sh"
 chmod +x "$payload_dir/tools/build_macos_local_code_package.sh"
+chmod +x "$payload_dir/tools/install_vllm_metal_runtime.sh"
+chmod +x "$payload_dir/tools/run_vllm_metal_engine.sh"
 
 app_name="Sage Mate.app"
 app_dir="$work_dir/$package_name/$app_name"
@@ -205,6 +257,68 @@ fi
 
 rsync -a "$payload_dir/" "$app_resources/faculty-twin/"
 
+if [[ -z "$claude_hust_source" ]]; then
+    for candidate in \
+        "$(dirname "$repo_root")/claude-code-hust" \
+        "$HOME/Documents/claude-code-hust" \
+        "$HOME/claude-code-hust"; do
+        if [[ -x "$candidate/bin/claude-hust" && -d "$candidate/node_modules" ]]; then
+            claude_hust_source="$candidate"
+            break
+        fi
+    done
+fi
+
+if [[ -z "$claude_hust_source" || ! -x "$claude_hust_source/bin/claude-hust" ]]; then
+    echo "claude-code-hust bundle source was not found." >&2
+    echo "Pass --claude-hust-dir PATH or set SAGE_MATE_CLAUDE_HUST_DIR." >&2
+    exit 1
+fi
+if [[ ! -d "$claude_hust_source/node_modules" ]]; then
+    echo "claude-code-hust source is missing node_modules: $claude_hust_source" >&2
+    echo "Run bun install in that checkout before building the DMG." >&2
+    exit 1
+fi
+
+rsync -a \
+    --exclude '.git' \
+    --exclude '.env' \
+    --exclude 'logs' \
+    --exclude 'tmp' \
+    "$claude_hust_source/" "$app_resources/claude-code-hust/"
+chmod +x "$app_resources/claude-code-hust/bin/claude-hust"
+
+bun_source="${SAGE_MATE_BUN_BIN:-}"
+if [[ -z "$bun_source" ]]; then
+    bun_source="$(command -v bun || true)"
+fi
+if [[ -z "$bun_source" && -x "$HOME/.bun/bin/bun" ]]; then
+    bun_source="$HOME/.bun/bin/bun"
+fi
+if [[ -n "$bun_source" && -x "$bun_source" ]]; then
+    mkdir -p "$app_resources/bun/bin"
+    cp "$bun_source" "$app_resources/bun/bin/bun"
+    chmod +x "$app_resources/bun/bin/bun"
+else
+    echo "Warning: Bun binary was not found; bundled claude-hust will require Bun on the user Mac." >&2
+fi
+
+if [[ -z "$vllm_metal_source" || ! -f "$vllm_metal_source/install.sh" || ! -f "$vllm_metal_source/pyproject.toml" ]]; then
+    echo "vllm-metal-hust source was not found." >&2
+    echo "Pass --vllm-metal-dir PATH or set SAGE_MATE_VLLM_METAL_DIR." >&2
+    exit 1
+fi
+
+rsync -a \
+    --exclude '.git' \
+    --exclude '.venv-vllm-metal' \
+    --exclude 'target' \
+    --exclude '.pytest_cache' \
+    --exclude '__pycache__' \
+    --exclude '*.pyc' \
+    "$vllm_metal_source/" "$app_resources/vllm-metal-hust/"
+chmod +x "$app_resources/vllm-metal-hust/install.sh"
+
 cat > "$work_dir/SageMateApp.swift" <<'EOF'
 import Cocoa
 import WebKit
@@ -214,6 +328,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
     private var webView: WKWebView!
     private var statusLabel: NSTextField!
     private var serverProcess: Process?
+    private var modelProcess: Process?
     private let port = 55601
     private lazy var launcherLogURL: URL = {
         let root = (try? supportRoot()) ?? FileManager.default.homeDirectoryForCurrentUser
@@ -229,6 +344,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
         DispatchQueue.global(qos: .userInitiated).async {
             do {
                 try self.prepareInstallIfNeeded()
+                try self.startLocalModelEngineIfConfigured()
                 try self.startServer()
                 self.waitForServer()
             } catch {
@@ -240,6 +356,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
 
     func applicationWillTerminate(_ notification: Notification) {
         log("Application terminating")
+        modelProcess?.terminate()
         serverProcess?.terminate()
     }
 
@@ -383,24 +500,26 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
         try supportRoot().appendingPathComponent("app", isDirectory: true)
     }
 
+    private func claudeHustRoot() throws -> URL {
+        try supportRoot().appendingPathComponent("claude-code-hust", isDirectory: true)
+    }
+
+    private func vllmMetalRoot() throws -> URL {
+        try supportRoot().appendingPathComponent("vllm-metal-hust", isDirectory: true)
+    }
+
+    private func vllmMetalSourceRoot() throws -> URL {
+        try vllmMetalRoot().appendingPathComponent("source", isDirectory: true)
+    }
+
+    private func bundledBinRoot() throws -> URL {
+        try supportRoot().appendingPathComponent("bin", isDirectory: true)
+    }
+
     private func runtimeRoot() throws -> URL {
-        let fm = FileManager.default
-        let home = fm.homeDirectoryForCurrentUser
-        let candidates = [
-            home.appendingPathComponent("Documents/sage-faculty-twin-runtime-private", isDirectory: true),
-            home.appendingPathComponent("sage-faculty-twin-runtime-private", isDirectory: true),
-            home.appendingPathComponent("Documents/qixin-gaoke-sage-faculty-twin-runtime-private", isDirectory: true),
-            home.appendingPathComponent("qixin-gaoke-sage-faculty-twin-runtime-private", isDirectory: true)
-        ]
-        for candidate in candidates {
-            let dataDir = candidate.appendingPathComponent("data", isDirectory: true)
-            let gitDir = candidate.appendingPathComponent(".git", isDirectory: true)
-            if fm.fileExists(atPath: dataDir.path) || fm.fileExists(atPath: gitDir.path) {
-                log("Using existing runtime repository: \(candidate.path)")
-                return candidate
-            }
-        }
-        return try supportRoot().appendingPathComponent("runtime", isDirectory: true)
+        let runtime = try supportRoot().appendingPathComponent("runtime", isDirectory: true)
+        log("Using app-managed runtime repository: \(runtime.path)")
+        return runtime
     }
 
     private func prepareInstallIfNeeded() throws {
@@ -454,25 +573,156 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
             log("Bundled source synchronized")
         }
 
+        try syncBundledClaudeHustIfAvailable()
+        try syncBundledBunIfAvailable()
+        try syncBundledVllmMetalIfAvailable()
+
         let runtime = try runtimeRoot()
         try fm.createDirectory(at: runtime, withIntermediateDirectories: true)
         log("Runtime root: \(runtime.path)")
 
         let venvPython = target.appendingPathComponent(".venv/bin/python")
-        if !fm.fileExists(atPath: venvPython.path) {
-            showStatus("首次启动正在安装依赖，可能需要几分钟...")
+        let needsInstall = !fm.fileExists(atPath: venvPython.path)
+        let needsConfigRefresh = try localCodeConfigNeedsRefresh(target: target, runtime: runtime)
+        if needsInstall || needsConfigRefresh {
+            showStatus(needsInstall ? "首次启动正在安装依赖，可能需要几分钟..." : "正在刷新本地 Code Assistant 配置...")
             let script = target.appendingPathComponent("tools/install_local_code_mode.sh")
             log("Installing dependencies with \(script.path)")
-            try runShell([
+            var installArgs = [
                 script.path,
                 "--venv", target.appendingPathComponent(".venv").path,
                 "--runtime-dir", runtime.path,
+                "--code-backend", "claude_hust",
+                "--claude-hust-dir", try claudeHustRoot().path,
+                "--workspace-roots", "",
+                "--vllm-metal-dir", try vllmMetalSourceRoot().path,
                 "--port", String(port)
-            ], cwd: target, logName: "install.log")
-            log("Dependency install finished")
+            ]
+            if !needsInstall {
+                installArgs.append("--skip-python-install")
+            }
+            try runShell(installArgs, cwd: target, logName: "install.log")
+            log(needsInstall ? "Dependency install finished" : "Local Code Assistant config refreshed")
         } else {
             log("Existing virtualenv found")
         }
+        try cleanupStaleServiceProcesses()
+    }
+
+    private func cleanupStaleServiceProcesses() throws {
+        let root = try installRoot()
+        let vllmRoot = try vllmMetalRoot()
+        let patterns = [
+            root.appendingPathComponent(".venv/bin/python").path + " -m uvicorn sage_faculty_twin.api:app",
+            vllmRoot.appendingPathComponent("source/.venv-vllm-metal/bin/python").path + " -m vllm.entrypoints.cli.main serve"
+        ]
+        for pattern in patterns {
+            try runShell([
+                "/bin/bash",
+                "-lc",
+                "/usr/bin/pkill -f \(shellQuote(pattern)) >/dev/null 2>&1 || true"
+            ], cwd: root, logName: "cleanup-processes.log")
+        }
+    }
+
+    private func syncBundledClaudeHustIfAvailable() throws {
+        let fm = FileManager.default
+        guard let source = Bundle.main.resourceURL?.appendingPathComponent("claude-code-hust", isDirectory: true),
+              fm.fileExists(atPath: source.appendingPathComponent("bin/claude-hust").path) else {
+            log("No bundled claude-code-hust resource found")
+            return
+        }
+        let target = try claudeHustRoot()
+        try fm.createDirectory(at: target.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try runShell([
+            "/usr/bin/rsync",
+            "-a",
+            "--delete",
+            source.path + "/",
+            target.path + "/"
+        ], cwd: target.deletingLastPathComponent(), logName: "sync-claude-hust.log")
+        try runShell([
+            "/bin/chmod",
+            "+x",
+            target.appendingPathComponent("bin/claude-hust").path
+        ], cwd: target.deletingLastPathComponent(), logName: "chmod-claude-hust.log")
+        log("Bundled claude-code-hust synchronized")
+    }
+
+    private func syncBundledBunIfAvailable() throws {
+        let fm = FileManager.default
+        guard let source = Bundle.main.resourceURL?.appendingPathComponent("bun/bin/bun"),
+              fm.fileExists(atPath: source.path) else {
+            log("No bundled Bun resource found")
+            return
+        }
+        let target = try bundledBinRoot().appendingPathComponent("bun")
+        try fm.createDirectory(at: target.deletingLastPathComponent(), withIntermediateDirectories: true)
+        if fm.fileExists(atPath: target.path) {
+            try fm.removeItem(at: target)
+        }
+        try fm.copyItem(at: source, to: target)
+        try runShell([
+            "/bin/chmod",
+            "+x",
+            target.path
+        ], cwd: target.deletingLastPathComponent(), logName: "chmod-bun.log")
+        log("Bundled Bun synchronized")
+    }
+
+    private func syncBundledVllmMetalIfAvailable() throws {
+        let fm = FileManager.default
+        guard let source = Bundle.main.resourceURL?.appendingPathComponent("vllm-metal-hust", isDirectory: true),
+              fm.fileExists(atPath: source.appendingPathComponent("install.sh").path) else {
+            log("No bundled vllm-metal-hust resource found")
+            return
+        }
+        let target = try vllmMetalSourceRoot()
+        try fm.createDirectory(at: target.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try runShell([
+            "/usr/bin/rsync",
+            "-a",
+            "--delete",
+            "--exclude", ".venv-vllm-metal",
+            "--exclude", "target",
+            source.path + "/",
+            target.path + "/"
+        ], cwd: target.deletingLastPathComponent(), logName: "sync-vllm-metal.log")
+        try runShell([
+            "/bin/chmod",
+            "+x",
+            target.appendingPathComponent("install.sh").path
+        ], cwd: target.deletingLastPathComponent(), logName: "chmod-vllm-metal.log")
+        log("Bundled vllm-metal-hust synchronized")
+    }
+
+    private func localCodeConfigNeedsRefresh(target: URL, runtime: URL) throws -> Bool {
+        let envURL = target.appendingPathComponent(".env")
+        guard FileManager.default.fileExists(atPath: envURL.path) else {
+            return true
+        }
+        let contents = (try? String(contentsOf: envURL, encoding: .utf8)) ?? ""
+        let desiredCLI = try claudeHustRoot().appendingPathComponent("bin/claude-hust").path
+        let desiredVllmMetal = try vllmMetalSourceRoot().path
+        let desiredRuntime = runtime.path
+        let hasNonEmptyWorkspaceRoots = contents
+            .split(separator: "\n")
+            .contains { line in
+                line.hasPrefix("DIGITAL_TWIN_CODE_WORKSPACE_ROOTS=")
+                    && !line.dropFirst("DIGITAL_TWIN_CODE_WORKSPACE_ROOTS=".count).isEmpty
+            }
+        let llmWasAutoPrefilledFromHostedService =
+            contents.contains("DIGITAL_TWIN_LLM_BASE_URL=https://api.sage.org.ai/v1")
+            && !contents.contains("DIGITAL_TWIN_LLM_USER_CONFIGURED=true")
+        return !contents.contains("DIGITAL_TWIN_APP_PROFILE=code_assistant")
+            || !contents.contains("DIGITAL_TWIN_DEPLOYMENT_MODE=local_code")
+            || !contents.contains("DIGITAL_TWIN_CODE_WORKBENCH_ENABLED=true")
+            || !contents.contains("DIGITAL_TWIN_CODE_AGENT_BACKEND=claude_hust")
+            || !contents.contains("DIGITAL_TWIN_CLAUDE_HUST_CLI_PATH=\(desiredCLI)")
+            || !contents.contains("SAGE_MATE_VLLM_METAL_DIR=\(desiredVllmMetal)")
+            || !contents.contains("DIGITAL_TWIN_RUNTIME_DIR=\(desiredRuntime)")
+            || hasNonEmptyWorkspaceRoots
+            || llmWasAutoPrefilledFromHostedService
     }
 
     private func startServer() throws {
@@ -480,9 +730,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
         let root = try installRoot()
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/bin/bash")
-        process.arguments = [root.appendingPathComponent("tools/run_app_server.sh").path]
+        let script = root.appendingPathComponent("tools/run_app_server.sh").path
+        let python = root.appendingPathComponent(".venv/bin/python").path
+        process.arguments = [
+            "-c",
+            "PYTHON_BIN=\(shellQuote(python)) APP_PORT=\(shellQuote(String(port))) exec \(shellQuote(script))"
+        ]
         process.currentDirectoryURL = root
-        var env = ProcessInfo.processInfo.environment
+        var env = baseServiceEnvironment()
         env["PYTHON_BIN"] = root.appendingPathComponent(".venv/bin/python").path
         env["APP_PORT"] = String(port)
         process.environment = env
@@ -495,6 +750,52 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
         try process.run()
         serverProcess = process
         self.log("Server process started: pid \(process.processIdentifier), log \(log.path)")
+    }
+
+    private func startLocalModelEngineIfConfigured() throws {
+        let root = try installRoot()
+        let envURL = root.appendingPathComponent(".env")
+        let contents = (try? String(contentsOf: envURL, encoding: .utf8)) ?? ""
+        guard contents.contains("DIGITAL_TWIN_LOCAL_MODEL_BACKEND=vllm_metal") else {
+            log("Local model engine is not configured for vllm_metal")
+            return
+        }
+        let script = root.appendingPathComponent("tools/run_vllm_metal_engine.sh")
+        guard FileManager.default.fileExists(atPath: script.path) else {
+            log("vllm-metal engine script missing: \(script.path)")
+            return
+        }
+        showStatus("正在启动本地 Apple GPU 模型引擎...")
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/bin/bash")
+        process.arguments = ["-c", "exec \(shellQuote(script.path))"]
+        process.currentDirectoryURL = root
+        process.environment = baseServiceEnvironment()
+        let log = root.appendingPathComponent(".runtime/vllm-metal.log")
+        try FileManager.default.createDirectory(at: log.deletingLastPathComponent(), withIntermediateDirectories: true)
+        FileManager.default.createFile(atPath: log.path, contents: nil)
+        let handle = try FileHandle(forWritingTo: log)
+        process.standardOutput = handle
+        process.standardError = handle
+        try process.run()
+        modelProcess = process
+        self.log("Model process started: pid \(process.processIdentifier), log \(log.path)")
+    }
+
+    private func baseServiceEnvironment() -> [String: String] {
+        var env: [String: String] = [
+            "HOME": FileManager.default.homeDirectoryForCurrentUser.path,
+            "PATH": "/usr/bin:/bin:/usr/sbin:/sbin",
+            "SHELL": "/bin/zsh",
+            "NO_COLOR": "1"
+        ]
+        if let tmp = ProcessInfo.processInfo.environment["TMPDIR"] {
+            env["TMPDIR"] = tmp
+        }
+        if let supportBin = try? bundledBinRoot().path {
+            env["PATH"] = supportBin + ":" + env["PATH"]!
+        }
+        return env
     }
 
     private func waitForServer() {

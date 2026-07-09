@@ -1,0 +1,134 @@
+diff --git a/install.sh b/install.sh
+index 6bc3f86..205065b 100755
+--- a/install.sh
++++ b/install.sh
+@@ -2,6 +2,22 @@
+ 
+ _cleanup_dirs=()
+ 
++curl_with_retries() {
++  local args=(
++    --fail
++    --show-error
++    --location
++    --http1.1
++    --retry "${VLLM_METAL_CURL_RETRIES:-5}"
++    --retry-delay "${VLLM_METAL_CURL_RETRY_DELAY:-2}"
++    --retry-all-errors
++    --connect-timeout "${VLLM_METAL_CURL_CONNECT_TIMEOUT:-20}"
++    --speed-limit "${VLLM_METAL_CURL_SPEED_LIMIT:-1024}"
++    --speed-time "${VLLM_METAL_CURL_SPEED_TIME:-30}"
++  )
++  curl "${args[@]}" "$@"
++}
++
+ register_cleanup_dir() {
+   _cleanup_dirs+=("$1")
+ }
+@@ -25,7 +41,7 @@ fetch_latest_release() {
+   local latest_release_url="https://api.github.com/repos/${repo_owner}/${repo_name}/releases/latest"
+   local release_data
+ 
+-  if ! release_data=$(curl -fsSL "$latest_release_url" 2>&1); then
++  if ! release_data=$(curl_with_retries --silent "$latest_release_url" 2>&1); then
+     error "Failed to fetch release information."
+     echo "Please check your internet connection and try again." >&2
+     exit 1
+@@ -76,7 +92,7 @@ download_and_install_wheel() {
+   echo "Downloading wheel..."
+   local wheel_path="$tmp_dir/$wheel_name"
+ 
+-  if ! curl -fsSL "$wheel_url" -o "$wheel_path"; then
++  if ! curl_with_retries --silent "$wheel_url" -o "$wheel_path"; then
+     error "Failed to download wheel."
+     exit 1
+   fi
+@@ -169,7 +185,7 @@ EOF
+     local lib_url="https://raw.githubusercontent.com/$repo_owner/$repo_name/main/scripts/lib.sh"
+     local lib_tmp
+     lib_tmp=$(mktemp)
+-    if ! curl -fsSL "$lib_url" -o "$lib_tmp"; then
++    if ! curl_with_retries --silent "$lib_url" -o "$lib_tmp"; then
+       echo "Error: Failed to fetch lib.sh from $lib_url" >&2
+       rm -f "$lib_tmp"
+       exit 1
+@@ -206,28 +222,60 @@ EOF
+   register_cleanup_dir "$vllm_tmp_dir"
+   local vllm_src_dir="$vllm_tmp_dir/vllm-$vllm_v"
+ 
+-  curl -fSL "$url_base/v$vllm_v/$filename" -o "$vllm_tmp_dir/$filename"
+-  tar xf "$vllm_tmp_dir/$filename" -C "$vllm_tmp_dir"
+-  cd "$vllm_src_dir"
+-
+-  uv pip install -r requirements/cpu.txt --index-strategy unsafe-best-match
+-  CXXFLAGS="-Wno-parentheses" uv pip install .
+-  cd -
++  local source_dir="${VLLM_METAL_VLLM_SOURCE_DIR:-}"
++  if [[ -n "$source_dir" ]]; then
++    if [[ ! -f "$source_dir/pyproject.toml" || ! -d "$source_dir/vllm" ]]; then
++      error "VLLM_METAL_VLLM_SOURCE_DIR is not a vLLM source tree: $source_dir"
++      exit 1
++    fi
++    echo "Using local vLLM source: $source_dir"
++    cd "$source_dir"
++    uv pip install -r requirements/cpu.txt --index-strategy unsafe-best-match
++    uv pip install -r requirements/build/cpu.txt --index-strategy unsafe-best-match
++    rm -rf build
++    CXXFLAGS="-Wno-parentheses" VLLM_TARGET_DEVICE="${VLLM_TARGET_DEVICE:-cpu}" uv pip install --no-build-isolation .
++    cd -
++  else
++    local source_tarball="${VLLM_METAL_VLLM_TARBALL:-}"
++    if [[ -z "$source_tarball" ]]; then
++      for candidate in \
++        "$PWD/.cache/vllm/$filename" \
++        "$HOME/Library/Application Support/Sage Mate/vllm-metal-hust/cache/$filename" \
++        "$HOME/.cache/vllm-metal/$filename"; do
++        if [[ -f "$candidate" ]]; then
++          source_tarball="$candidate"
++          break
++        fi
++      done
++    fi
++    if [[ -n "$source_tarball" ]]; then
++      echo "Using cached vLLM source: $source_tarball"
++      cp "$source_tarball" "$vllm_tmp_dir/$filename"
++    else
++      curl_with_retries "$url_base/v$vllm_v/$filename" -o "$vllm_tmp_dir/$filename"
++    fi
++    tar xf "$vllm_tmp_dir/$filename" -C "$vllm_tmp_dir"
++    cd "$vllm_src_dir"
++    uv pip install -r requirements/cpu.txt --index-strategy unsafe-best-match
++    uv pip install -r requirements/build/cpu.txt --index-strategy unsafe-best-match
++    rm -rf build
++    CXXFLAGS="-Wno-parentheses" uv pip install --no-build-isolation .
++    cd -
++  fi
+ 
+   if [[ -n "$local_lib" && -f "$local_lib" ]]; then
+-    # Local source install (running ./install.sh from a checkout). Prebuild the
+-    # native paged-attention artifacts from this tree — the _paged_ops .so and
+-    # the precompiled .metallib shaders — so the kernels load with no runtime
+-    # compile, exactly like a release wheel; otherwise get_ops() fails loud
+-    # ("Prebuilt native extension not found") the first time paged attention is
+-    # used. build_native_artifacts needs the build deps (mlx, nanobind)
+-    # importable, so the editable install pulls them in first and points the
+-    # install at this tree, where the artifacts land. The remote (curl | bash)
+-    # branch below installs a prebuilt release wheel instead and needs no
+-    # toolchain. Mirrors scripts/release.sh / scripts/test.sh.
++    # Local source install (running ./install.sh from a checkout). Sage Mate
++    # installs source-mode by default so end-user Macs only need Command Line
++    # Tools and do not need the full Xcode Metal compiler toolchain. Maintainers
++    # can set VLLM_METAL_PREBUILD_ARTIFACTS=1 on a release/build Mac to prebuild
++    # the _paged_ops extension and .metallib files for wheel/DMG packaging.
+     uv pip install -e .
+-    ensure_metal_toolchain
+-    build_native_artifacts
++    if [[ "${VLLM_METAL_PREBUILD_ARTIFACTS:-0}" == "1" ]]; then
++      ensure_metal_toolchain
++      build_native_artifacts
++    else
++      echo "Skipping prebuilt Metal artifacts; runtime will use VLLM_METAL_BUILD_FROM_SOURCE=1."
++    fi
+   else
+     local release_data
+     release_data=$(fetch_latest_release "$repo_owner" "$repo_name")

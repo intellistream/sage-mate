@@ -14,3 +14,7 @@
 	path = deps/ascend-runtime-manager
 	url = git@github.com:vLLM-HUST/ascend-runtime-manager.git
 	branch = faculty-twin-runtime
+[submodule "deps/vllm-metal-hust"]
+	path = deps/vllm-metal-hust
+	url = https://github.com/vLLM-HUST/vllm-metal-hust.git
+	branch = main
