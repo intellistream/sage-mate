@@ -270,12 +270,13 @@ install_nvidia_vllm_hust_runtime() {
 	local vllm_hust_root="${VLLM_HUST_ROOT:-$repo_root/deps/vllm-hust}"
 	local uv_http_timeout="${UV_HTTP_TIMEOUT:-300}"
 	local torch_backend="${VLLM_NVIDIA_TORCH_BACKEND:-cu129}"
+	local installer="${VLLM_NVIDIA_INSTALLER:-auto}"
 	assert_pinned_vllm_hust_checkout "$vllm_hust_root"
 	check_nvidia_driver_for_vllm_hust
 
 	while (( attempt <= max_attempts )); do
 		log "Installing pinned vllm-hust runtime for NVIDIA (attempt $attempt/$max_attempts; may take several minutes)"
-		if [[ -n "$uv_bin" ]]; then
+		if [[ "$installer" != "pip" && -n "$uv_bin" ]]; then
 			if UV_HTTP_TIMEOUT="$uv_http_timeout" VLLM_USE_PRECOMPILED="${VLLM_USE_PRECOMPILED:-1}" run_with_optional_timeout "$uv_bin" pip install --python "$python_bin" -e "$vllm_hust_root" --torch-backend="$torch_backend"; then
 				return 0
 			fi
