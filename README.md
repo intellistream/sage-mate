@@ -71,7 +71,7 @@ FACULTY_TWIN_SECRETS_KEY_FILE=/home/shuhao/.config/sage-faculty-twin/release-sec
 安装器会自动识别 NVIDIA/CUDA 或 Ascend/NPU；双 A100 80GB 默认会选择稳定的官方
 `Qwen/Qwen3-32B` preset；要上更大的 Qwen3-Next 80B AWQ，可显式加
 `--accelerator nvidia --model-preset qwen3-next-80b-awq`。详细说明见
-`docs/hosted-web-release.md`。
+`docs/hosted-web-release.md`；最短操作流程见 `docs/release-one-click.md`。
 
 `hosted-web` 会在 `.env` 中确保：
 
