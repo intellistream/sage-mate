@@ -212,4 +212,5 @@ def test_run_vllm_engine_script_errors_without_container(tmp_path: Path) -> None
     assert (
         "nonexistent-test-container" in result.stderr
         or "docker not found on PATH" in result.stderr
+        or "vLLM-HUST dev-hub submodule launcher not found" in result.stderr
     )
