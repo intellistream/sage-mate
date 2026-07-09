@@ -531,13 +531,13 @@ else
 	else
 		log "Installing sage-faculty-twin (editable, with vdb-anns extras)"
 	fi
-	run_with_optional_timeout "$python_bin" -m pip install --quiet --upgrade pip
+	run_with_optional_timeout "$python_bin" -m pip install --quiet --upgrade pip setuptools wheel
 	if $mode_skip_vdb_extras; then
-		run_with_optional_timeout "$python_bin" -m pip install --quiet -e "$repo_root"
-	elif ! run_with_optional_timeout "$python_bin" -m pip install --quiet -e "$repo_root[vdb-anns]"; then
+		run_with_optional_timeout "$python_bin" -m pip install --quiet --no-build-isolation -e "$repo_root"
+	elif ! run_with_optional_timeout "$python_bin" -m pip install --quiet --no-build-isolation -e "$repo_root[vdb-anns]"; then
 		warn "vdb-anns extras failed (C extensions may need CANN/C++ toolchain)"
 		warn "Falling back to base install"
-		run_with_optional_timeout "$python_bin" -m pip install --quiet -e "$repo_root"
+		run_with_optional_timeout "$python_bin" -m pip install --quiet --no-build-isolation -e "$repo_root"
 	fi
 
 	if [[ -d "$parent_dir/sageVDB" ]]; then
