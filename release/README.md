@@ -3,7 +3,24 @@
 This release bundle installs the hosted/web Faculty Twin service on a fresh
 Linux machine.
 
-## Install
+## Recommended Linux Install
+
+Download the `.run` installer from GitHub Release:
+
+```bash
+chmod +x sage-faculty-twin-hosted-web-v4.4.0-linux.run
+./sage-faculty-twin-hosted-web-v4.4.0-linux.run
+```
+
+The `.run` installer extracts this bundle to:
+
+```bash
+~/.local/share/sage-faculty-twin-installer/sage-faculty-twin-hosted-web-v4.4.0
+```
+
+That persistent location lets the installer resume after a driver-upgrade reboot.
+
+## Tarball Install
 
 Put the release key on the target machine:
 
@@ -95,3 +112,10 @@ After installation:
 
 If Cloudflare tunnel credentials are available and `--with-tunnel` is used, the
 installer also verifies the configured public hostname.
+
+## Windows
+
+Hosted/web runs on Linux GPU/NPU hosts. A Windows package should act as a
+deployment assistant for WSL or a remote Linux server, then invoke the Linux
+`.run` installer there. It should not pretend that the hosted/web service runs
+as a native Windows app.
