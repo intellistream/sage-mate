@@ -542,6 +542,8 @@ main() {
         --target hosted-web
         --with-vllm-proxy
         --with-site-proxy
+        --pip-timeout
+        "${FACULTY_TWIN_PIP_TIMEOUT_SECONDS:-900}"
     )
     if [[ "$accelerator" == "nvidia" ]]; then
         quickstart_args+=(--with-nvidia-vllm-engine)
