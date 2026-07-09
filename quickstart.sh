@@ -271,20 +271,29 @@ install_nvidia_vllm_hust_runtime() {
 	local uv_http_timeout="${UV_HTTP_TIMEOUT:-300}"
 	local torch_backend="${VLLM_NVIDIA_TORCH_BACKEND:-cu129}"
 	local installer="${VLLM_NVIDIA_INSTALLER:-auto}"
+	local precompiled_commit="${VLLM_PRECOMPILED_WHEEL_COMMIT:-}"
 	assert_pinned_vllm_hust_checkout "$vllm_hust_root"
 	check_nvidia_driver_for_vllm_hust
+	if [[ -z "$precompiled_commit" && -f "$vllm_hust_root/upstream_version.json" ]]; then
+		precompiled_commit=$("$python_bin" - "$vllm_hust_root/upstream_version.json" <<'PY'
+import json
+import sys
+print(json.load(open(sys.argv[1], encoding="utf-8")).get("upstream_commit", ""))
+PY
+)
+	fi
 
 	while (( attempt <= max_attempts )); do
 		log "Installing pinned vllm-hust runtime for NVIDIA (attempt $attempt/$max_attempts; may take several minutes)"
 		if [[ "$installer" != "pip" && -n "$uv_bin" ]]; then
-			if UV_HTTP_TIMEOUT="$uv_http_timeout" VLLM_USE_PRECOMPILED="${VLLM_USE_PRECOMPILED:-1}" run_with_optional_timeout "$uv_bin" pip install --python "$python_bin" -e "$vllm_hust_root" --torch-backend="$torch_backend"; then
+			if UV_HTTP_TIMEOUT="$uv_http_timeout" VLLM_USE_PRECOMPILED="${VLLM_USE_PRECOMPILED:-1}" VLLM_PRECOMPILED_WHEEL_COMMIT="$precompiled_commit" VLLM_PRECOMPILED_WHEEL_VARIANT="${VLLM_PRECOMPILED_WHEEL_VARIANT:-$torch_backend}" run_with_optional_timeout "$uv_bin" pip install --python "$python_bin" -e "$vllm_hust_root" --torch-backend="$torch_backend"; then
 				return 0
 			fi
 		else
 			run_with_optional_timeout "$python_bin" -m pip install --retries 10 --timeout 120 \
 				cmake "ninja" "packaging>=24.2" "setuptools>=77.0.3,<81.0.0" \
 				"setuptools-scm>=8.0" "setuptools-rust>=1.9.0" "torch==2.11.0" wheel jinja2
-			if VLLM_USE_PRECOMPILED="${VLLM_USE_PRECOMPILED:-1}" run_with_optional_timeout "$python_bin" -m pip install --retries 10 --timeout 120 --no-build-isolation -e "$vllm_hust_root"; then
+			if VLLM_USE_PRECOMPILED="${VLLM_USE_PRECOMPILED:-1}" VLLM_PRECOMPILED_WHEEL_COMMIT="$precompiled_commit" VLLM_PRECOMPILED_WHEEL_VARIANT="${VLLM_PRECOMPILED_WHEEL_VARIANT:-$torch_backend}" run_with_optional_timeout "$python_bin" -m pip install --retries 10 --timeout 120 --no-build-isolation -e "$vllm_hust_root"; then
 				return 0
 			fi
 		fi
