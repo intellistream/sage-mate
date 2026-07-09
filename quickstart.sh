@@ -281,7 +281,7 @@ install_nvidia_vllm_hust_runtime() {
 				return 0
 			fi
 		else
-			if VLLM_USE_PRECOMPILED="${VLLM_USE_PRECOMPILED:-1}" run_with_optional_timeout "$python_bin" -m pip install --quiet --retries 10 --timeout 120 -e "$vllm_hust_root"; then
+			if VLLM_USE_PRECOMPILED="${VLLM_USE_PRECOMPILED:-1}" run_with_optional_timeout "$python_bin" -m pip install --retries 10 --timeout 120 -e "$vllm_hust_root"; then
 				return 0
 			fi
 		fi
