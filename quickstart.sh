@@ -272,6 +272,7 @@ install_nvidia_vllm_hust_runtime() {
 	local torch_backend="${VLLM_NVIDIA_TORCH_BACKEND:-cu129}"
 	local installer="${VLLM_NVIDIA_INSTALLER:-auto}"
 	local precompiled_commit="${VLLM_PRECOMPILED_WHEEL_COMMIT:-}"
+	local precompiled_wheel_location="${VLLM_PRECOMPILED_WHEEL_LOCATION:-}"
 	assert_pinned_vllm_hust_checkout "$vllm_hust_root"
 	check_nvidia_driver_for_vllm_hust
 	if [[ -z "$precompiled_commit" && -f "$vllm_hust_root/upstream_version.json" ]]; then
@@ -282,18 +283,56 @@ print(json.load(open(sys.argv[1], encoding="utf-8")).get("upstream_commit", ""))
 PY
 )
 	fi
+	if [[ -z "$precompiled_wheel_location" && -n "$precompiled_commit" ]] && command -v curl >/dev/null 2>&1; then
+		local wheel_dir metadata_path wheel_url wheel_name
+		wheel_dir="$repo_root/.runtime/vllm-wheels"
+		metadata_path="$wheel_dir/metadata-${precompiled_commit}-${torch_backend}.json"
+		mkdir -p "$wheel_dir"
+		if [[ ! -s "$metadata_path" ]]; then
+			curl -4 -fsSL --retry 5 --retry-delay 3 --retry-all-errors \
+				"https://wheels.vllm.ai/${precompiled_commit}/${torch_backend}/vllm/metadata.json" \
+				-o "$metadata_path" || true
+		fi
+		if [[ -s "$metadata_path" ]]; then
+			wheel_url=$("$python_bin" - "$metadata_path" "$precompiled_commit" <<'PY'
+import json
+import platform
+import sys
+from urllib.parse import urljoin
+
+metadata_path, commit = sys.argv[1:3]
+arch = platform.machine()
+base = f"https://wheels.vllm.ai/{commit}/cu129/vllm/metadata.json"
+for item in json.load(open(metadata_path, encoding="utf-8")):
+    if item.get("package_name") == "vllm" and arch in item.get("platform_tag", ""):
+        print(urljoin(base, item["path"]))
+        break
+PY
+)
+			if [[ -n "$wheel_url" ]]; then
+				wheel_name="${wheel_url##*/}"
+				wheel_name="${wheel_name//%2B/+}"
+				precompiled_wheel_location="$wheel_dir/$wheel_name"
+				if [[ ! -s "$precompiled_wheel_location" ]]; then
+					log "Downloading pinned vllm-hust precompiled wheel with IPv4 curl"
+					curl -4 -fL --retry 5 --retry-delay 3 --retry-all-errors \
+						"$wheel_url" -o "$precompiled_wheel_location" || precompiled_wheel_location=""
+				fi
+			fi
+		fi
+	fi
 
 	while (( attempt <= max_attempts )); do
 		log "Installing pinned vllm-hust runtime for NVIDIA (attempt $attempt/$max_attempts; may take several minutes)"
 		if [[ "$installer" != "pip" && -n "$uv_bin" ]]; then
-			if UV_HTTP_TIMEOUT="$uv_http_timeout" VLLM_USE_PRECOMPILED="${VLLM_USE_PRECOMPILED:-1}" VLLM_PRECOMPILED_WHEEL_COMMIT="$precompiled_commit" VLLM_PRECOMPILED_WHEEL_VARIANT="${VLLM_PRECOMPILED_WHEEL_VARIANT:-$torch_backend}" run_with_optional_timeout "$uv_bin" pip install --python "$python_bin" -e "$vllm_hust_root" --torch-backend="$torch_backend"; then
+			if UV_HTTP_TIMEOUT="$uv_http_timeout" VLLM_USE_PRECOMPILED="${VLLM_USE_PRECOMPILED:-1}" VLLM_PRECOMPILED_WHEEL_COMMIT="$precompiled_commit" VLLM_PRECOMPILED_WHEEL_VARIANT="${VLLM_PRECOMPILED_WHEEL_VARIANT:-$torch_backend}" VLLM_PRECOMPILED_WHEEL_LOCATION="$precompiled_wheel_location" run_with_optional_timeout "$uv_bin" pip install --python "$python_bin" -e "$vllm_hust_root" --torch-backend="$torch_backend"; then
 				return 0
 			fi
 		else
 			run_with_optional_timeout "$python_bin" -m pip install --retries 10 --timeout 120 \
 				cmake "ninja" "packaging>=24.2" "setuptools>=77.0.3,<81.0.0" \
 				"setuptools-scm>=8.0" "setuptools-rust>=1.9.0" "torch==2.11.0" wheel jinja2
-			if VLLM_USE_PRECOMPILED="${VLLM_USE_PRECOMPILED:-1}" VLLM_PRECOMPILED_WHEEL_COMMIT="$precompiled_commit" VLLM_PRECOMPILED_WHEEL_VARIANT="${VLLM_PRECOMPILED_WHEEL_VARIANT:-$torch_backend}" run_with_optional_timeout "$python_bin" -m pip install --retries 10 --timeout 120 --no-build-isolation -e "$vllm_hust_root"; then
+			if VLLM_USE_PRECOMPILED="${VLLM_USE_PRECOMPILED:-1}" VLLM_PRECOMPILED_WHEEL_COMMIT="$precompiled_commit" VLLM_PRECOMPILED_WHEEL_VARIANT="${VLLM_PRECOMPILED_WHEEL_VARIANT:-$torch_backend}" VLLM_PRECOMPILED_WHEEL_LOCATION="$precompiled_wheel_location" run_with_optional_timeout "$python_bin" -m pip install --retries 10 --timeout 120 --no-build-isolation -e "$vllm_hust_root"; then
 				return 0
 			fi
 		fi
