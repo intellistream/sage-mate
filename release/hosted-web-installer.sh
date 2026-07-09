@@ -13,6 +13,7 @@ state_dir="${XDG_STATE_HOME:-$HOME/.local/state}/sage-faculty-twin-installer"
 state_file="$state_dir/state.sh"
 log_file="$state_dir/install.log"
 repo_dir="${FACULTY_TWIN_DIR:-$HOME/sage-faculty-twin}"
+code_repo_dir="${FACULTY_TWIN_CODE_DIR:-$HOME/sage-mate-local-code}"
 repo_url="${FACULTY_TWIN_REPO_URL:-git@github.com:intellistream/sage-faculty-twin.git}"
 https_repo_url="${FACULTY_TWIN_HTTPS_REPO_URL:-https://github.com/intellistream/sage-faculty-twin.git}"
 branch="${FACULTY_TWIN_BRANCH:-main}"
@@ -20,6 +21,8 @@ hosted_web_script="${FACULTY_TWIN_HOSTED_WEB_SCRIPT:-$script_dir/hosted-web.sh}"
 release_url="${FACULTY_TWIN_RELEASE_URL:-https://github.com/intellistream/sage-faculty-twin/releases/download/v4.4.0}"
 min_driver="${VLLM_NVIDIA_MIN_DRIVER_VERSION:-575.51.03}"
 default_key_file="$HOME/.config/sage-faculty-twin/release-secrets.key"
+install_mode="${FACULTY_TWIN_INSTALL_MODE:-web-only}"
+install_mode_explicit=false
 resume=false
 assume_yes=false
 no_secrets_mode=false
@@ -30,23 +33,47 @@ chmod 0600 "$log_file" || true
 
 usage() {
     cat <<'EOF'
-Usage: hosted-web-installer.sh [--resume] [--yes] [hosted-web.sh options...]
+Usage: hosted-web-installer.sh [--install-mode web-only|code-only|both] [--resume] [--yes] [options...]
 
-Double-click friendly installer for hosted/web Faculty Twin. It shows GUI
-progress when zenity is available, upgrades NVIDIA drivers with confirmation,
-sets up reboot resume, then runs hosted-web.sh.
+Double-click friendly installer for Faculty Twin / Sage Mate.
+
+Modes:
+  web-only   Hosted Faculty Twin web service. Local code tools stay disabled.
+  code-only  Local Sage Mate code-editing app. No hosted tunnel/service install.
+  both       Separate web and local-code installs with separate directories/ports.
 EOF
 }
 
 installer_args=()
 while [[ $# -gt 0 ]]; do
     case "$1" in
+        --install-mode|--mode)
+            [[ $# -ge 2 ]] || { echo "$1 requires a value" >&2; exit 2; }
+            install_mode="$2"
+            install_mode_explicit=true
+            shift 2
+            ;;
+        --install-mode=*|--mode=*)
+            install_mode="${1#*=}"
+            install_mode_explicit=true
+            shift
+            ;;
+        --web-only) install_mode="web-only"; install_mode_explicit=true; shift ;;
+        --code-only) install_mode="code-only"; install_mode_explicit=true; shift ;;
+        --both) install_mode="both"; install_mode_explicit=true; shift ;;
         --resume) resume=true; shift ;;
         --yes|-y) assume_yes=true; installer_args+=(--yes); shift ;;
         -h|--help) usage; exit 0 ;;
         *) installer_args+=("$1"); shift ;;
     esac
 done
+
+case "$install_mode" in
+    web-only|code-only|both) ;;
+    web|hosted|hosted-web) install_mode="web-only" ;;
+    code|local-code|code-editing) install_mode="code-only" ;;
+    *) echo "--install-mode must be one of: web-only, code-only, both" >&2; exit 2 ;;
+esac
 
 if ! printf '\n%s\n' "${installer_args[@]}" | grep -qx -- '--yes'; then
     installer_args+=(--yes)
@@ -179,6 +206,8 @@ save_state() {
     local step="$1"
     {
         printf 'INSTALLER_STEP=%q\n' "$step"
+        printf 'INSTALL_MODE=%q\n' "$install_mode"
+        printf 'INSTALL_MODE_EXPLICIT=%q\n' "$install_mode_explicit"
         printf 'INSTALLER_ARGS=( '
         quote_args "${installer_args[@]}"
         printf ')\n'
@@ -208,10 +237,35 @@ load_resume_args() {
     if $resume && [[ -f "$state_file" ]]; then
         # shellcheck disable=SC1090
         source "$state_file"
+        if [[ -n "${INSTALL_MODE:-}" ]]; then
+            install_mode="$INSTALL_MODE"
+        fi
+        if [[ -n "${INSTALL_MODE_EXPLICIT:-}" ]]; then
+            install_mode_explicit="$INSTALL_MODE_EXPLICIT"
+        fi
         if declare -p INSTALLER_ARGS >/dev/null 2>&1 && ((${#INSTALLER_ARGS[@]} > 0)); then
             installer_args=("${INSTALLER_ARGS[@]}")
         fi
     fi
+}
+
+choose_install_mode() {
+    $resume && return 0
+    if $install_mode_explicit || [[ -n "${FACULTY_TWIN_INSTALL_MODE:-}" || $assume_yes == true ]]; then
+        return 0
+    fi
+    local choice
+    choice=$(choose \
+        "Faculty Twin Install Mode" \
+        "Choose what to install. Hosted/web mode is safe for public server deployment and keeps local code tools disabled. Code editing mode is for local Sage Mate use on a trusted desktop/workstation." \
+        "Web only - hosted Faculty Twin" \
+        "Code editing only - local Sage Mate" \
+        "Both - separate web and code installs") || fail "No install mode was selected."
+    case "$choice" in
+        "Web only"*) install_mode="web-only" ;;
+        "Code editing only"*) install_mode="code-only" ;;
+        "Both"*) install_mode="both" ;;
+    esac
 }
 
 has_arg() {
@@ -275,13 +329,14 @@ ensure_release_key_or_choose_mode() {
 }
 
 install_summary() {
-    local mode="internal deployment with encrypted secrets"
+    local secret_mode="internal deployment with encrypted secrets"
     if $no_secrets_mode || has_arg --no-secrets; then
-        mode="local install without encrypted secrets"
+        secret_mode="local install without encrypted secrets"
     fi
     local tunnel="enabled when credentials are available"
     has_arg --no-tunnel && tunnel="disabled"
-    printf 'Mode: %s\nRepo dir: %s\nTunnel: %s\nLog: %s\n' "$mode" "$repo_dir" "$tunnel" "$log_file"
+    printf 'Install mode: %s\nSecrets: %s\nWeb repo dir: %s\nCode repo dir: %s\nTunnel: %s\nLog: %s\n' \
+        "$install_mode" "$secret_mode" "$repo_dir" "$code_repo_dir" "$tunnel" "$log_file"
 }
 
 confirm_install_summary() {
@@ -291,7 +346,7 @@ confirm_install_summary() {
         log "install summary: ${summary//$'\n'/; }"
         return 0
     fi
-    confirm "Ready to install Faculty Twin hosted/web.\n\n$summary\n\nContinue?" || fail "Installation cancelled."
+    confirm "Ready to install Faculty Twin / Sage Mate.\n\n$summary\n\nContinue?" || fail "Installation cancelled."
 }
 
 decrypt_initial_secrets() {
@@ -348,20 +403,26 @@ EOF
     git "$@"
 }
 
-ensure_repo_for_driver_helper() {
+clone_or_update_repo() {
+    local target_dir="$1"
     decrypt_initial_secrets
     command -v git >/dev/null 2>&1 || fail "git is required before driver upgrade."
-    if [[ ! -d "$repo_dir/.git" ]]; then
+    mkdir -p "$(dirname "$target_dir")"
+    if [[ ! -d "$target_dir/.git" ]]; then
         progress 12 "Downloading installer helpers..."
-        git_auth clone "$repo_url" "$repo_dir" >>"$log_file" 2>&1 || \
-            git_auth clone "$https_repo_url" "$repo_dir" >>"$log_file" 2>&1
+        git_auth clone "$repo_url" "$target_dir" >>"$log_file" 2>&1 || \
+            git_auth clone "$https_repo_url" "$target_dir" >>"$log_file" 2>&1
     fi
     (
-        cd "$repo_dir"
+        cd "$target_dir"
         git_auth fetch origin >>"$log_file" 2>&1
         git checkout "$branch" >>"$log_file" 2>&1
         git_auth pull --ff-only origin "$branch" >>"$log_file" 2>&1
     )
+}
+
+ensure_repo_for_driver_helper() {
+    clone_or_update_repo "$repo_dir"
 }
 
 download_hosted_web_script() {
@@ -386,6 +447,7 @@ accelerator_arg_is_ascend() {
 }
 
 nvidia_driver_needs_upgrade() {
+    [[ "$install_mode" == "code-only" ]] && return 1
     accelerator_arg_is_ascend && return 1
     command -v nvidia-smi >/dev/null 2>&1 || return 1
     local current
@@ -416,8 +478,9 @@ maybe_upgrade_nvidia_driver() {
 
 run_hosted_web_install() {
     download_hosted_web_script
-    save_state "installing"
+    save_state "installing-web"
     progress 35 "Installing Faculty Twin hosted/web. This can take a while..."
+    export FACULTY_TWIN_DIR="$repo_dir"
     FACULTY_TWIN_ENCRYPTED_SECRETS_FILE="${FACULTY_TWIN_ENCRYPTED_SECRETS_FILE:-$script_dir/secrets.env.enc}" \
         bash "$hosted_web_script" "${installer_args[@]}" >>"$log_file" 2>&1
     progress 92 "Running final hosted/web verification..."
@@ -426,18 +489,54 @@ run_hosted_web_install() {
     fi
 }
 
+run_local_code_install() {
+    save_state "installing-code"
+    progress 55 "Installing local Sage Mate code-editing app..."
+    clone_or_update_repo "$code_repo_dir"
+    local code_port="${FACULTY_TWIN_CODE_PORT:-55601}"
+    if [[ "$install_mode" == "both" && -z "${FACULTY_TWIN_CODE_PORT:-}" ]]; then
+        code_port="55611"
+    fi
+    (
+        cd "$code_repo_dir"
+        ./quickstart.sh \
+            --target local-mac-app \
+            --app-profile code_assistant \
+            --port "$code_port" \
+            --start
+    ) >>"$log_file" 2>&1
+}
+
 main() {
     load_resume_args
     progress_start
     progress 3 "Checking machine..."
+    choose_install_mode
     ensure_release_key_or_choose_mode
     confirm_install_summary
     maybe_upgrade_nvidia_driver
-    run_hosted_web_install
+    case "$install_mode" in
+        web-only)
+            run_hosted_web_install
+            ;;
+        code-only)
+            run_local_code_install
+            ;;
+        both)
+            run_hosted_web_install
+            run_local_code_install
+            ;;
+    esac
     clear_state
-    progress 100 "Faculty Twin hosted/web installation complete."
+    progress 100 "Faculty Twin installation complete."
     progress_finish
-    say_info "Faculty Twin hosted/web is installed.\n\nOpen: http://127.0.0.1:55601/\n\nLog: $log_file"
+    if [[ "$install_mode" == "code-only" ]]; then
+        say_info "Sage Mate code-editing mode is installed.\n\nOpen: http://127.0.0.1:${FACULTY_TWIN_CODE_PORT:-55601}/?setup=local-code\n\nLog: $log_file"
+    elif [[ "$install_mode" == "both" ]]; then
+        say_info "Faculty Twin web and Sage Mate code-editing mode are installed.\n\nWeb: http://127.0.0.1:55601/\nCode: http://127.0.0.1:${FACULTY_TWIN_CODE_PORT:-55611}/?setup=local-code\n\nLog: $log_file"
+    else
+        say_info "Faculty Twin hosted/web is installed.\n\nOpen: http://127.0.0.1:55601/\n\nLog: $log_file"
+    fi
 }
 
 main "$@"

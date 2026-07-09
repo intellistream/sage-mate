@@ -8,17 +8,40 @@ Linux machine.
 Download the `.run` installer from GitHub Release:
 
 ```bash
-chmod +x sage-faculty-twin-hosted-web-v4.4.0-linux.run
-./sage-faculty-twin-hosted-web-v4.4.0-linux.run
+chmod +x sage-faculty-twin-v4.4.0-linux.run
+./sage-faculty-twin-v4.4.0-linux.run
 ```
 
 The `.run` installer extracts this bundle to:
 
 ```bash
-~/.local/share/sage-faculty-twin-installer/sage-faculty-twin-hosted-web-v4.4.0
+~/.local/share/sage-faculty-twin-installer/sage-faculty-twin-v4.4.0
 ```
 
 That persistent location lets the installer resume after a driver-upgrade reboot.
+
+## Install Modes
+
+The installer supports three product modes:
+
+```bash
+# Hosted Faculty Twin web service. Local code tools are disabled.
+./sage-faculty-twin-v4.4.0-linux.run --web-only
+
+# Local Sage Mate code-editing app only.
+./sage-faculty-twin-v4.4.0-linux.run --code-only
+
+# Both, installed into separate checkouts and ports.
+./sage-faculty-twin-v4.4.0-linux.run --both
+```
+
+`--both` uses separate directories so hosted/web safety settings do not mix with
+local code-editing settings:
+
+- Web repo: `~/sage-faculty-twin`
+- Code repo: `~/sage-mate-local-code`
+- Web URL: `http://127.0.0.1:55601/`
+- Code URL: `http://127.0.0.1:55611/?setup=local-code`
 
 ## Tarball Install
 
@@ -88,6 +111,9 @@ selection, or local command execution.
 ## Common Options
 
 ```bash
+./install.sh --web-only
+./install.sh --code-only
+./install.sh --both
 ./install.sh --accelerator nvidia
 ./install.sh --accelerator ascend
 ./install.sh --no-tunnel

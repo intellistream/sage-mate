@@ -24,37 +24,59 @@
 从 GitHub Release 下载：
 
 ```bash
-sage-faculty-twin-hosted-web-v4.4.0-linux.run
+sage-faculty-twin-v4.4.0-linux.run
 ```
 
 运行：
 
 ```bash
-chmod +x sage-faculty-twin-hosted-web-v4.4.0-linux.run
-./sage-faculty-twin-hosted-web-v4.4.0-linux.run
+chmod +x sage-faculty-twin-v4.4.0-linux.run
+./sage-faculty-twin-v4.4.0-linux.run
 ```
 
 这个 `.run` 文件会自解压到：
 
 ```bash
-~/.local/share/sage-faculty-twin-installer/sage-faculty-twin-hosted-web-v4.4.0
+~/.local/share/sage-faculty-twin-installer/sage-faculty-twin-v4.4.0
 ```
 
 所以即使中途升级 NVIDIA driver 并重启，登录后也能继续安装。
+
+### 安装模式
+
+Linux `.run` 和 macOS `.dmg` 是同一级别的产品入口。`.run` 支持三种模式：
+
+```bash
+# 只安装 hosted Faculty Twin web 服务；本地代码能力保持关闭
+./sage-faculty-twin-v4.4.0-linux.run --web-only
+
+# 只安装本地 Sage Mate 代码编辑模式
+./sage-faculty-twin-v4.4.0-linux.run --code-only
+
+# 两者都装，但使用独立 checkout 和独立端口
+./sage-faculty-twin-v4.4.0-linux.run --both
+```
+
+`--both` 不会把本地代码能力混入 hosted/web。默认隔离为：
+
+- Web repo: `~/sage-faculty-twin`
+- Code repo: `~/sage-mate-local-code`
+- Web URL: `http://127.0.0.1:55601/`
+- Code URL: `http://127.0.0.1:55611/?setup=local-code`
 
 ## 3. 可审计压缩包安装
 
 如果想先查看包内容，也可以下载：
 
 ```bash
-sage-faculty-twin-hosted-web-v4.4.0.tar.gz
+sage-faculty-twin-v4.4.0.tar.gz
 ```
 
 解压后进入目录：
 
 ```bash
-tar -xzf sage-faculty-twin-hosted-web-v4.4.0.tar.gz
-cd sage-faculty-twin-hosted-web-v4.4.0
+tar -xzf sage-faculty-twin-v4.4.0.tar.gz
+cd sage-faculty-twin-v4.4.0
 ```
 
 然后把 release key 放到目标机器，例如：
