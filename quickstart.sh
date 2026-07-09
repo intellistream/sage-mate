@@ -531,7 +531,7 @@ else
 	else
 		log "Installing sage-faculty-twin (editable, with vdb-anns extras)"
 	fi
-	run_with_optional_timeout "$python_bin" -m pip install --quiet --upgrade pip setuptools wheel
+	run_with_optional_timeout "$python_bin" -m pip install --quiet --upgrade pip setuptools wheel scikit-build-core pybind11
 	if $mode_skip_vdb_extras; then
 		run_with_optional_timeout "$python_bin" -m pip install --quiet --no-build-isolation -e "$repo_root"
 	elif ! run_with_optional_timeout "$python_bin" -m pip install --quiet --no-build-isolation -e "$repo_root[vdb-anns]"; then
