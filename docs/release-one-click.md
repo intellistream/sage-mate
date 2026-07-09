@@ -19,13 +19,20 @@
 /home/shuhao/.config/sage-faculty-twin/release-secrets.key
 ```
 
-## 2. 推荐：双击安装器
+## 2. 推荐：下载产品安装包
 
-下载这三个文件放到同一个目录：
+从 GitHub Release 下载：
 
-- `hosted-web-installer.sh`
-- `hosted-web.sh`
-- `secrets.env.enc`（如果需要自动注入 GitHub/HF/Cloudflare/API key）
+```bash
+sage-faculty-twin-hosted-web-v4.4.0.tar.gz
+```
+
+解压后进入目录：
+
+```bash
+tar -xzf sage-faculty-twin-hosted-web-v4.4.0.tar.gz
+cd sage-faculty-twin-hosted-web-v4.4.0
+```
 
 然后把 release key 放到目标机器，例如：
 
@@ -33,8 +40,14 @@
 ~/.config/sage-faculty-twin/release-secrets.key
 ```
 
-桌面环境里直接双击 `hosted-web-installer.sh`。如果机器安装了 `zenity`，
-会出现进度条和确认弹窗：
+桌面环境里直接双击 `install.sh`，或在终端执行：
+
+```bash
+FACULTY_TWIN_SECRETS_KEY_FILE=~/.config/sage-faculty-twin/release-secrets.key \
+  ./install.sh
+```
+
+如果机器安装了 `zenity`，会出现进度条和确认弹窗：
 
 1. 检查机器和硬件。
 2. 如 NVIDIA driver 太旧，弹窗提示升级。
@@ -49,7 +62,7 @@
 
 ```bash
 FACULTY_TWIN_SECRETS_KEY_FILE=~/.config/sage-faculty-twin/release-secrets.key \
-  bash hosted-web-installer.sh --accelerator nvidia --model-preset qwen2.5-14b-awq
+  ./install.sh --accelerator nvidia --model-preset qwen2.5-14b-awq
 ```
 
 ## 3. 服务器命令行一键安装
