@@ -542,6 +542,7 @@ main() {
         --target hosted-web
         --with-vllm-proxy
         --with-site-proxy
+        --skip-vdb-extras
         --pip-timeout
         "${FACULTY_TWIN_PIP_TIMEOUT_SECONDS:-900}"
     )

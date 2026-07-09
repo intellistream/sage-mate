@@ -42,6 +42,7 @@ parent_dir="${FACULTY_TWIN_PARENT_DIR:-$(dirname "$repo_root")}"
 mode_check=false
 mode_systemd_only=false
 mode_skip_python_install=false
+mode_skip_vdb_extras=false
 pip_timeout_seconds="${PIP_INSTALL_TIMEOUT_SECONDS:-0}"
 mode_with_vllm=false
 mode_with_nvidia_vllm=false
@@ -79,7 +80,7 @@ Install targets:
 
 Hosted-web options:
   --with-vllm, --with-vllm-engine, --with-nvidia-vllm-engine, --with-vllm-proxy, --with-site-proxy, --with-tunnel
-  --no-systemd, --no-siblings, --skip-python-install, --pip-timeout SECONDS, --start, --yes
+  --no-systemd, --no-siblings, --skip-python-install, --skip-vdb-extras, --pip-timeout SECONDS, --start, --yes
 
 Local Sage Mate options:
   --app-profile faculty_twin|code_assistant
@@ -135,6 +136,7 @@ while [[ $# -gt 0 ]]; do
 		shift
 		;;
 	--skip-python-install) mode_skip_python_install=true; shift ;;
+	--skip-vdb-extras) mode_skip_vdb_extras=true; shift ;;
 	--pip-timeout)
 		[[ $# -ge 2 ]] || { echo "--pip-timeout requires a value" >&2; exit 2; }
 		pip_timeout_seconds="$2"
@@ -524,9 +526,15 @@ fi
 if $mode_skip_python_install; then
 	log "Skipping Python dependency installation (--skip-python-install)"
 else
-	log "Installing sage-faculty-twin (editable, with vdb-anns extras)"
+	if $mode_skip_vdb_extras; then
+		log "Installing sage-faculty-twin (editable, base dependencies)"
+	else
+		log "Installing sage-faculty-twin (editable, with vdb-anns extras)"
+	fi
 	run_with_optional_timeout "$python_bin" -m pip install --quiet --upgrade pip
-	if ! run_with_optional_timeout "$python_bin" -m pip install --quiet -e "$repo_root[vdb-anns]"; then
+	if $mode_skip_vdb_extras; then
+		run_with_optional_timeout "$python_bin" -m pip install --quiet -e "$repo_root"
+	elif ! run_with_optional_timeout "$python_bin" -m pip install --quiet -e "$repo_root[vdb-anns]"; then
 		warn "vdb-anns extras failed (C extensions may need CANN/C++ toolchain)"
 		warn "Falling back to base install"
 		run_with_optional_timeout "$python_bin" -m pip install --quiet -e "$repo_root"
