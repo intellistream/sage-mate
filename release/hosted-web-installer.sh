@@ -530,7 +530,12 @@ run_hosted_web_install() {
     trap - RETURN
     progress 92 "Running final hosted/web verification..."
     if [[ -x "$repo_dir/manage.sh" ]]; then
-        (cd "$repo_dir" && ./manage.sh verify-hosted-web) >>"$log_file" 2>&1 || fail "Hosted/web verification failed. See $log_file"
+        (
+            cd "$repo_dir"
+            env -u HTTP_PROXY -u HTTPS_PROXY -u ALL_PROXY -u http_proxy -u https_proxy -u all_proxy \
+                NO_PROXY="127.0.0.1,localhost" \
+                ./manage.sh verify-hosted-web
+        ) >>"$log_file" 2>&1 || fail "Hosted/web verification failed. See $log_file"
     fi
 }
 
