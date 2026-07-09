@@ -281,7 +281,10 @@ install_nvidia_vllm_hust_runtime() {
 				return 0
 			fi
 		else
-			if VLLM_USE_PRECOMPILED="${VLLM_USE_PRECOMPILED:-1}" run_with_optional_timeout "$python_bin" -m pip install --retries 10 --timeout 120 -e "$vllm_hust_root"; then
+			run_with_optional_timeout "$python_bin" -m pip install --retries 10 --timeout 120 \
+				cmake "ninja" "packaging>=24.2" "setuptools>=77.0.3,<81.0.0" \
+				"setuptools-scm>=8.0" "setuptools-rust>=1.9.0" "torch==2.11.0" wheel jinja2
+			if VLLM_USE_PRECOMPILED="${VLLM_USE_PRECOMPILED:-1}" run_with_optional_timeout "$python_bin" -m pip install --retries 10 --timeout 120 --no-build-isolation -e "$vllm_hust_root"; then
 				return 0
 			fi
 		fi
