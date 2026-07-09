@@ -566,17 +566,30 @@ if [[ "$install_target" == "hosted-web" ]]; then
 	set_env_kv DIGITAL_TWIN_CODE_WORKSPACE_ROOTS ""
 	if $svc_nvidia_engine; then
 		set_env_kv DIGITAL_TWIN_LLM_BASE_URL "http://127.0.0.1:18001/v1"
-		set_env_kv VLLM_PROXY_UPSTREAM_BASE_URL "http://127.0.0.1:8000/v1"
+		set_env_kv VLLM_PROXY_UPSTREAM_BASE_URL "http://127.0.0.1:18000/v1"
 		ensure_env_kv VLLM_NVIDIA_MODEL "Qwen/Qwen2.5-14B-Instruct-AWQ"
 		ensure_env_kv DIGITAL_TWIN_MODEL_NAME "Qwen/Qwen2.5-14B-Instruct-AWQ"
 		ensure_env_kv VLLM_NVIDIA_SERVED_MODEL_NAME "\${DIGITAL_TWIN_MODEL_NAME}"
 		ensure_env_kv VLLM_NVIDIA_HOST "127.0.0.1"
-		ensure_env_kv VLLM_NVIDIA_PORT "8000"
+		ensure_env_kv VLLM_NVIDIA_PORT "18000"
 		ensure_env_kv VLLM_NVIDIA_GPU_MEMORY_UTILIZATION "0.88"
 		ensure_env_kv VLLM_NVIDIA_MAX_MODEL_LEN "16384"
 		ensure_env_kv VLLM_NVIDIA_MAX_NUM_SEQS "8"
 		set_env_kv TWIN_MONITOR_ENGINE_FLAG "--with-nvidia-vllm-engine"
 		set_env_kv TWIN_MONITOR_ENGINE_UNIT "sage-faculty-twin-vllm-nvidia-engine.service"
+	fi
+	if $svc_engine; then
+		set_env_kv DIGITAL_TWIN_LLM_BASE_URL "http://127.0.0.1:18001/v1"
+		set_env_kv VLLM_PROXY_UPSTREAM_BASE_URL "http://127.0.0.1:8000/v1"
+		ensure_env_kv VLLM_ENGINE_MODEL_PATH "/data/shared-models/Qwen3-32B"
+		ensure_env_kv DIGITAL_TWIN_MODEL_NAME "Qwen3-32B"
+		ensure_env_kv VLLM_ENGINE_SERVED_MODEL_NAME "\${DIGITAL_TWIN_MODEL_NAME}"
+		ensure_env_kv VLLM_ENGINE_PORT "8000"
+		ensure_env_kv VLLM_ENGINE_TP_SIZE "4"
+		ensure_env_kv VLLM_ENGINE_MAX_MODEL_LEN "32768"
+		ensure_env_kv VLLM_ENGINE_MAX_NUM_SEQS "16"
+		set_env_kv TWIN_MONITOR_ENGINE_FLAG "--with-vllm-engine"
+		set_env_kv TWIN_MONITOR_ENGINE_UNIT "sage-faculty-twin-vllm-engine.service"
 	fi
 	prepare_hosted_runtime_data
 

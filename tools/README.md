@@ -9,6 +9,10 @@ Prefer the top-level entrypoints unless you are debugging one component.
   - Hosted web: `./quickstart.sh --target hosted-web --start`
   - A6000/NVIDIA local engine: add `--with-nvidia-vllm-engine --with-vllm-proxy`
   - Ascend engine: use `--with-vllm-engine --with-vllm-proxy`
+- `../release/hosted-web.sh` - release-facing fresh-machine hosted/web installer for NVIDIA,
+  Ascend, or external-LLM deployments.
+  - Clones/updates the repo, configures hosted/web safety defaults, calls `quickstart.sh`, and
+    verifies with `manage.sh verify-hosted-web`.
 - `../manage.sh` - runtime management entrypoint.
   - Status/restart/logs for systemd user services.
   - Hosted verification: `./manage.sh verify-hosted-web --public-url https://twin.sage.org.ai/`

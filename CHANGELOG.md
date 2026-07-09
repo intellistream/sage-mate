@@ -2,6 +2,28 @@
 
 ## Unreleased
 
+## v4.4.0 - 2026-07-09
+
+### Added
+
+- **Hosted/web release installer**: adds `release/hosted-web.sh`, a fresh-machine installer that
+  clones/updates the repo, auto-selects NVIDIA/CUDA or Ascend/NPU hosted inference, configures
+  hosted/web safety defaults, installs pinned runtime dependencies, configures Cloudflare tunnel
+  DNS/ingress when credentials are available, starts systemd services, and runs
+  `manage.sh verify-hosted-web`.
+- **Encrypted release secrets hook**: supports an OpenSSL-encrypted `release/secrets.env.enc`
+  bundle that deployers can decrypt with a server-local key file and merge into `.env` without
+  printing token values.
+- **NVIDIA model presets**: supports stable Qwen3-32B, large Qwen3-Next 80B AWQ, and conservative
+  Qwen2.5-14B AWQ presets for hosted/web NVIDIA deployments.
+
+### Fixed
+
+- **NVIDIA vLLM proxy wiring**: defaults NVIDIA engine traffic to `127.0.0.1:18000` and lets the
+  proxy read `VLLM_PROXY_UPSTREAM_BASE_URL` from `.env`, avoiding stale systemd defaults on `8000`.
+- **Qwen3-Next chat template override**: NVIDIA vLLM launcher can pass `VLLM_NVIDIA_CHAT_TEMPLATE`
+  through to vLLM for quantized snapshots that do not ship tokenizer chat templates.
+
 ## v4.3.5 - 2026-06-29
 
 `v4.3.5` restores the Faculty Twin guided onboarding layout for hosted web users.

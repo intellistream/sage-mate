@@ -169,13 +169,18 @@ def main() -> int:
         status, body = request_json(f"{public_url}/healthz", timeout=15)
         check(status == 200 and isinstance(body, dict) and body.get("status") == "ok", "public healthz", f"status={status}", failures)
 
-    vllm_url = args.vllm_url.strip() or f"http://{env.get('VLLM_NVIDIA_HOST', '127.0.0.1')}:{env.get('VLLM_NVIDIA_PORT', '8000')}/v1"
-    vllm_api_key = env.get("VLLM_NVIDIA_API_KEY", "")
+    if args.vllm_url.strip():
+        vllm_url = args.vllm_url.strip()
+    elif env.get("VLLM_NVIDIA_MODEL", "").strip():
+        vllm_url = f"http://{env.get('VLLM_NVIDIA_HOST', '127.0.0.1')}:{env.get('VLLM_NVIDIA_PORT', '18000')}/v1"
+    else:
+        vllm_url = f"http://127.0.0.1:{env.get('VLLM_ENGINE_PORT', '8000')}/v1"
+    vllm_api_key = env.get("VLLM_NVIDIA_API_KEY", "") or env.get("VLLM_HUST_API_KEY", "") or env.get("VLLM_ENGINE_API_KEY", "")
     status, models_body = wait_for_models(vllm_url, timeout=args.timeout, api_key=vllm_api_key)
     check(status == 200, "vLLM models", f"status={status} url={vllm_url}", failures)
     ids, roots = model_ids(models_body)
-    expected_model = env.get("VLLM_NVIDIA_MODEL", "").strip()
-    served_model = env.get("VLLM_NVIDIA_SERVED_MODEL_NAME", "").strip()
+    expected_model = env.get("VLLM_NVIDIA_MODEL", "").strip() or env.get("VLLM_ENGINE_MODEL_PATH", "").strip()
+    served_model = env.get("VLLM_NVIDIA_SERVED_MODEL_NAME", "").strip() or env.get("VLLM_ENGINE_SERVED_MODEL_NAME", "").strip()
     app_model = env.get("DIGITAL_TWIN_MODEL_NAME", "").strip()
     if served_model == "${DIGITAL_TWIN_MODEL_NAME}":
         served_model = app_model
@@ -210,6 +215,8 @@ def main() -> int:
         "DIGITAL_TWIN_MODEL_NAME",
         "VLLM_NVIDIA_MODEL",
         "VLLM_NVIDIA_SERVED_MODEL_NAME",
+        "VLLM_ENGINE_MODEL_PATH",
+        "VLLM_ENGINE_SERVED_MODEL_NAME",
     ):
         print(f"  {key}={masked_env_value(key, env.get(key, ''))}")
 

@@ -52,6 +52,7 @@ dtype="${VLLM_NVIDIA_DTYPE:-auto}"
 quantization="${VLLM_NVIDIA_QUANTIZATION:-}"
 tensor_parallel_size="${VLLM_NVIDIA_TENSOR_PARALLEL_SIZE:-1}"
 download_dir="${VLLM_NVIDIA_DOWNLOAD_DIR:-}"
+chat_template="${VLLM_NVIDIA_CHAT_TEMPLATE:-}"
 
 args=(
     -m vllm.entrypoints.cli.main
@@ -73,6 +74,9 @@ fi
 if [[ -n "$download_dir" ]]; then
     mkdir -p "$download_dir"
     args+=(--download-dir "$download_dir")
+fi
+if [[ -n "$chat_template" ]]; then
+    args+=(--chat-template "$chat_template")
 fi
 if [[ -n "${HF_TOKEN:-}" && -z "${HUGGING_FACE_HUB_TOKEN:-}" ]]; then
     export HUGGING_FACE_HUB_TOKEN="$HF_TOKEN"

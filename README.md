@@ -57,6 +57,22 @@ parent/
 ./quickstart.sh --with-vllm-engine --start   # 需要本机 vLLM 引擎服务时再启用
 ```
 
+NVIDIA/CUDA 服务器推荐使用 release installer。它可以从空机器 clone 仓库、同步 submodules、
+配置 hosted/web 安全默认值、安装 pinned `deps/vllm-hust`、配置 Cloudflare tunnel、
+启动 systemd 服务并执行本地/公网验收：
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/intellistream/sage-faculty-twin/main/release/hosted-web.sh \
+  -o /tmp/hosted-web.sh
+FACULTY_TWIN_SECRETS_KEY_FILE=/home/shuhao/.config/sage-faculty-twin/release-secrets.key \
+  bash /tmp/hosted-web.sh --yes
+```
+
+安装器会自动识别 NVIDIA/CUDA 或 Ascend/NPU；双 A100 80GB 默认会选择稳定的官方
+`Qwen/Qwen3-32B` preset；要上更大的 Qwen3-Next 80B AWQ，可显式加
+`--accelerator nvidia --model-preset qwen3-next-80b-awq`。详细说明见
+`docs/hosted-web-release.md`。
+
 `hosted-web` 会在 `.env` 中确保：
 
 ```bash
