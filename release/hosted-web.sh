@@ -7,6 +7,7 @@
 
 set -euo pipefail
 
+script_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)
 repo_url="${FACULTY_TWIN_REPO_URL:-git@github.com:intellistream/sage-faculty-twin.git}"
 https_repo_url="${FACULTY_TWIN_HTTPS_REPO_URL:-https://github.com/intellistream/sage-faculty-twin.git}"
 branch="${FACULTY_TWIN_BRANCH:-main}"
@@ -296,6 +297,48 @@ apply_encrypted_release_secrets() {
     log "applied encrypted release secrets from $(basename "$enc_file")"
 }
 
+apply_initial_release_secrets() {
+    local default_file="$script_dir/secrets.env.enc"
+    local enc_file="${encrypted_secrets_file:-$default_file}"
+    local tmp_file pass_args=()
+
+    $use_encrypted_secrets || return 0
+    [[ -f "$enc_file" ]] || return 0
+    command -v openssl >/dev/null 2>&1 || return 0
+
+    if [[ -n "$secrets_key_file" ]]; then
+        [[ -f "$secrets_key_file" ]] || return 0
+        pass_args=(-pass "file:$secrets_key_file")
+    elif [[ -n "${FACULTY_TWIN_SECRETS_PASSPHRASE:-}" ]]; then
+        pass_args=(-pass "env:FACULTY_TWIN_SECRETS_PASSPHRASE")
+    else
+        return 0
+    fi
+
+    tmp_file=$(mktemp)
+    chmod 0600 "$tmp_file"
+    if ! openssl enc -d -aes-256-cbc -pbkdf2 -in "$enc_file" -out "$tmp_file" "${pass_args[@]}" 2>/tmp/faculty_twin_initial_secrets_decrypt.err; then
+        rm -f "$tmp_file"
+        return 0
+    fi
+    while IFS= read -r line || [[ -n "$line" ]]; do
+        [[ -z "$line" || "$line" =~ ^[[:space:]]*# ]] && continue
+        [[ "$line" == *"="* ]] || continue
+        local key="${line%%=*}" value="${line#*=}"
+        key="${key// /}"
+        [[ "$key" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]] || continue
+        case "$key" in
+            GITHUB_TOKEN|GH_TOKEN|HF_TOKEN|HUGGING_FACE_HUB_TOKEN|CLOUDFLARE_API_TOKEN|CLOUDFLARE_GLOBAL_API_KEY)
+                if [[ -z "${!key:-}" ]]; then
+                    export "$key=$value"
+                fi
+                ;;
+        esac
+    done < "$tmp_file"
+    rm -f "$tmp_file"
+    log "loaded encrypted release secrets needed before clone"
+}
+
 prepare_qwen3_next_template() {
     local runtime_dir="$1"
     local template_path="$runtime_dir/qwen3-next-chat-template.jinja"
@@ -461,18 +504,39 @@ select_model() {
 
 clone_or_update_repo() {
     mkdir -p "$(dirname "$repo_dir")"
+    local askpass=""
+    git_auth() {
+        if [[ -n "$askpass" ]]; then
+            env GIT_ASKPASS="$askpass" GIT_TERMINAL_PROMPT=0 git "$@"
+        else
+            git "$@"
+        fi
+    }
+    if [[ -n "${GITHUB_TOKEN:-${GH_TOKEN:-}}" ]]; then
+        askpass=$(mktemp)
+        chmod 0700 "$askpass"
+        cat >"$askpass" <<'EOF'
+#!/usr/bin/env bash
+case "$1" in
+    *Username*) printf '%s\n' "${GITHUB_USER:-x-access-token}" ;;
+    *Password*) printf '%s\n' "${GITHUB_TOKEN:-${GH_TOKEN:-}}" ;;
+    *) printf '\n' ;;
+esac
+EOF
+    fi
     if [[ ! -d "$repo_dir/.git" ]]; then
         log "cloning $repo_url -> $repo_dir"
-        git clone "$repo_url" "$repo_dir" || git clone "$https_repo_url" "$repo_dir"
+        git_auth clone "$repo_url" "$repo_dir" || git_auth clone "$https_repo_url" "$repo_dir"
     fi
     cd "$repo_dir"
     if [[ -n "$(git status --short)" ]]; then
         git stash push -u -m "pre-release-install-$(date +%Y%m%d-%H%M%S)"
     fi
     git checkout "$branch"
-    git fetch origin
-    git pull --ff-only origin "$branch"
+    git_auth fetch origin
+    git_auth pull --ff-only origin "$branch"
     git submodule update --init --recursive
+    [[ -z "$askpass" ]] || rm -f "$askpass"
 }
 
 main() {
@@ -482,6 +546,7 @@ main() {
     export HF_ENDPOINT="${HF_ENDPOINT:-https://hf-mirror.com}"
     export HF_HUB_DISABLE_XET="${HF_HUB_DISABLE_XET:-1}"
 
+    apply_initial_release_secrets
     detect_accelerator
     if [[ "$accelerator" == "nvidia" ]]; then
         command -v nvidia-smi >/dev/null 2>&1 || fail "nvidia-smi is required for --accelerator nvidia"
