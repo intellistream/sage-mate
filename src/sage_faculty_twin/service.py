@@ -1947,6 +1947,13 @@ class FacultyTwinWorkflowSupport:
         interaction_intent = context.interaction_intent
         domain = interaction_intent.domain if interaction_intent is not None else "general"
         decision_mode = context.decision_mode
+        if self._looks_like_general_technical_question(context.request.question):
+            return {
+                "deadline_class": "interactive-high",
+                "request_priority": 90,
+                "target_e2e_ms": 5000.0,
+                "max_tokens": min(1024, int(self._settings.llm_policy_output_max_tokens_cap)),
+            }
 
         if decision_mode == "advise_only" or domain in {"research", "advising", "teaching"}:
             return {
@@ -3038,6 +3045,9 @@ class FacultyTwinWorkflowSupport:
         research_guidance = self._build_research_response_guidance(
             request.question, interaction_intent
         )
+        technical_guidance = self._build_general_technical_response_guidance(
+            request.question, interaction_intent
+        )
         availability_context = self._meeting_service.describe_current_availability()
         live_calendar_context = self._calendar_bridge.describe_for_prompt(request.question)
         return (
@@ -3060,6 +3070,7 @@ class FacultyTwinWorkflowSupport:
             f"{advising_guidance}"
             f"{teaching_guidance}"
             f"{research_guidance}"
+            f"{technical_guidance}"
             f"{availability_context}"
             f"{live_calendar_context}"
             f"{attachment_context}"
@@ -3084,6 +3095,8 @@ class FacultyTwinWorkflowSupport:
 
         question = request.question
         lowered = question.lower()
+        if self._looks_like_general_technical_question(question):
+            return ""
         if any(
             marker in lowered or marker in question
             for marker in (
@@ -3853,6 +3866,85 @@ class FacultyTwinWorkflowSupport:
             return ""
 
         return "\n".join(guidance) + "\n"
+
+    def _build_general_technical_response_guidance(
+        self,
+        question: str,
+        interaction_intent: InteractionIntent | None,
+    ) -> str:
+        if not self._looks_like_general_technical_question(question):
+            return ""
+
+        if interaction_intent is not None and interaction_intent.domain not in {
+            "general",
+            "research",
+            "teaching",
+        }:
+            return ""
+
+        owner_specific_markers = (
+            "张老师本人",
+            "张老师是否",
+            "课题组内部",
+            "内部项目",
+            "未公开",
+            "具体指令",
+            "真实部署",
+            "你们怎么",
+        )
+        owner_boundary = (
+            "Only say the owner lacks direct evidence when the user is asking for owner-specific "
+            "experience, private lab details, or unpublished implementation details. "
+        )
+        if any(marker in question for marker in owner_specific_markers):
+            owner_boundary += (
+                "For owner-specific parts without retrieved evidence, state the uncertainty once, "
+                "then still provide clearly labeled general technical considerations if useful. "
+            )
+
+        return (
+            "General technical guidance: This is a technical academic question. "
+            "Do not answer it only with '我没有直接研究经验' or a request for more details. "
+            f"{owner_boundary}"
+            "Give a substantive answer from general systems knowledge, with exactly 4 numbered tactics. "
+            "Each tactic should be one complete sentence with a concrete action and the reason it helps. "
+            "For accelerator memory-management questions, cover allocation/lifetime planning, "
+            "KV-cache or activation residency, batching and scheduling, fragmentation or memory pools, "
+            "operator/workspace buffers, and observability metrics when relevant. "
+            "Use concise Chinese unless the user asks otherwise.\n"
+        )
+
+    @staticmethod
+    def _looks_like_general_technical_question(question: str) -> bool:
+        lowered = question.lower()
+        technical_markers = (
+            "llm",
+            "大模型",
+            "推理",
+            "推理引擎",
+            "推理服务",
+            "vllm",
+            "kv cache",
+            "kvcache",
+            "prefix cache",
+            "paged attention",
+            "npu",
+            "ascend",
+            "昇腾",
+            "gpu",
+            "显存",
+            "内存",
+            "memory",
+            "调度",
+            "吞吐",
+            "ttft",
+            "tpot",
+            "batch",
+            "batching",
+            "算子",
+            "kernel",
+        )
+        return any(marker in lowered or marker in question for marker in technical_markers)
 
     def _resolve_interaction_intent(
         self, context: ChatWorkflowContext

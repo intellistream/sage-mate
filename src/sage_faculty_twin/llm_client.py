@@ -875,7 +875,7 @@ class VllmChatClient:
         system_prompt: str,
         user_prompt: str,
         *,
-        temperature: float = 0.2,
+        temperature: float | None = None,
         max_tokens: int | None = 4096,
         token_callback: Callable[[str], None] | None = None,
         enable_thinking: bool = True,
@@ -887,13 +887,19 @@ class VllmChatClient:
         segment_reuse_body_text: str | None = None,
         segment_reuse_scope: str | None = None,
     ) -> str:
+        answer_temperature = (
+            self._settings.llm_answer_temperature if temperature is None else temperature
+        )
         payload: dict[str, Any] = {
             "model": self.model_name,
             "messages": [
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt},
             ],
-            "temperature": temperature,
+            "temperature": answer_temperature,
+            "frequency_penalty": self._settings.llm_answer_frequency_penalty,
+            "presence_penalty": self._settings.llm_answer_presence_penalty,
+            "repetition_penalty": self._settings.llm_answer_repetition_penalty,
         }
         if not enable_thinking:
             payload["chat_template_kwargs"] = {"enable_thinking": False}

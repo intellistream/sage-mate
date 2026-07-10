@@ -998,6 +998,32 @@ def test_service_prompt_includes_retrieved_owner_materials(tmp_path: Path) -> No
     assert prompt.index("Reusable retrieved materials") < prompt.index("Student name: Alice")
 
 
+def test_service_prompt_allows_general_accelerator_memory_guidance(tmp_path: Path) -> None:
+    settings = AppSettings(knowledge_base_dir=tmp_path, knowledge_backend="local")
+    service = DigitalTwinService(settings)
+
+    prompt = service._build_student_prompt(
+        request=type(
+            "Request",
+            (),
+            {
+                "student_name": "guest",
+                "course_context": None,
+                "visitor_profile": "general_visitor",
+                "question": "如何优化大模型推理引擎在Ascend NPU上的内存管理？",
+            },
+        )(),
+        knowledge_hits=[],
+    )
+
+    assert "General technical guidance" in prompt
+    assert "Do not answer it only with '我没有直接研究经验'" in prompt
+    assert "exactly 4 numbered tactics" in prompt
+    assert "KV-cache or activation residency" in prompt
+    assert "fragmentation or memory pools" in prompt
+    assert "Fast-answer guidance" not in prompt
+
+
 def test_service_prompt_keeps_private_materials_out_of_materialized_prefix(
     tmp_path: Path,
 ) -> None:

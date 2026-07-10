@@ -9,6 +9,7 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 QUICKSTART_SCRIPT = REPO_ROOT / "quickstart.sh"
+HOSTED_WEB_INSTALLER = REPO_ROOT / "release" / "hosted-web.sh"
 PROXY_SCRIPT = REPO_ROOT / "tools" / "run_vllm_openai_proxy.sh"
 ENGINE_SCRIPT = REPO_ROOT / "tools" / "run_vllm_engine.sh"
 
@@ -108,6 +109,16 @@ def test_quickstart_install_renders_service_units(tmp_path: Path) -> None:
     assert "sage-faculty-twin-app.service" in log_text
 
 
+def test_release_installer_uses_multi_gpu_tp_for_qwen3_32b_awq() -> None:
+    """Large NVIDIA presets should not silently pin tensor parallelism to one GPU."""
+
+    script = HOSTED_WEB_INSTALLER.read_text(encoding="utf-8")
+    assert "default_nvidia_tensor_parallel_size" in script
+    qwen32_case = script.split("qwen3-32b-awq)", 1)[1].split(";;", 1)[0]
+    assert 'tp="${tp_override:-1}"' not in qwen32_case
+    assert 'tp="${tp_override:-$(default_nvidia_tensor_parallel_size "$gpus" "$min_mem")}"' in qwen32_case
+
+
 def test_quickstart_install_only_enables_optional_services_with_flags(
     tmp_path: Path,
 ) -> None:
@@ -147,16 +158,16 @@ def test_quickstart_install_only_enables_optional_services_with_flags(
     proxy_log = systemctl_log.read_text(encoding="utf-8")
     assert "sage-faculty-twin-vllm-openai-proxy.service" in proxy_log
 
-    # --with-vllm-engine
+    # --with-nvidia-vllm-engine
     systemctl_log.write_text("", encoding="utf-8")
     result, _ = _run_quickstart_install(
         tmp_path,
-        extra_args=["--with-vllm-engine"],
+        extra_args=["--with-nvidia-vllm-engine", "--skip-python-install"],
         python_bin=str(good_python),
     )
     assert result.returncode == 0
     engine_log = systemctl_log.read_text(encoding="utf-8")
-    assert "sage-faculty-twin-vllm-engine.service" in engine_log
+    assert "sage-faculty-twin-vllm-nvidia-engine.service" in engine_log
 
 
 def test_run_vllm_openai_proxy_fails_fast_when_port_is_occupied(tmp_path: Path) -> None:

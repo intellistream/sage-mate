@@ -200,6 +200,15 @@ min_gpu_mem_mib() {
     fi
 }
 
+default_nvidia_tensor_parallel_size() {
+    local gpus="${1:-$(gpu_count)}" min_mem="${2:-$(min_gpu_mem_mib)}"
+    if [[ "$gpus" -ge 2 && "$min_mem" -ge 70000 ]]; then
+        echo 2
+    else
+        echo 1
+    fi
+}
+
 npu_count() {
     if command -v npu-smi >/dev/null 2>&1 && npu-smi info >/dev/null 2>&1; then
         npu-smi info 2>/dev/null | awk '/^[[:space:]]*[0-9]+[[:space:]]+/ { count++ } END { print count+0 }'
@@ -441,6 +450,24 @@ predownload_model_if_needed() {
     [[ "${FACULTY_TWIN_PREDOWNLOAD_MODEL:-1}" != "0" ]] || return 0
     [[ "$model" != /* ]] || return 0
 
+    if [[ "${FACULTY_TWIN_PREDOWNLOAD_SOURCE:-huggingface}" == "modelscope" ]]; then
+        predownload_model_from_modelscope
+        return 0
+    fi
+
+    export HF_HUB_OFFLINE=0
+    set_env_kv "$env_file" HF_HUB_OFFLINE "0"
+    if [[ "${FACULTY_TWIN_PREDOWNLOAD_HF_TRANSFER:-1}" != "0" ]]; then
+        if "$python_bin" -c "import hf_transfer" >/dev/null 2>&1 || "$python_bin" -m pip install hf_transfer; then
+            export HF_HUB_ENABLE_HF_TRANSFER=1
+            set_env_kv "$env_file" HF_HUB_ENABLE_HF_TRANSFER "1"
+            log "enabled hf_transfer for faster Hugging Face downloads"
+        else
+            warn "hf_transfer install failed; continuing with standard Hugging Face downloader"
+            export HF_HUB_ENABLE_HF_TRANSFER=0
+            set_env_kv "$env_file" HF_HUB_ENABLE_HF_TRANSFER "0"
+        fi
+    fi
     log "pre-downloading model into Hugging Face cache: $model"
     local attempts="${FACULTY_TWIN_PREDOWNLOAD_ATTEMPTS:-}"
     if [[ -z "$attempts" ]]; then
@@ -458,16 +485,18 @@ from huggingface_hub import snapshot_download
 
 model_id = sys.argv[1]
 token = os.environ.get("HF_TOKEN") or os.environ.get("HUGGING_FACE_HUB_TOKEN")
+max_workers = int(os.environ.get("FACULTY_TWIN_PREDOWNLOAD_MAX_WORKERS", "4"))
 path = snapshot_download(
     repo_id=model_id,
     token=token or None,
     resume_download=True,
-    max_workers=1,
+    max_workers=max(1, max_workers),
 )
 print(f"[hosted-web] model cache ready: {path}", flush=True)
 PY
         then
             export HF_HUB_OFFLINE=1
+            set_env_kv "$env_file" HF_HUB_OFFLINE "1"
             log "model cache ready; enabling HF_HUB_OFFLINE=1 for vLLM startup"
             return 0
         fi
@@ -481,11 +510,16 @@ PY
         model_preset="qwen3-14b-awq"
         model="Qwen/Qwen3-14B-AWQ"
         served_model="${served_model_override:-$model}"
-        tp="${tp_override:-1}"
+        tp="${tp_override:-$(default_nvidia_tensor_parallel_size)}"
         max_model_len="${VLLM_NVIDIA_MAX_MODEL_LEN:-32768}"
         max_num_seqs="${VLLM_NVIDIA_MAX_NUM_SEQS:-8}"
         set_env_kv "$env_file" DIGITAL_TWIN_MODEL_NAME "$served_model"
         set_env_kv "$env_file" VLLM_NVIDIA_MODEL "$model"
+        if [[ "$model" == /* && "$served_model" != /* ]]; then
+            set_env_kv "$env_file" VLLM_NVIDIA_ACTUAL_MODEL_ID "$served_model"
+        else
+            set_env_kv "$env_file" VLLM_NVIDIA_ACTUAL_MODEL_ID ""
+        fi
         set_env_kv "$env_file" VLLM_NVIDIA_SERVED_MODEL_NAME "$served_model"
         set_env_kv "$env_file" VLLM_NVIDIA_TENSOR_PARALLEL_SIZE "$tp"
         set_env_kv "$env_file" VLLM_NVIDIA_MAX_MODEL_LEN "$max_model_len"
@@ -507,7 +541,7 @@ PY
     model_preset="qwen3-32b-awq"
     model="Qwen/Qwen3-32B-AWQ"
     served_model="${served_model_override:-$model}"
-    tp="${tp_override:-1}"
+    tp="${tp_override:-$(default_nvidia_tensor_parallel_size)}"
     max_model_len="${VLLM_NVIDIA_MAX_MODEL_LEN:-32768}"
     max_num_seqs="${VLLM_NVIDIA_MAX_NUM_SEQS:-8}"
     if ! $hf_endpoint_explicit; then
@@ -523,6 +557,74 @@ PY
     set_env_kv "$env_file" VLLM_NVIDIA_MAX_NUM_SEQS "$max_num_seqs"
     set_env_kv "$env_file" VLLM_NVIDIA_CHAT_TEMPLATE ""
     predownload_model_if_needed
+}
+
+predownload_model_from_modelscope() {
+    local original_model="$model"
+    local local_dir="${FACULTY_TWIN_MODELSCOPE_MODEL_DIR:-$HOME/models/${original_model//\//--}}"
+    log "pre-downloading model from ModelScope: $original_model -> $local_dir"
+    if ! "$python_bin" -c "import modelscope" >/dev/null 2>&1; then
+        "$python_bin" -m pip install modelscope
+    fi
+    "$python_bin" - "$original_model" "$local_dir" <<'PY'
+import os
+import sys
+from modelscope.hub.snapshot_download import snapshot_download
+
+model_id = sys.argv[1]
+local_dir = sys.argv[2]
+max_workers = int(os.environ.get("FACULTY_TWIN_PREDOWNLOAD_MAX_WORKERS", "4"))
+path = snapshot_download(
+    model_id=model_id,
+    local_dir=local_dir,
+    max_workers=max(1, max_workers),
+)
+print(f"[hosted-web] ModelScope model ready: {path}", flush=True)
+PY
+    model="$local_dir"
+    set_env_kv "$env_file" VLLM_NVIDIA_MODEL "$model"
+    set_env_kv "$env_file" VLLM_NVIDIA_ACTUAL_MODEL_ID "$original_model"
+    set_env_kv "$env_file" VLLM_NVIDIA_SERVED_MODEL_NAME "$served_model"
+    set_env_kv "$env_file" DIGITAL_TWIN_MODEL_NAME "$served_model"
+    set_env_kv "$env_file" HF_HUB_OFFLINE "0"
+    validate_local_model_if_needed
+}
+
+validate_local_model_if_needed() {
+    [[ "$accelerator" == "nvidia" ]] || return 0
+    [[ "$model" == /* ]] || return 0
+    [[ -d "$model" ]] || fail "local model path does not exist: $model"
+    log "validating local model files: $model"
+    "$python_bin" - "$model" <<'PY'
+import sys
+from pathlib import Path
+
+root = Path(sys.argv[1])
+safetensors_files = sorted(root.rglob("*.safetensors"))
+if not safetensors_files:
+    raise SystemExit(f"no .safetensors files found under {root}")
+
+try:
+    from safetensors import safe_open
+except Exception as exc:
+    raise SystemExit(f"could not import safetensors to validate {root}: {exc}") from exc
+
+bad: list[str] = []
+for path in safetensors_files:
+    try:
+        with safe_open(path, framework="pt") as handle:
+            next(iter(handle.keys()), None)
+    except Exception as exc:
+        bad.append(f"{path}: {exc}")
+        if len(bad) >= 3:
+            break
+
+if bad:
+    joined = "\n".join(bad)
+    raise SystemExit(f"local model safetensors validation failed:\n{joined}")
+
+print(f"[hosted-web] local model validation OK: {root} ({len(safetensors_files)} safetensors)")
+PY
 }
 
 model_cache_path_hint() {
@@ -570,7 +672,7 @@ select_model() {
             max_model_len="${VLLM_ENGINE_MAX_MODEL_LEN:-32768}"
             max_num_seqs="${VLLM_ENGINE_MAX_NUM_SEQS:-16}"
         else
-            tp="${tp_override:-$([[ "$gpus" -ge 2 ]] && echo 2 || echo 1)}"
+            tp="${tp_override:-$(default_nvidia_tensor_parallel_size "$gpus" "$min_mem")}"
             max_model_len="${VLLM_NVIDIA_MAX_MODEL_LEN:-32768}"
             max_num_seqs="${VLLM_NVIDIA_MAX_NUM_SEQS:-8}"
         fi
@@ -603,14 +705,14 @@ select_model() {
         qwen3-32b-awq)
             model="Qwen/Qwen3-32B-AWQ"
             served_model="${served_model_override:-$model}"
-            tp="${tp_override:-1}"
+            tp="${tp_override:-$(default_nvidia_tensor_parallel_size "$gpus" "$min_mem")}"
             max_model_len="${VLLM_NVIDIA_MAX_MODEL_LEN:-32768}"
             max_num_seqs="${VLLM_NVIDIA_MAX_NUM_SEQS:-8}"
             ;;
         qwen3-14b-awq)
             model="Qwen/Qwen3-14B-AWQ"
             served_model="${served_model_override:-$model}"
-            tp="${tp_override:-1}"
+            tp="${tp_override:-$(default_nvidia_tensor_parallel_size "$gpus" "$min_mem")}"
             max_model_len="${VLLM_NVIDIA_MAX_MODEL_LEN:-32768}"
             max_num_seqs="${VLLM_NVIDIA_MAX_NUM_SEQS:-8}"
             ;;
@@ -624,7 +726,7 @@ select_model() {
             else
                 model="Qwen/Qwen3-32B"
                 served_model="${served_model_override:-$model}"
-                tp="${tp_override:-$([[ "$gpus" -ge 2 ]] && echo 2 || echo 1)}"
+                tp="${tp_override:-$(default_nvidia_tensor_parallel_size "$gpus" "$min_mem")}"
                 max_model_len="${VLLM_NVIDIA_MAX_MODEL_LEN:-32768}"
                 max_num_seqs="${VLLM_NVIDIA_MAX_NUM_SEQS:-8}"
             fi
@@ -685,7 +787,7 @@ main() {
     export PYTHON_BIN="$python_bin"
     [[ -n "${HF_ENDPOINT:-}" ]] && hf_endpoint_explicit=true
     export HF_ENDPOINT="${HF_ENDPOINT:-https://hf-mirror.com}"
-    export HF_HUB_DISABLE_XET="${HF_HUB_DISABLE_XET:-1}"
+    export HF_HUB_DISABLE_XET="${HF_HUB_DISABLE_XET:-0}"
 
     apply_initial_release_secrets
     detect_accelerator
@@ -707,6 +809,12 @@ main() {
         export HF_ENDPOINT="${FACULTY_TWIN_FALLBACK_HF_ENDPOINT:-https://huggingface.co}"
         log "using Hugging Face endpoint for Qwen3 AWQ preset: $HF_ENDPOINT"
     fi
+    if [[ "$accelerator" == "nvidia" && "$HF_ENDPOINT" == "https://huggingface.co" && "${FACULTY_TWIN_PREDOWNLOAD_HF_XET:-1}" != "0" ]]; then
+        export HF_HUB_DISABLE_XET=0
+        export HF_XET_HIGH_PERFORMANCE=1
+        log "enabled Hugging Face Xet high-performance transfer"
+    fi
+    validate_local_model_if_needed
 
     local runtime_dir="${DIGITAL_TWIN_RUNTIME_DIR:-$repo_dir/../sage-faculty-twin-runtime-private}"
     set_env_kv "$env_file" DIGITAL_TWIN_DEPLOYMENT_MODE hosted
@@ -718,6 +826,11 @@ main() {
     if [[ "$accelerator" == "nvidia" ]]; then
         set_env_kv "$env_file" VLLM_PROXY_UPSTREAM_BASE_URL "http://127.0.0.1:18000/v1"
         set_env_kv "$env_file" VLLM_NVIDIA_MODEL "$model"
+        if [[ "$model" == /* && "$served_model" != /* ]]; then
+            set_env_kv "$env_file" VLLM_NVIDIA_ACTUAL_MODEL_ID "$served_model"
+        else
+            set_env_kv "$env_file" VLLM_NVIDIA_ACTUAL_MODEL_ID ""
+        fi
         set_env_kv "$env_file" VLLM_NVIDIA_SERVED_MODEL_NAME "$served_model"
         set_env_kv "$env_file" VLLM_NVIDIA_HOST "127.0.0.1"
         set_env_kv "$env_file" VLLM_NVIDIA_PORT "18000"
@@ -740,17 +853,17 @@ main() {
     fi
     set_env_kv "$env_file" HF_ENDPOINT "$HF_ENDPOINT"
     set_env_kv "$env_file" HF_HUB_DISABLE_XET "$HF_HUB_DISABLE_XET"
+    [[ -z "${HF_XET_HIGH_PERFORMANCE:-}" ]] || set_env_kv "$env_file" HF_XET_HIGH_PERFORMANCE "$HF_XET_HIGH_PERFORMANCE"
 
-    if [[ "$accelerator" == "nvidia" && "$model_preset" == "qwen3-next-80b-awq" ]]; then
+    if [[ "$accelerator" == "nvidia" && ( "$model_preset" == "qwen3-next-80b-awq" || "$model" == *"Qwen3-Next"* || "$served_model" == *"Qwen3-Next"* ) ]]; then
         set_env_kv "$env_file" VLLM_NVIDIA_CHAT_TEMPLATE "$(prepare_qwen3_next_template "$runtime_dir")"
+    elif [[ "$accelerator" == "nvidia" ]]; then
+        set_env_kv "$env_file" VLLM_NVIDIA_CHAT_TEMPLATE ""
     fi
     if $with_tunnel; then
         configure_cloudflare_tunnel "$runtime_dir"
     fi
     predownload_model_if_needed
-    if [[ "${HF_HUB_OFFLINE:-}" == "1" ]]; then
-        set_env_kv "$env_file" HF_HUB_OFFLINE "1"
-    fi
 
     local quickstart_args=(
         --target hosted-web

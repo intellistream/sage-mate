@@ -180,29 +180,34 @@ def main() -> int:
     check(status == 200, "vLLM models", f"status={status} url={vllm_url}", failures)
     ids, roots = model_ids(models_body)
     expected_model = env.get("VLLM_NVIDIA_MODEL", "").strip() or env.get("VLLM_ENGINE_MODEL_PATH", "").strip()
+    actual_model_id = env.get("VLLM_NVIDIA_ACTUAL_MODEL_ID", "").strip() or env.get("VLLM_ENGINE_ACTUAL_MODEL_ID", "").strip()
     served_model = env.get("VLLM_NVIDIA_SERVED_MODEL_NAME", "").strip() or env.get("VLLM_ENGINE_SERVED_MODEL_NAME", "").strip()
     app_model = env.get("DIGITAL_TWIN_MODEL_NAME", "").strip()
     if served_model == "${DIGITAL_TWIN_MODEL_NAME}":
         served_model = app_model
+    actual_model_for_alias_check = actual_model_id or expected_model
 
     if expected_model:
-        check(expected_model in roots or expected_model in ids, "actual model exposed", f"expected={expected_model}", failures)
+        expected_exposed = expected_model in roots or expected_model in ids
+        if actual_model_id:
+            expected_exposed = expected_exposed or actual_model_id in roots or actual_model_id in ids
+        check(expected_exposed, "actual model exposed", f"expected={actual_model_id or expected_model}", failures)
     if served_model:
         check(served_model in ids, "served model exposed", f"served={served_model}", failures)
     if app_model:
         check(app_model in ids, "app model matches served models", f"DIGITAL_TWIN_MODEL_NAME={app_model}", failures)
-    if expected_model and served_model and not args.allow_model_alias:
+    if actual_model_for_alias_check and served_model and not args.allow_model_alias:
         check(
-            served_model == expected_model,
+            served_model == actual_model_for_alias_check,
             "served model is not a misleading alias",
-            f"served={served_model} actual={expected_model}",
+            f"served={served_model} actual={actual_model_for_alias_check}",
             failures,
         )
-    if expected_model and app_model and not args.allow_model_alias:
+    if actual_model_for_alias_check and app_model and not args.allow_model_alias:
         check(
-            app_model == expected_model,
+            app_model == actual_model_for_alias_check,
             "app model is not a misleading alias",
-            f"app={app_model} actual={expected_model}",
+            f"app={app_model} actual={actual_model_for_alias_check}",
             failures,
         )
 
@@ -214,8 +219,10 @@ def main() -> int:
         "DIGITAL_TWIN_CODE_WORKSPACE_ROOTS",
         "DIGITAL_TWIN_MODEL_NAME",
         "VLLM_NVIDIA_MODEL",
+        "VLLM_NVIDIA_ACTUAL_MODEL_ID",
         "VLLM_NVIDIA_SERVED_MODEL_NAME",
         "VLLM_ENGINE_MODEL_PATH",
+        "VLLM_ENGINE_ACTUAL_MODEL_ID",
         "VLLM_ENGINE_SERVED_MODEL_NAME",
     ):
         print(f"  {key}={masked_env_value(key, env.get(key, ''))}")

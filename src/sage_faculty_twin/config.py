@@ -50,6 +50,30 @@ class AppSettings(BaseSettings):
         le=4096,
         description="Default max_tokens for non-thinking interactive answers.",
     )
+    llm_answer_temperature: float = Field(
+        default=0.1,
+        ge=0.0,
+        le=1.0,
+        description="Default temperature for final student-facing answers.",
+    )
+    llm_answer_frequency_penalty: float = Field(
+        default=0.35,
+        ge=-2.0,
+        le=2.0,
+        description="OpenAI-compatible frequency penalty used to reduce repeated phrases.",
+    )
+    llm_answer_presence_penalty: float = Field(
+        default=0.0,
+        ge=-2.0,
+        le=2.0,
+        description="OpenAI-compatible presence penalty for final answers.",
+    )
+    llm_answer_repetition_penalty: float = Field(
+        default=1.08,
+        ge=1.0,
+        le=2.0,
+        description="vLLM repetition penalty for final answers when supported by the backend.",
+    )
     fast_answer_concise_guidance_enabled: bool = Field(default=True)
     chat_runtime_pipeline_enabled: bool = Field(
         default=False,

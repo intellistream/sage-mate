@@ -72,3 +72,12 @@ def test_build_system_prompt_loads_repo_default_style_profile() -> None:
     assert "先给判断，再给依据" in prompt
     assert "当前主方向：大模型推理引擎、推理服务系统与记忆智能体中间件" in prompt
     assert "数据库管理系统、流处理和并行分布式系统应作为历史基础" in prompt
+
+
+def test_build_system_prompt_allows_general_technical_guidance() -> None:
+    prompt = build_system_prompt(AppSettings())
+
+    assert "For general academic or technical questions" in prompt
+    assert "broadly accepted domain knowledge" in prompt
+    assert "rather than quoting the owner" in prompt
+    assert "owner-specific facts, private lab details" in prompt
