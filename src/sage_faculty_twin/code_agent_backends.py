@@ -5,8 +5,10 @@ import http.server
 import json
 import os
 import shutil
+import socket
 import subprocess
 import urllib.error
+import urllib.parse
 import urllib.request
 from collections.abc import Iterable
 from dataclasses import dataclass
@@ -227,6 +229,11 @@ class InternalCodeAgentBackend:
 
 class ClaudeHustCodeAgentBackend:
     name = "claude_hust"
+    _LOCAL_OPENAI_CONTEXT_TOKENS = 4096
+    _LOCAL_OPENAI_OUTPUT_FLOOR = 64
+    _LOCAL_OPENAI_OUTPUT_CAP = 768
+    _LOCAL_OPENAI_CONTEXT_RESERVE = 96
+    _LOCAL_CONTEXT_CHARS = 7000
 
     def __init__(
         self,
@@ -244,11 +251,12 @@ class ClaudeHustCodeAgentBackend:
     def assist(self, request: CodeAssistRequest) -> CodeAgentBackendResult:
         temp_dir = self._workbench.copy_workspace_to_temp(request.workspace_id)
         try:
+            context_chars = self._bounded_context_chars(request.max_context_chars)
             context = self._workbench.build_context(
                 CodeContextRequest(
                     workspace_id=request.workspace_id,
                     paths=request.paths,
-                    max_context_chars=request.max_context_chars,
+                    max_context_chars=context_chars,
                 )
             )
             temp_workspace = Path(temp_dir.name) / self._workbench.workspace_root(
@@ -276,7 +284,10 @@ class ClaudeHustCodeAgentBackend:
     def propose(self, request: CodeProposeRequest) -> CodeAgentBackendResult:
         temp_dir = self._workbench.copy_workspace_to_temp(request.workspace_id)
         try:
-            _, user_prompt, context_paths = self._workbench.build_propose_prompt(request)
+            bounded_request = request.model_copy(
+                update={"max_context_chars": self._bounded_context_chars(request.max_context_chars)}
+            )
+            _, user_prompt, context_paths = self._workbench.build_propose_prompt(bounded_request)
             temp_workspace = Path(temp_dir.name) / self._workbench.workspace_root(
                 request.workspace_id
             ).name
@@ -322,12 +333,14 @@ class ClaudeHustCodeAgentBackend:
         return self._settings.model_name or str(getattr(self._llm_client, "model_name", ""))
 
     def _run_structured_or_text(self, prompt: str, cwd: Path) -> str:
+        if self._print_runner is None:
+            self._ensure_local_openai_endpoint_ready()
         try:
             raw = self._run_print(prompt, cwd, output_format="json")
         except RuntimeError as exc:
             if claude_hust_json_unavailable(str(exc)):
                 return self._run_print(prompt, cwd, output_format="text")
-            raise
+            raise RuntimeError(self._humanize_runtime_error(str(exc))) from exc
 
         try:
             payload = json.loads(raw)
@@ -365,8 +378,73 @@ class ClaudeHustCodeAgentBackend:
             )
         if completed.returncode != 0:
             stderr = (completed.stderr or completed.stdout or "claude-hust failed").strip()
-            raise RuntimeError(stderr[-2000:])
+            raise RuntimeError(self._humanize_runtime_error(stderr[-2000:]))
         return (completed.stdout or "").strip()
+
+    def _ensure_local_openai_endpoint_ready(self) -> None:
+        if not self._should_proxy_openai():
+            return
+        parsed = urllib.parse.urlparse(self._settings.llm_base_url.strip())
+        host = parsed.hostname or ""
+        if host not in {"127.0.0.1", "localhost", "::1"}:
+            return
+        port = parsed.port or (443 if parsed.scheme == "https" else 80)
+        try:
+            with socket.create_connection((host, port), timeout=1.0):
+                return
+        except OSError as exc:
+            raise RuntimeError(
+                "本地代码模型还没有就绪，Sage Mate 正在启动 Apple GPU 推理服务。"
+                "请稍等模型状态变为 Ready 后重试，或在设置中配置远端 OpenAI-compatible endpoint。"
+            ) from exc
+
+    def _bounded_context_chars(self, requested: int) -> int:
+        if not self._should_proxy_openai():
+            return requested
+        return max(1000, min(requested, self._LOCAL_CONTEXT_CHARS))
+
+    def _estimated_tokens(self, text: str) -> int:
+        # Conservative mixed Chinese/code estimate for local 4k models.
+        return max(1, (len(text or "") + 2) // 3)
+
+    def _bounded_openai_max_tokens(self, requested: object, messages: list[dict[str, str]]) -> int:
+        try:
+            requested_tokens = int(requested)
+        except (TypeError, ValueError):
+            requested_tokens = self._LOCAL_OPENAI_OUTPUT_CAP
+        input_tokens = self._estimated_tokens(
+            "\n".join(str(message.get("content") or "") for message in messages)
+        )
+        available = (
+            self._LOCAL_OPENAI_CONTEXT_TOKENS
+            - input_tokens
+            - self._LOCAL_OPENAI_CONTEXT_RESERVE
+        )
+        if available < self._LOCAL_OPENAI_OUTPUT_FLOOR:
+            return self._LOCAL_OPENAI_OUTPUT_FLOOR
+        return max(
+            self._LOCAL_OPENAI_OUTPUT_FLOOR,
+            min(requested_tokens, self._LOCAL_OPENAI_OUTPUT_CAP, available),
+        )
+
+    def _humanize_runtime_error(self, error: str) -> str:
+        lowered = error.lower()
+        if "maximum context length" in lowered or "input_tokens" in lowered:
+            return (
+                "本地代码模型的上下文窗口太小，当前代码上下文仍然过长。"
+                "请在命令里指定更少的文件路径，或在设置中切换到更大上下文的远端模型后重试。"
+            )
+        if "operation timed out" in lowered or "urlopen error" in lowered:
+            return (
+                "本地代码模型响应超时。请稍等 Apple GPU 模型完成预热后重试；"
+                "如果你想立即使用代码工作台，请在设置中切换到更大上下文的远端模型。"
+            )
+        if "connection refused" in lowered or "couldn't connect" in lowered:
+            return (
+                "本地代码模型端口还没有就绪。请等待模型状态变为 Ready，"
+                "或在设置中配置远端 OpenAI-compatible endpoint。"
+            )
+        return error
 
     def _resolve_cli(self) -> str:
         configured = self._settings.claude_hust_cli_path.strip()
@@ -450,13 +528,6 @@ class ClaudeHustCodeAgentBackend:
                 return "\n".join(part for part in parts if part)
             return str(content or "")
 
-        def bounded_max_tokens(value: object) -> int:
-            try:
-                requested = int(value)
-            except (TypeError, ValueError):
-                requested = 1024
-            return max(64, min(requested, 1024))
-
         class Handler(http.server.BaseHTTPRequestHandler):
             def log_message(self, _format: str, *_args: object) -> None:
                 return
@@ -519,7 +590,10 @@ class ClaudeHustCodeAgentBackend:
                     upstream_payload = {
                         "model": self.server.sage_mate_upstream_model,  # type: ignore[attr-defined]
                         "messages": messages,
-                        "max_tokens": bounded_max_tokens(payload.get("max_tokens", 1024)),
+                        "max_tokens": self.server.sage_mate_backend._bounded_openai_max_tokens(  # type: ignore[attr-defined]
+                            payload.get("max_tokens", 1024),
+                            messages,
+                        ),
                         "temperature": payload.get("temperature", 0),
                         "stream": False,
                     }
@@ -583,6 +657,7 @@ class ClaudeHustCodeAgentBackend:
         server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), Handler)
         server.timeout = min(self._settings.claude_hust_timeout_seconds, 300)
         server.sage_mate_upstream_model = self._settings.model_name or "qwen3-32b"  # type: ignore[attr-defined]
+        server.sage_mate_backend = self  # type: ignore[attr-defined]
         thread = threading.Thread(target=server.serve_forever, daemon=True)
         thread.start()
         return server

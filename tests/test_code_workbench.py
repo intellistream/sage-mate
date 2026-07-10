@@ -644,6 +644,109 @@ def test_claude_hust_openai_proxy_sets_local_api_key(tmp_path: Path) -> None:
     assert env["ANTHROPIC_API_KEY"] == "sage-mate-local"
 
 
+def test_claude_hust_proxy_budgets_output_for_4k_local_model(tmp_path: Path) -> None:
+    from sage_faculty_twin.code_agent_backends import ClaudeHustCodeAgentBackend
+
+    workspace = tmp_path / "project-a"
+    workspace.mkdir()
+    backend_settings = settings.model_copy(
+        update={
+            "deployment_mode": "local_code",
+            "app_profile": "code_assistant",
+            "code_workbench_enabled": True,
+            "code_workspace_roots": str(workspace),
+            "code_agent_backend": "claude_hust",
+            "llm_base_url": "http://127.0.0.1:8000/v1",
+            "model_name": "mlx-community/Qwen2.5-7B-Instruct-4bit",
+        }
+    )
+    backend = ClaudeHustCodeAgentBackend(
+        settings=backend_settings,
+        workbench=CodeWorkbench(backend_settings),
+        llm_client=type("StubLlm", (), {"model_name": "internal-model"})(),
+        print_runner=lambda *_args, **_kwargs: "",
+    )
+
+    messages = [{"role": "user", "content": "x" * 9219}]
+
+    assert backend._bounded_openai_max_tokens(1024, messages) == 768
+    assert backend._bounded_openai_max_tokens(
+        1024,
+        [{"role": "user", "content": "x" * 12000}],
+    ) == 64
+
+
+def test_claude_hust_assist_bounds_context_for_local_openai_proxy(tmp_path: Path) -> None:
+    from sage_faculty_twin.code_agent_backends import ClaudeHustCodeAgentBackend
+
+    workspace = tmp_path / "project-a"
+    workspace.mkdir()
+    (workspace / "README.md").write_text("x" * 20000, encoding="utf-8")
+    backend_settings = settings.model_copy(
+        update={
+            "deployment_mode": "local_code",
+            "app_profile": "code_assistant",
+            "code_workbench_enabled": True,
+            "code_workspace_roots": str(workspace),
+            "code_agent_backend": "claude_hust",
+            "llm_base_url": "http://127.0.0.1:8000/v1",
+            "model_name": "mlx-community/Qwen2.5-7B-Instruct-4bit",
+        }
+    )
+    seen_prompts: list[str] = []
+
+    def fake_print(prompt: str, _cwd: Path, *, output_format: str = "text") -> str:
+        seen_prompts.append(prompt)
+        return '{"content":[{"type":"text","text":"ok"}]}'
+
+    backend = ClaudeHustCodeAgentBackend(
+        settings=backend_settings,
+        workbench=CodeWorkbench(backend_settings),
+        llm_client=type("StubLlm", (), {"model_name": "internal-model"})(),
+        print_runner=fake_print,
+    )
+
+    backend.assist(
+        CodeAssistRequest(
+            workspace_id="project-a",
+            task="Analyze",
+            paths=["README.md"],
+            max_context_chars=30000,
+        )
+    )
+
+    assert seen_prompts
+    assert len(seen_prompts[0]) < 9000
+
+
+def test_claude_hust_fails_fast_when_local_model_endpoint_is_not_ready(
+    tmp_path: Path,
+) -> None:
+    from sage_faculty_twin.code_agent_backends import ClaudeHustCodeAgentBackend
+
+    workspace = tmp_path / "project-a"
+    workspace.mkdir()
+    backend_settings = settings.model_copy(
+        update={
+            "deployment_mode": "local_code",
+            "app_profile": "code_assistant",
+            "code_workbench_enabled": True,
+            "code_workspace_roots": str(workspace),
+            "code_agent_backend": "claude_hust",
+            "llm_base_url": "http://127.0.0.1:9/v1",
+            "model_name": "mlx-community/Qwen2.5-7B-Instruct-4bit",
+        }
+    )
+    backend = ClaudeHustCodeAgentBackend(
+        settings=backend_settings,
+        workbench=CodeWorkbench(backend_settings),
+        llm_client=type("StubLlm", (), {"model_name": "internal-model"})(),
+    )
+
+    with pytest.raises(RuntimeError, match="本地代码模型还没有就绪"):
+        backend._ensure_local_openai_endpoint_ready()
+
+
 def test_claude_hust_json_output_extracts_text_tools_and_diff(tmp_path: Path) -> None:
     from sage_faculty_twin.code_agent_backends import ClaudeHustCodeAgentBackend
 
