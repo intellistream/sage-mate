@@ -714,12 +714,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
         let desiredCLI = try claudeHustRoot().appendingPathComponent("bin/claude-hust").path
         let desiredVllmMetal = try vllmMetalSourceRoot().path
         let desiredRuntime = runtime.path
-        let hasNonEmptyWorkspaceRoots = contents
-            .split(separator: "\n")
-            .contains { line in
-                line.hasPrefix("DIGITAL_TWIN_CODE_WORKSPACE_ROOTS=")
-                    && !line.dropFirst("DIGITAL_TWIN_CODE_WORKSPACE_ROOTS=".count).isEmpty
-            }
         let llmWasAutoPrefilledFromHostedService =
             contents.contains("DIGITAL_TWIN_LLM_BASE_URL=https://api.sage.org.ai/v1")
             && !contents.contains("DIGITAL_TWIN_LLM_USER_CONFIGURED=true")
@@ -738,7 +732,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
             || !contents.contains("DIGITAL_TWIN_CLAUDE_HUST_CLI_PATH=\(desiredCLI)")
             || !contents.contains("SAGE_MATE_VLLM_METAL_DIR=\(desiredVllmMetal)")
             || !contents.contains("DIGITAL_TWIN_RUNTIME_DIR=\(desiredRuntime)")
-            || hasNonEmptyWorkspaceRoots
             || llmWasAutoPrefilledFromHostedService
             || llmUsesRetiredAutoDefault
             || localModelWasDisabledByOldDefault
