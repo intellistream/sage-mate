@@ -13,7 +13,7 @@ load_home_model_download_env() {
         local key="${line%%=*}"
         key="${key// /}"
         case "$key" in
-            HF_TOKEN|HUGGING_FACE_HUB_TOKEN|HF_ENDPOINT|HF_HOME|HF_HUB_CACHE|HF_HUB_ENABLE_HF_TRANSFER|TRANSFORMERS_CACHE|HTTP_PROXY|HTTPS_PROXY|ALL_PROXY|NO_PROXY|http_proxy|https_proxy|all_proxy|no_proxy) ;;
+            HF_TOKEN|HUGGING_FACE_HUB_TOKEN|HF_ENDPOINT|HF_HOME|HF_HUB_CACHE|HF_HUB_ENABLE_HF_TRANSFER|HF_HUB_DISABLE_XET|TRANSFORMERS_CACHE) ;;
             *) continue ;;
         esac
         [[ -z "$key" || -n "${!key:-}" ]] && continue
