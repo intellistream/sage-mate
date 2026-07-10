@@ -37,7 +37,8 @@ fi
 
 host="${VLLM_METAL_HOST:-127.0.0.1}"
 port="${VLLM_METAL_PORT:-8000}"
-model="${VLLM_METAL_MODEL:-${DIGITAL_TWIN_MODEL_NAME:-mlx-community/gemma-3-1b-it-qat-4bit}}"
+default_model="mlx-community/Qwen3-4B-Instruct-2507-4bit"
+model="${VLLM_METAL_MODEL:-${DIGITAL_TWIN_MODEL_NAME:-$default_model}}"
 served_model_name="${VLLM_METAL_SERVED_MODEL_NAME:-${DIGITAL_TWIN_MODEL_NAME:-$model}}"
 max_model_len="${VLLM_METAL_MAX_MODEL_LEN:-4096}"
 max_num_seqs="${VLLM_METAL_MAX_NUM_SEQS:-4}"

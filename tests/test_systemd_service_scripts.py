@@ -68,7 +68,7 @@ def _run_quickstart_install(
     if python_bin is not None:
         env["PYTHON_BIN"] = python_bin
 
-    args = ["bash", str(QUICKSTART_SCRIPT)]
+    args = ["bash", str(QUICKSTART_SCRIPT), "--target", "hosted-web"]
     if extra_args:
         args.extend(extra_args)
 

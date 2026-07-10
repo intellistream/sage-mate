@@ -2,7 +2,7 @@
 # quickstart.sh — single entry point for Faculty Twin / Sage Mate installation.
 #
 # Usage:
-#   ./quickstart.sh                                # hosted web install; code tools off
+#   ./quickstart.sh                                # macOS: Sage Mate local app runtime; Linux: hosted web
 #   ./quickstart.sh --target hosted-web --start    # server/web install + start systemd
 #   ./quickstart.sh --local-mac-app --start        # scripted local Sage Mate service install
 #   ./quickstart.sh --mac-dmg                      # build dist/sage-mate-macos.dmg
@@ -19,7 +19,7 @@
 #   ./quickstart.sh --yes                          # non-interactive (assume yes)
 #
 # Install targets:
-#   hosted-web       Linux/server browser deployment. Default. Never enables code tools.
+#   hosted-web       Linux/server browser deployment. Default on Linux. Never enables code tools.
 #   local-mac-app    Scripted local Sage Mate service install; delegates to tools/install_local_code_mode.sh.
 #   mac-dmg          Build the macOS DMG package; delegates to tools/build_macos_local_code_package.sh.
 #
@@ -55,7 +55,11 @@ svc_nvidia_engine=false
 svc_proxy=false
 svc_site=false
 svc_tunnel=false
-install_target="hosted-web"
+if [[ "$(uname -s)" == "Darwin" ]]; then
+	install_target="local-mac-app"
+else
+	install_target="hosted-web"
+fi
 local_install_args=()
 mac_dmg_args=()
 local_target_hint=false
@@ -66,7 +70,7 @@ usage() {
 quickstart.sh — single entry point for Faculty Twin / Sage Mate installation.
 
 Usage:
-  ./quickstart.sh                                # hosted web install; code tools off
+  ./quickstart.sh                                # macOS: Sage Mate local app runtime; Linux: hosted web
   ./quickstart.sh --target hosted-web --start    # server/web install + start systemd
   ./quickstart.sh --local-mac-app --start        # scripted local Sage Mate service install
   ./quickstart.sh --mac-dmg                      # build dist/sage-mate-macos.dmg
@@ -74,7 +78,7 @@ Usage:
   ./quickstart.sh --systemd-only                 # refresh systemd user units only
 
 Install targets:
-  hosted-web       Linux/server browser deployment. Default. Never enables code tools.
+  hosted-web       Linux/server browser deployment. Default on Linux. Never enables code tools.
   local-mac-app    Scripted local Sage Mate service install; delegates to tools/install_local_code_mode.sh.
   mac-dmg          Build the macOS DMG package; delegates to tools/build_macos_local_code_package.sh.
 

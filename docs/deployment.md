@@ -27,15 +27,15 @@ product shapes:
   `180-ascend-dev`. It explicitly sets `DIGITAL_TWIN_DEPLOYMENT_MODE=hosted`,
   `DIGITAL_TWIN_APP_PROFILE=faculty_twin`, `DIGITAL_TWIN_CODE_WORKBENCH_ENABLED=false`, and clears
   `DIGITAL_TWIN_CODE_WORKSPACE_ROOTS`.
-- `local-mac-app` is for a user-installed Sage Mate runtime on macOS. It delegates to
-  `tools/install_local_code_mode.sh` and does not install systemd units.
+- `local-mac-app` is the default on macOS. It installs a user Sage Mate runtime, delegates to
+  `tools/install_local_code_mode.sh`, and does not install systemd units.
 - `mac-dmg` builds the distributable `dist/sage-mate-macos.dmg`.
 
 Examples:
 
 ```bash
 ./quickstart.sh --target hosted-web --start
-./quickstart.sh --target local-mac-app --app-profile code_assistant --workspace "$HOME/my-repo" --start
+./quickstart.sh --app-profile code_assistant --workspace "$HOME/my-repo" --start
 ./quickstart.sh --target mac-dmg
 ```
 

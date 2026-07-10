@@ -84,7 +84,7 @@ the existing CUDA/CPU `vllm-hust` fork onto MPS.
   Metal artifact prebuild on end-user machines. Release maintainers can still
   set `VLLM_METAL_PREBUILD_ARTIFACTS=1` on a full Xcode build Mac to ship
   prebuilt artifacts.
-- Default model: `mlx-community/gemma-3-1b-it-qat-4bit`.
+- Default model: `mlx-community/Qwen3-4B-Instruct-2507-4bit`.
 
 ## Direct MPS Port Scope
 

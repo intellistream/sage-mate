@@ -105,7 +105,7 @@ For local Apple GPU inference without a remote endpoint:
   --app-profile code_assistant \
   --workspace "$HOME/my-repo" \
   --local-model-backend vllm_metal \
-  --vllm-metal-model "mlx-community/gemma-3-1b-it-qat-4bit"
+  --vllm-metal-model "mlx-community/Qwen3-4B-Instruct-2507-4bit"
 
 tools/run_vllm_metal_engine.sh
 ```
