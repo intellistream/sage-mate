@@ -444,7 +444,7 @@ EOF
 predownload_model_if_needed() {
     [[ "$accelerator" == "nvidia" ]] || return 0
     case "$model_preset" in
-        qwen3-next-80b-awq|qwen3-32b-awq|qwen3-14b-awq) ;;
+        qwen3-next-80b-awq|qwen3-32b|qwen3-32b-awq|qwen3-14b-awq) ;;
         *) return 0 ;;
     esac
     [[ "${FACULTY_TWIN_PREDOWNLOAD_MODEL:-1}" != "0" ]] || return 0
