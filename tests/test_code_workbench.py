@@ -564,7 +564,10 @@ async def test_auto_scientist_profile_bootstraps_research_with_code_node(
                 KnowledgeSearchHit(
                     document_id="paper-1",
                     title="Prefix cache 研究背景",
-                    excerpt="组内已有记录建议优先比较 TTFT、吞吐和缓存命中率。",
+                    excerpt=(
+                        "组内已有记录建议优先比较 TTFT、吞吐和缓存命中率。"
+                        * 80
+                    ),
                     score=42.0,
                     tags=["publications", "profile"],
                 )
@@ -604,11 +607,86 @@ async def test_auto_scientist_profile_bootstraps_research_with_code_node(
     assert "代码节点建议" in response.answer
     assert "Prefix cache 研究背景" in response.answer
     assert "TTFT" in response.answer
+    assert "确定性代码态势" in response.answer
+    assert "README.md" in response.answer
     assert "`project-a`" in response.answer
     assert any(step.key == "code_agent_backend" for step in response.workflow_trace)
     assert any(step.key == "auto_scientist_twin_context" for step in response.workflow_trace)
     assert service._llm_client.calls
     assert "分身上下文" in service._llm_client.calls[0]
+
+
+@pytest.mark.asyncio
+async def test_auto_scientist_falls_back_when_code_node_degenerates(
+    tmp_path: Path,
+) -> None:
+    from sage_faculty_twin.service import DigitalTwinService
+
+    class DegenerateLlmClient:
+        model_name = "stub-research-model"
+
+        def answer_question_sync(self, *_args: object, **_kwargs: object) -> str:
+            return " ".join(["animations"] * 300)
+
+    class EmptyKnowledgeStore:
+        def search(self, *_args: object, **_kwargs: object) -> list[KnowledgeSearchHit]:
+            return []
+
+    workspace = tmp_path / "vllm-hust"
+    workspace.mkdir()
+    (workspace / "tests" / "v1" / "core").mkdir(parents=True)
+    (workspace / "benchmarks").mkdir()
+    (workspace / "tests" / "v1" / "core" / "test_prefix_caching.py").write_text(
+        "# prefix cache test\n",
+        encoding="utf-8",
+    )
+    (workspace / "benchmarks" / "benchmark_long_document_qa_throughput.py").write_text(
+        "# benchmark long document QA throughput\n"
+        "ENABLE_PREFIX_CACHING = True\n"
+        "METRICS = ['TTFT', 'throughput']\n",
+        encoding="utf-8",
+    )
+    (workspace / "config.py").write_text(
+        "max_num_seqs = 64\n",
+        encoding="utf-8",
+    )
+
+    service = object.__new__(DigitalTwinService)
+    service._settings = settings.model_copy(
+        update={
+            "deployment_mode": "local_code",
+            "app_profile": "auto_scientist",
+            "code_workbench_enabled": True,
+            "code_workspace_roots": str(workspace),
+            "code_agent_backend": "internal",
+            "model_name": "stub-research-model",
+        }
+    )
+    service._code_workbench = CodeWorkbench(service._settings)
+    service._llm_client = DegenerateLlmClient()
+    service._knowledge_store = EmptyKnowledgeStore()
+
+    response = await service._answer_auto_scientist(
+        ChatRequest(
+            student_name="guest",
+            question="优化 vllm-hust long document QA throughput",
+            visitor_profile="lab_member",
+            deep_thinking=False,
+        )
+    )
+
+    assert "代码研究节点输出质量不足" in response.answer
+    assert "确定性代码态势" in response.answer
+    assert "benchmarks/benchmark_long_document_qa_throughput.py" in response.answer
+    assert (
+        response.answer.index("benchmarks/benchmark_long_document_qa_throughput.py")
+        < response.answer.index("tests/v1/core/test_prefix_caching.py")
+    )
+    assert "TTFT" in response.answer
+    assert any(
+        step.key == "auto_scientist_code_quality_gate"
+        for step in response.workflow_trace
+    )
 
 
 @pytest.mark.asyncio

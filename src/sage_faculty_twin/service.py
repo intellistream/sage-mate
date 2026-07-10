@@ -6841,7 +6841,7 @@ class DigitalTwinService:
                         f"已整理 {len(knowledge_hits)} 条知识命中"
                         + ("和最近对话上下文。" if recent_session_context.strip() else "。")
                     ),
-                    detail=twin_context_summary[:900],
+                    detail=twin_context_summary[:500],
                 )
             )
 
@@ -6850,6 +6850,9 @@ class DigitalTwinService:
             if workspaces:
                 workspace = workspaces[0]
                 workspace_summary = f"已选择本地实验 workspace `{workspace.workspace_id}`：{workspace.root}"
+                repo_brief = self._build_auto_scientist_code_brief(
+                    workspace.workspace_id, problem
+                )
                 code_task = (
                     "你是 Sage Mate 自动科学家模式中的代码研究节点。"
                     "请基于当前仓库上下文，为下面科研问题判断："
@@ -6859,6 +6862,7 @@ class DigitalTwinService:
                     "4) 需要记录哪些指标和风险。"
                     "不要修改文件，不要声称已经运行实验。\n\n"
                     f"分身上下文：\n{twin_context_summary}\n\n"
+                    f"确定性代码态势摘要：\n{repo_brief}\n\n"
                     f"科研问题：{problem}"
                 )
                 try:
@@ -6869,12 +6873,34 @@ class DigitalTwinService:
                             max_context_chars=7000,
                         )
                     )
-                    code_analysis = code_response.answer
                     workflow_trace.extend(code_response.workflow_trace)
+                    if self._looks_like_degenerate_auto_scientist_output(
+                        code_response.answer
+                    ):
+                        code_analysis = (
+                            "代码研究节点输出质量不足，已自动切换为确定性代码态势摘要，"
+                            "避免把重复或发散内容展示给用户。\n\n"
+                            f"{repo_brief}"
+                        )
+                        workflow_trace.append(
+                            WorkflowTraceStep(
+                                key="auto_scientist_code_quality_gate",
+                                title="过滤退化代码输出",
+                                summary="检测到代码节点回答重复/发散，已使用确定性仓库摘要兜底。",
+                                detail="兜底摘要来自 allowlisted workspace 的只读搜索结果。",
+                            )
+                        )
+                    else:
+                        code_analysis = (
+                            f"{repo_brief}\n\n"
+                            "### CC-hust 代码节点补充\n"
+                            f"{code_response.answer}"
+                        )
                 except Exception as exc:
                     code_analysis = (
                         "代码研究节点暂未完成："
-                        f"{self._strip_thinking_blocks(str(exc)) or type(exc).__name__}"
+                        f"{self._strip_thinking_blocks(str(exc)) or type(exc).__name__}\n\n"
+                        f"{repo_brief}"
                     )
                     workflow_trace.append(
                         WorkflowTraceStep(
@@ -6950,6 +6976,127 @@ class DigitalTwinService:
             decision_mode="auto_scientist_research_bootstrap",
             workflow_trace=workflow_trace,
         )
+
+    def _build_auto_scientist_code_brief(self, workspace_id: str, problem: str) -> str:
+        search_plan = [
+            ("benchmark", "可能的 benchmark/实验入口"),
+            ("throughput", "吞吐指标与 benchmark 输出"),
+            ("prefix caching", "prefix cache / 长上下文缓存线索"),
+            ("long document", "long document QA workload 线索"),
+            ("max_num_seqs", "并发与调度参数线索"),
+        ]
+        lines = [
+            "### 确定性代码态势",
+            f"- workspace: `{workspace_id}`",
+            "- 安全模式: 只读搜索；不修改文件，不声称已运行实验。",
+        ]
+        candidate_paths = self._auto_scientist_candidate_paths(workspace_id)
+        if candidate_paths:
+            lines.append("- 候选入口文件:")
+            for path in candidate_paths:
+                lines.append(f"  - `{path}`")
+        for query, label in search_plan:
+            try:
+                response = self.search_code(
+                    CodeSearchRequest(
+                        workspace_id=workspace_id,
+                        query=query,
+                        max_results=4,
+                    )
+                )
+            except Exception as exc:
+                lines.append(f"- {label}: 搜索失败：{str(exc)[:160]}")
+                continue
+            if not response.hits:
+                lines.append(f"- {label}: 未命中 `{query}`。")
+                continue
+            lines.append(f"- {label}:")
+            for hit in response.hits[:4]:
+                preview = re.sub(r"\s+", " ", hit.preview).strip()
+                lines.append(f"  - `{hit.path}:{hit.line_number}` {preview[:180]}")
+
+        lines.extend(
+            [
+                "",
+                "### 建议的最小可行实验",
+                "- 模型: `mlx-community/Qwen2.5-7B-Instruct-4bit`。",
+                "- workload: long document QA / RAG 长上下文；固定输入长度、输出长度、请求数和随机种子。",
+                "- baseline: 使用现有 serving/throughput benchmark，先记录无改动配置下的 TTFT、TPOT、request throughput、output token throughput、P50/P95 latency。",
+                "- ablation: 对比 prefix caching 开/关、不同 `max_num_seqs`、不同 batched token budget、不同 cache hit ratio。",
+                "- 第一版 propose-only 方向: 优先围绕 benchmark 参数化和结果记录做可复现实验脚本；确认瓶颈后再考虑调度或 prefix cache 路径优化。",
+                f"- 原始问题: {problem[:300]}",
+            ]
+        )
+        return "\n".join(lines)
+
+    def _auto_scientist_candidate_paths(self, workspace_id: str) -> list[str]:
+        try:
+            root = self._code_workbench.workspace_root(workspace_id)
+        except Exception:
+            return []
+        keywords = (
+            "benchmark",
+            "throughput",
+            "prefix",
+            "long_document",
+            "long-document",
+            "longdocument",
+            "auto_tune",
+            "qa",
+        )
+        ignored_parts = {".git", ".venv", "__pycache__", "node_modules", "build", "dist"}
+        scored_candidates: list[tuple[int, str]] = []
+        for path in root.rglob("*"):
+            if not path.is_file():
+                continue
+            relative = path.relative_to(root)
+            if any(part in ignored_parts for part in relative.parts):
+                continue
+            normalized = str(relative).lower()
+            if any(keyword in normalized for keyword in keywords):
+                score = 0
+                if normalized.startswith("benchmarks/"):
+                    score += 100
+                if "benchmark_long_document" in normalized:
+                    score += 80
+                if "benchmark_throughput" in normalized:
+                    score += 60
+                if "auto_tune" in normalized:
+                    score += 45
+                if "prefix" in normalized:
+                    score += 30
+                if "throughput" in normalized:
+                    score += 25
+                if normalized.startswith("tests/"):
+                    score -= 20
+                scored_candidates.append((score, str(relative)))
+        scored_candidates.sort(key=lambda item: (-item[0], item[1]))
+        return [path for _, path in scored_candidates[:12]]
+
+    @staticmethod
+    def _looks_like_degenerate_auto_scientist_output(text: str) -> bool:
+        normalized = re.sub(r"\s+", " ", text or "").strip().lower()
+        if len(normalized) < 200:
+            return False
+        if re.search(r"([a-z0-9])\1{18,}", normalized):
+            return True
+        if re.search(r"\b([a-z_]{4,})\b(?:\W+\1\b){3,}", normalized):
+            return True
+        ascii_letters = len(re.findall(r"[a-zA-Z]", text or ""))
+        cjk_chars = len(re.findall(r"[\u4e00-\u9fff]", text or ""))
+        alpha_ratio = (ascii_letters + cjk_chars) / max(len(text or ""), 1)
+        if alpha_ratio < 0.18:
+            return True
+        words = re.findall(r"[a-zA-Z_]{4,}", normalized)
+        if len(words) < 40:
+            return False
+        counts: dict[str, int] = {}
+        for word in words:
+            counts[word] = counts.get(word, 0) + 1
+        most_common = max(counts.values(), default=0)
+        unique_ratio = len(counts) / max(len(words), 1)
+        has_repeated_word = most_common >= 18 or unique_ratio < 0.16
+        return has_repeated_word
 
     def _require_code_workbench_enabled(self) -> None:
         if not self._code_workbench_available():

@@ -4,7 +4,7 @@
 set -euo pipefail
 
 repo_root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)
-tag="${1:-${FACULTY_TWIN_RELEASE_TAG:-v4.6.0}}"
+tag="${1:-${FACULTY_TWIN_RELEASE_TAG:-v4.6.1}}"
 bundle_name="${FACULTY_TWIN_BUNDLE_NAME:-sage-mate-${tag}}"
 dist_dir="$repo_root/dist"
 bundle_tar="$dist_dir/$bundle_name.tar.gz"
