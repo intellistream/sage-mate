@@ -720,6 +720,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
                 || contents.contains("DIGITAL_TWIN_MODEL_NAME=mlx-community/gemma-3-1b-it-qat-4bit")
             )
             && !contents.contains("DIGITAL_TWIN_LLM_USER_CONFIGURED=true")
+        let localModelWasDisabledByOldDefault =
+            contents.contains("DIGITAL_TWIN_LOCAL_MODEL_BACKEND=none")
+            && !contents.contains("DIGITAL_TWIN_LLM_USER_CONFIGURED=true")
         return !contents.contains("DIGITAL_TWIN_APP_PROFILE=code_assistant")
             || !contents.contains("DIGITAL_TWIN_DEPLOYMENT_MODE=local_code")
             || !contents.contains("DIGITAL_TWIN_CODE_WORKBENCH_ENABLED=true")
@@ -730,6 +733,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
             || hasNonEmptyWorkspaceRoots
             || llmWasAutoPrefilledFromHostedService
             || llmUsesRetiredTinyDefault
+            || localModelWasDisabledByOldDefault
     }
 
     private func startServer() throws {
