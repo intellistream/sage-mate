@@ -329,26 +329,82 @@ PY
 				wheel_name="${wheel_url##*/}"
 				wheel_name="${wheel_name//%2B/+}"
 				precompiled_wheel_location="$wheel_dir/$wheel_name"
-				if [[ ! -s "$precompiled_wheel_location" ]]; then
-					log "Downloading pinned vllm-hust precompiled wheel with IPv4 curl"
-					curl -4 -fL --retry 5 --retry-delay 3 --retry-all-errors \
-						"$wheel_url" -o "$precompiled_wheel_location" || precompiled_wheel_location=""
+				if [[ ! -s "$precompiled_wheel_location" ]] || ! "$python_bin" - "$precompiled_wheel_location" <<'PY' >/dev/null 2>&1
+import sys
+import zipfile
+
+path = sys.argv[1]
+with zipfile.ZipFile(path) as wheel:
+    bad = wheel.testzip()
+    if bad:
+        raise SystemExit(f"corrupt wheel member: {bad}")
+PY
+				then
+					log "Downloading pinned vllm-hust precompiled wheel with resume support"
+					if [[ -e "$precompiled_wheel_location" ]]; then
+						warn "cached pinned vllm-hust wheel is incomplete or corrupt; redownloading"
+						rm -f "$precompiled_wheel_location" "$precompiled_wheel_location.aria2"
+					fi
+					if command -v aria2c >/dev/null 2>&1; then
+						aria2c \
+							--continue=true \
+							--max-connection-per-server="${VLLM_PRECOMPILED_WHEEL_ARIA2_CONNECTIONS:-1}" \
+							--split="${VLLM_PRECOMPILED_WHEEL_ARIA2_SPLIT:-1}" \
+							--min-split-size="${VLLM_PRECOMPILED_WHEEL_ARIA2_MIN_SPLIT_SIZE:-1M}" \
+							--retry-wait="${VLLM_PRECOMPILED_WHEEL_RETRY_WAIT_SECONDS:-3}" \
+							--max-tries="${VLLM_PRECOMPILED_WHEEL_MAX_TRIES:-0}" \
+							--allow-overwrite=true \
+							--auto-file-renaming=false \
+							--file-allocation=none \
+							--console-log-level=warn \
+							--show-console-readout=false \
+							--summary-interval="${VLLM_PRECOMPILED_WHEEL_SUMMARY_INTERVAL_SECONDS:-30}" \
+							-d "$wheel_dir" \
+							-o "$wheel_name" \
+							"$wheel_url" || precompiled_wheel_location=""
+					else
+						curl -4 -fL --retry 5 --retry-delay 3 --retry-all-errors -C - \
+							"$wheel_url" -o "$precompiled_wheel_location" || precompiled_wheel_location=""
+					fi
+					if [[ -n "$precompiled_wheel_location" ]] && ! "$python_bin" - "$precompiled_wheel_location" <<'PY' >/dev/null 2>&1
+import sys
+import zipfile
+
+path = sys.argv[1]
+with zipfile.ZipFile(path) as wheel:
+    bad = wheel.testzip()
+    if bad:
+        raise SystemExit(f"corrupt wheel member: {bad}")
+PY
+					then
+						warn "pinned vllm-hust wheel is incomplete or corrupt; falling back to source install"
+						precompiled_wheel_location=""
+					fi
 				fi
 			fi
 		fi
 	fi
 
+	local precompiled_env=(
+		"VLLM_USE_PRECOMPILED=${VLLM_USE_PRECOMPILED:-1}"
+		"VLLM_PRECOMPILED_WHEEL_COMMIT=$precompiled_commit"
+		"VLLM_PRECOMPILED_WHEEL_VARIANT=${VLLM_PRECOMPILED_WHEEL_VARIANT:-$torch_backend}"
+	)
+	if [[ -n "$precompiled_wheel_location" ]]; then
+		precompiled_env+=("VLLM_PRECOMPILED_WHEEL_LOCATION=$precompiled_wheel_location")
+	fi
+
 	while (( attempt <= max_attempts )); do
 		log "Installing pinned vllm-hust runtime for NVIDIA (attempt $attempt/$max_attempts; may take several minutes)"
 		if [[ "$installer" != "pip" && -n "$uv_bin" ]]; then
-			if UV_HTTP_TIMEOUT="$uv_http_timeout" VLLM_USE_PRECOMPILED="${VLLM_USE_PRECOMPILED:-1}" VLLM_PRECOMPILED_WHEEL_COMMIT="$precompiled_commit" VLLM_PRECOMPILED_WHEEL_VARIANT="${VLLM_PRECOMPILED_WHEEL_VARIANT:-$torch_backend}" VLLM_PRECOMPILED_WHEEL_LOCATION="$precompiled_wheel_location" run_with_optional_timeout "$uv_bin" pip install --python "$python_bin" -e "$vllm_hust_root" --torch-backend="$torch_backend"; then
+			if run_with_optional_timeout env UV_HTTP_TIMEOUT="$uv_http_timeout" "${precompiled_env[@]}" "$uv_bin" pip install --python "$python_bin" -e "$vllm_hust_root" --torch-backend="$torch_backend"; then
 				return 0
 			fi
 		else
 			run_with_optional_timeout "$python_bin" -m pip install --retries 10 --timeout 120 \
 				cmake "ninja" "packaging>=24.2" "setuptools>=77.0.3,<81.0.0" \
 				"setuptools-scm>=8.0" "setuptools-rust>=1.9.0" "torch==2.11.0" wheel jinja2
-			if VLLM_USE_PRECOMPILED="${VLLM_USE_PRECOMPILED:-1}" VLLM_PRECOMPILED_WHEEL_COMMIT="$precompiled_commit" VLLM_PRECOMPILED_WHEEL_VARIANT="${VLLM_PRECOMPILED_WHEEL_VARIANT:-$torch_backend}" VLLM_PRECOMPILED_WHEEL_LOCATION="$precompiled_wheel_location" run_with_optional_timeout "$python_bin" -m pip install --retries 10 --timeout 120 --no-build-isolation -e "$vllm_hust_root"; then
+			if run_with_optional_timeout env "${precompiled_env[@]}" "$python_bin" -m pip install --retries 10 --timeout 120 --no-build-isolation -e "$vllm_hust_root"; then
 				return 0
 			fi
 		fi
