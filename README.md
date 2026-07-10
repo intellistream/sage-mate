@@ -66,7 +66,7 @@ macOS Apple GPU:
 
 ```bash
 DIGITAL_TWIN_LOCAL_MODEL_BACKEND=vllm_metal
-VLLM_METAL_MODEL=mlx-community/Qwen3-4B-Instruct-2507-4bit
+VLLM_METAL_MODEL=mlx-community/Qwen2.5-7B-Instruct-4bit
 VLLM_METAL_PORT=8000
 ```
 

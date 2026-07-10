@@ -5,6 +5,22 @@ set -euo pipefail
 
 repo_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 
+load_home_model_download_env() {
+    local env_file="$HOME/.env"
+    [[ -f "$env_file" ]] || return 0
+    while IFS= read -r line || [[ -n "$line" ]]; do
+        [[ -z "$line" || "$line" =~ ^[[:space:]]*# || "$line" != *"="* ]] && continue
+        local key="${line%%=*}"
+        key="${key// /}"
+        case "$key" in
+            HF_TOKEN|HUGGING_FACE_HUB_TOKEN|HF_ENDPOINT|HF_HOME|HF_HUB_CACHE|HF_HUB_ENABLE_HF_TRANSFER|TRANSFORMERS_CACHE|HTTP_PROXY|HTTPS_PROXY|ALL_PROXY|NO_PROXY|http_proxy|https_proxy|all_proxy|no_proxy) ;;
+            *) continue ;;
+        esac
+        [[ -z "$key" || -n "${!key:-}" ]] && continue
+        export "$line"
+    done < "$env_file"
+}
+
 if [[ -f "$repo_root/tools/lib/runtime_env.sh" ]]; then
     # shellcheck source=/dev/null
     source "$repo_root/tools/lib/runtime_env.sh"
@@ -14,11 +30,24 @@ if [[ -f "$repo_root/tools/lib/deploy_common.sh" ]]; then
     # shellcheck source=/dev/null
     source "$repo_root/tools/lib/deploy_common.sh"
     load_dotenv_file "$repo_root/.env" 2>/dev/null || true
+    load_home_model_download_env 2>/dev/null || true
 elif [[ -f "$repo_root/.env" ]]; then
+    load_dotenv_without_override() {
+        local env_file="$1"
+        [[ -f "$env_file" ]] || return 0
+        while IFS= read -r line || [[ -n "$line" ]]; do
+            [[ -z "$line" || "$line" =~ ^[[:space:]]*# || "$line" != *"="* ]] && continue
+            local key="${line%%=*}"
+            key="${key// /}"
+            [[ -z "$key" || -n "${!key:-}" ]] && continue
+            export "$line"
+        done < "$env_file"
+    }
     set -a
     # shellcheck disable=SC1090
     . "$repo_root/.env"
     set +a
+    load_home_model_download_env 2>/dev/null || true
 fi
 
 install_root="${SAGE_MATE_VLLM_METAL_INSTALL_ROOT:-$HOME/Library/Application Support/Sage Mate/vllm-metal-hust}"
@@ -37,7 +66,7 @@ fi
 
 host="${VLLM_METAL_HOST:-127.0.0.1}"
 port="${VLLM_METAL_PORT:-8000}"
-default_model="mlx-community/Qwen3-4B-Instruct-2507-4bit"
+default_model="mlx-community/Qwen2.5-7B-Instruct-4bit"
 model="${VLLM_METAL_MODEL:-${DIGITAL_TWIN_MODEL_NAME:-$default_model}}"
 served_model_name="${VLLM_METAL_SERVED_MODEL_NAME:-${DIGITAL_TWIN_MODEL_NAME:-$model}}"
 max_model_len="${VLLM_METAL_MAX_MODEL_LEN:-4096}"

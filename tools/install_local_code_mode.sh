@@ -14,7 +14,7 @@
 set -euo pipefail
 
 repo_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
-default_vllm_metal_model="mlx-community/Qwen3-4B-Instruct-2507-4bit"
+default_vllm_metal_model="mlx-community/Qwen2.5-7B-Instruct-4bit"
 if [[ -f "$repo_root/tools/lib/runtime_seed.sh" ]]; then
     # shellcheck source=/dev/null
     source "$repo_root/tools/lib/runtime_seed.sh"
@@ -69,7 +69,7 @@ Flags:
   --skip-local-model-runtime
                           Do not install the selected local model runtime.
   --vllm-metal-dir PATH   Bundled/source vllm-metal-hust checkout.
-  --vllm-metal-model NAME Default Apple GPU model. Defaults to Qwen3 4B Instruct MLX 4bit.
+  --vllm-metal-model NAME Default Apple GPU model. Defaults to Qwen2.5 7B Instruct MLX 4bit.
   --prefill-env PATH      Read default LLM URL/API key/model from this env file.
   --code-backend NAME     auto, internal, or claude_hust. Defaults to auto.
   --claude-hust-repo URL  Optional developer fallback; clone only when explicitly set.
