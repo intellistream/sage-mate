@@ -4,7 +4,7 @@ from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-DEFAULT_RUNTIME_DIR = REPO_ROOT.parent / "sage-faculty-twin-runtime-private"
+DEFAULT_RUNTIME_DIR = REPO_ROOT.parent / "sage-mate-runtime-private"
 DEFAULT_RUNTIME_SEED_DATA_DIR = REPO_ROOT / "release/runtime-seed/data"
 
 
@@ -106,7 +106,7 @@ class AppSettings(BaseSettings):
         description="Comma-separated allowlist of local repository roots for local_code mode.",
     )
     code_workspace_root: Path = Field(
-        default=REPO_ROOT.parent / "sage-faculty-twin-code-workspaces",
+        default=REPO_ROOT.parent / "sage-mate-code-workspaces",
         description="Legacy managed workspace root used when code_workspace_roots is empty.",
     )
     code_session_dir: Path = Field(
@@ -300,7 +300,7 @@ class AppSettings(BaseSettings):
         "stable cache_salt for the fixed system/persona prompt prefix.",
     )
     kv_fixed_prefix_anchor_prefix: str = Field(
-        default="sage-faculty-twin-fixed-prefix",
+        default="sage-mate-fixed-prefix",
         description="Human-readable prefix used when constructing the stable "
         "fixed-prompt KV anchor id.",
     )
@@ -333,7 +333,7 @@ class AppSettings(BaseSettings):
         "for segment-aware runtimes and does not replace exact prefix caching.",
     )
     segment_reuse_namespace_prefix: str = Field(
-        default="sage-faculty-twin",
+        default="sage-mate",
         description="Namespace prefix used when constructing segment-reuse extra_key values.",
     )
     segment_reuse_boundary_class: str = Field(

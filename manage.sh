@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# manage.sh — single entry point for sage-faculty-twin runtime management.
+# manage.sh — single entry point for sage-mate runtime management.
 #
 # Actions:
 #   status    Show service states
@@ -134,26 +134,26 @@ fi
 # Format: "display_name:systemd_unit"
 # Order: model/engine → proxy → app → site → tunnel
 services=()
-$include_engine && services+=("推理引擎:sage-faculty-twin-vllm-engine.service")
-$include_nvidia_engine && services+=("NVIDIA推理引擎:sage-faculty-twin-vllm-nvidia-engine.service")
-$include_proxy  && services+=("模型代理:sage-faculty-twin-vllm-openai-proxy.service")
+$include_engine && services+=("推理引擎:sage-mate-vllm-engine.service")
+$include_nvidia_engine && services+=("NVIDIA推理引擎:sage-mate-vllm-nvidia-engine.service")
+$include_proxy  && services+=("模型代理:sage-mate-vllm-openai-proxy.service")
 
-$include_app    && services+=("应用服务:sage-faculty-twin-app.service")
+$include_app    && services+=("应用服务:sage-mate-app.service")
 
-$include_site   && services+=("本地代理:sage-faculty-twin-site.service")
-$include_tunnel && services+=("公网隧道:sage-faculty-twin-tunnel.service")
+$include_site   && services+=("本地代理:sage-mate-site.service")
+$include_tunnel && services+=("公网隧道:sage-mate-tunnel.service")
 
 # ── Action: logs ─────────────────────────────────────────────────────────────
 if [[ "$action" == "logs" ]]; then
     target="${1:-app}"
     case "$target" in
-        app)     unit="sage-faculty-twin-app.service" ;;
-        engine)  unit="sage-faculty-twin-vllm-engine.service" ;;
-        nvidia-engine|nvidia) unit="sage-faculty-twin-vllm-nvidia-engine.service" ;;
+        app)     unit="sage-mate-app.service" ;;
+        engine)  unit="sage-mate-vllm-engine.service" ;;
+        nvidia-engine|nvidia) unit="sage-mate-vllm-nvidia-engine.service" ;;
         metal-engine|metal) echo "Metal engine runs outside systemd - logs are in the terminal running tools/run_vllm_metal_engine.sh"; exit 0 ;;
-        proxy)   unit="sage-faculty-twin-vllm-openai-proxy.service" ;;
-        site)    unit="sage-faculty-twin-site.service" ;;
-        tunnel)  unit="sage-faculty-twin-tunnel.service" ;;
+        proxy)   unit="sage-mate-vllm-openai-proxy.service" ;;
+        site)    unit="sage-mate-site.service" ;;
+        tunnel)  unit="sage-mate-tunnel.service" ;;
         model)   echo "Model runs outside systemd — use: journalctl or docker logs"; exit 0 ;;
         *)       echo "Unknown service: $target (app|engine|nvidia-engine|proxy|site|tunnel|model)" >&2; exit 1 ;;
     esac

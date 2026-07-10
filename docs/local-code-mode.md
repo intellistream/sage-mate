@@ -67,8 +67,8 @@ The important first-run settings in the UI are:
   synced into `~/Library/Application Support/Sage Mate/vllm-metal-hust`. Its vLLM core is the
   pinned local `deps/vllm-hust` checkout, not the official upstream vLLM release.
 - Runtime data: `DIGITAL_TWIN_RUNTIME_DIR`. On first install, Sage Mate first looks for an existing
-  private runtime-data checkout such as `~/Documents/sage-faculty-twin-runtime-private` or
-  `~/Documents/qixin-gaoke-sage-faculty-twin-runtime-private` and uses it automatically. Only when no
+  private runtime-data checkout such as `~/Documents/sage-mate-runtime-private` or
+  `~/Documents/qixin-gaoke-sage-mate-runtime-private` and uses it automatically. Only when no
   runtime repository is found does it create a clean local folder under
   `~/Library/Application Support/Sage Mate/runtime`. Users can still override this in the setup UI or
   with `--runtime-dir`.

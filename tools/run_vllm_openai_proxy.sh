@@ -48,7 +48,7 @@ else:
     raise SystemExit(0)
 PY
 then
-    echo "VLLM proxy listen address ${proxy_host}:${proxy_port} is already in use. Stop the conflicting process or choose a different VLLM_PROXY_PORT before enabling sage-faculty-twin-vllm-openai-proxy.service." >&2
+    echo "VLLM proxy listen address ${proxy_host}:${proxy_port} is already in use. Stop the conflicting process or choose a different VLLM_PROXY_PORT before enabling sage-mate-vllm-openai-proxy.service." >&2
     exit 1
 fi
 

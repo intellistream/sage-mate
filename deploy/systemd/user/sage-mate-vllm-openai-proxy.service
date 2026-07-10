@@ -1,5 +1,5 @@
 [Unit]
-Description=Sage Faculty Twin OpenAI-compatible vLLM proxy
+Description=Sage Mate OpenAI-compatible vLLM proxy
 After=network-online.target
 Wants=network-online.target
 

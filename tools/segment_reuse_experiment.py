@@ -221,7 +221,7 @@ def _segment_extra_key(
     request_id: int,
 ) -> str:
     digest = hashlib.sha256(f"{model}\n{body}".encode("utf-8")).hexdigest()[:16]
-    namespace = f"sage-faculty-twin:experiment:{scope}:{digest}"
+    namespace = f"sage-mate:experiment:{scope}:{digest}"
     return (
         f"{namespace}||"
         "segreuse:v1;mode=leading-envelope;segments=1;"

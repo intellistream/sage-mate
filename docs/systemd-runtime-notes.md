@@ -14,12 +14,12 @@ changes that came out of it.
   (start/stop/restart/status/logs). It supports `--all` to include all
   optional services at once.
 - The following services are optional and controlled by flags:
-  - `sage-faculty-twin-vllm-engine.service` (`--with-vllm-engine`)
-  - `sage-faculty-twin-vllm-openai-proxy.service` (`--with-vllm-proxy`)
-  - `sage-faculty-twin-site.service` (`--with-site-proxy`)
-  - `sage-faculty-twin-tunnel.service` (`--with-tunnel`)
+  - `sage-mate-vllm-engine.service` (`--with-vllm-engine`)
+  - `sage-mate-vllm-openai-proxy.service` (`--with-vllm-proxy`)
+  - `sage-mate-site.service` (`--with-site-proxy`)
+  - `sage-mate-tunnel.service` (`--with-tunnel`)
 - The default managed stack is:
-  - `sage-faculty-twin-app.service` (always enabled)
+  - `sage-mate-app.service` (always enabled)
 - `tools/run_app_server.sh` seeds writable HuggingFace cache variables and
   defaults `HF_ENDPOINT` to `https://hf-mirror.com` for non-interactive
   `systemd --user` launches.
@@ -56,14 +56,14 @@ Environment=XDG_RUNTIME_DIR=/run/user/22629
 
 ## Current operational shape on 180-ascend-bench
 
-- `sage-faculty-twin-app.service` is managed by `systemd --user`.
-- `sage-faculty-twin-site.service` is managed by `systemd --user`.
-- `sage-faculty-twin-vllm-engine.service` is managed by `systemd --user` and
+- `sage-mate-app.service` is managed by `systemd --user`.
+- `sage-mate-site.service` is managed by `systemd --user`.
+- `sage-mate-vllm-engine.service` is managed by `systemd --user` and
   starts the dedicated `faculty_twin_vllm_hust` container from pinned
   submodules.
-- `sage-faculty-twin-vllm-openai-proxy.service` is managed by `systemd --user`
+- `sage-mate-vllm-openai-proxy.service` is managed by `systemd --user`
   and proxies `127.0.0.1:18001/v1` to the vLLM-HUST engine.
-- `sage-faculty-twin-tunnel.service` is managed by `systemd --user`. It runs
+- `sage-mate-tunnel.service` is managed by `systemd --user`. It runs
   `cloudflared` with a token stored under the private runtime directory:
   `$DIGITAL_TWIN_RUNTIME_DIR/cloudflared/token`.
 - Public Cloudflare ingress for `twin.sage.org.ai` is handled by the named

@@ -6,7 +6,7 @@ For each fixture this script runs the current chat workflow in-process
 report is emitted to docs/student-questions-replay-report.md.
 
 Usage:
-    cd /home/shuhao/sage-faculty-twin
+    cd /home/shuhao/sage-mate
     PYTHONPATH=src:/home/shuhao/SAGE/src:/home/shuhao/sageVDB:/home/shuhao/neuromem \
         /home/shuhao/miniforge3/envs/sagellm/bin/python3 tools/replay_poor_cases.py
 """

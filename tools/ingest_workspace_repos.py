@@ -1,8 +1,8 @@
 """One-time ingestion of workspace repo READMEs + curated FAQ into the
-sage-faculty-twin knowledge base.
+sage-mate knowledge base.
 
 Usage:
-    cd /home/shuhao/sage-faculty-twin
+    cd /home/shuhao/sage-mate
     PYTHONPATH=src:/home/shuhao/SAGE/src:/home/shuhao/sageVDB:/home/shuhao/neuromem \
         python tools/ingest_workspace_repos.py
 """

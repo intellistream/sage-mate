@@ -26,7 +26,7 @@ load_dotenv() {
 
 load_dotenv
 
-RUNTIME_ROOT="${DIGITAL_TWIN_RUNTIME_DIR:-$REPO_ROOT/../sage-faculty-twin-runtime-private}"
+RUNTIME_ROOT="${DIGITAL_TWIN_RUNTIME_DIR:-$REPO_ROOT/../sage-mate-runtime-private}"
 LOG_DIR="${RUNTIME_ROOT}/logs"
 LOG_FILE="${LOG_DIR}/wiki_sync_$(date +%Y%m%d_%H%M%S).log"
 

@@ -97,7 +97,7 @@ def test_quickstart_install_renders_service_units(tmp_path: Path) -> None:
     )
 
     target_dir = tmp_path / "xdg" / "systemd" / "user"
-    rendered_app = (target_dir / "sage-faculty-twin-app.service").read_text(
+    rendered_app = (target_dir / "sage-mate-app.service").read_text(
         encoding="utf-8"
     )
     assert f"Environment=PYTHON_BIN={good_python}" in rendered_app
@@ -106,7 +106,7 @@ def test_quickstart_install_renders_service_units(tmp_path: Path) -> None:
     # Systemctl was called for daemon-reload and enable
     log_text = systemctl_log.read_text(encoding="utf-8")
     assert "daemon-reload" in log_text
-    assert "sage-faculty-twin-app.service" in log_text
+    assert "sage-mate-app.service" in log_text
 
 
 def test_release_installer_uses_multi_gpu_tp_for_qwen3_32b_awq() -> None:
@@ -131,10 +131,10 @@ def test_quickstart_install_only_enables_optional_services_with_flags(
     )
     assert result.returncode == 0, f"stderr: {result.stderr}"
     default_log = systemctl_log.read_text(encoding="utf-8")
-    assert "sage-faculty-twin-app.service" in default_log
-    assert "sage-faculty-twin-tunnel.service" not in default_log
-    assert "sage-faculty-twin-vllm-openai-proxy.service" not in default_log
-    assert "sage-faculty-twin-vllm-engine.service" not in default_log
+    assert "sage-mate-app.service" in default_log
+    assert "sage-mate-tunnel.service" not in default_log
+    assert "sage-mate-vllm-openai-proxy.service" not in default_log
+    assert "sage-mate-vllm-engine.service" not in default_log
 
     # --with-tunnel
     systemctl_log.write_text("", encoding="utf-8")
@@ -145,7 +145,7 @@ def test_quickstart_install_only_enables_optional_services_with_flags(
     )
     assert result.returncode == 0
     tunnel_log = systemctl_log.read_text(encoding="utf-8")
-    assert "sage-faculty-twin-tunnel.service" in tunnel_log
+    assert "sage-mate-tunnel.service" in tunnel_log
 
     # --with-vllm-proxy
     systemctl_log.write_text("", encoding="utf-8")
@@ -156,7 +156,7 @@ def test_quickstart_install_only_enables_optional_services_with_flags(
     )
     assert result.returncode == 0
     proxy_log = systemctl_log.read_text(encoding="utf-8")
-    assert "sage-faculty-twin-vllm-openai-proxy.service" in proxy_log
+    assert "sage-mate-vllm-openai-proxy.service" in proxy_log
 
     # --with-nvidia-vllm-engine
     systemctl_log.write_text("", encoding="utf-8")
@@ -167,7 +167,7 @@ def test_quickstart_install_only_enables_optional_services_with_flags(
     )
     assert result.returncode == 0
     engine_log = systemctl_log.read_text(encoding="utf-8")
-    assert "sage-faculty-twin-vllm-nvidia-engine.service" in engine_log
+    assert "sage-mate-vllm-nvidia-engine.service" in engine_log
 
 
 def test_run_vllm_openai_proxy_fails_fast_when_port_is_occupied(tmp_path: Path) -> None:

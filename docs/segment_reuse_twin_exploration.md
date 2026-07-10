@@ -1,4 +1,4 @@
-# Segment-Reuse Exploration for Sage Faculty Twin
+# Segment-Reuse Exploration for Sage Mate
 
 ## Current Prompt Anatomy
 

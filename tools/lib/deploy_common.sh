@@ -247,17 +247,21 @@ install_systemd_user_units() {
 
 cleanup_legacy_python_override() {
     local target_dir="${1:-${XDG_CONFIG_HOME:-$HOME/.config}/systemd/user}"
-    local override_dir="$target_dir/sage-faculty-twin-app.service.d"
-    local override_file="$override_dir/override.conf"
+    local override_dir="" override_file=""
 
-    if [[ -f "$override_file" ]] && awk '
+    for override_dir in \
+        "$target_dir/sage-mate-app.service.d" \
+        "$target_dir/sage-faculty-twin-app.service.d"; do
+        override_file="$override_dir/override.conf"
+        if [[ -f "$override_file" ]] && awk '
         /^[[:space:]]*$/ { next }
         /^\[Service\]$/ { next }
         /^Environment=PYTHON_BIN=/ { next }
         { exit 1 }
     ' "$override_file"; then
-        rm -f "$override_file"
-        rmdir "$override_dir" 2>/dev/null || true
-        deploy_log "  removed legacy PYTHON_BIN override"
-    fi
+            rm -f "$override_file"
+            rmdir "$override_dir" 2>/dev/null || true
+            deploy_log "  removed legacy PYTHON_BIN override"
+        fi
+    done
 }

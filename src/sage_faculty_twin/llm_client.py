@@ -387,9 +387,9 @@ class VllmChatClient:
             getattr(
                 self._settings,
                 "kv_fixed_prefix_anchor_prefix",
-                "sage-faculty-twin-fixed-prefix",
+                "sage-mate-fixed-prefix",
             )
-            or "sage-faculty-twin-fixed-prefix"
+            or "sage-mate-fixed-prefix"
         ).strip()
         anchor_version = str(
             getattr(self._settings, "kv_fixed_prefix_anchor_version", "v1") or "v1"
@@ -433,8 +433,8 @@ class VllmChatClient:
             f"{self.model_name}\n{body}".encode("utf-8")
         ).hexdigest()[:16]
         namespace_prefix = str(
-            getattr(self._settings, "segment_reuse_namespace_prefix", "sage-faculty-twin")
-            or "sage-faculty-twin"
+            getattr(self._settings, "segment_reuse_namespace_prefix", "sage-mate")
+            or "sage-mate"
         ).strip()
         namespace = ":".join(
             self._sanitize_segment_reuse_field(part)

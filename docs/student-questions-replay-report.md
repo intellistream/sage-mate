@@ -2,7 +2,7 @@
 
 ## 方法论
 
-本报告由 [tools/replay_poor_cases.py](file:///home/shuhao/sage-faculty-twin/tools/replay_poor_cases.py) 自动生成, 数据源是 [docs/student-questions-poor-answers.md](file:///home/shuhao/sage-faculty-twin/docs/student-questions-poor-answers.md) 中记录的 39 条历史不佳回答。
+本报告由 [tools/replay_poor_cases.py](file:///home/shuhao/sage-mate/tools/replay_poor_cases.py) 自动生成, 数据源是 [docs/student-questions-poor-answers.md](file:///home/shuhao/sage-mate/docs/student-questions-poor-answers.md) 中记录的 39 条历史不佳回答。
 
 本轮使用 **mock-LLM 模式** (Qwen3-32B 离线时的回退方案), 用以验证以下确定性流水线改动是否生效:
 

@@ -19,7 +19,7 @@ load_dotenv() {
 
 load_dotenv
 
-runtime_root="${DIGITAL_TWIN_RUNTIME_DIR:-$repo_root/../sage-faculty-twin-runtime-private}"
+runtime_root="${DIGITAL_TWIN_RUNTIME_DIR:-$repo_root/../sage-mate-runtime-private}"
 mkdir -p "$runtime_root/logs" "$runtime_root/data/alerts"
 log_file="$runtime_root/logs/twin_inference_monitor.log"
 state_file="$runtime_root/data/alerts/twin_inference_monitor_state.json"
@@ -76,7 +76,7 @@ PY
 
 engine_is_active() {
     command -v systemctl >/dev/null 2>&1 || return 1
-    systemctl --user is-active --quiet "${TWIN_MONITOR_ENGINE_UNIT:-sage-faculty-twin-vllm-engine.service}"
+    systemctl --user is-active --quiet "${TWIN_MONITOR_ENGINE_UNIT:-sage-mate-vllm-engine.service}"
 }
 
 looks_like_engine_booting() {

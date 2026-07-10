@@ -4,7 +4,7 @@
 # All repos that produce papers, benchmarks, or research artifacts
 # are renamed to use the "research-" prefix.
 #
-# Usage:  bash /home/shuhao/sage-faculty-twin/tools/rename_research_repos.sh
+# Usage:  bash /home/shuhao/sage-mate/tools/rename_research_repos.sh
 # Requires write access to /home/shuhao/
 
 set -euo pipefail

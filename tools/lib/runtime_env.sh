@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# Shared runtime helpers for sage-faculty-twin scripts.
+# Shared runtime helpers for sage-mate scripts.
 # Goal: keep interpreter/PYTHONPATH selection deterministic across entrypoints.
 
 set -euo pipefail
@@ -97,7 +97,7 @@ export_repo_runtime_env() {
 
     # Prevent torch auto-loading optional device backends (e.g. torch_npu) unless explicitly enabled.
     export TORCH_DEVICE_BACKEND_AUTOLOAD="${TORCH_DEVICE_BACKEND_AUTOLOAD:-0}"
-    export DIGITAL_TWIN_RUNTIME_DIR="${DIGITAL_TWIN_RUNTIME_DIR:-$repo_root/../sage-faculty-twin-runtime-private}"
+    export DIGITAL_TWIN_RUNTIME_DIR="${DIGITAL_TWIN_RUNTIME_DIR:-$repo_root/../sage-mate-runtime-private}"
 }
 
 print_repo_runtime_summary() {

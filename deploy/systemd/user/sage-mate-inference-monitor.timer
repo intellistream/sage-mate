@@ -1,5 +1,5 @@
 [Unit]
-Description=Timer for Sage Faculty Twin inference monitor
+Description=Timer for Sage Mate inference monitor
 
 [Timer]
 OnBootSec=3min

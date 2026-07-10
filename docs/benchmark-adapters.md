@@ -61,7 +61,7 @@ The adapter preserves that output shape.
 Run it with:
 
 ```bash
-PYTHONPATH=/home/shuhao/sage-faculty-twin/src:/home/shuhao/SAGE/src:/home/shuhao/sageVDB:/home/shuhao/neuromem \
+PYTHONPATH=/home/shuhao/sage-mate/src:/home/shuhao/SAGE/src:/home/shuhao/sageVDB:/home/shuhao/neuromem \
 python -m sage_faculty_twin.benchmark_adapter charactereval \
   --input /path/to/test_data.jsonl \
   --output /path/to/results/generation.jsonl
@@ -77,9 +77,9 @@ Recommended use in this repo:
 You can run the local faculty subset directly:
 
 ```bash
-PYTHONPATH=/home/shuhao/sage-faculty-twin/src:/home/shuhao/SAGE/src:/home/shuhao/sageVDB:/home/shuhao/neuromem \
+PYTHONPATH=/home/shuhao/sage-mate/src:/home/shuhao/SAGE/src:/home/shuhao/sageVDB:/home/shuhao/neuromem \
 python -m sage_faculty_twin.benchmark_adapter charactereval \
-  --input /home/shuhao/sage-faculty-twin/tests/data/charactereval_faculty_subset.json \
+  --input /home/shuhao/sage-mate/tests/data/charactereval_faculty_subset.json \
   --output /tmp/charactereval-faculty-results.json
 ```
 
@@ -124,9 +124,9 @@ It is not sufficient for final quality judgment on its own, because semantic equ
 You can score a generated CharacterEval prediction file with:
 
 ```bash
-PYTHONPATH=/home/shuhao/sage-faculty-twin/src:/home/shuhao/SAGE/src:/home/shuhao/sageVDB:/home/shuhao/neuromem \
+PYTHONPATH=/home/shuhao/sage-mate/src:/home/shuhao/SAGE/src:/home/shuhao/sageVDB:/home/shuhao/neuromem \
 python -m sage_faculty_twin.benchmark_adapter score-charactereval-faculty \
-  --scenarios /home/shuhao/sage-faculty-twin/tests/data/charactereval_faculty_subset.json \
+  --scenarios /home/shuhao/sage-mate/tests/data/charactereval_faculty_subset.json \
   --predictions /tmp/charactereval-faculty-results.json \
   --output /tmp/charactereval-faculty-score-report.json
 ```
@@ -163,7 +163,7 @@ The adapter writes exactly that shape.
 Run it with:
 
 ```bash
-PYTHONPATH=/home/shuhao/sage-faculty-twin/src:/home/shuhao/SAGE/src:/home/shuhao/sageVDB:/home/shuhao/neuromem \
+PYTHONPATH=/home/shuhao/sage-mate/src:/home/shuhao/SAGE/src:/home/shuhao/sageVDB:/home/shuhao/neuromem \
 python -m sage_faculty_twin.benchmark_adapter lamp \
   --questions /path/to/dev_questions.json \
   --task-name LaMP-6 \
@@ -183,9 +183,9 @@ It currently contains 16 scenarios for profile-grounded recommendation and next-
 You can run the local subset directly:
 
 ```bash
-PYTHONPATH=/home/shuhao/sage-faculty-twin/src:/home/shuhao/SAGE/src:/home/shuhao/sageVDB:/home/shuhao/neuromem \
+PYTHONPATH=/home/shuhao/sage-mate/src:/home/shuhao/SAGE/src:/home/shuhao/sageVDB:/home/shuhao/neuromem \
 python -m sage_faculty_twin.benchmark_adapter lamp \
-  --questions /home/shuhao/sage-faculty-twin/tests/data/lamp_personalization_subset.json \
+  --questions /home/shuhao/sage-mate/tests/data/lamp_personalization_subset.json \
   --task-name LaMP-Local \
   --output /tmp/lamp-local-results.json
 ```
@@ -232,9 +232,9 @@ This scaffold is meant to catch obvious personalization failures such as:
 You can score a generated local LaMP prediction file with:
 
 ```bash
-PYTHONPATH=/home/shuhao/sage-faculty-twin/src:/home/shuhao/SAGE/src:/home/shuhao/sageVDB:/home/shuhao/neuromem \
+PYTHONPATH=/home/shuhao/sage-mate/src:/home/shuhao/SAGE/src:/home/shuhao/sageVDB:/home/shuhao/neuromem \
 python -m sage_faculty_twin.benchmark_adapter score-lamp-local \
-  --scenarios /home/shuhao/sage-faculty-twin/tests/data/lamp_personalization_subset.json \
+  --scenarios /home/shuhao/sage-mate/tests/data/lamp_personalization_subset.json \
   --predictions /tmp/lamp-local-results.json \
   --output /tmp/lamp-local-score-report.json
 ```
@@ -273,18 +273,18 @@ Each scenario contains:
 Run the local memory benchmark directly:
 
 ```bash
-PYTHONPATH=/home/shuhao/sage-faculty-twin/src:/home/shuhao/SAGE/src:/home/shuhao/sageVDB:/home/shuhao/neuromem \
+PYTHONPATH=/home/shuhao/sage-mate/src:/home/shuhao/SAGE/src:/home/shuhao/sageVDB:/home/shuhao/neuromem \
 python -m sage_faculty_twin.benchmark_adapter memory-followup \
-  --scenarios /home/shuhao/sage-faculty-twin/tests/data/memory_followup_subset.json \
+  --scenarios /home/shuhao/sage-mate/tests/data/memory_followup_subset.json \
   --output /tmp/memory-followup-results.json
 ```
 
 Then score it with:
 
 ```bash
-PYTHONPATH=/home/shuhao/sage-faculty-twin/src:/home/shuhao/SAGE/src:/home/shuhao/sageVDB:/home/shuhao/neuromem \
+PYTHONPATH=/home/shuhao/sage-mate/src:/home/shuhao/SAGE/src:/home/shuhao/sageVDB:/home/shuhao/neuromem \
 python -m sage_faculty_twin.benchmark_adapter score-memory-followup \
-  --scenarios /home/shuhao/sage-faculty-twin/tests/data/memory_followup_subset.json \
+  --scenarios /home/shuhao/sage-mate/tests/data/memory_followup_subset.json \
   --predictions /tmp/memory-followup-results.json \
   --output /tmp/memory-followup-score-report.json
 ```
@@ -313,7 +313,7 @@ The generated report includes:
 Once you have both local score reports, you can merge them into one repo-level benchmark summary:
 
 ```bash
-PYTHONPATH=/home/shuhao/sage-faculty-twin/src:/home/shuhao/SAGE/src:/home/shuhao/sageVDB:/home/shuhao/neuromem \
+PYTHONPATH=/home/shuhao/sage-mate/src:/home/shuhao/SAGE/src:/home/shuhao/sageVDB:/home/shuhao/neuromem \
 python -m sage_faculty_twin.benchmark_adapter summarize-local-benchmarks \
   --charactereval-report /tmp/charactereval-faculty-score-report.json \
   --lamp-report /tmp/lamp-local-score-report.json \
@@ -344,6 +344,6 @@ This is the intended one-shot artifact for regression tracking after prompt, ret
 The adapter draft is covered by:
 
 ```bash
-PYTHONPATH=/home/shuhao/sage-faculty-twin/src:/home/shuhao/SAGE/src:/home/shuhao/sageVDB:/home/shuhao/neuromem \
+PYTHONPATH=/home/shuhao/sage-mate/src:/home/shuhao/SAGE/src:/home/shuhao/sageVDB:/home/shuhao/neuromem \
 pytest tests/test_benchmark_adapter.py -v
 ```

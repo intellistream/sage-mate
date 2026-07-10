@@ -92,6 +92,6 @@ node --check src/sage_faculty_twin/web/app.js
 For a production-like local check, restart the managed app service and verify:
 
 ```bash
-systemctl --user restart sage-faculty-twin-app.service
+systemctl --user restart sage-mate-app.service
 curl -fsS http://127.0.0.1:55601/health
 ```

@@ -63,10 +63,10 @@ class FakeRuntimeManager:
             services=[
                 ManagedServiceStatus(
                     name="应用服务",
-                    unit="sage-faculty-twin-app.service",
+                    unit="sage-mate-app.service",
                     active_state=active_state,
                     sub_state="running" if active_state == "active" else "dead",
-                    description="Sage Faculty Twin application server",
+                    description="Sage Mate application server",
                 )
             ],
         )

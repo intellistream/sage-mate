@@ -4,7 +4,7 @@ Parses markdown files from the sage-wiki repo, extracts frontmatter metadata
 and inter-page links, and creates/updates KB entries with link graph metadata.
 
 Usage:
-    cd /home/shuhao/sage-faculty-twin
+    cd /home/shuhao/sage-mate
     PYTHONPATH=src python tools/ingest_wiki.py [--wiki-dir /home/shuhao/sage-wiki]
 """
 from __future__ import annotations

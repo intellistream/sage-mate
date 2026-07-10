@@ -4,8 +4,8 @@
 set -euo pipefail
 
 repo_root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)
-tag="${1:-${FACULTY_TWIN_RELEASE_TAG:-v4.4.0}}"
-bundle_name="${FACULTY_TWIN_BUNDLE_NAME:-sage-faculty-twin-${tag}}"
+tag="${1:-${FACULTY_TWIN_RELEASE_TAG:-v4.5.0}}"
+bundle_name="${FACULTY_TWIN_BUNDLE_NAME:-sage-mate-${tag}}"
 dist_dir="$repo_root/dist"
 bundle_tar="$dist_dir/$bundle_name.tar.gz"
 run_path="$dist_dir/$bundle_name-linux.run"
@@ -18,12 +18,12 @@ fi
 
 cat > "$run_path" <<'STUB'
 #!/usr/bin/env bash
-# Self-extracting installer for Faculty Twin hosted/web.
+# Self-extracting installer for Sage Mate hosted/web.
 
 set -euo pipefail
 
 bundle_name="__BUNDLE_NAME__"
-install_root="${FACULTY_TWIN_INSTALLER_ROOT:-$HOME/.local/share/sage-faculty-twin-installer}"
+install_root="${FACULTY_TWIN_INSTALLER_ROOT:-$HOME/.local/share/sage-mate-installer}"
 target_dir="$install_root/$bundle_name"
 payload_line=$(awk '/^__FACULTY_TWIN_PAYLOAD_BELOW__$/ { print NR + 1; exit 0 }' "$0")
 
@@ -47,7 +47,7 @@ rm -rf "$target_dir"
 mv "$extracted_dir" "$target_dir"
 rm -rf "$target_dir.new"
 
-echo "Faculty Twin installer extracted to: $target_dir"
+echo "Sage Mate installer extracted to: $target_dir"
 echo "Starting installer..."
 cd "$target_dir"
 exec "$target_dir/install.sh" "$@"

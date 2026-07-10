@@ -1,12 +1,12 @@
-# sage-faculty-twin
+# Sage Mate
 
-Sage Faculty Twin / Sage Mate 是面向教师数字分身和本地代码助手的同一套应用。
+Sage Mate 是面向教师数字分身和本地代码助手的多 profile 应用。Faculty Twin 现在是其中一个 profile，Code Assistant 是本地代码工作台 profile。
 
 ## 支持平台
 
 | 平台 | 形态 | 推理后端 | 安装入口 |
 | --- | --- | --- | --- |
-| Linux CPU | hosted web | 外部或用户配置的 OpenAI-compatible endpoint | `./quickstart.sh --target hosted-web` |
+| Linux CPU | hosted web | 用户配置的 OpenAI-compatible endpoint，或无本地推理的 CPU 检查路径 | `./quickstart.sh --target hosted-web` |
 | Linux Ascend | hosted web | 本机 `vllm-hust` + `vllm-ascend-hust` | `./quickstart.sh --target hosted-web --with-vllm-engine --with-vllm-proxy` |
 | macOS Apple Silicon | Sage Mate.app | 本机 `vllm-metal-hust`，或用户手动配置的 endpoint | DMG |
 
@@ -47,7 +47,7 @@ macOS 用户安装:
 
 ## 关键规则
 
-- `hosted-web` 只提供网页 Faculty Twin，不启用本地代码能力。
+- `hosted-web` 只提供网页 Faculty Twin profile，不启用本地代码能力。
 - Sage Mate DMG 随包携带 `claude-code-hust`、Bun runtime、`vllm-metal-hust`，不要求用户临时 clone。
 - macOS 本地模型使用我们的 `vllm-metal-hust` fork，并基于仓库固定的 `deps/vllm-hust` core。
 - Linux Ascend 使用仓库固定的 `deps/vllm-hust-dev-hub`、`deps/vllm-hust`、`deps/vllm-ascend-hust`、`deps/ascend-runtime-manager`。

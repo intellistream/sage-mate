@@ -1,21 +1,21 @@
-# Faculty Twin Hosted/Web Installer
+# Sage Mate Hosted/Web Installer
 
-This release bundle installs the hosted/web Faculty Twin service on a fresh
-Linux machine.
+This release bundle installs Sage Mate on a fresh Linux machine. The hosted/web
+mode runs the Faculty Twin profile and keeps local code tools disabled.
 
 ## Recommended Linux Install
 
 Download the `.run` installer from GitHub Release:
 
 ```bash
-chmod +x sage-faculty-twin-v4.4.0-linux.run
-./sage-faculty-twin-v4.4.0-linux.run
+chmod +x sage-mate-v4.5.0-linux.run
+./sage-mate-v4.5.0-linux.run
 ```
 
 The `.run` installer extracts this bundle to:
 
 ```bash
-~/.local/share/sage-faculty-twin-installer/sage-faculty-twin-v4.4.0
+~/.local/share/sage-mate-installer/sage-mate-v4.5.0
 ```
 
 That persistent location lets the installer resume after a driver-upgrade reboot.
@@ -26,19 +26,19 @@ The installer supports three product modes:
 
 ```bash
 # Hosted Faculty Twin web service. Local code tools are disabled.
-./sage-faculty-twin-v4.4.0-linux.run --web-only
+./sage-mate-v4.5.0-linux.run --web-only
 
 # Local Sage Mate code-editing app only.
-./sage-faculty-twin-v4.4.0-linux.run --code-only
+./sage-mate-v4.5.0-linux.run --code-only
 
 # Both, installed into separate checkouts and ports.
-./sage-faculty-twin-v4.4.0-linux.run --both
+./sage-mate-v4.5.0-linux.run --both
 ```
 
 `--both` uses separate directories so hosted/web safety settings do not mix with
 local code-editing settings:
 
-- Web repo: `~/sage-faculty-twin`
+- Web repo: `~/sage-mate`
 - Code repo: `~/sage-mate-local-code`
 - Web URL: `http://127.0.0.1:55601/`
 - Code URL: `http://127.0.0.1:55611/?setup=local-code`
@@ -48,16 +48,16 @@ local code-editing settings:
 Put the release key on the target machine:
 
 ```bash
-mkdir -p ~/.config/sage-faculty-twin
-chmod 700 ~/.config/sage-faculty-twin
+mkdir -p ~/.config/sage-mate
+chmod 700 ~/.config/sage-mate
 # place release-secrets.key at:
-# ~/.config/sage-faculty-twin/release-secrets.key
+# ~/.config/sage-mate/release-secrets.key
 ```
 
 Then run:
 
 ```bash
-FACULTY_TWIN_SECRETS_KEY_FILE=~/.config/sage-faculty-twin/release-secrets.key \
+FACULTY_TWIN_SECRETS_KEY_FILE=~/.config/sage-mate/release-secrets.key \
   ./install.sh
 ```
 
@@ -88,7 +88,7 @@ app keys separately.
   driver helper.
 - Asks before rebooting when a driver upgrade requires it.
 - Resumes automatically after login.
-- Clones or updates `intellistream/sage-faculty-twin`.
+- Clones or updates `intellistream/sage-mate`.
 - Applies hosted/web safety settings.
 - Installs pinned dependencies and submodules.
 - Starts systemd user services.
@@ -149,7 +149,7 @@ longer first-start window.
 Installer logs are written to:
 
 ```bash
-~/.local/state/sage-faculty-twin-installer/install.log
+~/.local/state/sage-mate-installer/install.log
 ```
 
 ## URLs

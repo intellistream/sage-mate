@@ -4,7 +4,7 @@
 
 ## 背景
 
-当前环境已经向 `sage-faculty-twin` 的知识库注入 6 份团队周工作安排文档，目标是让数字分身能够回答以下类型的问题：
+当前环境已经向 `sage-mate` 的知识库注入 6 份团队周工作安排文档，目标是让数字分身能够回答以下类型的问题：
 
 - 团队固定会议有哪些
 - 老师每周一上午的安排是什么
@@ -15,7 +15,7 @@
 
 ## 已注入文档
 
-以下 6 份文档与 [tools/ingest_weekly_schedules.py](sage-faculty-twin/tools/ingest_weekly_schedules.py) 中的映射一致：
+以下 6 份文档与 [tools/ingest_weekly_schedules.py](sage-mate/tools/ingest_weekly_schedules.py) 中的映射一致：
 
 | 文件 | 知识库标题 | source_name |
 |------|-----------|-------------|
@@ -43,7 +43,7 @@
 在部署环境执行：
 
 ```bash
-cd /home/shuhao/sage-faculty-twin
+cd /home/shuhao/sage-mate
 grep -rl "team-schedule/" data/knowledge_base/ | wc -l
 ```
 
@@ -52,7 +52,7 @@ grep -rl "team-schedule/" data/knowledge_base/ | wc -l
 ### 2. 检查标题、长度与标签
 
 ```bash
-cd /home/shuhao/sage-faculty-twin
+cd /home/shuhao/sage-mate
 for f in $(grep -rl "team-schedule/" data/knowledge_base/); do
   echo "--- $(python3 -c "import json; print(json.load(open('$f'))['title'])")"
   python3 -c "import json; d=json.load(open('$f')); print(f'  chars={len(d[\"content\"])}, tags={d[\"tags\"]}')"
@@ -67,19 +67,19 @@ done
 
 ### 3. 让索引生效
 
-[tools/ingest_weekly_schedules.py](sage-faculty-twin/tools/ingest_weekly_schedules.py) 在缺少 `sentence-transformers` 时会直接写 JSON 文件，并提示索引在下次服务启动时重建。因此知识写入磁盘后，还需要让知识索引重新加载。
+[tools/ingest_weekly_schedules.py](sage-mate/tools/ingest_weekly_schedules.py) 在缺少 `sentence-transformers` 时会直接写 JSON 文件，并提示索引在下次服务启动时重建。因此知识写入磁盘后，还需要让知识索引重新加载。
 
 推荐方式：
 
 ```bash
-cd /home/shuhao/sage-faculty-twin
+cd /home/shuhao/sage-mate
 ./manage.sh restart
 ```
 
 如果不希望重启服务，也可以在完整依赖环境下手动初始化知识库：
 
 ```bash
-cd /home/shuhao/sage-faculty-twin
+cd /home/shuhao/sage-mate
 PYTHONPATH=src:/home/shuhao/SAGE/src:/home/shuhao/sageVDB:/home/shuhao/neuromem \
   python -c "
 from sage_faculty_twin.config import AppSettings
@@ -147,7 +147,7 @@ print(f'Loaded {len(store.list_documents())} documents, indexes rebuilt.')
 如果周工作安排有变更，先更新源文件，再重新执行摄入脚本并重建索引：
 
 ```bash
-cd /home/shuhao/sage-faculty-twin
+cd /home/shuhao/sage-mate
 python tools/ingest_weekly_schedules.py
 ./manage.sh restart
 ```
@@ -162,5 +162,5 @@ python tools/ingest_weekly_schedules.py
 
 ## 备注
 
-- [docs/runtime-data.md](sage-faculty-twin/docs/runtime-data.md) 已明确 `data/knowledge_base/` 属于运行时目录，维护时请把它当部署态数据处理。
+- [docs/runtime-data.md](sage-mate/docs/runtime-data.md) 已明确 `data/knowledge_base/` 属于运行时目录，维护时请把它当部署态数据处理。
 - 如果生产环境和开发环境依赖不一致，优先使用 `./manage.sh restart` 触发服务侧重建，而不是手工在瘦环境里导入 Python 模块。

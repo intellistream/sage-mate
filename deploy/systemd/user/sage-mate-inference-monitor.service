@@ -1,5 +1,5 @@
 [Unit]
-Description=Check and repair Sage Faculty Twin inference path
+Description=Check and repair Sage Mate inference path
 After=network-online.target
 Wants=network-online.target
 

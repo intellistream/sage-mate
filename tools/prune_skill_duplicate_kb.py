@@ -52,7 +52,7 @@ def main() -> int:
     parser.add_argument(
         "--knowledge-base-dir",
         type=Path,
-        default=Path("../sage-faculty-twin-runtime-private/data/knowledge_base"),
+        default=Path("../sage-mate-runtime-private/data/knowledge_base"),
     )
     parser.add_argument("--apply", action="store_true", help="Actually delete matched files.")
     args = parser.parse_args()

@@ -1,5 +1,5 @@
 [Unit]
-Description=Sage Faculty Twin vLLM-HUST inference engine (Qwen3-32B)
+Description=Sage Mate vLLM-HUST inference engine (Qwen3-32B)
 After=network-online.target
 Wants=network-online.target
 

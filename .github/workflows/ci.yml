@@ -75,7 +75,7 @@ jobs:
       - name: Verify one-command Linux CPU install path
         env:
           FACULTY_TWIN_PARENT_DIR: ${{ runner.temp }}/sage-cpu-parent
-          DIGITAL_TWIN_RUNTIME_DIR: ${{ runner.temp }}/sage-cpu-parent/sage-faculty-twin-runtime-private
+          DIGITAL_TWIN_RUNTIME_DIR: ${{ runner.temp }}/sage-cpu-parent/sage-mate-runtime-private
           FACULTY_TWIN_VENV: ${{ runner.temp }}/sage-cpu-venv
           PIP_INSTALL_TIMEOUT_SECONDS: "300"
         run: |
@@ -85,9 +85,9 @@ jobs:
             --no-siblings \
             --skip-vdb-extras \
             --yes
-          test -f "$FACULTY_TWIN_PARENT_DIR/sage-faculty-twin-runtime-private/data/workflow_policies/faculty-default-2026-05.json"
-          test -f "$FACULTY_TWIN_PARENT_DIR/sage-faculty-twin-runtime-private/data/workflow_scenarios/v3_preview_scenarios.json"
-          test -f "$FACULTY_TWIN_PARENT_DIR/sage-faculty-twin-runtime-private/data/capability_plugins/course_advising.json"
+          test -f "$FACULTY_TWIN_PARENT_DIR/sage-mate-runtime-private/data/workflow_policies/faculty-default-2026-05.json"
+          test -f "$FACULTY_TWIN_PARENT_DIR/sage-mate-runtime-private/data/workflow_scenarios/v3_preview_scenarios.json"
+          test -f "$FACULTY_TWIN_PARENT_DIR/sage-mate-runtime-private/data/capability_plugins/course_advising.json"
 
   install-linux-ascend:
     runs-on: [self-hosted, linux, server, ascend]
@@ -98,7 +98,7 @@ jobs:
       - name: Verify one-command Linux Ascend install path
         env:
           FACULTY_TWIN_PARENT_DIR: ${{ runner.temp }}/sage-ascend-parent
-          DIGITAL_TWIN_RUNTIME_DIR: ${{ runner.temp }}/sage-ascend-parent/sage-faculty-twin-runtime-private
+          DIGITAL_TWIN_RUNTIME_DIR: ${{ runner.temp }}/sage-ascend-parent/sage-mate-runtime-private
           FACULTY_TWIN_VENV: ${{ runner.temp }}/sage-ascend-venv
           PIP_INSTALL_TIMEOUT_SECONDS: "300"
         run: |
@@ -110,6 +110,6 @@ jobs:
             --no-siblings \
             --skip-vdb-extras \
             --yes
-          test -f "$FACULTY_TWIN_PARENT_DIR/sage-faculty-twin-runtime-private/data/workflow_policies/faculty-default-2026-05.json"
+          test -f "$FACULTY_TWIN_PARENT_DIR/sage-mate-runtime-private/data/workflow_policies/faculty-default-2026-05.json"
           grep -q '^DIGITAL_TWIN_DEPLOYMENT_MODE=hosted$' .env
           grep -q '^VLLM_PROXY_UPSTREAM_BASE_URL=http://127.0.0.1:8000/v1$' .env

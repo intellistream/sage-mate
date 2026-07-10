@@ -6,7 +6,7 @@ checkouts.
 
 ## Code Repository
 
-`intellistream/sage-faculty-twin` tracks application source, docs, tests, systemd
+`intellistream/sage-mate` tracks application source, docs, tests, systemd
 entrypoints, examples, and pinned runtime submodules under `deps/`.
 
 The hosted vLLM-HUST runtime must use these submodules:
@@ -26,7 +26,7 @@ such as `/home/shuhao/vllm-hust`, `/home/shuhao/vllm-ascend-hust`, or
 committed to the code repository. On 180-ascend-bench this is:
 
 ```bash
-/home/shuhao/sage-faculty-twin-runtime-private
+/home/shuhao/sage-mate-runtime-private
 ```
 
 Runtime-private data includes:

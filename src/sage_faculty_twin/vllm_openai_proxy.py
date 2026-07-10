@@ -139,7 +139,7 @@ def create_app(
     settings: ProxySettings | None = None,
     client_factory: Callable[[ProxySettings], httpx.AsyncClient] | None = None,
 ) -> FastAPI:
-    app = FastAPI(title="Sage Faculty Twin vLLM OpenAI Proxy")
+    app = FastAPI(title="Sage Mate vLLM OpenAI Proxy")
     app.state.proxy_settings = settings
     app.state.proxy_client = None
 
@@ -164,7 +164,7 @@ def create_app(
     async def root() -> dict[str, str]:
         proxy_settings = app.state.proxy_settings or load_proxy_settings()
         return {
-            "service": "sage-faculty-twin-vllm-openai-proxy",
+            "service": "sage-mate-vllm-openai-proxy",
             "upstream_base_url": proxy_settings.upstream_base_url,
             "path_prefix": proxy_settings.path_prefix,
         }

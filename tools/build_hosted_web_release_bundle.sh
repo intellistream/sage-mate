@@ -4,8 +4,8 @@
 set -euo pipefail
 
 repo_root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)
-tag="${1:-${FACULTY_TWIN_RELEASE_TAG:-v4.4.0}}"
-bundle_name="${FACULTY_TWIN_BUNDLE_NAME:-sage-faculty-twin-${tag}}"
+tag="${1:-${FACULTY_TWIN_RELEASE_TAG:-v4.5.0}}"
+bundle_name="${FACULTY_TWIN_BUNDLE_NAME:-sage-mate-${tag}}"
 dist_dir="$repo_root/dist"
 stage_parent=$(mktemp -d)
 stage_dir="$stage_parent/$bundle_name"

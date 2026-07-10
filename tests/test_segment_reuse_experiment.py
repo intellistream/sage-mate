@@ -60,7 +60,7 @@ def test_experiment_segment_hint_keeps_envelope_before_body_and_sends_extra_key(
 
     assert system_text.index("ENVELOPE") < system_text.index(BODY_MARKER_BEGIN)
     assert "cache_salt" not in extras
-    assert extras["extra_key"].startswith("sage-faculty-twin:experiment:lab_member:")
+    assert extras["extra_key"].startswith("sage-mate:experiment:lab_member:")
     assert "||segreuse:v1;" in extras["extra_key"]
     assert "leading_tokens=;" in extras["extra_key"]
 

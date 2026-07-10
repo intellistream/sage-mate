@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# One-shot hosted/web installer for Faculty Twin.
+# One-shot hosted/web installer for Sage Mate.
 #
 # This file is intentionally standalone enough to publish as a GitHub Release
 # asset. It clones/updates the repo, configures hosted/web safety defaults, then
@@ -8,18 +8,18 @@
 set -euo pipefail
 
 script_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)
-repo_url="${FACULTY_TWIN_REPO_URL:-git@github.com:intellistream/sage-faculty-twin.git}"
-https_repo_url="${FACULTY_TWIN_HTTPS_REPO_URL:-https://github.com/intellistream/sage-faculty-twin.git}"
+repo_url="${FACULTY_TWIN_REPO_URL:-git@github.com:intellistream/sage-mate.git}"
+https_repo_url="${FACULTY_TWIN_HTTPS_REPO_URL:-https://github.com/intellistream/sage-mate.git}"
 branch="${FACULTY_TWIN_BRANCH:-main}"
 parent_dir="${FACULTY_TWIN_PARENT_DIR:-$HOME}"
-repo_dir="${FACULTY_TWIN_DIR:-$parent_dir/sage-faculty-twin}"
+repo_dir="${FACULTY_TWIN_DIR:-$parent_dir/sage-mate}"
 model_preset="${FACULTY_TWIN_MODEL_PRESET:-auto}"
 model_override="${FACULTY_TWIN_MODEL:-}"
 served_model_override="${FACULTY_TWIN_SERVED_MODEL_NAME:-}"
 accelerator="${FACULTY_TWIN_ACCELERATOR:-auto}"
 tp_override="${FACULTY_TWIN_TENSOR_PARALLEL_SIZE:-${VLLM_NVIDIA_TENSOR_PARALLEL_SIZE:-${VLLM_ENGINE_TP_SIZE:-}}}"
 public_hostname="${FACULTY_TWIN_PUBLIC_HOSTNAME:-twin.sage.org.ai}"
-tunnel_name="${FACULTY_TWIN_TUNNEL_NAME:-sage-faculty-twin-$(hostname -s)-hosted-web}"
+tunnel_name="${FACULTY_TWIN_TUNNEL_NAME:-sage-mate-$(hostname -s)-hosted-web}"
 encrypted_secrets_file="${FACULTY_TWIN_ENCRYPTED_SECRETS_FILE:-}"
 secrets_key_file="${FACULTY_TWIN_SECRETS_KEY_FILE:-}"
 use_encrypted_secrets=true
@@ -816,7 +816,7 @@ main() {
     fi
     validate_local_model_if_needed
 
-    local runtime_dir="${DIGITAL_TWIN_RUNTIME_DIR:-$repo_dir/../sage-faculty-twin-runtime-private}"
+    local runtime_dir="${DIGITAL_TWIN_RUNTIME_DIR:-$repo_dir/../sage-mate-runtime-private}"
     set_env_kv "$env_file" DIGITAL_TWIN_DEPLOYMENT_MODE hosted
     set_env_kv "$env_file" DIGITAL_TWIN_APP_PROFILE faculty_twin
     set_env_kv "$env_file" DIGITAL_TWIN_CODE_WORKBENCH_ENABLED false

@@ -210,7 +210,7 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-[[ -f "$repo_root/pyproject.toml" ]] || fail "Run this script from a sage-faculty-twin checkout."
+[[ -f "$repo_root/pyproject.toml" ]] || fail "Run this script from a sage-mate checkout."
 case "$app_profile" in
     faculty_twin|code_assistant) ;;
     *) fail "--profile must be one of: faculty_twin, code_assistant" ;;
@@ -281,12 +281,12 @@ fi
 discover_existing_runtime_dir() {
     local candidate
     for candidate in \
-        "$HOME/Documents/sage-faculty-twin-runtime-private" \
-        "$HOME/sage-faculty-twin-runtime-private" \
-        "$HOME/Documents/qixin-gaoke-sage-faculty-twin-runtime-private" \
-        "$HOME/qixin-gaoke-sage-faculty-twin-runtime-private" \
-        "$(dirname "$repo_root")/sage-faculty-twin-runtime-private" \
-        "$(dirname "$repo_root")/qixin-gaoke-sage-faculty-twin-runtime-private"; do
+        "$HOME/Documents/sage-mate-runtime-private" \
+        "$HOME/sage-mate-runtime-private" \
+        "$HOME/Documents/qixin-gaoke-sage-mate-runtime-private" \
+        "$HOME/qixin-gaoke-sage-mate-runtime-private" \
+        "$(dirname "$repo_root")/sage-mate-runtime-private" \
+        "$(dirname "$repo_root")/qixin-gaoke-sage-mate-runtime-private"; do
         [[ -d "$candidate" ]] || continue
         if [[ -d "$candidate/.git" || -d "$candidate/data" || -d "$candidate/deployment" ]]; then
             printf '%s\n' "$candidate"
@@ -493,7 +493,7 @@ if $skip_python_install; then
 else
     "$python_bin" -m venv "$venv_dir"
 
-    log "Installing sage-faculty-twin into the virtualenv"
+    log "Installing sage-mate into the virtualenv"
     "$venv_python" -m pip install --quiet --upgrade pip
     if ! "$venv_python" -m pip install --quiet -e "$repo_root[vdb-anns]"; then
         warn "vdb-anns extras failed; falling back to base install."

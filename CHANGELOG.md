@@ -2,6 +2,19 @@
 
 ## Unreleased
 
+## v4.5.0 - 2026-07-10
+
+### Changed
+
+- Renamed the product and repository identity to Sage Mate / `sage-mate`; Faculty Twin is now treated as a profile inside Sage Mate.
+- Updated installer, release bundle, runtime directory, and systemd unit names to use the `sage-mate` slug.
+- Bumped package and app version metadata to `4.5.0`.
+
+### Fixed
+
+- macOS local startup can enter Sage Mate before the bundled Apple GPU model finishes loading, so users can configure a remote endpoint instead of being blocked by local model startup.
+- Local Code Assistant keeps using bundled `claude-code-hust` and the local OpenAI-compatible proxy without requiring users to clone extra repositories.
+
 ## v4.4.0 - 2026-07-09
 
 ### Added
@@ -353,7 +366,7 @@ captures the production hardening that landed after the initial `v2.0.0` tag.
 
 ## v2.0.0 - 2026-05-27
 
-`v2.0.0` is the operations-console release for `sage-faculty-twin`. It moves the app from a
+`v2.0.0` is the operations-console release for Sage Mate. It moves the app from a
 student-facing faculty twin with admin panels into a daily operations workbench for running,
 reviewing, and improving the service.
 

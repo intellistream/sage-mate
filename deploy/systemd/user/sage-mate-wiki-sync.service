@@ -1,5 +1,5 @@
 [Unit]
-Description=Sync sage-wiki content into faculty-twin KB
+Description=Sync sage-wiki content into Sage Mate KB
 After=network-online.target
 Wants=network-online.target
 

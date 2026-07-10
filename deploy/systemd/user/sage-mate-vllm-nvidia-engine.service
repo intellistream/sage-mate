@@ -1,5 +1,5 @@
 [Unit]
-Description=Sage Faculty Twin NVIDIA vLLM inference engine
+Description=Sage Mate NVIDIA vLLM inference engine
 After=network-online.target
 Wants=network-online.target
 

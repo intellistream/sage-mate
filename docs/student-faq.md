@@ -12,7 +12,7 @@
    - 🟡 Partial — 命中相邻文档但缺一个直接、简短、对话化的版本; 需要补一篇 FAQ 短文。
    - ❌ Missing — 没有任何对应文档; 必须新增材料。
 3. **应对材料字段** 使用 `data/knowledge_base/` 下的标准 FAQ 文档结构 (title 以 `FAQ |` 起, tags 含 `faq`)。新增材料统一走 `tools/ingest_workspace_repos.py --kind faq` 摄入。
-4. 每次新增/修改 FAQ 文档后, **必须重启 app** 让 `LocalKnowledgeStore` 重建 FAISS 索引 (`bash manage.sh restart sage-faculty-twin-app`)。
+4. 每次新增/修改 FAQ 文档后, **必须重启 app** 让 `LocalKnowledgeStore` 重建 FAISS 索引 (`bash manage.sh restart sage-mate-app`)。
 
 ---
 
@@ -195,7 +195,7 @@
 
 ```bash
 # 1. 重新聚类最新对话
-cd /home/shuhao/sage-faculty-twin
+cd /home/shuhao/sage-mate
 python tools/refresh_student_faq.py \
     --conversation-source data/conversation_memory/collections/conversation-memory/raw_data.json \
     --output docs/student-faq.candidates.md
@@ -210,7 +210,7 @@ diff docs/student-faq.md docs/student-faq.candidates.md | less
 
 # 4. 落库 + 重启
 python tools/ingest_workspace_repos.py --kind faq
-bash manage.sh restart sage-faculty-twin-app
+bash manage.sh restart sage-mate-app
 
 # 5. replay 一次确认改善
 python tools/replay_poor_cases.py --mock-llm \

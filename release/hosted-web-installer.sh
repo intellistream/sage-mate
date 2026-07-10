@@ -9,18 +9,18 @@ set -euo pipefail
 
 script_path=$(readlink -f "${BASH_SOURCE[0]}")
 script_dir=$(cd -- "$(dirname -- "$script_path")" && pwd -P)
-state_dir="${XDG_STATE_HOME:-$HOME/.local/state}/sage-faculty-twin-installer"
+state_dir="${XDG_STATE_HOME:-$HOME/.local/state}/sage-mate-installer"
 state_file="$state_dir/state.sh"
 log_file="$state_dir/install.log"
-repo_dir="${FACULTY_TWIN_DIR:-$HOME/sage-faculty-twin}"
+repo_dir="${FACULTY_TWIN_DIR:-$HOME/sage-mate}"
 code_repo_dir="${FACULTY_TWIN_CODE_DIR:-$HOME/sage-mate-local-code}"
-repo_url="${FACULTY_TWIN_REPO_URL:-git@github.com:intellistream/sage-faculty-twin.git}"
-https_repo_url="${FACULTY_TWIN_HTTPS_REPO_URL:-https://github.com/intellistream/sage-faculty-twin.git}"
+repo_url="${FACULTY_TWIN_REPO_URL:-git@github.com:intellistream/sage-mate.git}"
+https_repo_url="${FACULTY_TWIN_HTTPS_REPO_URL:-https://github.com/intellistream/sage-mate.git}"
 branch="${FACULTY_TWIN_BRANCH:-main}"
 hosted_web_script="${FACULTY_TWIN_HOSTED_WEB_SCRIPT:-$script_dir/hosted-web.sh}"
-release_url="${FACULTY_TWIN_RELEASE_URL:-https://github.com/intellistream/sage-faculty-twin/releases/download/v4.4.0}"
+release_url="${FACULTY_TWIN_RELEASE_URL:-https://github.com/intellistream/sage-mate/releases/download/v4.5.0}"
 min_driver="${VLLM_NVIDIA_MIN_DRIVER_VERSION:-575.51.03}"
-default_key_file="$HOME/.config/sage-faculty-twin/release-secrets.key"
+default_key_file="$HOME/.config/sage-mate/release-secrets.key"
 install_mode="${FACULTY_TWIN_INSTALL_MODE:-web-only}"
 install_mode_explicit=false
 resume=false
@@ -35,7 +35,7 @@ usage() {
     cat <<'EOF'
 Usage: hosted-web-installer.sh [--install-mode web-only|code-only|both] [--resume] [--yes] [options...]
 
-Double-click friendly installer for Faculty Twin / Sage Mate.
+Double-click friendly installer for Sage Mate.
 
 Modes:
   web-only   Hosted Faculty Twin web service. Local code tools stay disabled.
@@ -95,7 +95,7 @@ progress_start() {
     if $gui; then
         coproc PROGRESS_ZENITY {
             zenity --progress \
-                --title="Faculty Twin Installer" \
+                --title="Sage Mate Installer" \
                 --text="Starting..." \
                 --percentage=0 \
                 --auto-close \
@@ -134,7 +134,7 @@ say_info() {
     local message="$1"
     log "$message"
     if $gui; then
-        zenity --info --title="Faculty Twin Installer" --text="$message" || true
+        zenity --info --title="Sage Mate Installer" --text="$message" || true
     else
         printf '%s\n' "$message"
     fi
@@ -170,7 +170,7 @@ confirm() {
         return 0
     fi
     if $gui; then
-        zenity --question --title="Faculty Twin Installer" --text="$message"
+        zenity --question --title="Sage Mate Installer" --text="$message"
     else
         read -r -p "$message [y/N] " answer
         [[ "$answer" =~ ^[Yy]$ ]]
@@ -181,7 +181,7 @@ fail() {
     local message="$1"
     log "ERROR: $message"
     if $gui; then
-        zenity --error --title="Faculty Twin Installer" --text="$message"$'\n\n'"Log: $log_file" || true
+        zenity --error --title="Sage Mate Installer" --text="$message"$'\n\n'"Log: $log_file" || true
     fi
     exit 1
 }
@@ -217,16 +217,16 @@ save_state() {
 
 clear_state() {
     rm -f "$state_file"
-    rm -f "${XDG_CONFIG_HOME:-$HOME/.config}/autostart/sage-faculty-twin-installer.desktop"
+    rm -f "${XDG_CONFIG_HOME:-$HOME/.config}/autostart/sage-mate-installer.desktop"
 }
 
 install_autostart_resume() {
     local autostart_dir="${XDG_CONFIG_HOME:-$HOME/.config}/autostart"
     mkdir -p "$autostart_dir"
-    cat > "$autostart_dir/sage-faculty-twin-installer.desktop" <<EOF
+    cat > "$autostart_dir/sage-mate-installer.desktop" <<EOF
 [Desktop Entry]
 Type=Application
-Name=Faculty Twin Installer Resume
+Name=Sage Mate Installer Resume
 Exec=$script_path --resume
 Terminal=false
 X-GNOME-Autostart-enabled=true
@@ -256,7 +256,7 @@ choose_install_mode() {
     fi
     local choice
     choice=$(choose \
-        "Faculty Twin Install Mode" \
+        "Sage Mate Install Mode" \
         "Choose what to install. Hosted/web mode is safe for public server deployment and keeps local code tools disabled. Code editing mode is for local Sage Mate use on a trusted desktop/workstation." \
         "Web only - hosted Faculty Twin" \
         "Code editing only - local Sage Mate" \
@@ -317,7 +317,7 @@ ensure_release_key_or_choose_mode() {
 
     local choice
     choice=$(choose \
-        "Faculty Twin Release Key" \
+        "Sage Mate Release Key" \
         "This package includes encrypted deployment secrets, but no release key was found at:\n\n$default_key_file\n\nInternal one-click deployment needs that key. Without it, the installer can still set up a local hosted/web service, but private GitHub, Hugging Face, Cloudflare tunnel, and app keys must be configured separately." \
         "I placed the key; check again" \
         "Continue local install without encrypted secrets" \
@@ -361,7 +361,7 @@ confirm_install_summary() {
         log "install summary: ${summary//$'\n'/; }"
         return 0
     fi
-    confirm "Ready to install Faculty Twin / Sage Mate.\n\n$summary\n\nContinue?" || fail "Installation cancelled."
+    confirm "Ready to install Sage Mate.\n\n$summary\n\nContinue?" || fail "Installation cancelled."
 }
 
 decrypt_initial_secrets() {
@@ -476,7 +476,7 @@ maybe_upgrade_nvidia_driver() {
     local current
     current=$(nvidia-smi --query-gpu=driver_version --format=csv,noheader | head -n1 | tr -d '[:space:]')
     progress 15 "NVIDIA driver upgrade required."
-    confirm "NVIDIA driver $current is too old. Faculty Twin needs at least $min_driver for pinned vLLM. Install the driver upgrade now?" || \
+    confirm "NVIDIA driver $current is too old. Sage Mate needs at least $min_driver for pinned vLLM. Install the driver upgrade now?" || \
         fail "Driver upgrade was declined."
     ensure_repo_for_driver_helper
     [[ -x "$repo_dir/tools/upgrade_nvidia_driver_for_vllm.sh" ]] || fail "Driver upgrade helper was not found in $repo_dir."
@@ -499,7 +499,7 @@ run_hosted_web_install() {
     if [[ "$preset" == "qwen3-next-80b-awq" ]]; then
         progress 35 "Installing hosted/web and preparing a large Qwen3-Next model. First start can take 30-60 minutes."
     else
-        progress 35 "Installing Faculty Twin hosted/web. This can take a while..."
+        progress 35 "Installing Sage Mate hosted/web. This can take a while..."
     fi
     export FACULTY_TWIN_DIR="$repo_dir"
     local monitor_pid=""
@@ -578,7 +578,7 @@ main() {
             ;;
     esac
     clear_state
-    progress 100 "Faculty Twin installation complete."
+    progress 100 "Sage Mate installation complete."
     progress_finish
     if [[ "$install_mode" == "code-only" ]]; then
         say_info "Sage Mate code-editing mode is installed.\n\nOpen: http://127.0.0.1:${FACULTY_TWIN_CODE_PORT:-55601}/?setup=local-code\n\nLog: $log_file"

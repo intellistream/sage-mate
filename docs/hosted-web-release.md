@@ -1,6 +1,6 @@
 # Hosted/Web Release Installer
 
-This is the release-facing one-shot path for deploying Faculty Twin / Sage Mate in hosted/web mode
+This is the release-facing one-shot path for deploying Sage Mate in hosted/web mode
 on fresh Linux servers. It supports NVIDIA/CUDA, Ascend/NPU, and local-only hosted/web installs.
 It delegates the actual install/runtime work to the repository-maintained `quickstart.sh`,
 `manage.sh`, systemd user units, and pinned submodule checkouts.
@@ -11,13 +11,13 @@ From a fresh server:
 
 ```bash
 mkdir -p "$HOME"
-curl -fsSL https://raw.githubusercontent.com/intellistream/sage-faculty-twin/main/release/hosted-web.sh \
+curl -fsSL https://raw.githubusercontent.com/intellistream/sage-mate/main/release/hosted-web.sh \
   -o /tmp/hosted-web.sh
-FACULTY_TWIN_SECRETS_KEY_FILE=/home/shuhao/.config/sage-faculty-twin/release-secrets.key \
+FACULTY_TWIN_SECRETS_KEY_FILE=/home/shuhao/.config/sage-mate/release-secrets.key \
   bash /tmp/hosted-web.sh --yes
 ```
 
-The installer clones or fast-forwards `intellistream/sage-faculty-twin`, initializes submodules,
+The installer clones or fast-forwards `intellistream/sage-mate`, initializes submodules,
 configures hosted/web safety defaults, installs pinned runtime dependencies for the selected
 accelerator, installs systemd user units, starts the stack, configures the Cloudflare tunnel when
 credentials are available, and runs `./manage.sh verify-hosted-web`.
@@ -110,7 +110,7 @@ command execution. It chooses exactly one local inference path based on `--accel
   On managed Sage servers, the expected key path is:
 
   ```bash
-  /home/shuhao/.config/sage-faculty-twin/release-secrets.key
+  /home/shuhao/.config/sage-mate/release-secrets.key
   ```
 
   The installer decrypts to a temporary `0600` file, merges values into `.env`, deletes the
@@ -138,7 +138,7 @@ older vLLM defaults on `8000`.
 After install:
 
 ```bash
-cd "$HOME/sage-faculty-twin"
+cd "$HOME/sage-mate"
 ./manage.sh status --with-vllm-proxy --with-site-proxy --with-nvidia-vllm-engine
 env -u HTTP_PROXY -u HTTPS_PROXY -u ALL_PROXY -u http_proxy -u https_proxy -u all_proxy \
   NO_PROXY=127.0.0.1,localhost \

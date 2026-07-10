@@ -60,6 +60,6 @@ echo "[configure-slack-twin] Allowed Slack users: $allowed_user_ids"
 echo "[configure-slack-twin] Visitor profile: $visitor_profile"
 
 if [[ "${SLACK_TWIN_RESTART_APP:-true}" == "true" ]] && command -v systemctl >/dev/null 2>&1; then
-    systemctl --user restart sage-faculty-twin-app.service
-    echo "[configure-slack-twin] Restarted sage-faculty-twin-app.service"
+    systemctl --user restart sage-mate-app.service
+    echo "[configure-slack-twin] Restarted sage-mate-app.service"
 fi

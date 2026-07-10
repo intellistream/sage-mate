@@ -51,7 +51,7 @@ class ServiceRuntimeManager:
         if action not in self._ALLOWED_ACTIONS or action == "status":
             raise ValueError(f"Unsupported service action: {action}")
 
-        unit_name = f"sage-faculty-twin-control-{action}-{int(time.time() * 1000)}"
+        unit_name = f"sage-mate-control-{action}-{int(time.time() * 1000)}"
         script = shlex.quote(str(self._settings.service_manager_script))
         command = f"sleep 1 && exec {script} {action}"
         subprocess.run(

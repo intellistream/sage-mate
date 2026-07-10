@@ -1,7 +1,7 @@
 [Unit]
-Description=Sage Faculty Twin local site proxy
-After=sage-faculty-twin-app.service
-Requires=sage-faculty-twin-app.service
+Description=Sage Mate local site proxy
+After=sage-mate-app.service
+Requires=sage-mate-app.service
 
 [Service]
 Type=simple

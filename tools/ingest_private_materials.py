@@ -7,7 +7,7 @@ script intentionally uses an explicit allow-list and lightweight sensitive-term
 guard before writing anything to the twin KB.
 
 Usage:
-    cd /home/shuhao/sage-faculty-twin
+    cd /home/shuhao/sage-mate
     PYTHONPATH=src:/home/shuhao/SAGE/src:/home/shuhao/sageVDB:/home/shuhao/neuromem \
         /home/shuhao/miniconda3/envs/vllm-hust-dev/bin/python3.12 tools/ingest_private_materials.py
 """

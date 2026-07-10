@@ -1219,7 +1219,7 @@ def _render_lamp_profile(profile: list[dict[str, Any]]) -> str:
 
 def _build_cli() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description="Run benchmark adapters against sage-faculty-twin."
+        description="Run benchmark adapters against sage-mate."
     )
     subparsers = parser.add_subparsers(dest="command", required=True)
 

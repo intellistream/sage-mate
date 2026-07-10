@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# run_app_server.sh — Start the sage-faculty-twin uvicorn server.
+# run_app_server.sh — Start the sage-mate uvicorn server.
 
 set -euo pipefail
 

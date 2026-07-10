@@ -1,13 +1,13 @@
 # Deployment Guide
 
-This document describes the generic deployment shape for `sage-faculty-twin` after moving the
+This document describes the generic deployment shape for `sage-mate` after moving the
 repository into the IntelliStream organization.
 
 For a fresh-machine bring-up, the fastest path is:
 
 ```bash
-git clone https://github.com/intellistream/sage-faculty-twin.git
-cd sage-faculty-twin
+git clone https://github.com/intellistream/sage-mate.git
+cd sage-mate
 ./quickstart.sh --target hosted-web
 ./quickstart.sh --with-vllm      # also pull and editable-install vllm-hust
 ./quickstart.sh --start          # install + start the three user services
@@ -44,7 +44,7 @@ Examples:
 Start the FastAPI app directly:
 
 ```bash
-cd /path/to/sage-faculty-twin
+cd /path/to/sage-mate
 PYTHONPATH="$PWD/src:$PWD/../SAGE/src:$PWD/../neuromem:$PWD/../sageVDB" \
 python -m uvicorn sage_faculty_twin.api:app --host 127.0.0.1 --port 55601
 ```
@@ -91,13 +91,13 @@ To install persistent user services with `systemd --user`:
 
 This renders and installs:
 
-- `sage-faculty-twin-app.service`
-- `sage-faculty-twin-site.service`
+- `sage-mate-app.service`
+- `sage-mate-site.service`
 
 Optional services (pass the flag to include):
 
-- `sage-faculty-twin-tunnel.service` (`--with-tunnel`)
-- `sage-faculty-twin-vllm-openai-proxy.service` (`--with-vllm-proxy`)
+- `sage-mate-tunnel.service` (`--with-tunnel`)
+- `sage-mate-vllm-openai-proxy.service` (`--with-vllm-proxy`)
 
 The management entry points are:
 
@@ -167,7 +167,7 @@ proxy-side knobs commonly cause student-visible failures:
 ### nginx (host) settings
 
 Match or exceed the application limits in the production nginx server block,
-for example in `/etc/nginx/sites-available/sage-faculty-twin`:
+for example in `/etc/nginx/sites-available/sage-mate`:
 
 ```nginx
 http {

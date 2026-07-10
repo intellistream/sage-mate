@@ -1,5 +1,5 @@
 [Unit]
-Description=Sage Faculty Twin application server
+Description=Sage Mate application server
 After=network-online.target
 Wants=network-online.target
 

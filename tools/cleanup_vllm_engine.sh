@@ -23,7 +23,7 @@ load_dotenv "$repo_root/.env"
 
 export VLLM_ENGINE_CONTAINER="${VLLM_ENGINE_CONTAINER:-faculty_twin_vllm_hust}"
 export VLLM_ENGINE_PORT="${VLLM_ENGINE_PORT:-8000}"
-export VLLM_ENGINE_CONTAINER_LOG_FILE="${VLLM_ENGINE_CONTAINER_LOG_FILE:-/tmp/sage-faculty-twin-vllm-engine.redacted.log}"
+export VLLM_ENGINE_CONTAINER_LOG_FILE="${VLLM_ENGINE_CONTAINER_LOG_FILE:-/tmp/sage-mate-vllm-engine.redacted.log}"
 export VLLM_ENGINE_AGGRESSIVE_CLEANUP="${VLLM_ENGINE_AGGRESSIVE_CLEANUP:-1}"
 
 run_container_cleanup() {

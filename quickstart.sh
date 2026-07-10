@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# quickstart.sh — single entry point for Faculty Twin / Sage Mate installation.
+# quickstart.sh — single entry point for Sage Mate installation.
 #
 # Usage:
 #   ./quickstart.sh                                # macOS: Sage Mate local app runtime; Linux: hosted web
@@ -67,7 +67,7 @@ local_claude_hust_dir_explicit=false
 
 usage() {
 	cat <<'EOF'
-quickstart.sh — single entry point for Faculty Twin / Sage Mate installation.
+quickstart.sh — single entry point for Sage Mate installation.
 
 Usage:
   ./quickstart.sh                                # macOS: Sage Mate local app runtime; Linux: hosted web
@@ -363,12 +363,12 @@ prepare_hosted_runtime_data() {
 	local runtime_dir
 	runtime_dir=$(env_get DIGITAL_TWIN_RUNTIME_DIR)
 	if [[ -z "$runtime_dir" ]]; then
-		runtime_dir="$parent_dir/sage-faculty-twin-runtime-private"
+		runtime_dir="$parent_dir/sage-mate-runtime-private"
 	fi
 	runtime_dir="${runtime_dir/#\~/$HOME}"
 
 	if ! mkdir -p "$runtime_dir" 2>/dev/null; then
-		local fallback_runtime="$parent_dir/sage-faculty-twin-runtime-private"
+		local fallback_runtime="$parent_dir/sage-mate-runtime-private"
 		warn "DIGITAL_TWIN_RUNTIME_DIR is not writable; using $fallback_runtime"
 		runtime_dir="$fallback_runtime"
 		mkdir -p "$runtime_dir"
@@ -600,9 +600,9 @@ if $mode_skip_python_install; then
 	log "Skipping Python dependency installation (--skip-python-install)"
 else
 	if $mode_skip_vdb_extras; then
-		log "Installing sage-faculty-twin (editable, base dependencies)"
+		log "Installing sage-mate (editable, base dependencies)"
 	else
-		log "Installing sage-faculty-twin (editable, with vdb-anns extras)"
+		log "Installing sage-mate (editable, with vdb-anns extras)"
 	fi
 	run_with_optional_timeout "$python_bin" -m pip install --quiet --upgrade pip "setuptools>=77.0.3,<81.0.0" wheel scikit-build-core pybind11
 	if $mode_skip_vdb_extras; then
@@ -692,7 +692,7 @@ if [[ "$install_target" == "hosted-web" ]]; then
 		ensure_env_kv VLLM_NVIDIA_MAX_MODEL_LEN "16384"
 		ensure_env_kv VLLM_NVIDIA_MAX_NUM_SEQS "8"
 		set_env_kv TWIN_MONITOR_ENGINE_FLAG "--with-nvidia-vllm-engine"
-		set_env_kv TWIN_MONITOR_ENGINE_UNIT "sage-faculty-twin-vllm-nvidia-engine.service"
+		set_env_kv TWIN_MONITOR_ENGINE_UNIT "sage-mate-vllm-nvidia-engine.service"
 	fi
 	if $svc_engine; then
 		set_env_kv DIGITAL_TWIN_LLM_BASE_URL "http://127.0.0.1:18001/v1"
@@ -705,7 +705,7 @@ if [[ "$install_target" == "hosted-web" ]]; then
 		ensure_env_kv VLLM_ENGINE_MAX_MODEL_LEN "32768"
 		ensure_env_kv VLLM_ENGINE_MAX_NUM_SEQS "16"
 		set_env_kv TWIN_MONITOR_ENGINE_FLAG "--with-vllm-engine"
-		set_env_kv TWIN_MONITOR_ENGINE_UNIT "sage-faculty-twin-vllm-engine.service"
+		set_env_kv TWIN_MONITOR_ENGINE_UNIT "sage-mate-vllm-engine.service"
 	fi
 	prepare_hosted_runtime_data
 
@@ -738,18 +738,18 @@ else
 	systemctl --user daemon-reload
 
 	# Build service list
-	service_units=(sage-faculty-twin-app.service)
-	$svc_site   && service_units+=(sage-faculty-twin-site.service)
-	$svc_tunnel && service_units+=(sage-faculty-twin-tunnel.service)
-	$svc_proxy  && service_units+=(sage-faculty-twin-vllm-openai-proxy.service)
-	$svc_engine && service_units+=(sage-faculty-twin-vllm-engine.service)
-	$svc_nvidia_engine && service_units+=(sage-faculty-twin-vllm-nvidia-engine.service)
+	service_units=(sage-mate-app.service)
+	$svc_site   && service_units+=(sage-mate-site.service)
+	$svc_tunnel && service_units+=(sage-mate-tunnel.service)
+	$svc_proxy  && service_units+=(sage-mate-vllm-openai-proxy.service)
+	$svc_engine && service_units+=(sage-mate-vllm-engine.service)
+	$svc_nvidia_engine && service_units+=(sage-mate-vllm-nvidia-engine.service)
 
 	systemctl --user enable "${service_units[@]}"
 	log "  enabled: ${service_units[*]}"
 
 	# Enable and start timers
-	timer_units=(sage-faculty-twin-wiki-sync.timer sage-faculty-twin-inference-monitor.timer)
+	timer_units=(sage-mate-wiki-sync.timer sage-mate-inference-monitor.timer)
 	systemctl --user enable "${timer_units[@]}"
 	log "  enabled: ${timer_units[*]}"
 

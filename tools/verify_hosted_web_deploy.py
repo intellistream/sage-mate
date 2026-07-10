@@ -44,7 +44,7 @@ def request_json(
 ) -> tuple[int, Any]:
     headers = {
         "Accept": "application/json",
-        "User-Agent": "sage-faculty-twin-deploy-verify/1.0",
+        "User-Agent": "sage-mate-deploy-verify/1.0",
     }
     if api_key:
         headers["Authorization"] = f"Bearer {api_key}"
@@ -72,7 +72,7 @@ def request_status(url: str, *, timeout: float = 10.0) -> tuple[int, str]:
         url,
         headers={
             "Accept": "*/*",
-            "User-Agent": "sage-faculty-twin-deploy-verify/1.0",
+            "User-Agent": "sage-mate-deploy-verify/1.0",
         },
         method="GET",
     )

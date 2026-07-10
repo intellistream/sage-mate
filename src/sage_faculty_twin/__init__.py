@@ -1,5 +1,5 @@
-"""SAGE my-twin application package."""
+"""Sage Mate application package."""
 
-__version__ = "4.3.5"
+__version__ = "4.5.0"
 
 __all__ = ["__version__"]

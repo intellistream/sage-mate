@@ -5,7 +5,7 @@
 set -euo pipefail
 
 repo_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
-runtime_root="${DIGITAL_TWIN_RUNTIME_DIR:-$repo_root/../sage-faculty-twin-runtime-private}"
+runtime_root="${DIGITAL_TWIN_RUNTIME_DIR:-$repo_root/../sage-mate-runtime-private}"
 mode="copy"
 init_git=false
 

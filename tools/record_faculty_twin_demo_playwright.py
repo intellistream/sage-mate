@@ -187,7 +187,7 @@ def demo_workflow_trace(profile: str) -> list[dict]:
             "key": "route",
             "title": "路由",
             "summary": "识别为技术栈问答",
-            "detail": "使用上传材料回答 Faculty Twin / Sage Mate 能力栈问题。",
+            "detail": "使用上传材料回答 Sage Mate / Faculty Twin 能力栈问题。",
             "status": "completed",
             "duration_ms": 42,
         },
@@ -231,7 +231,7 @@ def demo_workflow_trace(profile: str) -> list[dict]:
 def teacher_demo_response() -> dict:
     return {
         "answer": (
-            "Faculty Twin / Sage Mate 以 SAGE 工作流、NeuroMem 记忆、SageVDB / SageANNS 检索"
+            "Sage Mate / Faculty Twin 以 SAGE 工作流、NeuroMem 记忆、SageVDB / SageANNS 检索"
             "构成可观测的问答与推理闭环。生成侧接入 vLLM-HUST，并通过 NPU 推理服务提供"
             "可部署、可扩展的全自研推理能力。"
         ),

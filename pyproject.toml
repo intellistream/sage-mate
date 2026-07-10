@@ -3,9 +3,9 @@ requires = ["setuptools>=68", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "sage-faculty-twin"
-version = "4.3.5"
-description = "24/7 faculty twin app built on SAGE and vllm-hust"
+name = "sage-mate"
+version = "4.5.0"
+description = "Sage Mate multi-profile local and hosted assistant built on SAGE and vllm-hust"
 readme = "README.md"
 license = {file = "LICENSE"}
 requires-python = ">=3.11"
@@ -63,10 +63,10 @@ dev = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/intellistream/sage-faculty-twin"
-Repository = "https://github.com/intellistream/sage-faculty-twin"
-Issues = "https://github.com/intellistream/sage-faculty-twin/issues"
-Documentation = "https://github.com/intellistream/sage-faculty-twin/tree/main/docs"
+Homepage = "https://github.com/intellistream/sage-mate"
+Repository = "https://github.com/intellistream/sage-mate"
+Issues = "https://github.com/intellistream/sage-mate/issues"
+Documentation = "https://github.com/intellistream/sage-mate/tree/main/docs"
 
 [tool.setuptools]
 package-dir = {"" = "src"}

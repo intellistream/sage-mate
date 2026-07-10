@@ -1,8 +1,8 @@
 """Ingest paper-writing lessons and graduate-paper-writing-course materials
-into the sage-faculty-twin knowledge base.
+into the sage-mate knowledge base.
 
 Usage:
-    cd /home/shuhao/sage-faculty-twin
+    cd /home/shuhao/sage-mate
     python tools/ingest_paper_writing_knowledge.py
 """
 from __future__ import annotations

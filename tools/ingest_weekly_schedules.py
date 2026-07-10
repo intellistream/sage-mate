@@ -1,11 +1,11 @@
-"""Ingest team weekly schedule documents into the sage-faculty-twin knowledge base.
+"""Ingest team weekly schedule documents into the sage-mate knowledge base.
 
 These schedules describe the PI's and team members' weekly routines, meeting cadence,
 and collaboration interfaces — essential context for the digital twin to answer
 availability, scheduling, and team management questions.
 
 Usage:
-    cd /home/shuhao/sage-faculty-twin
+    cd /home/shuhao/sage-mate
     python tools/ingest_weekly_schedules.py
 
 If sentence-transformers is available, the script uses the full knowledge store API

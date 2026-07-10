@@ -1,6 +1,6 @@
 # Roadmap
 
-This document marks the first organized release baseline for `sage-faculty-twin` under the
+This document marks the first organized release baseline for `sage-mate` under the
 IntelliStream organization plan.
 
 For the parallel implementation order of the `v2` workstreams, see
