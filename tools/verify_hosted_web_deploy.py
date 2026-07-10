@@ -13,6 +13,7 @@ from typing import Any
 
 
 SECRET_KEYS = ("TOKEN", "KEY", "SECRET", "PASSWORD")
+URL_OPENER = urllib.request.build_opener(urllib.request.ProxyHandler({}))
 
 
 def load_env(repo_root: Path) -> dict[str, str]:
@@ -50,7 +51,7 @@ def request_json(
         headers["Authorization"] = f"Bearer {api_key}"
     req = urllib.request.Request(url, headers=headers, method=method)
     try:
-        with urllib.request.urlopen(req, timeout=timeout) as resp:
+        with URL_OPENER.open(req, timeout=timeout) as resp:
             text = resp.read(1024 * 1024).decode("utf-8", errors="replace")
             try:
                 return int(resp.status), json.loads(text)
@@ -77,7 +78,7 @@ def request_status(url: str, *, timeout: float = 10.0) -> tuple[int, str]:
         method="GET",
     )
     try:
-        with urllib.request.urlopen(req, timeout=timeout) as resp:
+        with URL_OPENER.open(req, timeout=timeout) as resp:
             return int(resp.status), resp.headers.get("Content-Type", "")
     except urllib.error.HTTPError as exc:
         return int(exc.code), exc.headers.get("Content-Type", "")
@@ -87,7 +88,7 @@ def request_status(url: str, *, timeout: float = 10.0) -> tuple[int, str]:
 
 def check(condition: bool, label: str, detail: str, failures: list[dict[str, str]]) -> None:
     status = "OK" if condition else "FAIL"
-    print(f"{status} {label}: {detail}")
+    print(f"{status} {label}: {detail}", flush=True)
     if not condition:
         failures.append({"label": label, "detail": detail})
 

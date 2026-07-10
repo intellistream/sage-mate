@@ -810,6 +810,24 @@ else
 	log "  enabled: ${timer_units[*]}"
 
 	if $mode_start; then
+		if [[ "${FACULTY_TWIN_STOP_LEGACY_CONFLICTS:-1}" != "0" ]]; then
+			legacy_units=()
+			$svc_site   && legacy_units+=(sage-faculty-twin-site.service)
+			$svc_tunnel && legacy_units+=(sage-faculty-twin-tunnel.service)
+			$svc_proxy  && legacy_units+=(sage-faculty-twin-vllm-openai-proxy.service)
+			legacy_units+=(sage-faculty-twin-app.service)
+			existing_legacy_units=()
+			for unit in "${legacy_units[@]}"; do
+				if systemctl --user show "$unit" --property=LoadState --value 2>/dev/null | grep -qx 'loaded'; then
+					existing_legacy_units+=("$unit")
+				fi
+			done
+			if [[ ${#existing_legacy_units[@]} -gt 0 ]]; then
+				log "Stopping legacy sage-faculty-twin services that use the same hosted/web ports: ${existing_legacy_units[*]}"
+				systemctl --user stop "${existing_legacy_units[@]}" || true
+				systemctl --user disable "${existing_legacy_units[@]}" >/dev/null 2>&1 || true
+			fi
+		fi
 		systemctl --user restart "${service_units[@]}" "${timer_units[@]}"
 		systemctl --user --no-pager --full status "${service_units[@]}"
 	fi

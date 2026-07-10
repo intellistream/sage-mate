@@ -955,6 +955,9 @@ main() {
         set_env_kv "$env_file" VLLM_NVIDIA_GPU_MEMORY_UTILIZATION "${VLLM_NVIDIA_GPU_MEMORY_UTILIZATION:-0.88}"
         set_env_kv "$env_file" VLLM_NVIDIA_MAX_MODEL_LEN "$max_model_len"
         set_env_kv "$env_file" VLLM_NVIDIA_MAX_NUM_SEQS "$max_num_seqs"
+        set_env_kv "$env_file" VLLM_ENGINE_MODEL_PATH ""
+        set_env_kv "$env_file" VLLM_ENGINE_ACTUAL_MODEL_ID ""
+        set_env_kv "$env_file" VLLM_ENGINE_SERVED_MODEL_NAME ""
     elif [[ "$accelerator" == "ascend" ]]; then
         set_env_kv "$env_file" VLLM_PROXY_UPSTREAM_BASE_URL "http://127.0.0.1:8000/v1"
         set_env_kv "$env_file" VLLM_ENGINE_MODEL_PATH "$model"
@@ -965,6 +968,9 @@ main() {
         set_env_kv "$env_file" VLLM_ENGINE_MAX_NUM_SEQS "$max_num_seqs"
         set_env_kv "$env_file" VLLM_ENGINE_GPU_MEM_UTIL "${VLLM_ENGINE_GPU_MEM_UTIL:-0.85}"
         set_env_kv "$env_file" VLLM_ENGINE_DTYPE "${VLLM_ENGINE_DTYPE:-bfloat16}"
+        set_env_kv "$env_file" VLLM_NVIDIA_MODEL ""
+        set_env_kv "$env_file" VLLM_NVIDIA_ACTUAL_MODEL_ID ""
+        set_env_kv "$env_file" VLLM_NVIDIA_SERVED_MODEL_NAME ""
     else
         set_env_kv "$env_file" VLLM_PROXY_UPSTREAM_BASE_URL "${VLLM_PROXY_UPSTREAM_BASE_URL:-http://127.0.0.1:8000/v1}"
     fi

@@ -192,8 +192,33 @@ cleanup_vllm_engine_residuals() {
     "$repo_root/tools/cleanup_vllm_engine.sh" || true
 }
 
+stop_legacy_conflicting_services() {
+    [[ "${FACULTY_TWIN_STOP_LEGACY_CONFLICTS:-1}" == "0" ]] && return 0
+    local legacy_units=()
+    $include_app && legacy_units+=(sage-faculty-twin-app.service)
+    $include_proxy && legacy_units+=(sage-faculty-twin-vllm-openai-proxy.service)
+    $include_site && legacy_units+=(sage-faculty-twin-site.service)
+    $include_tunnel && legacy_units+=(sage-faculty-twin-tunnel.service)
+    [[ ${#legacy_units[@]} -gt 0 ]] || return 0
+
+    local existing_units=() unit
+    for unit in "${legacy_units[@]}"; do
+        if systemctl --user show "$unit" --property=LoadState --value 2>/dev/null | grep -qx 'loaded'; then
+            existing_units+=("$unit")
+        fi
+    done
+    [[ ${#existing_units[@]} -gt 0 ]] || return 0
+
+    echo "[manage] Stopping legacy sage-faculty-twin services that use the same hosted/web ports: ${existing_units[*]}"
+    systemctl --user stop "${existing_units[@]}" || true
+    systemctl --user disable "${existing_units[@]}" >/dev/null 2>&1 || true
+}
+
 # ── Execute action ───────────────────────────────────────────────────────────
 if [[ "$action" != "status" ]]; then
+    if [[ "$action" == "start" || "$action" == "restart" ]]; then
+        stop_legacy_conflicting_services
+    fi
     if [[ "$action" == "restart" ]]; then
         cleanup_vllm_engine_residuals
     fi
