@@ -901,7 +901,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
     }
 
     private func jsonString(_ value: String) -> String {
-        if let data = try? JSONSerialization.data(withJSONObject: value),
+        if let data = try? JSONSerialization.data(withJSONObject: value, options: [.fragmentsAllowed]),
            let text = String(data: data, encoding: .utf8) {
             return text
         }
