@@ -57,6 +57,8 @@ Environment:
   FACULTY_TWIN_MODEL_PRESET,
   FACULTY_TWIN_MODEL, FACULTY_TWIN_SERVED_MODEL_NAME,
   FACULTY_TWIN_PUBLIC_HOSTNAME, FACULTY_TWIN_TUNNEL_NAME, HF_ENDPOINT,
+  FACULTY_TWIN_PREDOWNLOAD_SOURCE=auto|huggingface|hf-direct|modelscope,
+  FACULTY_TWIN_HF_DIRECT_USE_TOKEN=1 for private direct downloads,
   FACULTY_TWIN_ENCRYPTED_SECRETS_FILE, FACULTY_TWIN_SECRETS_KEY_FILE,
   FACULTY_TWIN_SECRETS_PASSPHRASE, HF_TOKEN/HUGGING_FACE_HUB_TOKEN are honored when present.
 EOF
@@ -450,41 +452,53 @@ predownload_model_if_needed() {
     [[ "${FACULTY_TWIN_PREDOWNLOAD_MODEL:-1}" != "0" ]] || return 0
     [[ "$model" != /* ]] || return 0
 
-    if [[ "${FACULTY_TWIN_PREDOWNLOAD_SOURCE:-huggingface}" == "modelscope" ]]; then
+    local predownload_source="${FACULTY_TWIN_PREDOWNLOAD_SOURCE:-auto}"
+    case "$predownload_source" in
+        auto|huggingface|hf-direct|modelscope) ;;
+        *) fail "FACULTY_TWIN_PREDOWNLOAD_SOURCE must be auto, huggingface, hf-direct, or modelscope" ;;
+    esac
+
+    if [[ "$predownload_source" == "modelscope" ]]; then
         predownload_model_from_modelscope
         return 0
     fi
+    if [[ "$predownload_source" == "hf-direct" ]]; then
+        predownload_model_from_hf_resolve_aria2
+        return 0
+    fi
 
-    export HF_HUB_OFFLINE=0
-    set_env_kv "$env_file" HF_HUB_OFFLINE "0"
-    if [[ "${FACULTY_TWIN_PREDOWNLOAD_HF_TRANSFER:-1}" != "0" ]]; then
-        if "$python_bin" -c "import hf_transfer" >/dev/null 2>&1 || "$python_bin" -m pip install hf_transfer; then
-            export HF_HUB_ENABLE_HF_TRANSFER=1
-            set_env_kv "$env_file" HF_HUB_ENABLE_HF_TRANSFER "1"
-            log "enabled hf_transfer for faster Hugging Face downloads"
-        else
-            warn "hf_transfer install failed; continuing with standard Hugging Face downloader"
-            export HF_HUB_ENABLE_HF_TRANSFER=0
-            set_env_kv "$env_file" HF_HUB_ENABLE_HF_TRANSFER "0"
+    if [[ "$predownload_source" == "auto" || "$predownload_source" == "huggingface" ]]; then
+        export HF_HUB_OFFLINE=0
+        set_env_kv "$env_file" HF_HUB_OFFLINE "0"
+        if [[ "${FACULTY_TWIN_PREDOWNLOAD_HF_TRANSFER:-1}" != "0" ]]; then
+            if "$python_bin" -c "import hf_transfer" >/dev/null 2>&1 || "$python_bin" -m pip install hf_transfer; then
+                export HF_HUB_ENABLE_HF_TRANSFER=1
+                set_env_kv "$env_file" HF_HUB_ENABLE_HF_TRANSFER "1"
+                log "enabled hf_transfer for faster Hugging Face downloads"
+            else
+                warn "hf_transfer install failed; continuing with standard Hugging Face downloader"
+                export HF_HUB_ENABLE_HF_TRANSFER=0
+                set_env_kv "$env_file" HF_HUB_ENABLE_HF_TRANSFER "0"
+            fi
         fi
-    fi
-    log "pre-downloading model into Hugging Face cache: $model"
-    local attempts="${FACULTY_TWIN_PREDOWNLOAD_ATTEMPTS:-}"
-    if [[ -z "$attempts" ]]; then
-        [[ "$model_preset" == "qwen3-next-80b-awq" ]] && attempts=1 || attempts=4
-    fi
-    local attempt
-    for ((attempt = 1; attempt <= attempts; attempt++)); do
-        if [[ "$attempts" -gt 1 ]]; then
-            log "pre-download attempt ${attempt}/${attempts}: $model"
+        log "pre-downloading model into Hugging Face cache: $model"
+        local attempts="${FACULTY_TWIN_PREDOWNLOAD_ATTEMPTS:-}"
+        if [[ -z "$attempts" ]]; then
+            [[ "$model_preset" == "qwen3-next-80b-awq" ]] && attempts=1 || attempts=4
         fi
-        if "$python_bin" - "$model" <<'PY'
+        local attempt
+        for ((attempt = 1; attempt <= attempts; attempt++)); do
+            if [[ "$attempts" -gt 1 ]]; then
+                log "pre-download attempt ${attempt}/${attempts}: $model"
+            fi
+            if "$python_bin" - "$model" <<'PY'
 import os
 import sys
 from huggingface_hub import snapshot_download
 
 model_id = sys.argv[1]
-token = os.environ.get("HF_TOKEN") or os.environ.get("HUGGING_FACE_HUB_TOKEN")
+use_token = os.environ.get("FACULTY_TWIN_HF_DIRECT_USE_TOKEN", "0") == "1"
+token = (os.environ.get("HF_TOKEN") or os.environ.get("HUGGING_FACE_HUB_TOKEN")) if use_token else None
 max_workers = int(os.environ.get("FACULTY_TWIN_PREDOWNLOAD_MAX_WORKERS", "4"))
 path = snapshot_download(
     repo_id=model_id,
@@ -494,16 +508,29 @@ path = snapshot_download(
 )
 print(f"[hosted-web] model cache ready: {path}", flush=True)
 PY
-        then
-            export HF_HUB_OFFLINE=1
-            set_env_kv "$env_file" HF_HUB_OFFLINE "1"
-            log "model cache ready; enabling HF_HUB_OFFLINE=1 for vLLM startup"
+            then
+                export HF_HUB_OFFLINE=1
+                set_env_kv "$env_file" HF_HUB_OFFLINE "1"
+                log "model cache ready; enabling HF_HUB_OFFLINE=1 for vLLM startup"
+                return 0
+            fi
+            [[ "$attempt" -lt "$attempts" ]] || break
+            warn "pre-download attempt ${attempt}/${attempts} failed for $model; retrying with resume"
+            sleep "${FACULTY_TWIN_PREDOWNLOAD_RETRY_DELAY_SECONDS:-15}"
+        done
+    fi
+
+    if [[ "$predownload_source" == "auto" ]]; then
+        warn "Hugging Face pre-download failed for $model; trying aria2 direct mirror download"
+        if predownload_model_from_hf_resolve_aria2; then
             return 0
         fi
-        [[ "$attempt" -lt "$attempts" ]] || break
-        warn "pre-download attempt ${attempt}/${attempts} failed for $model; retrying with resume"
-        sleep "${FACULTY_TWIN_PREDOWNLOAD_RETRY_DELAY_SECONDS:-15}"
-    done
+        warn "Hugging Face pre-download failed for $model; trying ModelScope mirror"
+        if predownload_model_from_modelscope; then
+            return 0
+        fi
+        warn "ModelScope pre-download also failed for $model"
+    fi
 
     if [[ "$model_preset" == "qwen3-32b-awq" && "${FACULTY_TWIN_ALLOW_MODEL_FALLBACK:-1}" != "0" ]]; then
         warn "pre-download failed for $model; falling back to Qwen/Qwen3-14B-AWQ for a reliable first install"
@@ -557,6 +584,96 @@ PY
     set_env_kv "$env_file" VLLM_NVIDIA_MAX_NUM_SEQS "$max_num_seqs"
     set_env_kv "$env_file" VLLM_NVIDIA_CHAT_TEMPLATE ""
     predownload_model_if_needed
+}
+
+predownload_model_from_hf_resolve_aria2() {
+    command -v aria2c >/dev/null 2>&1 || return 1
+
+    local original_model="$model"
+    local endpoint="${HF_ENDPOINT:-https://huggingface.co}"
+    local local_dir="${FACULTY_TWIN_HF_DIRECT_MODEL_DIR:-$HOME/models/${original_model//\//--}}"
+    local download_state_dir="${runtime_dir:-$repo_dir/../sage-mate-runtime-private}/downloads"
+    local input_file
+
+    mkdir -p "$local_dir" "$download_state_dir"
+    input_file=$(mktemp "$download_state_dir/aria2-${original_model//\//--}.XXXXXX")
+    chmod 600 "$input_file"
+
+    log "pre-downloading model with aria2 direct mirror: $original_model -> $local_dir"
+    if ! "$python_bin" - "$original_model" "$endpoint" "$local_dir" "$input_file" <<'PY'
+import json
+import os
+import sys
+import urllib.parse
+import urllib.request
+from pathlib import Path
+
+model_id, endpoint, local_dir, input_file = sys.argv[1:5]
+endpoint = endpoint.rstrip("/")
+token = os.environ.get("HF_TOKEN") or os.environ.get("HUGGING_FACE_HUB_TOKEN")
+api_url = f"{endpoint}/api/models/{urllib.parse.quote(model_id, safe='/')}"
+request = urllib.request.Request(api_url)
+if token:
+    request.add_header("Authorization", f"Bearer {token}")
+
+with urllib.request.urlopen(request, timeout=60) as response:
+    payload = json.load(response)
+
+siblings = payload.get("siblings") or []
+files = [item.get("rfilename") for item in siblings if item.get("rfilename")]
+if not files:
+    raise SystemExit(f"could not resolve file list for {model_id} from {api_url}")
+
+root = Path(local_dir)
+with open(input_file, "w", encoding="utf-8") as handle:
+    for name in files:
+        target = root / name
+        target.parent.mkdir(parents=True, exist_ok=True)
+        url = f"{endpoint}/{urllib.parse.quote(model_id, safe='/')}/resolve/main/{urllib.parse.quote(name, safe='/')}"
+        handle.write(url + "\n")
+        handle.write(f"  dir={target.parent}\n")
+        handle.write(f"  out={target.name}\n")
+        if token:
+            handle.write(f"  header=Authorization: Bearer {token}\n")
+
+print(f"[hosted-web] aria2 input ready: {len(files)} files", flush=True)
+PY
+    then
+        rm -f "$input_file"
+        return 1
+    fi
+
+    if ! aria2c \
+        --input-file="$input_file" \
+        --continue=true \
+        --max-connection-per-server="${FACULTY_TWIN_ARIA2_CONNECTIONS:-16}" \
+        --split="${FACULTY_TWIN_ARIA2_SPLIT:-16}" \
+        --min-split-size="${FACULTY_TWIN_ARIA2_MIN_SPLIT_SIZE:-1M}" \
+        --max-concurrent-downloads="${FACULTY_TWIN_ARIA2_CONCURRENT_DOWNLOADS:-2}" \
+        --retry-wait="${FACULTY_TWIN_ARIA2_RETRY_WAIT_SECONDS:-5}" \
+        --max-tries="${FACULTY_TWIN_ARIA2_MAX_TRIES:-0}" \
+        --timeout="${FACULTY_TWIN_ARIA2_TIMEOUT_SECONDS:-60}" \
+        --connect-timeout="${FACULTY_TWIN_ARIA2_CONNECT_TIMEOUT_SECONDS:-30}" \
+        --allow-overwrite=true \
+        --auto-file-renaming=false \
+        --file-allocation=none \
+        --console-log-level=warn \
+        --show-console-readout=false \
+        --summary-interval="${FACULTY_TWIN_ARIA2_SUMMARY_INTERVAL_SECONDS:-30}" \
+        --download-result=hide
+    then
+        rm -f "$input_file"
+        return 1
+    fi
+    rm -f "$input_file"
+
+    model="$local_dir"
+    set_env_kv "$env_file" VLLM_NVIDIA_MODEL "$model"
+    set_env_kv "$env_file" VLLM_NVIDIA_ACTUAL_MODEL_ID "$original_model"
+    set_env_kv "$env_file" VLLM_NVIDIA_SERVED_MODEL_NAME "$served_model"
+    set_env_kv "$env_file" DIGITAL_TWIN_MODEL_NAME "$served_model"
+    set_env_kv "$env_file" HF_HUB_OFFLINE "0"
+    validate_local_model_if_needed
 }
 
 predownload_model_from_modelscope() {
