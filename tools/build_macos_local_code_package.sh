@@ -603,7 +603,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
                 "--local-model-backend", "vllm_metal",
                 "--code-backend", "claude_hust",
                 "--claude-hust-dir", try claudeHustRoot().path,
-                "--workspace-roots", "",
+                "--workspace-roots", existingWorkspaceRoots(target: target),
                 "--vllm-metal-dir", try vllmMetalSourceRoot().path,
                 "--port", String(port)
             ]
@@ -735,6 +735,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
             || llmWasAutoPrefilledFromHostedService
             || llmUsesRetiredAutoDefault
             || localModelWasDisabledByOldDefault
+    }
+
+    private func existingWorkspaceRoots(target: URL) -> String {
+        let envURL = target.appendingPathComponent(".env")
+        guard let contents = try? String(contentsOf: envURL, encoding: .utf8) else {
+            return ""
+        }
+        for line in contents.split(whereSeparator: \.isNewline) {
+            if line.hasPrefix("DIGITAL_TWIN_CODE_WORKSPACE_ROOTS=") {
+                return String(line.dropFirst("DIGITAL_TWIN_CODE_WORKSPACE_ROOTS=".count))
+            }
+        }
+        return ""
     }
 
     private func startServer() throws {
