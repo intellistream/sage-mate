@@ -134,11 +134,21 @@ def test_local_code_setup_does_not_block_or_auto_open_profile_modal() -> None:
     js = (WEB_DIR / "app.js").read_text(encoding="utf-8")
     setup_fn = js[js.index("function shouldShowSageMateSetup"):js.index("async function maybeOpenSageMateSetup")]
 
-    assert 'params.get("setup") === "local-code"' in setup_fn
+    assert "if (!isLocalCodeSetupUrl) return false;" in setup_fn
     assert "return !data.api_key_set" not in setup_fn
     assert "const localCodeConfigPromise = maybeOpenSageMateSetup();" in js
     assert "await maybeOpenSageMateSetup();" not in js
     assert "initializePage().catch(" in js
+
+
+def test_auto_scientist_keeps_research_profile_in_frontend_payloads() -> None:
+    js = (WEB_DIR / "app.js").read_text(encoding="utf-8")
+    onboarding_fn = js[js.index("function currentOnboardingProfile"):js.index("function currentChatVisitorProfile")]
+    visitor_fn = js[js.index("function currentChatVisitorProfile"):js.index("function hasCompletedOnboarding")]
+
+    assert 'if (profile === "auto_scientist") return "auto_scientist";' in onboarding_fn
+    assert 'if (profile === "auto_scientist") return "lab_member";' in visitor_fn
+    assert "visitor_profile: currentChatVisitorProfile()," in js
 
 
 def test_account_entry_stays_in_sidebar_not_topbar() -> None:

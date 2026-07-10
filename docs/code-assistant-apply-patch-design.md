@@ -1,7 +1,7 @@
 # Code Assistant Controlled Apply Patch Design
 
 This document defines the proposed design for a future controlled apply-patch capability in the
-Sage Mate `code_assistant` profile. It is a design note only; the current implementation remains
+Sage Mate code-capable profiles. It is a design note only; the current implementation remains
 propose-only and must not write repository files.
 
 ## Goals
@@ -12,7 +12,7 @@ explicitly approve it, and apply it to an allowlisted workspace with reversible 
 The feature is intentionally scoped to local, user-owned repositories:
 
 - Available only in `DIGITAL_TWIN_DEPLOYMENT_MODE=local_code`.
-- Available only when `DIGITAL_TWIN_APP_PROFILE=code_assistant`.
+- Available only when `DIGITAL_TWIN_APP_PROFILE` is `code_assistant` or `auto_scientist`.
 - Disabled unless a separate explicit setting enables patch application.
 - Never available in hosted or web deployments.
 

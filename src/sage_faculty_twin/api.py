@@ -110,6 +110,7 @@ from .models import (
     UserSessionResponse,
     WorkflowReplayReportResponse,
 )
+from .code_workbench import CODE_WORKBENCH_PROFILES
 from .history_auth import resolve_authenticated_history_email
 from .service import DigitalTwinService, build_stack_versions_payload, build_hardware_payload
 from .capability_plugins import CapabilityPluginRegistry, CapabilityPluginStatus
@@ -772,7 +773,7 @@ def require_code_access(request: Request) -> dict:
     if (
         settings.deployment_mode == "local_code"
         and settings.code_workbench_enabled
-        and settings.app_profile == "code_assistant"
+        and settings.app_profile in CODE_WORKBENCH_PROFILES
     ):
         return {"mode": "local_code"}
     raise HTTPException(status_code=403, detail="Code tools require local Code Assistant mode.")
@@ -782,10 +783,13 @@ def require_code_session_access(request: Request) -> dict:
     if (
         settings.deployment_mode == "local_code"
         and settings.code_workbench_enabled
-        and settings.app_profile == "code_assistant"
+        and settings.app_profile in CODE_WORKBENCH_PROFILES
     ):
-        return {"mode": "local_code", "profile": "code_assistant"}
-    raise HTTPException(status_code=403, detail="Code sessions require the Code Assistant profile.")
+        return {"mode": "local_code", "profile": settings.app_profile}
+    raise HTTPException(
+        status_code=403,
+        detail="Code sessions require the Code Assistant or Auto Scientist profile.",
+    )
 
 
 def require_local_code_config_access(request: Request) -> dict:
@@ -923,7 +927,7 @@ def _local_code_config_response(*, message: str = "") -> LocalCodeConfigResponse
         deployment_mode=settings.deployment_mode,
         code_workbench_enabled=(
             settings.code_workbench_enabled
-            and settings.app_profile == "code_assistant"
+            and settings.app_profile in CODE_WORKBENCH_PROFILES
         ),
         llm_base_url=settings.llm_base_url,
         api_key="" if not settings.api_key or settings.api_key == "EMPTY" else settings.api_key,
@@ -997,7 +1001,7 @@ def _apply_runtime_path_settings(runtime_root: str) -> None:
 
 def _apply_local_code_config(payload: LocalCodeConfigRequest) -> LocalCodeConfigResponse:
     app_profile = payload.app_profile.strip()
-    code_enabled = app_profile == "code_assistant"
+    code_enabled = app_profile in CODE_WORKBENCH_PROFILES
     runtime_dir = Path(payload.runtime_dir).expanduser()
     runtime_dir.mkdir(parents=True, exist_ok=True)
     resolved_runtime = str(runtime_dir.resolve())

@@ -3,19 +3,26 @@
 Sage Mate is the local desktop app built from this repository. It should not be confused with
 `sage-studio`, the separate intellistream SAGE canvas / low-code pipeline UI.
 
-Faculty Twin still has two deployment profiles:
+Sage Mate has two deployment modes:
 
 - `hosted`: multi-user server mode for chat, scheduling, knowledge, and voice. It must not read,
   clone, store, or execute user repositories.
-- `local_code`: user-installed mode where the Faculty Twin harness runs on the user's own machine
+- `local_code`: user-installed mode where the Sage Mate harness runs on the user's own machine
   next to their code. The default model endpoint is local-only; users may explicitly configure a
   remote OpenAI-compatible endpoint if they want one.
+
+Inside `local_code`, `DIGITAL_TWIN_APP_PROFILE` selects the product surface:
+
+- `faculty_twin`: personal twin chat without local repository access.
+- `code_assistant`: local CC-hust backed coding assistant for allowlisted repositories.
+- `auto_scientist`: combines twin memory/knowledge retrieval with the local CC-hust code node to
+  bootstrap a research workflow from a rough idea.
 
 ## Recommended Architecture
 
 ```text
 User machine
-  Faculty Twin local_code
+  Sage Mate local_code
     - chat UI and harness
     - workflow planner
     - code tools
@@ -53,6 +60,7 @@ The app-level profile is:
 
 - `faculty_twin`: digital twin, knowledge, chat, scheduling, and workflow features; code tools off.
 - `code_assistant`: local code assistant features; code tools on for allowlisted repositories.
+- `auto_scientist`: automatic scientist mode; combines Faculty Twin research context with the CC-hust code node to turn a rough research idea into a plan, code-context analysis, experiment checklist, and propose-only next steps.
 
 The important first-run settings in the UI are:
 
@@ -119,7 +127,7 @@ Manual environment equivalent:
 
 ```bash
 export DIGITAL_TWIN_DEPLOYMENT_MODE=local_code
-export DIGITAL_TWIN_APP_PROFILE=code_assistant
+export DIGITAL_TWIN_APP_PROFILE=auto_scientist
 export DIGITAL_TWIN_CODE_WORKBENCH_ENABLED=true
 export DIGITAL_TWIN_CODE_WORKSPACE_ROOTS="$HOME/my-repo,$HOME/another-repo"
 export DIGITAL_TWIN_RUNTIME_DIR="$HOME/Library/Application Support/Sage Mate/runtime"

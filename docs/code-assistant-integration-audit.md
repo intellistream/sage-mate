@@ -22,12 +22,12 @@
 当前配置层已经把本地代码能力放在三个开关之后：
 
 - `DIGITAL_TWIN_DEPLOYMENT_MODE=local_code`
-- `DIGITAL_TWIN_APP_PROFILE=code_assistant`
+- `DIGITAL_TWIN_APP_PROFILE=code_assistant` 或 `auto_scientist`
 - `DIGITAL_TWIN_CODE_WORKBENCH_ENABLED=true`
 
 对应字段定义在 `AppSettings`：
 
-- `app_profile`: `faculty_twin` 或 `code_assistant`
+- `app_profile`: `faculty_twin`、`code_assistant` 或 `auto_scientist`
 - `deployment_mode`: `hosted` 或 `local_code`
 - `code_workbench_enabled`: 是否启用代码工作台
 - `code_workspace_roots`: local_code 模式下显式 allowlist 的本地仓库根目录
@@ -117,7 +117,7 @@ Code Assistant 首页支持：
 
 `tools/install_local_code_mode.sh` 支持：
 
-- 选择 `--profile faculty_twin|code_assistant`
+- 选择 `--profile faculty_twin|code_assistant|auto_scientist`
 - 配置 workspace allowlist、runtime dir、LLM endpoint、API key、model
 - `--code-backend auto|internal|claude_hust`
 - `--claude-hust-repo`
@@ -125,7 +125,7 @@ Code Assistant 首页支持：
 - `--skip-claude-hust`
 
 默认 profile 是 `code_assistant`，默认 backend 是 `auto`。macOS DMG 会随包携带
-`claude-code-hust` 和 Bun；当 profile 为 `code_assistant` 且未跳过 claude-hust 时，脚本会优先使用包内同步出的
+`claude-code-hust` 和 Bun；当 profile 为 `code_assistant` 或 `auto_scientist` 且未跳过 claude-hust 时，脚本会优先使用包内同步出的
 `claude-code-hust` 或显式传入的 `--claude-hust-dir`，成功后写入：
 
 - `DIGITAL_TWIN_CODE_AGENT_BACKEND=claude_hust`
@@ -149,12 +149,12 @@ claude_hust backend 当前只参与两个模型型代码能力：
 以 `POST /code/propose` 为例：
 
 1. `api.py` 的 `propose_code_change()` 接收 `CodeProposeRequest`。
-2. FastAPI dependency `require_code_access()` 先检查当前是否为 local Code Assistant；否则直接返回 403。
+2. FastAPI dependency `require_code_access()` 先检查当前是否为本地代码能力 profile；否则直接返回 403。
 3. `service.propose_code_change(payload)` 进入 `DigitalTwinService`。
 4. `_require_code_workbench_enabled()` 再次检查：
    - `deployment_mode == "local_code"`
    - `code_workbench_enabled == true`
-   - `app_profile == "code_assistant"`
+   - `app_profile in {"code_assistant", "auto_scientist"}`
 5. `DigitalTwinService._code_agent_backend()` 选择 `InternalCodeAgentBackend` 或 `ClaudeHustCodeAgentBackend`。
 6. `CodeWorkbench.copy_workspace_to_temp()` 把 allowlisted workspace 复制到临时目录，忽略 `.git`, cache, venv, build, dist, `node_modules`, `vendor` 等目录。
 7. `CodeWorkbench.build_propose_prompt()` 在真实 workspace 上读取 git status、git diff 和选择的文件上下文。

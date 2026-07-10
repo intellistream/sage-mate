@@ -3,7 +3,7 @@ import subprocess
 
 import pytest
 
-from sage_faculty_twin.code_workbench import CodeWorkbench
+from sage_faculty_twin.code_workbench import CODE_WORKBENCH_PROFILES, CodeWorkbench
 from sage_faculty_twin.code_session_store import CodeSessionStore
 from sage_faculty_twin.config import AppSettings, settings
 from sage_faculty_twin.models import (
@@ -20,6 +20,7 @@ from sage_faculty_twin.models import (
     CodeSessionCreateRequest,
     CodeSessionMessage,
     CodeSearchRequest,
+    KnowledgeSearchHit,
 )
 
 
@@ -110,6 +111,25 @@ def test_code_workbench_faculty_twin_profile_exposes_no_workspaces(tmp_path: Pat
     response = workbench.list_workspaces()
 
     assert response.workspaces == []
+
+
+def test_code_workbench_auto_scientist_profile_exposes_workspaces(tmp_path: Path) -> None:
+    workspace = tmp_path / "project-a"
+    workspace.mkdir()
+    workbench = CodeWorkbench(
+        settings.model_copy(
+            update={
+                "deployment_mode": "local_code",
+                "app_profile": "auto_scientist",
+                "code_workspace_roots": str(workspace),
+                "code_workbench_enabled": True,
+            }
+        )
+    )
+
+    response = workbench.list_workspaces()
+
+    assert [workspace.workspace_id for workspace in response.workspaces] == ["project-a"]
 
 
 def test_code_workbench_formats_empty_workspace_state(tmp_path: Path) -> None:
@@ -519,6 +539,76 @@ async def test_code_service_propose_calls_llm_without_modifying_files(tmp_path: 
     assert response.workflow_trace[2].summary == (
         "已通过 Sage Mate 内置 harness 执行修改建议流程。"
     )
+
+
+@pytest.mark.asyncio
+async def test_auto_scientist_profile_bootstraps_research_with_code_node(
+    tmp_path: Path,
+) -> None:
+    from sage_faculty_twin.service import DigitalTwinService
+
+    class StubLlmClient:
+        model_name = "stub-research-model"
+        calls: list[str]
+
+        def __init__(self) -> None:
+            self.calls = []
+
+        def answer_question_sync(self, *_args: object, **_kwargs: object) -> str:
+            self.calls.append(str(_args[1] if len(_args) > 1 else ""))
+            return "代码节点建议：先阅读 README.md，设计 baseline、sanity check 和 ablation。"
+
+    class StubKnowledgeStore:
+        def search(self, *_args: object, **_kwargs: object) -> list[KnowledgeSearchHit]:
+            return [
+                KnowledgeSearchHit(
+                    document_id="paper-1",
+                    title="Prefix cache 研究背景",
+                    excerpt="组内已有记录建议优先比较 TTFT、吞吐和缓存命中率。",
+                    score=42.0,
+                    tags=["publications", "profile"],
+                )
+            ]
+
+    workspace = tmp_path / "project-a"
+    workspace.mkdir()
+    (workspace / "README.md").write_text("# Demo research repo\n", encoding="utf-8")
+
+    service = object.__new__(DigitalTwinService)
+    service._settings = settings.model_copy(
+        update={
+            "deployment_mode": "local_code",
+            "app_profile": "auto_scientist",
+            "code_workbench_enabled": True,
+            "code_workspace_roots": str(workspace),
+            "code_agent_backend": "internal",
+            "model_name": "stub-research-model",
+        }
+    )
+    service._code_workbench = CodeWorkbench(service._settings)
+    service._llm_client = StubLlmClient()
+    service._knowledge_store = StubKnowledgeStore()
+
+    response = await service._answer_auto_scientist(
+        ChatRequest(
+            student_name="guest",
+            question="我想研究 prefix cache 对 RAG 推理吞吐的影响",
+            visitor_profile="lab_member",
+            deep_thinking=False,
+        )
+    )
+
+    assert response.workflow_action == "auto_scientist"
+    assert "自动科学家启动包" in response.answer
+    assert "prefix cache" in response.answer
+    assert "代码节点建议" in response.answer
+    assert "Prefix cache 研究背景" in response.answer
+    assert "TTFT" in response.answer
+    assert "`project-a`" in response.answer
+    assert any(step.key == "code_agent_backend" for step in response.workflow_trace)
+    assert any(step.key == "auto_scientist_twin_context" for step in response.workflow_trace)
+    assert service._llm_client.calls
+    assert "分身上下文" in service._llm_client.calls[0]
 
 
 @pytest.mark.asyncio
@@ -982,7 +1072,7 @@ def test_code_doctor_not_available_in_hosted_web_mode(tmp_path: Path) -> None:
     exposed_in_chat = (
         hosted_settings.deployment_mode == "local_code"
         and hosted_settings.code_workbench_enabled
-        and hosted_settings.app_profile == "code_assistant"
+        and hosted_settings.app_profile in CODE_WORKBENCH_PROFILES
     )
 
     assert exposed_in_chat is False

@@ -606,14 +606,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
         let needsInstall = !fm.fileExists(atPath: venvPython.path)
         let needsConfigRefresh = try localCodeConfigNeedsRefresh(target: target, runtime: runtime)
         if needsInstall || needsConfigRefresh {
-            showStatus(needsInstall ? "首次启动正在安装依赖，可能需要几分钟..." : "正在刷新本地 Code Assistant 配置...")
+            showStatus(needsInstall ? "首次启动正在安装依赖，可能需要几分钟..." : "正在刷新本地 Sage Mate 配置...")
             let script = target.appendingPathComponent("tools/install_local_code_mode.sh")
             log("Installing dependencies with \(script.path)")
+            let appProfile = existingAppProfile(target: target)
             var installArgs = [
                 script.path,
                 "--venv", target.appendingPathComponent(".venv").path,
                 "--runtime-dir", runtime.path,
-                "--profile", "code_assistant",
+                "--profile", appProfile,
                 "--local-model-backend", "vllm_metal",
                 "--code-backend", "claude_hust",
                 "--claude-hust-dir", try claudeHustRoot().path,
@@ -739,7 +740,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
         let localModelWasDisabledByOldDefault =
             contents.contains("DIGITAL_TWIN_LOCAL_MODEL_BACKEND=none")
             && !contents.contains("DIGITAL_TWIN_LLM_USER_CONFIGURED=true")
-        return !contents.contains("DIGITAL_TWIN_APP_PROFILE=code_assistant")
+        let hasCodeCapableProfile =
+            contents.contains("DIGITAL_TWIN_APP_PROFILE=code_assistant")
+            || contents.contains("DIGITAL_TWIN_APP_PROFILE=auto_scientist")
+        return !hasCodeCapableProfile
             || !contents.contains("DIGITAL_TWIN_DEPLOYMENT_MODE=local_code")
             || !contents.contains("DIGITAL_TWIN_CODE_WORKBENCH_ENABLED=true")
             || !contents.contains("DIGITAL_TWIN_CODE_AGENT_BACKEND=claude_hust")
@@ -762,6 +766,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
             }
         }
         return ""
+    }
+
+    private func existingAppProfile(target: URL) -> String {
+        let envURL = target.appendingPathComponent(".env")
+        guard let contents = try? String(contentsOf: envURL, encoding: .utf8) else {
+            return "code_assistant"
+        }
+        for line in contents.split(whereSeparator: \.isNewline) {
+            if line == "DIGITAL_TWIN_APP_PROFILE=auto_scientist" {
+                return "auto_scientist"
+            }
+        }
+        return "code_assistant"
     }
 
     private func startServer() throws {

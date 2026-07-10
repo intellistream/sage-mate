@@ -40,6 +40,7 @@ _MAX_COMMAND_OUTPUT_CHARS = 20000
 _MAX_COMMAND_ERROR_CHARS = 12000
 _TEXT_FILE_MAX_BYTES = 1_000_000
 _SHELL_META_CHARS = set("|&;<>`$\\\n")
+CODE_WORKBENCH_PROFILES = {"code_assistant", "auto_scientist"}
 _ALLOWED_EXECUTABLES = {
     "bun",
     "cat",
@@ -755,13 +756,13 @@ class CodeWorkbench:
             )
 
         app_profile = self._settings.app_profile
-        if app_profile == "code_assistant":
-            add("OK", "DIGITAL_TWIN_APP_PROFILE", "code_assistant")
+        if app_profile in CODE_WORKBENCH_PROFILES:
+            add("OK", "DIGITAL_TWIN_APP_PROFILE", app_profile)
         else:
             add(
                 "ERROR",
                 "DIGITAL_TWIN_APP_PROFILE",
-                f"当前为 {app_profile or '(empty)'}，需要 code_assistant。",
+                f"当前为 {app_profile or '(empty)'}，需要 code_assistant 或 auto_scientist。",
             )
 
         if self._settings.code_workbench_enabled:
@@ -857,7 +858,7 @@ class CodeWorkbench:
         lines.extend(
             [
                 "",
-                "安全边界：`/code doctor` 只在 local_code + code_assistant + "
+                "安全边界：`/code doctor` 只在 local_code + code_assistant/auto_scientist + "
                 "code_workbench_enabled 下由聊天入口处理；hosted/web 模式不会暴露"
                 "本地代码 workspace 或 agent 能力。",
             ]
@@ -973,7 +974,7 @@ class CodeWorkbench:
     def _discover_workspaces(self) -> list[CodeWorkspace]:
         if self._settings.deployment_mode != "local_code":
             return []
-        if self._settings.app_profile != "code_assistant":
+        if self._settings.app_profile not in CODE_WORKBENCH_PROFILES:
             return []
         if not self._settings.code_workbench_enabled:
             return []

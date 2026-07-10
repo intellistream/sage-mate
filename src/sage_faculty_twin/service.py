@@ -42,7 +42,7 @@ from .code_agent_backends import (
     CodeAgentBackend,
     InternalCodeAgentBackend,
 )
-from .code_workbench import CodeWorkbench
+from .code_workbench import CODE_WORKBENCH_PROFILES, CodeWorkbench
 from .config import AppSettings
 from .escalation_store import EscalationQueueStore
 from .follow_up_store import FollowUpQueueStore
@@ -6169,6 +6169,9 @@ class DigitalTwinService:
         ):
             return await self._answer_code_workbench_command(request)
 
+        if self._settings.app_profile == "auto_scientist":
+            return await self._answer_auto_scientist(request)
+
         recent_session_context = self._build_recent_session_context(request)
 
         # Skill routing: check if a skill matches before running the standard pipeline
@@ -6769,19 +6772,199 @@ class DigitalTwinService:
             workflow_trace=workflow_trace,
         )
 
+    async def _answer_auto_scientist(self, request: ChatRequest) -> ChatResponse:
+        problem = request.question.strip()
+        recent_session_context = ""
+        knowledge_hits: list[KnowledgeSearchHit] = []
+        twin_context_summary = "本轮未命中可直接引用的分身上下文；先按用户描述启动科研流程。"
+        workspace_summary = "未配置本地代码 workspace。"
+        code_analysis = (
+            "代码节点尚未运行。请在设置中添加实验仓库后重试，"
+            "或使用 `/code workspaces` 检查 allowlist。"
+        )
+        workflow_trace: list[WorkflowTraceStep] = [
+            WorkflowTraceStep(
+                key="auto_scientist_problem",
+                title="理解科研问题",
+                summary="已把用户的粗略描述转成自动科研任务。",
+                detail=f"原始问题：{problem[:450]}",
+            )
+        ]
+        try:
+            recent_session_context = self._build_recent_session_context(request)
+        except Exception as exc:
+            workflow_trace.append(
+                WorkflowTraceStep(
+                    key="auto_scientist_recent_context",
+                    title="读取最近对话",
+                    summary="最近对话上下文暂不可用。",
+                    detail=str(exc)[:500],
+                    status="skipped",
+                )
+            )
+
+        try:
+            raw_hits = self._knowledge_store.search(
+                problem,
+                visitor_profile=request.visitor_profile,
+                admin_role=None,
+            )
+            knowledge_hits = raw_hits[:3]
+        except Exception as exc:
+            workflow_trace.append(
+                WorkflowTraceStep(
+                    key="auto_scientist_knowledge",
+                    title="检索分身知识库",
+                    summary="知识库检索暂不可用。",
+                    detail=str(exc)[:500],
+                    status="skipped",
+                )
+            )
+
+        twin_context_parts: list[str] = []
+        if recent_session_context.strip():
+            twin_context_parts.append(
+                f"- 最近对话：{recent_session_context.strip()[:700]}"
+            )
+        if knowledge_hits:
+            for hit in knowledge_hits:
+                excerpt = (hit.excerpt or "").strip()
+                title = (hit.title or "未命名知识").strip()
+                twin_context_parts.append(f"- {title}：{excerpt[:360]}")
+        if twin_context_parts:
+            twin_context_summary = "\n".join(twin_context_parts)
+            workflow_trace.append(
+                WorkflowTraceStep(
+                    key="auto_scientist_twin_context",
+                    title="汇总分身上下文",
+                    summary=(
+                        f"已整理 {len(knowledge_hits)} 条知识命中"
+                        + ("和最近对话上下文。" if recent_session_context.strip() else "。")
+                    ),
+                    detail=twin_context_summary[:900],
+                )
+            )
+
+        if self._code_workbench_available():
+            workspaces = self._code_workbench.list_workspaces().workspaces
+            if workspaces:
+                workspace = workspaces[0]
+                workspace_summary = f"已选择本地实验 workspace `{workspace.workspace_id}`：{workspace.root}"
+                code_task = (
+                    "你是 Sage Mate 自动科学家模式中的代码研究节点。"
+                    "请基于当前仓库上下文，为下面科研问题判断："
+                    "1) 仓库可能支持哪些实验入口；"
+                    "2) 应先读哪些文件；"
+                    "3) 最小可行实验如何设计；"
+                    "4) 需要记录哪些指标和风险。"
+                    "不要修改文件，不要声称已经运行实验。\n\n"
+                    f"分身上下文：\n{twin_context_summary}\n\n"
+                    f"科研问题：{problem}"
+                )
+                try:
+                    code_response = await self.assist_with_code(
+                        CodeAssistRequest(
+                            workspace_id=workspace.workspace_id,
+                            task=code_task,
+                            max_context_chars=7000,
+                        )
+                    )
+                    code_analysis = code_response.answer
+                    workflow_trace.extend(code_response.workflow_trace)
+                except Exception as exc:
+                    code_analysis = (
+                        "代码研究节点暂未完成："
+                        f"{self._strip_thinking_blocks(str(exc)) or type(exc).__name__}"
+                    )
+                    workflow_trace.append(
+                        WorkflowTraceStep(
+                            key="auto_scientist_code_node",
+                            title="调用代码研究节点",
+                            summary="代码节点未完成，但自动科研计划已继续生成。",
+                            detail=code_analysis[:500],
+                        )
+                    )
+            else:
+                workflow_trace.append(
+                    WorkflowTraceStep(
+                        key="auto_scientist_workspace",
+                        title="检查实验 workspace",
+                        summary="未发现 allowlisted 本地仓库。",
+                        detail="自动科学家仍会生成科研计划；配置 workspace 后可自动读取代码上下文。",
+                    )
+                )
+        else:
+            workflow_trace.append(
+                WorkflowTraceStep(
+                    key="auto_scientist_code_gate",
+                    title="检查代码能力",
+                    summary="当前环境未开启本地代码工作台。",
+                    detail="需要 local_code + auto_scientist/code_assistant + code_workbench_enabled。",
+                )
+            )
+
+        answer = "\n".join(
+            [
+                "# 自动科学家启动包",
+                "",
+                "## 研究目标",
+                problem,
+                "",
+                "## 一键科研流程",
+                "1. **问题收敛**：把粗略问题改写成可检验的研究假设、baseline 和评价指标。",
+                "2. **资料与记忆检索**：结合分身系统里的研究背景、过往讨论、论文/课程/组内知识，整理相关工作线索。",
+                "3. **代码态势感知**：用 CC-hust 代码节点读取 allowlisted 仓库，定位实验入口、配置文件、数据路径和测试命令。",
+                "4. **最小可行实验**：先设计 1 个 sanity check、1 个 baseline、1 个核心 ablation，避免一上来铺太大。",
+                "5. **结果记录**：固定随机种子、记录 commit/dataset/config/metric，并把失败原因写入实验日志。",
+                "6. **论文产出**：沉淀为 problem statement、method sketch、experiment table 和 risks/limitations。",
+                "",
+                "## 本地实验 workspace",
+                workspace_summary,
+                "",
+                "## 分身上下文",
+                twin_context_summary,
+                "",
+                "## CC-hust 代码研究节点",
+                code_analysis,
+                "",
+                "## 下一步建议",
+                "- 如果上面的代码节点已经给出入口文件，先运行只读检查：`/code status <workspace>`、`/code ls <workspace>`、`/code read <workspace> <path>`。",
+                "- 如果需要改代码，使用 `/code propose <workspace> <task> -- <path>` 生成 reviewable diff，不直接落盘。",
+                "- 如果还没有 workspace，先在设置里添加项目目录，再重新描述研究问题即可继续。",
+            ]
+        )
+        workflow_trace.append(
+            WorkflowTraceStep(
+                key="auto_scientist_plan",
+                title="生成自动科研启动包",
+                summary="已合成科研流程、代码节点反馈和下一步动作。",
+                detail="本轮不会自动写文件；所有代码修改仍需要显式 propose/apply 流程。",
+            )
+        )
+        return ChatResponse(
+            answer=answer,
+            owner_name=self._settings.owner_name,
+            used_model=self._llm_client.model_name,
+            conversation_id=request.conversation_id or str(uuid4()),
+            workflow_action="auto_scientist",
+            decision_mode="auto_scientist_research_bootstrap",
+            workflow_trace=workflow_trace,
+        )
+
     def _require_code_workbench_enabled(self) -> None:
         if not self._code_workbench_available():
             raise ValueError(
-                "Code tools are disabled. Install Faculty Twin locally and set "
+                "Code tools are disabled. Install Sage Mate locally and set "
                 "DIGITAL_TWIN_DEPLOYMENT_MODE=local_code plus "
-                "DIGITAL_TWIN_CODE_WORKBENCH_ENABLED=true to use local repositories."
+                "DIGITAL_TWIN_CODE_WORKBENCH_ENABLED=true with a code-capable profile "
+                "to use local repositories."
             )
 
     def _code_workbench_available(self) -> bool:
         return (
             self._settings.deployment_mode == "local_code"
             and self._settings.code_workbench_enabled
-            and self._settings.app_profile == "code_assistant"
+            and self._settings.app_profile in CODE_WORKBENCH_PROFILES
         )
 
     def _parse_code_proposal(self, text: str) -> dict[str, object]:

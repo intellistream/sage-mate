@@ -1,6 +1,6 @@
 # Sage Mate
 
-Sage Mate 是面向教师数字分身和本地代码助手的多 profile 应用。Faculty Twin 现在是其中一个 profile，Code Assistant 是本地代码工作台 profile。
+Sage Mate 是面向教师数字分身、本地代码助手和自动科研流程的多 profile 应用。Faculty Twin 是数字分身 profile，Code Assistant 是本地代码工作台 profile，Auto Scientist 会结合分身记忆和 CC-hust 代码节点启动科研流程。
 
 ## 支持平台
 
@@ -49,6 +49,7 @@ macOS 用户安装:
 
 - `hosted-web` 只提供网页 Faculty Twin profile，不启用本地代码能力。
 - Sage Mate DMG 随包携带 `claude-code-hust`、Bun runtime、`vllm-metal-hust`，不要求用户临时 clone。
+- Auto Scientist 只在本地模式使用 allowlisted workspace；默认生成科研计划和 propose-only 代码建议，不直接修改真实仓库。
 - macOS 本地模型使用我们的 `vllm-metal-hust` fork，并基于仓库固定的 `deps/vllm-hust` core。
 - Linux Ascend 使用仓库固定的 `deps/vllm-hust-dev-hub`、`deps/vllm-hust`、`deps/vllm-ascend-hust`、`deps/ascend-runtime-manager`。
 - token、私有 runtime 数据、Cloudflare 配置不要提交到仓库；运行时数据默认放在 `DIGITAL_TWIN_RUNTIME_DIR`。

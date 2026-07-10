@@ -534,15 +534,18 @@ const VISITOR_PROFILE_CONFIGS = {
 };
 
 function isCodeAssistantProfile(profile = currentAppProfile) {
-    return normalizeAppProfile(profile) === "code_assistant";
+    return ["code_assistant", "auto_scientist"].includes(normalizeAppProfile(profile));
 }
 
 function appProfileLabel(profile = currentAppProfile) {
-    return normalizeAppProfile(profile) === "code_assistant" ? "Code Assistant" : "Faculty Twin";
+    const normalized = normalizeAppProfile(profile);
+    if (normalized === "auto_scientist") return "Auto Scientist";
+    return normalized === "code_assistant" ? "Code Assistant" : "Faculty Twin";
 }
 
 function normalizeAppProfile(profile = currentAppProfile) {
-    return profile === "code_assistant" ? "code_assistant" : "faculty_twin";
+    if (profile === "code_assistant" || profile === "auto_scientist") return profile;
+    return "faculty_twin";
 }
 
 function normalizeCodeApprovalMode(mode) {
@@ -696,7 +699,7 @@ function localCodeConfigPayloadWithWorkspace(path) {
         .filter(Boolean)
         .filter((item, index, arr) => arr.indexOf(item) === index);
     return {
-        app_profile: isCodeAssistantProfile(config.app_profile) ? "code_assistant" : "faculty_twin",
+        app_profile: normalizeAppProfile(config.app_profile || currentAppProfile || "code_assistant"),
         llm_base_url: config.llm_base_url || localCodeLlmBaseUrlInput?.value?.trim() || "http://127.0.0.1:8000/v1",
         model_name: config.model_name || localCodeModelNameInput?.value?.trim() || "",
         runtime_dir: config.runtime_dir || localCodeRuntimeDirInput?.value?.trim() || "",
@@ -1080,16 +1083,23 @@ function applyAppProfilePresentation(data = {}) {
     const previousProfile = normalizeAppProfile(currentAppProfile);
     currentAppProfile = normalizeAppProfile(data.app_profile || currentAppProfile || "faculty_twin");
     document.body.classList.toggle("profile-code-assistant", isCodeAssistantProfile());
+    document.body.classList.toggle("profile-auto-scientist", currentAppProfile === "auto_scientist");
     document.body.classList.toggle("profile-faculty-twin", currentAppProfile === "faculty_twin");
     if (topbarKicker) {
         topbarKicker.textContent = isCodeAssistantProfile() ? "Sage Mate" : "Personal Twin OS";
     }
     if (topbarTitle) {
-        topbarTitle.textContent = currentAppProfile === "code_assistant" ? "Code Assistant" : "张书豪";
+        topbarTitle.textContent = appProfileLabel(currentAppProfile) === "Faculty Twin"
+            ? "张书豪"
+            : appProfileLabel(currentAppProfile);
     }
     if (topbarSubtitle) {
         topbarSubtitle.textContent = isCodeAssistantProfile()
-            ? "Sage Mate · 本地代码助手"
+            ? (
+                currentAppProfile === "auto_scientist"
+                    ? "Sage Mate · 自动科学家"
+                    : "Sage Mate · 本地代码助手"
+            )
             : "张书豪 · 华中科技大学计算机学院教师";
     }
     if (chatQuestion) {
@@ -1099,7 +1109,7 @@ function applyAppProfilePresentation(data = {}) {
     }
     document.title = isCodeAssistantProfile() ? "Sage Mate" : "张书豪的分身";
     openOnboardingHelpButton?.classList.remove("hidden");
-    homepageLink?.classList.toggle("hidden", currentAppProfile === "code_assistant");
+    homepageLink?.classList.toggle("hidden", isCodeAssistantProfile());
     syncGuidanceLabelsForProfile();
     syncProfileSwitcherState();
     syncCodeApprovalMenu();
@@ -1226,6 +1236,12 @@ const ONBOARDING_RESEARCH_EXAMPLES = {
         "请检查这个项目里有没有明显 bug 或边界条件问题，并给出最小修改建议。",
         "请为这个项目里最关键的简单函数补一个最小单元测试。",
         "请生成一个最小、安全、propose-only 的修改建议，并说明风险和建议测试。",
+    ],
+    auto_scientist: [
+        "我想研究 prefix cache 对 RAG 推理吞吐的影响，请从问题收敛、代码入口、实验指标开始规划。",
+        "我想做一个 KV cache 复用相关课题，请结合本地项目给出最小可行实验路线。",
+        "我想评估推理服务在长上下文下的延迟瓶颈，请帮我拆成假设、baseline 和 ablation。",
+        "我有一个粗略科研想法，请先读取项目上下文，再生成 propose-only 的实验实现建议。",
     ],
     general_visitor: [
         "我想了解的是：张老师目前主要在哪些方向做研究，有没有公开的代表性工作？",
@@ -1505,7 +1521,17 @@ function getOnboardingStepsForProfile(profile) {
 }
 
 function currentOnboardingProfile() {
-    return isCodeAssistantProfile() ? "code_assistant" : (visitorProfileInput?.value || "general_visitor");
+    const profile = normalizeAppProfile(currentAppProfile);
+    if (profile === "auto_scientist") return "auto_scientist";
+    if (profile === "code_assistant") return "code_assistant";
+    return visitorProfileInput?.value || "general_visitor";
+}
+
+function currentChatVisitorProfile() {
+    const profile = normalizeAppProfile(currentAppProfile);
+    if (profile === "auto_scientist") return "lab_member";
+    if (profile === "code_assistant") return "code_assistant";
+    return visitorProfileInput?.value || null;
 }
 
 function hasCompletedOnboarding() {
@@ -1812,7 +1838,7 @@ addTapListener(document.getElementById("onboarding-random-btn"), async () => {
 
     // Try LLM-generated question first (contextual to the onboarding step)
     let pick = null;
-    if (onboardingStepLabel && profile !== "code_assistant") {
+    if (onboardingStepLabel && !isCodeAssistantProfile(profile)) {
         try {
             const apiUrl = `/lucky-question?visitor_profile=${encodeURIComponent(profile)}&onboarding_step=${encodeURIComponent(onboardingStepLabel)}`;
             const result = await apiRequest(apiUrl, { timeoutMs: 6000 });
@@ -2544,7 +2570,7 @@ chatForm.addEventListener("submit", async (event) => {
         const profile = currentOnboardingProfile();
         const isGuidedProfile = ["lab_member", "paper_writing_student", "hust_undergraduate"].includes(profile);
         const step = onboardingSteps[onboardingCurrentStep];
-        if (profile === "code_assistant") {
+        if (isCodeAssistantProfile(profile)) {
             onboardingWrappedQuestion = effectiveQuestion;
         } else if (isGuidedProfile) {
             const stepLabel = step.context || "新手引导";
@@ -2565,7 +2591,7 @@ chatForm.addEventListener("submit", async (event) => {
         student_name: document.getElementById("student-name").value,
         student_email: document.getElementById("student-email").value || null,
         course_context: document.getElementById("course-context").value || null,
-        visitor_profile: visitorProfileInput?.value || null,
+        visitor_profile: currentChatVisitorProfile(),
         question: onboardingWrappedQuestion,
         conversation_id: activeConversationId,
         deep_thinking: deepThinkingCheckbox?.checked ?? false,
@@ -6057,13 +6083,13 @@ function setSageMateSetupProfile(profile) {
 
 function updateSageMateSetupWorkspaceVisibility() {
     const profile = selectedSageMateSetupProfile();
-    const needsWorkspace = profile === "code_assistant";
+    const needsWorkspace = isCodeAssistantProfile(profile);
     sageMateSetupWorkspaceLabel?.classList.toggle("hidden", !needsWorkspace);
 }
 
 function updateLocalCodeWorkspaceVisibility() {
     const profile = localCodeAppProfileInput?.value || "code_assistant";
-    const needsWorkspace = profile === "code_assistant";
+    const needsWorkspace = isCodeAssistantProfile(profile);
     localCodeWorkspaceRootsInput?.closest("label")?.classList.toggle("hidden", !needsWorkspace);
 }
 
@@ -6108,8 +6134,7 @@ function closeSageMateSetup({ markComplete = false } = {}) {
 
 function shouldShowSageMateSetup(data) {
     if (!data || data.deployment_mode !== "local_code") return false;
-    const params = new URLSearchParams(window.location.search);
-    if (params.get("setup") !== "local-code") return false;
+    if (!isLocalCodeSetupUrl) return false;
     const profile = normalizeAppProfile(data.app_profile || "code_assistant");
     const hasModelEndpoint = Boolean((data.llm_base_url || "").trim() && (data.model_name || "").trim());
     const hasWorkspace = Array.isArray(data.workspace_roots) && data.workspace_roots.some((root) => String(root || "").trim());
