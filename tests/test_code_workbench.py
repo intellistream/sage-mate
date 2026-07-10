@@ -614,6 +614,36 @@ def test_claude_hust_backend_propose_uses_temp_copy(tmp_path: Path) -> None:
     assert result.backend == "claude_hust"
 
 
+def test_claude_hust_openai_proxy_sets_local_api_key(tmp_path: Path) -> None:
+    from sage_faculty_twin.code_agent_backends import ClaudeHustCodeAgentBackend
+
+    workspace = tmp_path / "project-a"
+    workspace.mkdir()
+    backend_settings = settings.model_copy(
+        update={
+            "deployment_mode": "local_code",
+            "app_profile": "code_assistant",
+            "code_workbench_enabled": True,
+            "code_workspace_roots": str(workspace),
+            "code_agent_backend": "claude_hust",
+            "llm_base_url": "http://127.0.0.1:8000/v1",
+            "api_key": "",
+            "model_name": "mlx-community/Qwen2.5-7B-Instruct-4bit",
+        }
+    )
+    backend = ClaudeHustCodeAgentBackend(
+        settings=backend_settings,
+        workbench=CodeWorkbench(backend_settings),
+        llm_client=type("StubLlm", (), {"model_name": "internal-model"})(),
+        print_runner=lambda *_args, **_kwargs: "",
+    )
+
+    env = backend._env()
+
+    assert env["CLAUDE_CODE_FORCE_RECOVERY_CLI"] == "1"
+    assert env["ANTHROPIC_API_KEY"] == "sage-mate-local"
+
+
 def test_claude_hust_json_output_extracts_text_tools_and_diff(tmp_path: Path) -> None:
     from sage_faculty_twin.code_agent_backends import ClaudeHustCodeAgentBackend
 

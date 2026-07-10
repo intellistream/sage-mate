@@ -403,6 +403,7 @@ class ClaudeHustCodeAgentBackend:
             env["ANTHROPIC_API_KEY"] = self._settings.api_key
         if self._should_proxy_openai():
             env["CLAUDE_CODE_FORCE_RECOVERY_CLI"] = "1"
+            env.setdefault("ANTHROPIC_API_KEY", "sage-mate-local")
             env["ANTHROPIC_MODEL"] = "claude-sonnet-4-6"
             env["ANTHROPIC_DEFAULT_SONNET_MODEL"] = "claude-sonnet-4-6"
             env["ANTHROPIC_DEFAULT_HAIKU_MODEL"] = "claude-haiku-4-5"
