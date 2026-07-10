@@ -6109,8 +6109,14 @@ function closeSageMateSetup({ markComplete = false } = {}) {
 function shouldShowSageMateSetup(data) {
     if (!data || data.deployment_mode !== "local_code") return false;
     const params = new URLSearchParams(window.location.search);
-    if (params.get("setup") === "local-code") return true;
-    return false;
+    if (params.get("setup") !== "local-code") return false;
+    const profile = normalizeAppProfile(data.app_profile || "code_assistant");
+    const hasModelEndpoint = Boolean((data.llm_base_url || "").trim() && (data.model_name || "").trim());
+    const hasWorkspace = Array.isArray(data.workspace_roots) && data.workspace_roots.some((root) => String(root || "").trim());
+    if (profile === "faculty_twin") {
+        return !hasModelEndpoint;
+    }
+    return !hasModelEndpoint || !hasWorkspace;
 }
 
 async function maybeOpenSageMateSetup() {
@@ -6154,6 +6160,11 @@ async function saveSageMateSetup(event) {
         model_name: sageMateSetupModelNameInput?.value?.trim() || "",
         runtime_dir: sageMateSetupRuntimeDirInput?.value?.trim() || "",
         workspace_roots: profile === "faculty_twin" ? [] : workspaceRoots,
+        code_agent_backend: currentLocalCodeConfig?.code_agent_backend || "claude_hust",
+        claude_hust_cli_path:
+            currentLocalCodeConfig?.claude_hust_cli_path
+            || currentLocalCodeConfig?.claude_hust_cli_resolved_path
+            || "",
     };
     const apiKey = sageMateSetupApiKeyInput?.value || "";
     if (apiKey) {

@@ -1012,6 +1012,17 @@ def _apply_local_code_config(payload: LocalCodeConfigRequest) -> LocalCodeConfig
         workspace_roots.append(str(root.resolve()))
     workspace_csv = ",".join(workspace_roots) if code_enabled else ""
 
+    requested_backend = (
+        payload.code_agent_backend
+        if "code_agent_backend" in payload.model_fields_set
+        else settings.code_agent_backend
+    )
+    requested_cli_path = (
+        (payload.claude_hust_cli_path or "").strip()
+        if "claude_hust_cli_path" in payload.model_fields_set
+        else settings.claude_hust_cli_path
+    )
+
     updates = {
         "DIGITAL_TWIN_APP_PROFILE": app_profile,
         "DIGITAL_TWIN_DEPLOYMENT_MODE": "local_code",
@@ -1021,8 +1032,8 @@ def _apply_local_code_config(payload: LocalCodeConfigRequest) -> LocalCodeConfig
         "DIGITAL_TWIN_LLM_BASE_URL": payload.llm_base_url.strip(),
         "DIGITAL_TWIN_MODEL_NAME": (payload.model_name or "").strip(),
         "DIGITAL_TWIN_LLM_USER_CONFIGURED": "true",
-        "DIGITAL_TWIN_CODE_AGENT_BACKEND": payload.code_agent_backend,
-        "DIGITAL_TWIN_CLAUDE_HUST_CLI_PATH": (payload.claude_hust_cli_path or "").strip(),
+        "DIGITAL_TWIN_CODE_AGENT_BACKEND": requested_backend,
+        "DIGITAL_TWIN_CLAUDE_HUST_CLI_PATH": requested_cli_path,
         "DIGITAL_TWIN_KNOWLEDGE_BACKEND": "neuromem",
         "DIGITAL_TWIN_NEUROMEM_INDEX_TYPE": "segment",
         "DIGITAL_TWIN_CONVERSATION_MEMORY_COLLECTION_TYPE": "unified",
