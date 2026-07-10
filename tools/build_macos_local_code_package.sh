@@ -592,6 +592,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
                 script.path,
                 "--venv", target.appendingPathComponent(".venv").path,
                 "--runtime-dir", runtime.path,
+                "--profile", "code_assistant",
+                "--local-model-backend", "vllm_metal",
                 "--code-backend", "claude_hust",
                 "--claude-hust-dir", try claudeHustRoot().path,
                 "--workspace-roots", "",
@@ -715,13 +717,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
             contents.contains("DIGITAL_TWIN_LLM_BASE_URL=https://api.sage.org.ai/v1")
             && !contents.contains("DIGITAL_TWIN_LLM_USER_CONFIGURED=true")
         let llmUsesRetiredAutoDefault =
-            (
-                contents.contains("VLLM_METAL_MODEL=mlx-community/gemma-3-1b-it-qat-4bit")
-                || contents.contains("DIGITAL_TWIN_MODEL_NAME=mlx-community/gemma-3-1b-it-qat-4bit")
-                || contents.contains("VLLM_METAL_MODEL=mlx-community/Qwen3-4B-Instruct-2507-4bit")
-                || contents.contains("DIGITAL_TWIN_MODEL_NAME=mlx-community/Qwen3-4B-Instruct-2507-4bit")
-            )
-            && !contents.contains("DIGITAL_TWIN_LLM_USER_CONFIGURED=true")
+            contents.contains("VLLM_METAL_MODEL=mlx-community/gemma-3-1b-it-qat-4bit")
+            || contents.contains("DIGITAL_TWIN_MODEL_NAME=mlx-community/gemma-3-1b-it-qat-4bit")
+            || contents.contains("VLLM_METAL_MODEL=mlx-community/Qwen3-4B-Instruct-2507-4bit")
+            || contents.contains("DIGITAL_TWIN_MODEL_NAME=mlx-community/Qwen3-4B-Instruct-2507-4bit")
         let localModelWasDisabledByOldDefault =
             contents.contains("DIGITAL_TWIN_LOCAL_MODEL_BACKEND=none")
             && !contents.contains("DIGITAL_TWIN_LLM_USER_CONFIGURED=true")
@@ -823,10 +822,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
             URLSession.shared.dataTask(with: url) { _, response, _ in
                 if let http = response as? HTTPURLResponse, http.statusCode == 200 {
                     self.log("Server health check passed")
-                    DispatchQueue.main.async {
-                        self.statusLabel.isHidden = true
-                        self.webView.isHidden = false
-                        self.webView.load(URLRequest(url: URL(string: "http://127.0.0.1:\(self.port)/?setup=local-code&build=\(Int(Date().timeIntervalSince1970))")!))
+                    if self.localModelEngineIsConfigured() {
+                        self.waitForLocalModelEngine()
+                    } else {
+                        self.showApplicationUI()
                     }
                 } else {
                     DispatchQueue.global().asyncAfter(deadline: .now() + 1.0, execute: poll)
@@ -834,6 +833,47 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
             }.resume()
         }
         poll()
+    }
+
+    private func localModelEngineIsConfigured() -> Bool {
+        guard let root = try? installRoot() else { return false }
+        let envURL = root.appendingPathComponent(".env")
+        let contents = (try? String(contentsOf: envURL, encoding: .utf8)) ?? ""
+        return contents.contains("DIGITAL_TWIN_LOCAL_MODEL_BACKEND=vllm_metal")
+    }
+
+    private func waitForLocalModelEngine() {
+        showStatus("正在等待本地 Apple GPU 模型就绪...")
+        let deadline = Date().addingTimeInterval(1800)
+        func poll() {
+            if let process = self.modelProcess, !process.isRunning {
+                self.showStatus("本地模型启动失败，请查看日志。")
+                self.log("Model process exited before readiness: \(process.terminationStatus)")
+                return
+            }
+            guard Date() < deadline else {
+                self.showStatus("本地模型启动超时，请查看日志。")
+                return
+            }
+            guard let url = URL(string: "http://127.0.0.1:8000/v1/models") else { return }
+            URLSession.shared.dataTask(with: url) { _, response, _ in
+                if let http = response as? HTTPURLResponse, http.statusCode == 200 {
+                    self.log("Local model health check passed")
+                    self.showApplicationUI()
+                } else {
+                    DispatchQueue.global().asyncAfter(deadline: .now() + 2.0, execute: poll)
+                }
+            }.resume()
+        }
+        poll()
+    }
+
+    private func showApplicationUI() {
+        DispatchQueue.main.async {
+            self.statusLabel.isHidden = true
+            self.webView.isHidden = false
+            self.webView.load(URLRequest(url: URL(string: "http://127.0.0.1:\(self.port)/?setup=local-code&build=\(Int(Date().timeIntervalSince1970))")!))
+        }
     }
 
     private func runShell(_ args: [String], cwd: URL, logName: String) throws {
@@ -873,6 +913,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
         DispatchQueue.main.async {
             self.statusLabel.stringValue = text
             self.statusLabel.isHidden = false
+            self.webView.isHidden = true
         }
     }
 
