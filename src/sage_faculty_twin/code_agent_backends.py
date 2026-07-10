@@ -450,6 +450,13 @@ class ClaudeHustCodeAgentBackend:
                 return "\n".join(part for part in parts if part)
             return str(content or "")
 
+        def bounded_max_tokens(value: object) -> int:
+            try:
+                requested = int(value)
+            except (TypeError, ValueError):
+                requested = 1024
+            return max(64, min(requested, 1024))
+
         class Handler(http.server.BaseHTTPRequestHandler):
             def log_message(self, _format: str, *_args: object) -> None:
                 return
@@ -512,7 +519,7 @@ class ClaudeHustCodeAgentBackend:
                     upstream_payload = {
                         "model": self.server.sage_mate_upstream_model,  # type: ignore[attr-defined]
                         "messages": messages,
-                        "max_tokens": payload.get("max_tokens", 4096),
+                        "max_tokens": bounded_max_tokens(payload.get("max_tokens", 1024)),
                         "temperature": payload.get("temperature", 0),
                         "stream": False,
                     }
