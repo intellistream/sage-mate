@@ -327,8 +327,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
     private var window: NSWindow!
     private var webView: WKWebView!
     private var statusLabel: NSTextField!
+    private var statusButton: NSButton!
     private var serverProcess: Process?
     private var modelProcess: Process?
+    private var didShowApplicationUI = false
     private let port = 55601
     private lazy var launcherLogURL: URL = {
         let root = (try? supportRoot()) ?? FileManager.default.homeDirectoryForCurrentUser
@@ -453,21 +455,33 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
         statusLabel = NSTextField(labelWithString: "正在启动 Sage Mate...")
         statusLabel.alignment = .center
         statusLabel.font = NSFont.systemFont(ofSize: 15, weight: .medium)
+        statusLabel.lineBreakMode = .byWordWrapping
+        statusLabel.maximumNumberOfLines = 3
+
+        statusButton = NSButton(title: "先进入 Sage Mate", target: self, action: #selector(skipModelWaitAndOpenApp))
+        statusButton.bezelStyle = .rounded
+        statusButton.isHidden = true
 
         let container = NSView()
         container.wantsLayer = true
         container.layer?.backgroundColor = NSColor.windowBackgroundColor.cgColor
         container.addSubview(webView)
         container.addSubview(statusLabel)
+        container.addSubview(statusButton)
         webView.translatesAutoresizingMaskIntoConstraints = false
         statusLabel.translatesAutoresizingMaskIntoConstraints = false
+        statusButton.translatesAutoresizingMaskIntoConstraints = false
         NSLayoutConstraint.activate([
             webView.leadingAnchor.constraint(equalTo: container.leadingAnchor),
             webView.trailingAnchor.constraint(equalTo: container.trailingAnchor),
             webView.topAnchor.constraint(equalTo: container.topAnchor),
             webView.bottomAnchor.constraint(equalTo: container.bottomAnchor),
+            statusLabel.leadingAnchor.constraint(greaterThanOrEqualTo: container.leadingAnchor, constant: 48),
+            statusLabel.trailingAnchor.constraint(lessThanOrEqualTo: container.trailingAnchor, constant: -48),
             statusLabel.centerXAnchor.constraint(equalTo: container.centerXAnchor),
             statusLabel.centerYAnchor.constraint(equalTo: container.centerYAnchor),
+            statusButton.topAnchor.constraint(equalTo: statusLabel.bottomAnchor, constant: 18),
+            statusButton.centerXAnchor.constraint(equalTo: container.centerXAnchor),
         ])
         webView.isHidden = true
 
@@ -836,6 +850,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
                 if let http = response as? HTTPURLResponse, http.statusCode == 200 {
                     self.log("Server health check passed")
                     if self.localModelEngineIsConfigured() {
+                        self.showStatus(
+                            "本地服务已就绪，本地 Apple GPU 模型仍在启动。你可以继续等待，也可以先进入应用并在设置中使用远端模型。",
+                            allowSkip: true
+                        )
                         self.waitForLocalModelEngine()
                     } else {
                         self.showApplicationUI()
@@ -856,16 +874,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
     }
 
     private func waitForLocalModelEngine() {
-        showStatus("正在等待本地 Apple GPU 模型就绪...")
+        showStatus(
+            "本地服务已就绪，本地 Apple GPU 模型仍在启动。你可以继续等待，也可以先进入应用并在设置中使用远端模型。",
+            allowSkip: true
+        )
         let deadline = Date().addingTimeInterval(1800)
         func poll() {
             if let process = self.modelProcess, !process.isRunning {
-                self.showStatus("本地模型启动失败，请查看日志。")
+                self.showStatus("本地模型启动失败。你仍然可以先进入应用，在设置中使用远端模型。", allowSkip: true)
                 self.log("Model process exited before readiness: \(process.terminationStatus)")
                 return
             }
             guard Date() < deadline else {
-                self.showStatus("本地模型启动超时，请查看日志。")
+                self.showStatus("本地模型启动超时。你仍然可以先进入应用，在设置中使用远端模型。", allowSkip: true)
                 return
             }
             guard let url = URL(string: "http://127.0.0.1:8000/v1/models") else { return }
@@ -883,10 +904,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
 
     private func showApplicationUI() {
         DispatchQueue.main.async {
+            if self.didShowApplicationUI {
+                return
+            }
+            self.didShowApplicationUI = true
             self.statusLabel.isHidden = true
+            self.statusButton.isHidden = true
             self.webView.isHidden = false
             self.webView.load(URLRequest(url: URL(string: "http://127.0.0.1:\(self.port)/?setup=local-code&build=\(Int(Date().timeIntervalSince1970))")!))
         }
+    }
+
+    @objc private func skipModelWaitAndOpenApp() {
+        log("User skipped local model readiness wait")
+        showApplicationUI()
     }
 
     private func runShell(_ args: [String], cwd: URL, logName: String) throws {
@@ -921,11 +952,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
         return "\"\""
     }
 
-    private func showStatus(_ text: String) {
+    private func showStatus(_ text: String, allowSkip: Bool = false) {
         log("Status: \(text)")
         DispatchQueue.main.async {
+            if self.didShowApplicationUI {
+                return
+            }
             self.statusLabel.stringValue = text
             self.statusLabel.isHidden = false
+            self.statusButton.isHidden = !allowSkip
             self.webView.isHidden = true
         }
     }
