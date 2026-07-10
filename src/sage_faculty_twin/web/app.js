@@ -767,9 +767,14 @@ async function pickAndAddCodeAssistantWorkspace() {
         input?.focus?.();
         return;
     }
-    if (status) status.textContent = "";
+    if (status) status.textContent = "正在打开文件夹选择器...";
     try {
-        const selectedPath = await picker();
+        const selectedPath = await Promise.race([
+            picker(),
+            new Promise((_, reject) => {
+                setTimeout(() => reject(new Error("文件夹选择器没有响应，请重试或直接粘贴项目路径。")), 12000);
+            }),
+        ]);
         if (!selectedPath) {
             if (status) status.textContent = "";
             return;

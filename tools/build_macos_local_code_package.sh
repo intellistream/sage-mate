@@ -379,11 +379,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
     func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
         guard message.name == "sageMatePickDirectory" else { return }
         let payload = message.body as? [String: Any]
-        showDirectoryPicker(requestId: payload?["requestId"] as? String ?? "")
+        let requestId = payload?["requestId"] as? String ?? ""
+        log("Directory picker requested: \(requestId)")
+        showDirectoryPicker(requestId: requestId)
     }
 
     private func showDirectoryPicker(requestId: String) {
         DispatchQueue.main.async {
+            guard !requestId.isEmpty else {
+                self.log("Directory picker ignored empty request id")
+                return
+            }
             let panel = NSOpenPanel()
             panel.title = "选择本地项目文件夹"
             panel.prompt = "添加项目"
@@ -392,15 +398,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
             panel.allowsMultipleSelection = false
             panel.canCreateDirectories = false
             panel.directoryURL = FileManager.default.homeDirectoryForCurrentUser
-            let completion: (NSApplication.ModalResponse) -> Void = { response in
-                let path = (response == .OK) ? panel.url?.path : nil
-                self.resolveDirectoryPicker(requestId: requestId, path: path)
-            }
-            if let window = self.window {
-                panel.beginSheetModal(for: window, completionHandler: completion)
-            } else {
-                completion(panel.runModal())
-            }
+            NSApp.activate(ignoringOtherApps: true)
+            self.window?.makeKeyAndOrderFront(nil)
+            let response = panel.runModal()
+            let path = (response == .OK) ? panel.url?.path : nil
+            self.log("Directory picker completed: \(path ?? "<cancelled>")")
+            self.resolveDirectoryPicker(requestId: requestId, path: path)
         }
     }
 
@@ -416,7 +419,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
             callback(\(value));
         })();
         """
-        webView.evaluateJavaScript(script, completionHandler: nil)
+        webView.evaluateJavaScript(script) { _, error in
+            if let error = error {
+                self.log("Directory picker callback failed: \(error)")
+            }
+        }
     }
 
     private func buildWindow() {
