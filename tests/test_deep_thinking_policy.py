@@ -44,8 +44,23 @@ def test_explicit_deep_thinking_overrides_auto_disable(tmp_path: Path) -> None:
     ) is True
 
 
+def test_explicit_deep_thinking_adds_deep_answer_guidance() -> None:
+    context = _build_context(deep_thinking=True, deep_thinking_explicit=True)
+
+    guidance = FacultyTwinWorkflowSupport._build_deep_answer_guidance(context.request)
+
+    assert "deeper analysis" in guidance
+    assert "<think>" in guidance
+
+
 def test_strip_internal_thinking_content_removes_think_blocks() -> None:
     answer = "<think>internal chain</think>\n\n最终回答。"
+
+    assert _strip_internal_thinking_content(answer) == "最终回答。"
+
+
+def test_strip_internal_thinking_content_removes_unclosed_think_blocks() -> None:
+    answer = "最终回答。\n\n<think>internal chain"
 
     assert _strip_internal_thinking_content(answer) == "最终回答。"
 
@@ -59,6 +74,7 @@ def test_strip_internal_thinking_content_keeps_plain_answer() -> None:
 def test_degenerate_answer_detection_rejects_empty_and_repeated_symbols() -> None:
     assert FacultyTwinWorkflowSupport._is_degenerate_answer("")
     assert FacultyTwinWorkflowSupport._is_degenerate_answer("   ")
+    assert FacultyTwinWorkflowSupport._is_degenerate_answer("<think>internal</think>最终回答")
     assert FacultyTwinWorkflowSupport._is_degenerate_answer("*" * 200)
     assert FacultyTwinWorkflowSupport._is_degenerate_answer("-FIRST  `")
     assert FacultyTwinWorkflowSupport._is_degenerate_answer("-FIRST" + "\t " * 200)

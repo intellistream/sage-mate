@@ -381,12 +381,14 @@ def build_hardware_payload() -> dict[str, str]:
 
 _FLOWNET_TICK = "__flownet_tick__"
 _THINK_BLOCK_RE = re.compile(r"<think>.*?</think>", re.IGNORECASE | re.DOTALL)
+_THINK_OPEN_RE = re.compile(r"<think>.*", re.IGNORECASE | re.DOTALL)
 
 
 def _strip_internal_thinking_content(answer: str | None) -> str:
     if not answer:
         return ""
     stripped = _THINK_BLOCK_RE.sub("", answer)
+    stripped = _THINK_OPEN_RE.sub("", stripped)
     stripped = re.sub(r"\n{3,}", "\n\n", stripped)
     return stripped.strip()
 
@@ -1886,6 +1888,10 @@ class FacultyTwinWorkflowSupport:
                 raise
             _logger.warning("LLM returned an empty chat message; retrying with compact prompt")
             context.answer = self._retry_answer_with_compact_prompt(context)
+        context.answer = _strip_internal_thinking_content(context.answer)
+        if not context.answer:
+            _logger.warning("LLM answer only contained thinking content; retrying compact prompt")
+            context.answer = self._retry_answer_with_compact_prompt(context)
         if self._is_degenerate_answer(context.answer):
             _logger.warning("LLM returned a degenerate answer; retrying with compact prompt")
             context.answer = self._retry_answer_with_compact_prompt(context)
@@ -1911,11 +1917,18 @@ class FacultyTwinWorkflowSupport:
         return context
 
     def _retry_answer_with_compact_prompt(self, context: ChatWorkflowContext) -> str:
+        deep_recovery = bool(
+            getattr(context.request, "deep_thinking_explicit", False)
+            and getattr(context.request, "deep_thinking", True)
+        )
         compact_system_prompt = (
-            "你是中文技术老师。请用中文直接回答学生问题，给出清晰的要点和可执行建议。"
+            "直接给最终答案。用中文分点回答，避免输出思考过程。"
+            if deep_recovery
+            else "你是中文技术老师。请用中文直接回答学生问题，给出清晰的要点和可执行建议。"
         )
         compact_user_prompt = context.request.question.strip()
-        if context.request.course_context:
+        compact_user_prompt = re.sub(r"^请?深入分析[：:，,、\\s]*", "", compact_user_prompt)
+        if context.request.course_context and not deep_recovery:
             compact_user_prompt = (
                 f"背景：{context.request.course_context.strip()}\n\n"
                 f"问题：{compact_user_prompt}"
@@ -1928,8 +1941,8 @@ class FacultyTwinWorkflowSupport:
                     compact_system_prompt,
                     compact_user_prompt,
                     token_callback=None,
-                    temperature=0.0 if attempt else 0.2,
-                    max_tokens=900 if attempt else 1200,
+                    temperature=0.0,
+                    max_tokens=700 if deep_recovery else (900 if attempt else 1200),
                     enable_thinking=False,
                     use_reuse_hints=False,
                     cache_namespace=(
@@ -2000,6 +2013,8 @@ class FacultyTwinWorkflowSupport:
         text = raw_text.strip()
         if not text:
             return True
+        if "<think" in text.lower():
+            return True
         compact = re.sub(r"\s+", "", text)
         if compact.upper().startswith("-FIRST") or compact.upper().startswith("FIRST`"):
             return True
@@ -2054,22 +2069,35 @@ class FacultyTwinWorkflowSupport:
         kwargs: dict[str, Any] = {}
         policy_context = self._build_llm_serving_policy_context(context)
 
-        if token_callback is not None and "token_callback" in signature.parameters:
+        # Qwen3/vLLM-HUST can emit empty streaming chunks or content-only
+        # <think> blocks when engine thinking is enabled. In hosted/web, keep
+        # the user's "deep thinking" intent in the prompt but use normal
+        # answer generation so the request stays inside the web timeout.
+        engine_thinking = enable_thinking and token_callback is None
+        if (
+            token_callback is not None
+            and "token_callback" in signature.parameters
+            and not enable_thinking
+        ):
             kwargs["token_callback"] = token_callback
         if "enable_thinking" in signature.parameters:
-            kwargs["enable_thinking"] = enable_thinking
+            kwargs["enable_thinking"] = engine_thinking
+        if engine_thinking and "thinking_token_budget" in signature.parameters:
+            kwargs["thinking_token_budget"] = 256
         if "deadline_class" in signature.parameters:
             kwargs["deadline_class"] = policy_context["deadline_class"]
         if "request_priority" in signature.parameters:
             kwargs["request_priority"] = policy_context["request_priority"]
         if "target_e2e_ms" in signature.parameters:
             kwargs["target_e2e_ms"] = policy_context["target_e2e_ms"]
-        if (
-            "max_tokens" in signature.parameters
-            and not enable_thinking
-            and policy_context.get("max_tokens") is not None
-        ):
-            kwargs["max_tokens"] = policy_context["max_tokens"]
+        if "max_tokens" in signature.parameters:
+            if enable_thinking:
+                kwargs["max_tokens"] = min(
+                    1536,
+                    int(self._settings.llm_policy_output_max_tokens_cap),
+                )
+            elif policy_context.get("max_tokens") is not None:
+                kwargs["max_tokens"] = policy_context["max_tokens"]
         if "cache_namespace" in signature.parameters and context.conversation_id:
             kwargs["cache_namespace"] = context.conversation_id
         if "segment_reuse_body_text" in signature.parameters:
@@ -3174,6 +3202,7 @@ class FacultyTwinWorkflowSupport:
             request, interaction_intent
         )
         fast_answer_guidance = self._build_fast_answer_guidance(request, interaction_intent)
+        deep_answer_guidance = self._build_deep_answer_guidance(request)
         preparation_guidance = self._build_meeting_preparation_guidance(
             request.question, interaction_intent
         )
@@ -3207,6 +3236,7 @@ class FacultyTwinWorkflowSupport:
             f"{intent_guidance}"
             f"{profile_grounding_guidance}"
             f"{fast_answer_guidance}"
+            f"{deep_answer_guidance}"
             f"{preparation_guidance}"
             f"{advising_guidance}"
             f"{teaching_guidance}"
@@ -3220,6 +3250,20 @@ class FacultyTwinWorkflowSupport:
             f"{knowledge_context}"
             f"{web_search_context}"
             f"Question: {request.question}\n"
+        )
+
+    @staticmethod
+    def _build_deep_answer_guidance(request: ChatRequest) -> str:
+        if not (
+            getattr(request, "deep_thinking_explicit", False)
+            and getattr(request, "deep_thinking", True)
+        ):
+            return ""
+        return (
+            "Deep-answer guidance: The user explicitly requested deeper analysis. "
+            "Do not expose hidden chain-of-thought or <think> tags. Provide a structured final answer "
+            "with: (1) the core trade-off or thesis, (2) 3-5 concrete factors, "
+            "(3) practical next steps or evaluation criteria. Keep it concise but substantive.\n"
         )
 
     def _build_fast_answer_guidance(
