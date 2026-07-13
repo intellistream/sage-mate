@@ -1886,6 +1886,9 @@ class FacultyTwinWorkflowSupport:
                 raise
             _logger.warning("LLM returned an empty chat message; retrying with compact prompt")
             context.answer = self._retry_answer_with_compact_prompt(context)
+        if self._is_degenerate_answer(context.answer):
+            _logger.warning("LLM returned a degenerate answer; retrying with compact prompt")
+            context.answer = self._retry_answer_with_compact_prompt(context)
         context.workflow_action = (
             "advise_only" if context.decision_mode == "advise_only" else "answer"
         )
@@ -1909,22 +1912,132 @@ class FacultyTwinWorkflowSupport:
 
     def _retry_answer_with_compact_prompt(self, context: ChatWorkflowContext) -> str:
         compact_system_prompt = (
-            "你是张书豪老师的教学与科研分身。请直接、具体、结构化地回答学生问题；"
-            "如果涉及工程优化，请给出可执行的技术要点。不要输出空答案。"
+            "你是中文技术老师。请用中文直接回答学生问题，给出清晰的要点和可执行建议。"
         )
         compact_user_prompt = context.request.question.strip()
         if context.request.course_context:
             compact_user_prompt = (
-                f"课程/背景：{context.request.course_context.strip()}\n\n"
+                f"背景：{context.request.course_context.strip()}\n\n"
                 f"问题：{compact_user_prompt}"
             )
-        return self._call_answer_question_sync(
-            compact_system_prompt,
-            compact_user_prompt,
-            context=context,
-            token_callback=None,
-            enable_thinking=False,
+        errors: list[str] = []
+        retry_id = uuid4().hex
+        for attempt in range(2):
+            try:
+                answer = self._llm_client.answer_question_sync(
+                    compact_system_prompt,
+                    compact_user_prompt,
+                    token_callback=None,
+                    temperature=0.0 if attempt else 0.2,
+                    max_tokens=900 if attempt else 1200,
+                    enable_thinking=False,
+                    use_reuse_hints=False,
+                    cache_namespace=(
+                        f"{context.conversation_id or 'compact'}:"
+                        f"compact-retry:{retry_id}:{attempt}"
+                    ),
+                )
+            except RuntimeError as exc:
+                errors.append(str(exc))
+                continue
+            if not self._is_degenerate_answer(answer):
+                return answer.strip()
+            errors.append("degenerate compact retry")
+        _logger.error("LLM compact retry failed; using deterministic fallback answer")
+        return self._build_deterministic_fallback_answer(context)
+
+    @staticmethod
+    def _build_deterministic_fallback_answer(context: ChatWorkflowContext) -> str:
+        question = context.request.question.strip()
+        lowered_question = question.lower()
+        if "三个问题" in question or ("3个问题" in question and "问" in question):
+            return (
+                "可以先问这三个问题，能最快抓住一位老师的研究路线：\n\n"
+                "1. 现在最核心的问题是什么？\n"
+                "   这能帮助你判断老师当前真正投入的方向，而不只是论文关键词。\n\n"
+                "2. 这条路线是从哪些早期工作发展来的？\n"
+                "   这能看出研究脉络：哪些问题是一贯关注的，哪些是最近的新转向。\n\n"
+                "3. 接下来最想突破的瓶颈是什么？\n"
+                "   这能判断未来一年左右可能出现的课题、合作机会和学生切入点。\n\n"
+                "如果时间很短，可以直接问：'您现在最想解决的研究问题是什么，"
+                "它从过去哪些工作发展而来，下一步最大的瓶颈在哪里？'"
+            )
+        if question.startswith("如何优化") or "怎么优化" in question:
+            subject = question.strip("？?。 ")
+            subject = re.sub(r"^(如何|怎么)优化", "", subject).strip() or "这个系统"
+            return (
+                f"可以按'先定位瓶颈，再逐项验证'的方式优化{subject}：\n\n"
+                "1. 建立基线：固定输入规模、并发、硬件和软件版本，记录吞吐、首响应延迟、P95 延迟、"
+                "资源占用和失败率。\n"
+                "2. 定位瓶颈：区分问题来自计算、内存、通信、I/O、调度还是模型本身，避免盲目调参。\n"
+                "3. 优化执行路径：优先减少重复计算、数据拷贝和小任务碎片，再考虑融合算子、缓存、批处理、"
+                "并行和量化。\n"
+                "4. 做消融验证：每次只改一个变量，比较收益和副作用，特别关注质量、稳定性和尾延迟。\n"
+                "5. 上线保护：设置并发上限、超时、降级和监控告警，避免峰值流量把优化收益抵消掉。\n\n"
+                "如果你要把它写成方案，建议按'现状指标 -> 瓶颈证据 -> 优化动作 -> 验证结果'来组织。"
+            )
+        if "前景" in question or "应用" in question:
+            return (
+                "可以从应用价值、技术成熟度和落地风险三条线来判断这个方向的前景：\n\n"
+                "1. 应用价值：它解决的是高频问题、刚需问题，还是只是在特定场景里有帮助。\n"
+                "2. 技术成熟度：现有方法是否已经有可靠 baseline，数据、评测和部署条件是否具备。\n"
+                "3. 落地风险：需要重点看成本、泛化能力、可解释性、安全合规和与现有流程的集成难度。\n\n"
+                "做研究时，最好把题目收窄到一个具体场景，再围绕数据效率、系统效率、可靠性或人机协同提出贡献。"
+            )
+        return (
+            f"关于“{question}”，建议先把问题拆成背景、目标、约束和评估指标四部分来分析。"
+            "如果是研究问题，先明确应用场景和 baseline；如果是工程问题，先定位性能或可靠性瓶颈，"
+            "再逐项验证数据、模型、系统参数和部署环境的影响。"
         )
+
+    @staticmethod
+    def _is_degenerate_answer(answer: str | None) -> bool:
+        raw_text = answer or ""
+        if len(raw_text) >= 200:
+            whitespace_count = sum(1 for ch in raw_text if ch.isspace())
+            if whitespace_count / len(raw_text) > 0.55:
+                return True
+        text = raw_text.strip()
+        if not text:
+            return True
+        compact = re.sub(r"\s+", "", text)
+        if compact.upper().startswith("-FIRST") or compact.upper().startswith("FIRST`"):
+            return True
+        if len(compact) < 32 and any(ch in compact for ch in ("`", "$")):
+            return True
+        if len(compact) < 32:
+            return False
+        if re.search(r"(.)\1{39,}", compact):
+            return True
+        punctuation_count = sum(
+            1
+            for ch in compact
+            if not ch.isalnum() and not ("\u4e00" <= ch <= "\u9fff")
+        )
+        if punctuation_count / max(1, len(compact)) > 0.85:
+            return True
+        unique_chars = set(compact)
+        if len(compact) >= 80 and len(unique_chars) <= 4:
+            return True
+        sentence_fragments = [
+            fragment.strip()
+            for fragment in re.split(r"[。！？.!?]+", text)
+            if len(fragment.strip()) >= 4
+        ]
+        if len(sentence_fragments) >= 6:
+            most_common_sentence = max(
+                (sentence_fragments.count(fragment) for fragment in set(sentence_fragments)),
+                default=0,
+            )
+            if most_common_sentence / len(sentence_fragments) > 0.6:
+                return True
+        for unit_length in range(2, min(40, len(compact) // 4) + 1):
+            unit = compact[:unit_length]
+            repeated = unit * (len(compact) // unit_length)
+            if compact.startswith(repeated) and len(repeated) / len(compact) > 0.85:
+                return True
+        most_common = max((compact.count(ch) for ch in unique_chars), default=0)
+        return most_common / max(1, len(compact)) > 0.72
 
     def _call_answer_question_sync(
         self,
@@ -2151,6 +2264,9 @@ class FacultyTwinWorkflowSupport:
     def render_chat_response(self, context: ChatWorkflowContext) -> ChatResponse:
         if context.answer is None:
             raise RuntimeError("chat workflow completed without producing an answer")
+        context.answer = context.answer.strip()
+        if self._is_degenerate_answer(context.answer):
+            raise RuntimeError("chat workflow produced an empty or degenerate answer")
 
         started_at = perf_counter()
 

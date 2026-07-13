@@ -11,7 +11,7 @@ import threading
 import time
 import urllib.parse
 import urllib.request
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Callable
 from datetime import date
 from io import BytesIO
 from pathlib import Path
@@ -331,6 +331,37 @@ class WorkflowEventBroker:
 
         loop, queue = stream
         loop.call_soon_threadsafe(queue.put_nowait, payload)
+
+
+class _AnswerDoneCompleteGate:
+    """Ensure the SSE final answer is published before the stream closes."""
+
+    def __init__(self, publish_complete: Callable[[], None]) -> None:
+        self._publish_complete = publish_complete
+        self._lock = threading.Lock()
+        self._answer_done = False
+        self._post_answer_complete = False
+        self._complete_published = False
+
+    def mark_post_answer_complete(self) -> None:
+        should_publish = False
+        with self._lock:
+            self._post_answer_complete = True
+            if self._answer_done and not self._complete_published:
+                self._complete_published = True
+                should_publish = True
+        if should_publish:
+            self._publish_complete()
+
+    def mark_answer_done(self) -> None:
+        should_publish = False
+        with self._lock:
+            self._answer_done = True
+            if self._post_answer_complete and not self._complete_published:
+                self._complete_published = True
+                should_publish = True
+        if should_publish:
+            self._publish_complete()
 
 
 workflow_event_broker = WorkflowEventBroker()
@@ -1079,8 +1110,9 @@ async def home() -> FileResponse:
     return FileResponse(web_dir / "index.html", headers=NO_STORE_HEADERS)
 
 
-@llm_app.get("/styles.css", include_in_schema=False)
-@llm_app.get("/styles.4217.css", include_in_schema=False)
+@llm_app.api_route("/styles.css", methods=["GET", "HEAD"], include_in_schema=False)
+@llm_app.api_route("/styles.4217.css", methods=["GET", "HEAD"], include_in_schema=False)
+@llm_app.api_route("/styles.4219.css", methods=["GET", "HEAD"], include_in_schema=False)
 async def styles() -> FileResponse:
     return frontend_asset("styles.css")
 
@@ -1092,9 +1124,10 @@ async def homepage_redirect() -> RedirectResponse:
     return RedirectResponse(url=target, status_code=302)
 
 
-@llm_app.get("/app.js", include_in_schema=False)
-@llm_app.get("/app.4217.js", include_in_schema=False)
-@llm_app.get("/app.4218.js", include_in_schema=False)
+@llm_app.api_route("/app.js", methods=["GET", "HEAD"], include_in_schema=False)
+@llm_app.api_route("/app.4217.js", methods=["GET", "HEAD"], include_in_schema=False)
+@llm_app.api_route("/app.4218.js", methods=["GET", "HEAD"], include_in_schema=False)
+@llm_app.api_route("/app.4219.js", methods=["GET", "HEAD"], include_in_schema=False)
 async def app_js() -> FileResponse:
     return frontend_asset("app.js")
 
@@ -1645,8 +1678,15 @@ async def chat(
     # ``publish_complete`` until that background task finishes so the SSE
     # consumer still sees the post-answer trace steps before the stream
     # closes.
+    answer_complete_gate = _AnswerDoneCompleteGate(
+        lambda: workflow_event_broker.publish_complete(request_id)
+    )
+
     def _on_post_answer_complete() -> None:
-        workflow_event_broker.publish_complete(request_id)
+        if STREAM_CHAT_ANSWER:
+            answer_complete_gate.mark_post_answer_complete()
+        else:
+            workflow_event_broker.publish_complete(request_id)
 
     answer_chunk_callback = None
     if STREAM_CHAT_ANSWER:
@@ -1688,6 +1728,8 @@ async def chat(
             workflow_event_broker.publish_answer_done(request_id, response.model_dump(mode="json"))
         except Exception:  # pragma: no cover - defensive
             pass
+        finally:
+            answer_complete_gate.mark_answer_done()
 
     return response
 

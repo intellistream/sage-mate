@@ -953,3 +953,32 @@ def test_answer_question_can_attach_prefix_and_segment_reuse_hints_together() ->
     assert payload["extra_key"].startswith("twin:lab_member:")
     assert "||segreuse:v1;" in payload["extra_key"]
     assert "leading_tokens=;" in payload["extra_key"]
+
+
+def test_answer_question_can_disable_reuse_hints_for_recovery_retry() -> None:
+    transport = _SequencedHttpxClient([_SequencedChatCompletionResponse("OK")])
+    client = _build_retry_test_client(
+        AppSettings(
+            kv_continuity_enabled=True,
+            kv_fixed_prefix_materialization_enabled=True,
+            segment_reuse_hints_enabled=True,
+        ),
+        transport,
+    )
+    client.model_name = "demo-model"
+
+    answer = client.answer_question_sync(
+        "stable system prompt",
+        "dynamic user prompt",
+        enable_thinking=False,
+        max_tokens=8,
+        cache_namespace="conv-1",
+        use_reuse_hints=False,
+    )
+
+    assert answer == "OK"
+    assert len(transport.calls) == 1
+    _, payload = transport.calls[0]
+    assert "cache_salt" not in payload
+    assert "extra_key" not in payload
+    assert "kv_transfer_params" not in payload

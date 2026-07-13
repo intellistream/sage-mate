@@ -54,3 +54,42 @@ def test_strip_internal_thinking_content_keeps_plain_answer() -> None:
     answer = "这是直接给用户的回答。"
 
     assert _strip_internal_thinking_content(answer) == answer
+
+
+def test_degenerate_answer_detection_rejects_empty_and_repeated_symbols() -> None:
+    assert FacultyTwinWorkflowSupport._is_degenerate_answer("")
+    assert FacultyTwinWorkflowSupport._is_degenerate_answer("   ")
+    assert FacultyTwinWorkflowSupport._is_degenerate_answer("*" * 200)
+    assert FacultyTwinWorkflowSupport._is_degenerate_answer("-FIRST  `")
+    assert FacultyTwinWorkflowSupport._is_degenerate_answer("-FIRST" + "\t " * 200)
+    assert FacultyTwinWorkflowSupport._is_degenerate_answer("正常开头" + "F" * 100)
+    assert FacultyTwinWorkflowSupport._is_degenerate_answer("不便讨论。" * 80)
+
+
+def test_degenerate_answer_detection_keeps_normal_short_and_structured_answers() -> None:
+    assert not FacultyTwinWorkflowSupport._is_degenerate_answer("OK")
+    assert not FacultyTwinWorkflowSupport._is_degenerate_answer(
+        "可以从算子融合、KV Cache 管理、批处理调度和通信重叠几个方向优化。"
+    )
+
+
+def test_deterministic_fallback_answer_handles_ascend_question() -> None:
+    context = _build_context()
+    context.request.question = "如何优化大模型在Ascend NPU上的推理效率？"
+
+    answer = FacultyTwinWorkflowSupport._build_deterministic_fallback_answer(context)
+
+    assert "先定位瓶颈" in answer
+    assert "吞吐" in answer
+    assert not FacultyTwinWorkflowSupport._is_degenerate_answer(answer)
+
+
+def test_deterministic_fallback_answer_handles_three_question_guidance() -> None:
+    context = _build_context()
+    context.request.question = "如果我想快速了解张老师的研究路线，最值得先问哪三个问题？"
+
+    answer = FacultyTwinWorkflowSupport._build_deterministic_fallback_answer(context)
+
+    assert "三个问题" in answer
+    assert "现在最核心的问题" in answer
+    assert not FacultyTwinWorkflowSupport._is_degenerate_answer(answer)

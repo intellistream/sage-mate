@@ -2646,20 +2646,22 @@ chatForm.addEventListener("submit", async (event) => {
                 shadowPlannerPreview: data.shadow_planner_preview || null,
                 plannerComparison: data.planner_comparison || null,
             });
-            renderAssistantMessage(
-                pendingMessage,
-                data.answer,
-                data.answer_basis || [],
-                data.follow_up_actions || [],
-                data.knowledge_hits || [],
-                data.booking_result || null,
-                false,
-                data.exchange_id || null,
-                data.workflow_trace || []
-            );
-            noteConversationAnswerPreview(data.answer);
-            updateTokenUsageBadge(data.token_usage || null);
-            persistActiveConversationSnapshot();
+            if (!streamingFinalResponseApplied && pendingMessage.classList.contains("message-pending")) {
+                renderAssistantMessage(
+                    pendingMessage,
+                    data.answer,
+                    data.answer_basis || [],
+                    data.follow_up_actions || [],
+                    data.knowledge_hits || [],
+                    data.booking_result || null,
+                    false,
+                    data.exchange_id || null,
+                    data.workflow_trace || []
+                );
+                noteConversationAnswerPreview(data.answer);
+                updateTokenUsageBadge(data.token_usage || null);
+                persistActiveConversationSnapshot();
+            }
             void syncConversationHistoryFromServer();
             break;
         } catch (error) {
@@ -8819,6 +8821,7 @@ function stopWorkflowTraceStream() {
 // bubble via renderAssistantMessage.
 let streamingAnswerBuffer = "";
 let streamingThinkBuffer = "";
+let streamingFinalResponseApplied = false;
 
 function appendStreamingAnswerDelta(delta) {
     if (!delta) return;
@@ -8904,6 +8907,7 @@ function appendStreamingThinkDelta(delta) {
 function clearStreamingAnswerBuffer() {
     streamingAnswerBuffer = "";
     streamingThinkBuffer = "";
+    streamingFinalResponseApplied = false;
 }
 
 function handleWorkflowStreamEvent(payload) {
@@ -8954,10 +8958,27 @@ function handleWorkflowStreamEvent(payload) {
     }
 
     if (payload.type === "answer_done") {
-        // The /chat POST resolution will swap the pending bubble for the
-        // fully-rendered ChatResponse, so we just clear the streaming
-        // buffer here.
-        clearStreamingAnswerBuffer();
+        const response = payload.response || {};
+        const pending = chatStream && chatStream.querySelector(".message-pending");
+        if (pending && response && typeof response.answer === "string") {
+            renderAssistantMessage(
+                pending,
+                response.answer,
+                response.answer_basis || [],
+                response.follow_up_actions || [],
+                response.knowledge_hits || [],
+                response.booking_result || null,
+                false,
+                response.exchange_id || null,
+                response.workflow_trace || []
+            );
+            streamingFinalResponseApplied = true;
+            noteConversationAnswerPreview(response.answer);
+            updateTokenUsageBadge(response.token_usage || null);
+            persistActiveConversationSnapshot();
+        }
+        streamingAnswerBuffer = "";
+        streamingThinkBuffer = "";
         return;
     }
 

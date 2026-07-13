@@ -892,6 +892,7 @@ class VllmChatClient:
         cache_namespace: str | None = None,
         segment_reuse_body_text: str | None = None,
         segment_reuse_scope: str | None = None,
+        use_reuse_hints: bool = True,
     ) -> str:
         answer_temperature = (
             self._settings.llm_answer_temperature if temperature is None else temperature
@@ -924,22 +925,23 @@ class VllmChatClient:
             payload["max_tokens"] = max_tokens
 
         logical_request_id = cache_namespace or "default"
-        payload = self.annotate_request_with_session_hints(
-            payload,
-            user_id="anonymous",
-            conversation_id=logical_request_id,
-        )
-        payload = self.annotate_request_with_fixed_prefix_hints(
-            payload,
-            system_prompt=system_prompt,
-            logical_request_id=logical_request_id,
-        )
-        payload = self.annotate_request_with_segment_reuse_hints(
-            payload,
-            reusable_body_text=segment_reuse_body_text or system_prompt,
-            scope=segment_reuse_scope or "system",
-            logical_request_id=logical_request_id,
-        )
+        if use_reuse_hints:
+            payload = self.annotate_request_with_session_hints(
+                payload,
+                user_id="anonymous",
+                conversation_id=logical_request_id,
+            )
+            payload = self.annotate_request_with_fixed_prefix_hints(
+                payload,
+                system_prompt=system_prompt,
+                logical_request_id=logical_request_id,
+            )
+            payload = self.annotate_request_with_segment_reuse_hints(
+                payload,
+                reusable_body_text=segment_reuse_body_text or system_prompt,
+                scope=segment_reuse_scope or "system",
+                logical_request_id=logical_request_id,
+            )
 
         # Scope the response cache to a specific conversation/user so that
         # different users asking similar questions don't get identical cached

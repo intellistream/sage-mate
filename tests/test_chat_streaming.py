@@ -98,6 +98,21 @@ def test_publish_answer_delta_then_done_emits_in_order(
     assert done_index > last_delta_index
 
 
+def test_answer_done_complete_gate_defers_close_until_answer_done() -> None:
+    published: list[str] = []
+    gate = api_module._AnswerDoneCompleteGate(lambda: published.append("complete"))
+
+    gate.mark_post_answer_complete()
+    assert published == []
+
+    gate.mark_answer_done()
+    assert published == ["complete"]
+
+    gate.mark_post_answer_complete()
+    gate.mark_answer_done()
+    assert published == ["complete"]
+
+
 class _FakeStreamingResponse:
     def __init__(self, lines: Iterable[str]) -> None:
         self._lines = list(lines)
