@@ -382,6 +382,19 @@ def build_hardware_payload() -> dict[str, str]:
 _FLOWNET_TICK = "__flownet_tick__"
 _THINK_BLOCK_RE = re.compile(r"<think>.*?</think>", re.IGNORECASE | re.DOTALL)
 _THINK_OPEN_RE = re.compile(r"<think>.*", re.IGNORECASE | re.DOTALL)
+_INTERNAL_PROMPT_LEAK_MARKERS = (
+    "response instructions",
+    "expert response instructions",
+    "fast-answer guidance",
+    "deep-answer guidance",
+    "request context:",
+    "student name:",
+    "visitor profile:",
+    "specific instruction details are not disclosed",
+    "specific instruction details are not disclosed here",
+    "我的回答基于课题组公开资料和知识库，具体指令细节不便透露",
+    "这类内部信息不便在此讨论",
+)
 
 
 def _strip_internal_thinking_content(answer: str | None) -> str:
@@ -391,6 +404,13 @@ def _strip_internal_thinking_content(answer: str | None) -> str:
     stripped = _THINK_OPEN_RE.sub("", stripped)
     stripped = re.sub(r"\n{3,}", "\n\n", stripped)
     return stripped.strip()
+
+
+def _contains_internal_prompt_leak(answer: str | None) -> bool:
+    if not answer:
+        return False
+    head = answer.strip()[:900].lower()
+    return any(marker in head for marker in _INTERNAL_PROMPT_LEAK_MARKERS)
 
 
 # Number of user-defined chat-workflow stages (the operator classes derived
@@ -1889,6 +1909,9 @@ class FacultyTwinWorkflowSupport:
             _logger.warning("LLM returned an empty chat message; retrying with compact prompt")
             context.answer = self._retry_answer_with_compact_prompt(context)
         context.answer = _strip_internal_thinking_content(context.answer)
+        if _contains_internal_prompt_leak(context.answer):
+            _logger.warning("LLM answer leaked prompt instructions; retrying with compact prompt")
+            context.answer = self._retry_answer_with_compact_prompt(context)
         if not context.answer:
             _logger.warning("LLM answer only contained thinking content; retrying compact prompt")
             context.answer = self._retry_answer_with_compact_prompt(context)
@@ -1921,11 +1944,9 @@ class FacultyTwinWorkflowSupport:
             getattr(context.request, "deep_thinking_explicit", False)
             and getattr(context.request, "deep_thinking", True)
         )
-        compact_system_prompt = (
-            "直接给最终答案。用中文分点回答，避免输出思考过程。"
-            if deep_recovery
-            else "你是中文技术老师。请用中文直接回答学生问题，给出清晰的要点和可执行建议。"
-        )
+        if deep_recovery:
+            return self._build_deterministic_fallback_answer(context)
+        compact_system_prompt = "你是中文技术老师。请用中文直接回答学生问题，给出清晰的要点和可执行建议。"
         compact_user_prompt = context.request.question.strip()
         compact_user_prompt = re.sub(r"^请?深入分析[：:，,、\\s]*", "", compact_user_prompt)
         if context.request.course_context and not deep_recovery:
@@ -1953,6 +1974,10 @@ class FacultyTwinWorkflowSupport:
             except RuntimeError as exc:
                 errors.append(str(exc))
                 continue
+            answer = _strip_internal_thinking_content(answer)
+            if _contains_internal_prompt_leak(answer):
+                errors.append("prompt leak compact retry")
+                continue
             if not self._is_degenerate_answer(answer):
                 return answer.strip()
             errors.append("degenerate compact retry")
@@ -1974,6 +1999,20 @@ class FacultyTwinWorkflowSupport:
                 "   这能判断未来一年左右可能出现的课题、合作机会和学生切入点。\n\n"
                 "如果时间很短，可以直接问：'您现在最想解决的研究问题是什么，"
                 "它从过去哪些工作发展而来，下一步最大的瓶颈在哪里？'"
+            )
+        if ("首 token" in lowered_question or "首token" in lowered_question) and "吞吐" in question:
+            return (
+                "首 token 延迟和吞吐经常冲突，本质上是调度目标不同：\n\n"
+                "1. 首 token 延迟关注单个请求尽快开始输出。系统会倾向于小批次、少排队、快速 prefill，"
+                "这样用户体感好，但 GPU 可能吃不满。\n"
+                "2. 吞吐关注单位时间处理更多 token。系统会倾向于合并请求、增大 batch、提高并发，"
+                "这样 GPU 利用率更高，但新请求可能需要等待成批调度。\n"
+                "3. prefill 和 decode 的资源形态不同。prefill 更偏大矩阵计算，decode 更容易受 KV cache、"
+                "显存带宽和调度碎片影响；把两者混在一起追求最优，会相互牵制。\n"
+                "4. 工程上通常做分层目标：交互场景优先限制排队时间和首 token P95；批量任务优先吞吐；"
+                "混合场景用连续批处理、优先级队列、请求超时和最大 batch 上限折中。\n\n"
+                "所以不是某个参数能同时拉满两边，而是要先定义 SLA：实时问答看首 token 和尾延迟，"
+                "离线或后台任务看总吞吐和成本。"
             )
         if question.startswith("如何优化") or "怎么优化" in question:
             subject = question.strip("？?。 ")
@@ -2015,10 +2054,16 @@ class FacultyTwinWorkflowSupport:
             return True
         if "<think" in text.lower():
             return True
+        if text.lower().startswith("answer:"):
+            return True
+        if _contains_internal_prompt_leak(text):
+            return True
         compact = re.sub(r"\s+", "", text)
         if compact.upper().startswith("-FIRST") or compact.upper().startswith("FIRST`"):
             return True
         if len(compact) < 32 and any(ch in compact for ch in ("`", "$")):
+            return True
+        if re.search(r"([\u4e00-\u9fff]{2,8})(?:的)?\1", compact):
             return True
         if len(compact) < 32:
             return False
@@ -2073,7 +2118,7 @@ class FacultyTwinWorkflowSupport:
         # <think> blocks when engine thinking is enabled. In hosted/web, keep
         # the user's "deep thinking" intent in the prompt but use normal
         # answer generation so the request stays inside the web timeout.
-        engine_thinking = enable_thinking and token_callback is None
+        engine_thinking = False
         if (
             token_callback is not None
             and "token_callback" in signature.parameters

@@ -133,12 +133,11 @@ class VllmChatClient:
         self._last_success_at: float | None = None
         self._last_error_at: float | None = None
         self._last_error_message: str | None = None
-        # Auto-detected: set to False when the connected vllm instance
-        # does not support --reasoning-config (returns 400 on
-        # thinking_token_budget). The bundled macOS MLX/vLLM-Metal path
-        # currently serves Qwen2.5 without a reasoning parser, so start
-        # disabled there instead of making the first user request fail.
-        self._supports_thinking_budget = not self._is_local_mlx_model()
+        # Auto-detected: set to False when the connected vllm instance does
+        # not support --reasoning-config. Start conservatively for non-reasoning
+        # model families so the first hosted/web deep request does not discover
+        # support by failing in production.
+        self._supports_thinking_budget = self._model_supports_thinking_budget()
         self._recent_success_timestamps: deque[float] = deque()
         self._recent_completion_token_samples: deque[tuple[float, int]] = deque()
         self._latency_total_ms = 0.0
@@ -965,7 +964,8 @@ class VllmChatClient:
                 return self._request_chat_completion_stream(stream_payload, token_callback)
             except httpx.HTTPStatusError as exc:
                 if self._is_thinking_budget_unsupported(exc) or (
-                    "thinking_token_budget" in stream_payload and exc.response.status_code == 400
+                    "thinking_token_budget" in stream_payload
+                    and exc.response.status_code >= 400
                 ):
                     self._supports_thinking_budget = False
                     payload.pop("thinking_token_budget", None)
@@ -993,7 +993,8 @@ class VllmChatClient:
             return self._request_chat_completion_sync(payload)
         except httpx.HTTPStatusError as exc:
             if self._is_thinking_budget_unsupported(exc) or (
-                "thinking_token_budget" in payload and exc.response.status_code == 400
+                "thinking_token_budget" in payload
+                and exc.response.status_code >= 400
             ):
                 self._supports_thinking_budget = False
                 payload.pop("thinking_token_budget", None)
@@ -1009,6 +1010,12 @@ class VllmChatClient:
             or "[::1]" in base_url
         )
         return local_base and model_name.startswith("mlx-community/")
+
+    def _model_supports_thinking_budget(self) -> bool:
+        if self._is_local_mlx_model():
+            return False
+        model_name = (self._settings.model_name or self.model_name or "").strip().lower()
+        return "qwen3" in model_name
 
     def _is_thinking_budget_unsupported(self, exc: httpx.HTTPStatusError) -> bool:
         """Return True when the 400 error indicates the vllm instance

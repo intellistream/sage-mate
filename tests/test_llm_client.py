@@ -389,7 +389,7 @@ class _SequencedHttpxClient:
         path: str,
         json: dict,
     ) -> _SequencedChatCompletionResponse | _FailingChatCompletionResponse:
-        self.calls.append((path, json))
+        self.calls.append((path, dict(json)))
         if not self._responses:
             raise RuntimeError("no more sequenced responses")
         return self._responses.pop(0)
@@ -982,3 +982,52 @@ def test_answer_question_can_disable_reuse_hints_for_recovery_retry() -> None:
     assert "cache_salt" not in payload
     assert "extra_key" not in payload
     assert "kv_transfer_params" not in payload
+
+
+def test_answer_question_retries_without_thinking_budget_after_server_error() -> None:
+    transport = _SequencedHttpxClient(
+        [
+            _FailingChatCompletionResponse(),
+            _SequencedChatCompletionResponse("OK"),
+        ]
+    )
+    client = _build_retry_test_client(
+        AppSettings(model_name="demo-model", llm_cache_ttl_seconds=0),
+        transport,
+    )
+    client.model_name = "demo-model"
+    client._supports_thinking_budget = True
+
+    answer = client.answer_question_sync(
+        "system",
+        "user",
+        enable_thinking=True,
+        thinking_token_budget=256,
+        max_tokens=8,
+        use_reuse_hints=False,
+    )
+
+    assert answer == "OK"
+    assert client._supports_thinking_budget is False
+    assert len(transport.calls) == 2
+    assert transport.calls[0][1]["thinking_token_budget"] == 256
+    assert "thinking_token_budget" not in transport.calls[1][1]
+
+
+def test_model_supports_thinking_budget_only_for_qwen3_by_default() -> None:
+    client = object.__new__(VllmChatClient)
+    client._settings = AppSettings(
+        model_name="zai-org/GLM-4-32B-0414",
+        llm_base_url="http://127.0.0.1:18001/v1",
+    )
+    client.model_name = "zai-org/GLM-4-32B-0414"
+
+    assert client._model_supports_thinking_budget() is False
+
+    client._settings = AppSettings(
+        model_name="Qwen/Qwen3-32B",
+        llm_base_url="http://127.0.0.1:18001/v1",
+    )
+    client.model_name = "Qwen/Qwen3-32B"
+
+    assert client._model_supports_thinking_budget() is True

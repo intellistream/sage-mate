@@ -80,6 +80,18 @@ def test_degenerate_answer_detection_rejects_empty_and_repeated_symbols() -> Non
     assert FacultyTwinWorkflowSupport._is_degenerate_answer("-FIRST" + "\t " * 200)
     assert FacultyTwinWorkflowSupport._is_degenerate_answer("正常开头" + "F" * 100)
     assert FacultyTwinWorkflowSupport._is_degenerate_answer("不便讨论。" * 80)
+    assert FacultyTwinWorkflowSupport._is_degenerate_answer(
+        "Response instructions: Respond as the digital twin of the faculty owner."
+    )
+    assert FacultyTwinWorkflowSupport._is_degenerate_answer(
+        "这类内部信息不便在此讨论，请直接联系张老师。"
+    )
+    assert FacultyTwinWorkflowSupport._is_degenerate_answer(
+        "Answer: 这个问题是关于大模型推理服务系统的核心权衡。"
+    )
+    assert FacultyTwinWorkflowSupport._is_degenerate_answer(
+        "实践经验总结的实践经验的实践经验总结"
+    )
 
 
 def test_degenerate_answer_detection_keeps_normal_short_and_structured_answers() -> None:
@@ -109,3 +121,54 @@ def test_deterministic_fallback_answer_handles_three_question_guidance() -> None
     assert "三个问题" in answer
     assert "现在最核心的问题" in answer
     assert not FacultyTwinWorkflowSupport._is_degenerate_answer(answer)
+
+
+def test_deterministic_fallback_answer_handles_first_token_throughput_tradeoff() -> None:
+    context = _build_context()
+    context.request.question = "为什么大模型推理服务同时优化首 token 延迟和吞吐会有冲突？"
+
+    answer = FacultyTwinWorkflowSupport._build_deterministic_fallback_answer(context)
+
+    assert "首 token 延迟" in answer
+    assert "吞吐" in answer
+    assert "调度目标不同" in answer
+    assert not FacultyTwinWorkflowSupport._is_degenerate_answer(answer)
+
+
+def test_hosted_web_deep_call_does_not_enable_engine_thinking(tmp_path: Path) -> None:
+    class FakeLlmClient:
+        def __init__(self) -> None:
+            self.kwargs: dict[str, object] | None = None
+
+        def answer_question_sync(
+            self,
+            system_prompt: str,
+            user_prompt: str,
+            *,
+            enable_thinking: bool = True,
+            thinking_token_budget: int | None = None,
+            **kwargs: object,
+        ) -> str:
+            kwargs["enable_thinking"] = enable_thinking
+            if thinking_token_budget is not None:
+                kwargs["thinking_token_budget"] = thinking_token_budget
+            self.kwargs = kwargs
+            return "OK"
+
+    fake_llm = FakeLlmClient()
+    service = object.__new__(FacultyTwinWorkflowSupport)
+    service._settings = AppSettings(knowledge_base_dir=tmp_path)
+    service._llm_client = fake_llm
+    context = _build_context(deep_thinking=True, deep_thinking_explicit=True)
+
+    answer = service._call_answer_question_sync(
+        "system",
+        "user",
+        context=context,
+        enable_thinking=True,
+    )
+
+    assert answer == "OK"
+    assert fake_llm.kwargs is not None
+    assert fake_llm.kwargs["enable_thinking"] is False
+    assert "thinking_token_budget" not in fake_llm.kwargs
