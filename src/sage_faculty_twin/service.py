@@ -1865,21 +1865,27 @@ class FacultyTwinWorkflowSupport:
             raise RuntimeError("chat workflow reached llm stage without a prepared prompt")
 
         enable_thinking = self._should_enable_deep_thinking(context)
-        if self._answer_chunk_callback is not None:
-            context.answer = self._call_answer_question_sync(
-                context.system_prompt,
-                context.user_prompt,
-                context=context,
-                token_callback=self._answer_chunk_callback,
-                enable_thinking=enable_thinking,
-            )
-        else:
-            context.answer = self._call_answer_question_sync(
-                context.system_prompt,
-                context.user_prompt,
-                context=context,
-                enable_thinking=enable_thinking,
-            )
+        try:
+            if self._answer_chunk_callback is not None:
+                context.answer = self._call_answer_question_sync(
+                    context.system_prompt,
+                    context.user_prompt,
+                    context=context,
+                    token_callback=self._answer_chunk_callback,
+                    enable_thinking=enable_thinking,
+                )
+            else:
+                context.answer = self._call_answer_question_sync(
+                    context.system_prompt,
+                    context.user_prompt,
+                    context=context,
+                    enable_thinking=enable_thinking,
+                )
+        except RuntimeError as exc:
+            if "empty chat message" not in str(exc):
+                raise
+            _logger.warning("LLM returned an empty chat message; retrying with compact prompt")
+            context.answer = self._retry_answer_with_compact_prompt(context)
         context.workflow_action = (
             "advise_only" if context.decision_mode == "advise_only" else "answer"
         )
@@ -1900,6 +1906,25 @@ class FacultyTwinWorkflowSupport:
             duration_ms=self._elapsed_ms(started_at),
         )
         return context
+
+    def _retry_answer_with_compact_prompt(self, context: ChatWorkflowContext) -> str:
+        compact_system_prompt = (
+            "你是张书豪老师的教学与科研分身。请直接、具体、结构化地回答学生问题；"
+            "如果涉及工程优化，请给出可执行的技术要点。不要输出空答案。"
+        )
+        compact_user_prompt = context.request.question.strip()
+        if context.request.course_context:
+            compact_user_prompt = (
+                f"课程/背景：{context.request.course_context.strip()}\n\n"
+                f"问题：{compact_user_prompt}"
+            )
+        return self._call_answer_question_sync(
+            compact_system_prompt,
+            compact_user_prompt,
+            context=context,
+            token_callback=None,
+            enable_thinking=False,
+        )
 
     def _call_answer_question_sync(
         self,

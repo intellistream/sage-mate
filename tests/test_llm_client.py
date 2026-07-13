@@ -343,15 +343,25 @@ class _FakeChatCompletionResponse:
 
 
 class _SequencedChatCompletionResponse:
-    def __init__(self, content: str, *, finish_reason: str | None = None) -> None:
+    def __init__(
+        self,
+        content: str,
+        *,
+        finish_reason: str | None = None,
+        reasoning_content: str | None = None,
+    ) -> None:
         self._content = content
         self._finish_reason = finish_reason
+        self._reasoning_content = reasoning_content
 
     def raise_for_status(self) -> None:
         return None
 
     def json(self) -> dict:
-        payload = {"message": {"content": self._content}}
+        message = {"content": self._content}
+        if self._reasoning_content is not None:
+            message["reasoning_content"] = self._reasoning_content
+        payload = {"message": message}
         if self._finish_reason is not None:
             payload["finish_reason"] = self._finish_reason
         return {"choices": [payload]}
@@ -495,6 +505,23 @@ def test_request_chat_completion_retries_timeout_then_succeeds(
     assert snapshot["llm_success_count"] == "1"
     assert snapshot["llm_error_count"] == "0"
     assert snapshot["llm_last_error"] == ""
+
+
+def test_request_chat_completion_accepts_reasoning_content_fallback() -> None:
+    settings = AppSettings(
+        llm_cache_ttl_seconds=0,
+        llm_cache_max_entries=0,
+        llm_retry_attempts=0,
+    )
+    transport = _SequencedHttpxClient(
+        [_SequencedChatCompletionResponse("", reasoning_content="reasoning fallback")]
+    )
+    client = _build_retry_test_client(settings, transport)
+
+    answer = client._request_chat_completion_sync({"model": "demo", "messages": []})
+
+    assert answer == "reasoning fallback"
+    assert len(transport.calls) == 1
 
 
 def test_app_settings_defaults_to_lower_llm_timeout(

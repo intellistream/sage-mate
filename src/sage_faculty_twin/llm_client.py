@@ -69,6 +69,10 @@ class StreamingServerError(RuntimeError):
         self.status_code = status_code
 
 
+class EmptyStreamingResponseError(RuntimeError):
+    """Raised when an SSE chat response completes without answer content."""
+
+
 class _InteractionIntentPayload(BaseModel):
     action: Literal["answer", "book_meeting", "ask_followup", "review_queue", "human_handoff"] = (
         "answer"
@@ -977,6 +981,11 @@ class VllmChatClient:
                     stream_payload["stream_options"] = {"include_usage": True}
                     return self._request_chat_completion_stream(stream_payload, token_callback)
                 raise RuntimeError(str(exc)) from exc
+            except EmptyStreamingResponseError:
+                logger.warning("Streaming chat response was empty; retrying once without streaming")
+                payload.pop("stream", None)
+                payload.pop("stream_options", None)
+                return self._request_chat_completion_sync(payload)
 
         try:
             return self._request_chat_completion_sync(payload)
@@ -1115,7 +1124,12 @@ class VllmChatClient:
                         if not choices:
                             continue
                         delta = choices[0].get("delta") or {}
-                        delta_content = delta.get("content")
+                        message = choices[0].get("message") or {}
+                        delta_content = (
+                            delta.get("content")
+                            or delta.get("reasoning_content")
+                            or message.get("content")
+                        )
                         if not delta_content:
                             continue
                         text = str(delta_content)
@@ -1126,13 +1140,17 @@ class VllmChatClient:
                             pass
                 answer = "".join(collected)
                 if not answer:
-                    raise RuntimeError("vllm-hust returned an empty streaming chat message")
+                    raise EmptyStreamingResponseError(
+                        "vllm-hust returned an empty streaming chat message"
+                    )
                 break
             except httpx.TimeoutException as exc:
                 if attempt >= max_retries:
                     self._record_request_error(exc)
                     raise
                 self._sleep_before_retry(attempt + 1)
+            except EmptyStreamingResponseError:
+                raise
             except Exception as exc:
                 self._record_request_error(exc)
                 raise
@@ -1210,7 +1228,11 @@ class VllmChatClient:
                 if not choices:
                     raise RuntimeError("vllm-hust returned no chat choices")
                 message = choices[0].get("message", {})
-                content = message.get("content")
+                content = (
+                    message.get("content")
+                    or message.get("reasoning_content")
+                    or choices[0].get("text")
+                )
                 if not content:
                     raise RuntimeError("vllm-hust returned an empty chat message")
                 answer = str(content)

@@ -202,6 +202,46 @@ def test_answer_question_sync_streams_tokens_in_order() -> None:
     assert transport.last_payload.get("stream") is True
 
 
+def test_answer_question_sync_falls_back_when_stream_is_empty() -> None:
+    """Some vLLM-compatible servers can finish an SSE response without
+    content chunks. The chat endpoint should retry buffered instead of
+    surfacing a 500 to the user."""
+
+    class _EmptyThenBufferedTransport(_FakeStreamingHttpxClient):
+        def __init__(self) -> None:
+            super().__init__([])
+            self.post_calls = 0
+
+        def post(self, path: str, json: dict):
+            self.post_calls += 1
+            assert "stream" not in json
+
+            class _Resp:
+                def raise_for_status(self) -> None:
+                    return None
+
+                def json(self) -> dict:
+                    return {"choices": [{"message": {"content": "buffered answer"}}]}
+
+            return _Resp()
+
+    settings = AppSettings(
+        llm_cache_ttl_seconds=0,
+        llm_cache_max_entries=0,
+        llm_retry_attempts=0,
+    )
+    transport = _EmptyThenBufferedTransport()
+    client = _build_streaming_test_client(settings, transport)
+
+    seen: list[str] = []
+    answer = client.answer_question_sync("system", "user", token_callback=seen.append)
+
+    assert answer == "buffered answer"
+    assert seen == []
+    assert transport.stream_calls == 1
+    assert transport.post_calls == 1
+
+
 def test_answer_question_sync_without_callback_uses_non_streaming_path() -> None:
     """When no ``token_callback`` is provided the client must keep the
     original non-streaming behaviour (single ``post`` call) so existing
