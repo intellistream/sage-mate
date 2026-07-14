@@ -29,6 +29,22 @@ committed to the code repository. On 180-ascend-bench this is:
 /home/shuhao/sage-mate-runtime-private
 ```
 
+Hosted Faculty Twin releases can populate this directory from a dedicated private
+runtime-data repository before seeding defaults:
+
+```bash
+FACULTY_TWIN_RUNTIME_REPO_URL=https://github.com/Qixin-Gaoke/sage-faculty-twin-runtime-private.git
+FACULTY_TWIN_RUNTIME_REPO_BRANCH=main
+FACULTY_TWIN_RUNTIME_REPO_REQUIRED=true
+```
+
+Authentication uses `GITHUB_TOKEN` through a temporary `GIT_ASKPASS` file, so the
+token is never placed in Git arguments or logs. If an older non-Git runtime folder
+already exists, the installer keeps a timestamped backup, installs the private
+repository as the canonical data source, and merges only files missing from the
+repository. Existing local secrets and live records are therefore retained without
+overwriting reviewed runtime data.
+
 Runtime-private data includes:
 
 - knowledge base and conversation memory

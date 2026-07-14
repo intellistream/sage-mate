@@ -376,6 +376,22 @@ prepare_hosted_runtime_data() {
 	fi
 	runtime_dir=$(cd "$runtime_dir" && pwd -P)
 
+	local runtime_repo_url runtime_repo_branch runtime_repo_required
+	runtime_repo_url=$(env_get FACULTY_TWIN_RUNTIME_REPO_URL)
+	runtime_repo_branch=$(env_get FACULTY_TWIN_RUNTIME_REPO_BRANCH)
+	runtime_repo_required=$(env_get FACULTY_TWIN_RUNTIME_REPO_REQUIRED)
+	if [[ -n "$runtime_repo_url" ]]; then
+		local runtime_repo_args=(
+			--runtime-dir "$runtime_dir"
+			--repo-url "$runtime_repo_url"
+			--branch "${runtime_repo_branch:-main}"
+			--env-file "$repo_root/.env"
+		)
+		[[ "${runtime_repo_required,,}" =~ ^(1|true|yes|on)$ ]] && runtime_repo_args+=(--required)
+		"$repo_root/tools/sync_runtime_repo.sh" "${runtime_repo_args[@]}"
+		runtime_dir=$(cd "$runtime_dir" && pwd -P)
+	fi
+
 	log "Preparing hosted runtime data folder: $runtime_dir"
 	mkdir -p \
 		"$runtime_dir/.runtime/online_presence" \

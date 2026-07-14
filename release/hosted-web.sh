@@ -20,6 +20,8 @@ accelerator="${FACULTY_TWIN_ACCELERATOR:-auto}"
 tp_override="${FACULTY_TWIN_TENSOR_PARALLEL_SIZE:-${VLLM_NVIDIA_TENSOR_PARALLEL_SIZE:-${VLLM_ENGINE_TP_SIZE:-}}}"
 public_hostname="${FACULTY_TWIN_PUBLIC_HOSTNAME:-twin.sage.org.ai}"
 tunnel_name="${FACULTY_TWIN_TUNNEL_NAME:-sage-mate-$(hostname -s)-hosted-web}"
+runtime_repo_url="${FACULTY_TWIN_RUNTIME_REPO_URL:-https://github.com/Qixin-Gaoke/sage-faculty-twin-runtime-private.git}"
+runtime_repo_branch="${FACULTY_TWIN_RUNTIME_REPO_BRANCH:-main}"
 encrypted_secrets_file="${FACULTY_TWIN_ENCRYPTED_SECRETS_FILE:-}"
 secrets_key_file="${FACULTY_TWIN_SECRETS_KEY_FILE:-}"
 use_encrypted_secrets=true
@@ -43,6 +45,8 @@ Options:
   --tensor-parallel-size N    Override tensor parallel size.
   --public-hostname HOSTNAME  Public Cloudflare hostname. Defaults to twin.sage.org.ai.
   --tunnel-name NAME          Cloudflare tunnel name to create/reuse.
+  --runtime-repo-url URL      Private Faculty Twin runtime-data repository.
+  --runtime-repo-branch NAME  Runtime-data branch. Defaults to main.
   --encrypted-secrets PATH    OpenSSL-encrypted env bundle. Default: release/secrets.env.enc.
   --secrets-key-file PATH     File containing decrypt passphrase/key material.
   --no-secrets                Skip encrypted release secrets even if present.
@@ -118,6 +122,16 @@ while [[ $# -gt 0 ]]; do
         --tunnel-name)
             [[ $# -ge 2 ]] || fail "--tunnel-name requires a value"
             tunnel_name="$2"
+            shift 2
+            ;;
+        --runtime-repo-url)
+            [[ $# -ge 2 ]] || fail "--runtime-repo-url requires a value"
+            runtime_repo_url="$2"
+            shift 2
+            ;;
+        --runtime-repo-branch)
+            [[ $# -ge 2 ]] || fail "--runtime-repo-branch requires a value"
+            runtime_repo_branch="$2"
             shift 2
             ;;
         --encrypted-secrets)
@@ -933,13 +947,18 @@ main() {
     fi
     validate_local_model_if_needed
 
-    local runtime_dir="${DIGITAL_TWIN_RUNTIME_DIR:-$repo_dir/../sage-mate-runtime-private}"
+    local configured_runtime_dir
+    configured_runtime_dir="$(env_file_get "$env_file" DIGITAL_TWIN_RUNTIME_DIR || true)"
+    local runtime_dir="${DIGITAL_TWIN_RUNTIME_DIR:-${configured_runtime_dir:-$repo_dir/../sage-mate-runtime-private}}"
     set_env_kv "$env_file" DIGITAL_TWIN_DEPLOYMENT_MODE hosted
     set_env_kv "$env_file" DIGITAL_TWIN_APP_PROFILE faculty_twin
     set_env_kv "$env_file" DIGITAL_TWIN_CODE_WORKBENCH_ENABLED false
     set_env_kv "$env_file" DIGITAL_TWIN_CODE_WORKSPACE_ROOTS ""
     set_env_kv "$env_file" DIGITAL_TWIN_LLM_BASE_URL "http://127.0.0.1:18001/v1"
     set_env_kv "$env_file" DIGITAL_TWIN_MODEL_NAME "$served_model"
+    set_env_kv "$env_file" FACULTY_TWIN_RUNTIME_REPO_URL "$runtime_repo_url"
+    set_env_kv "$env_file" FACULTY_TWIN_RUNTIME_REPO_BRANCH "$runtime_repo_branch"
+    set_env_kv "$env_file" FACULTY_TWIN_RUNTIME_REPO_REQUIRED true
     if [[ "$accelerator" == "nvidia" ]]; then
         set_env_kv "$env_file" VLLM_PROXY_UPSTREAM_BASE_URL "http://127.0.0.1:18000/v1"
         set_env_kv "$env_file" VLLM_NVIDIA_MODEL "$model"
