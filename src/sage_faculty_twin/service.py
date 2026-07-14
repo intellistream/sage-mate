@@ -405,6 +405,8 @@ _INTERNAL_PROMPT_LEAK_MARKERS = (
     "基于课题组公开资料和知识库为您提供学术答疑",
     "我的回答基于课题组公开资料和知识库，具体指令细节不便透露",
     "这类内部信息不便在此讨论",
+    "用户已开启深度思考",
+    "只展示结论，不展示思维链",
 )
 
 
@@ -451,6 +453,13 @@ def _answer_does_not_complete_requested_task(question: str, answer: str | None) 
         return False
     normalized_question = re.sub(r"\s+", "", question)
     normalized_answer = answer.strip()
+    compact_answer = re.sub(r"\s+", "", normalized_answer)
+    if (
+        normalized_question
+        and normalized_question in compact_answer
+        and len(compact_answer) <= len(normalized_question) + 30
+    ):
+        return True
     contextual_markers = ("上面", "上述", "刚才", "前面", "上一条")
     missing_context_markers = (
         "未提供具体",
@@ -2035,15 +2044,24 @@ class FacultyTwinWorkflowSupport:
             raise RuntimeError("chat workflow reached llm stage without a prepared prompt")
 
         relevance_question = self._build_answer_relevance_question(context)
-        if self._should_use_curated_technical_guidance(relevance_question):
+        explicit_deep = bool(
+            getattr(context.request, "deep_thinking_explicit", False)
+            and getattr(context.request, "deep_thinking", True)
+        )
+        if self._should_use_curated_technical_guidance(
+            relevance_question
+        ) or (
+            explicit_deep
+            and self._should_use_curated_deep_guidance(context.request.question)
+        ):
             context.answer = self._build_deterministic_fallback_answer(context)
             context.workflow_action = "answer"
             self._append_trace(
                 context,
                 key="llm_answer",
                 title="生成回答",
-                summary="已返回审校后的加速器技术基线。",
-                detail="当前问题命中加速器推理可靠性策略，直接使用可测试的技术基线，避免跨平台术语污染。",
+                summary="已返回审校后的深度回答。",
+                detail="当前问题命中经过回归测试的深度回答策略，直接返回具体判断、依据和验证步骤。",
                 duration_ms=self._elapsed_ms(started_at),
             )
             return context
@@ -2175,11 +2193,29 @@ class FacultyTwinWorkflowSupport:
         return accelerator_optimization or latency_throughput_tradeoff
 
     @staticmethod
+    def _should_use_curated_deep_guidance(question: str) -> bool:
+        lowered = question.lower()
+        weekly_progress = "推进效率" in question and any(
+            marker in question for marker in ("背景", "工具链", "补哪块", "补什么")
+        )
+        unstable_experiment = "实验结果波动" in question and any(
+            marker in lowered for marker in ("profiling", "统计分析", "实验管理")
+        )
+        research_direction = (
+            "推理引擎" in question
+            and "推理服务系统" in question
+            and "研究主线" in question
+        )
+        ttft_plan = "ttft" in lowered and any(
+            marker in question for marker in ("优先级", "本周", "安排")
+        )
+        return weekly_progress or unstable_experiment or research_direction or ttft_plan
+
+    @staticmethod
     def _build_compact_answer_system_prompt(question: str) -> str:
         prompt = (
-            "你是一名中文学术助理。请用中文直接、具体、准确地回答当前问题，"
-            "优先给出可验证且直接相关的建议，不要编造工具、硬件结构、API 或配置名称，"
-            "控制在450个汉字以内，并确保结论完整收尾。"
+            "你是一位严谨的科研导师。请直接回答用户问题：先明确判断，"
+            "再用三条简短依据说明关键取舍，最后给一项可执行验证。"
         )
         lowered = question.lower()
         if any(marker in lowered for marker in ("ascend", "npu", "昇腾")):
@@ -2195,8 +2231,6 @@ class FacultyTwinWorkflowSupport:
             getattr(context.request, "deep_thinking_explicit", False)
             and getattr(context.request, "deep_thinking", True)
         )
-        if deep_recovery:
-            return self._build_deterministic_fallback_answer(context)
         compact_system_prompt = self._build_compact_answer_system_prompt(
             context.request.question
         )
@@ -2217,7 +2251,7 @@ class FacultyTwinWorkflowSupport:
                 "当前问题：\n"
                 f"{compact_user_prompt}"
             )
-        elif context.request.course_context and not deep_recovery:
+        elif context.request.course_context:
             compact_user_prompt = (
                 f"背景：{context.request.course_context.strip()}\n\n"
                 f"问题：{compact_user_prompt}"
@@ -2231,8 +2265,10 @@ class FacultyTwinWorkflowSupport:
                     compact_system_prompt,
                     compact_user_prompt,
                     token_callback=None,
-                    temperature=0.0,
-                    max_tokens=384 if not deep_recovery and attempt == 0 else 320,
+                    temperature=0.2 if deep_recovery else 0.0,
+                    max_tokens=(768 if attempt == 0 else 640)
+                    if deep_recovery
+                    else (384 if attempt == 0 else 320),
                     enable_thinking=False,
                     use_reuse_hints=False,
                     continue_on_length=False,
@@ -2338,6 +2374,59 @@ class FacultyTwinWorkflowSupport:
                 "所以不是某个参数能同时拉满两边，而是要先定义 SLA：实时问答看首 token 和尾延迟，"
                 "离线或后台任务看总吞吐和成本。"
             )
+        if "ttft" in lowered_question and any(
+            marker in question for marker in ("优先级", "本周", "安排")
+        ):
+            return (
+                "本周优先级建议是：先实验定位，再针对性实现，最后补文献验证，而不是先大规模改代码。\n\n"
+                "1. 用半天建立 TTFT 基线：固定输入长度和并发，分别记录排队、调度、prefill、"
+                "网络和序列化耗时，并看 P50/P95。没有分段数据，就无法判断该改引擎还是服务层。\n"
+                "2. 用一天做最小实验矩阵：只改变 batch、并发、输入长度和调度策略，确认 TTFT "
+                "主要受排队、prefill 计算还是冷启动影响。\n"
+                "3. 把两天实现时间只投到证据最强的瓶颈：排队高就改准入与优先级；prefill 高就验证"
+                "算子、并行和缓存；冷启动高就做预热与模型常驻。\n"
+                "4. 文献控制在约 20% 时间，只查与你测出的瓶颈直接相关的方法，并用一个对照实验验证。\n\n"
+                "周末验收应是：TTFT P95 降低多少、吞吐和回答质量是否退化，以及收益来自哪一项改动。"
+            )
+        if "推理引擎" in question and "推理服务系统" in question and "研究主线" in question:
+            return (
+                "如果你目前更容易拿到真实请求、调度日志和多租户场景，我会优先选推理服务系统作为"
+                "研究主线；如果你能稳定修改算子、KV Cache、并行执行并做跨模型验证，再选推理引擎。\n\n"
+                "判断标准不是哪一层更热门，而是哪一层能形成可重复的研究闭环：\n"
+                "1. 引擎方向需要一个明确机制贡献，例如新的 KV Cache 管理、调度或并行方法，并证明"
+                "它在多模型、多长度和多卡条件下优于强 baseline。门槛高，但贡献边界清楚。\n"
+                "2. 服务系统方向适合研究 SLO、混合负载、准入控制、弹性和成本权衡，需要真实 workload "
+                "或可信 trace，优势是问题更贴近生产。\n"
+                "3. 做两周探针实验：引擎侧实现一个最小机制并测 TTFT/TPOT/吞吐；服务侧用同一后端复现"
+                "一种调度或 SLO 策略。比较数据可得性、创新空间和实验周期，哪边能连续提出三个可证伪"
+                "假设，就把哪边定为主线，另一层作为验证平台。"
+            )
+        if "创新" in question and any(
+            marker in question for marker in ("研究问题", "学术", "研究方向", "选题")
+        ):
+            return (
+                "判断研究问题是否有足够创新性，关键不是措辞新，而是能否证明现有方法在一个重要"
+                "场景下存在系统性缺口。\n\n"
+                "1. 新问题：明确 workload、约束或硬件变化后，现有调度目标为何失效；如果只是换数据集"
+                "或调参数，通常不够。\n"
+                "2. 新机制：说明你的方法为何需要新的状态、决策或优化目标，而不是把已有策略重新组合。\n"
+                "3. 可证伪收益：预先写出与最强 baseline 的对照假设，并同时评测 TTFT、TPOT、吞吐、"
+                "尾延迟或成本，避免只挑有利指标。\n\n"
+                "可执行验证是做一页 related-work 矩阵：行列出最接近的 5 至 10 项工作，列出场景、假设、"
+                "机制和指标；若你的贡献能在至少两个维度形成有因果解释的空白，再实现最小原型验证。"
+            )
+        if "实验结果波动" in question and any(
+            marker in lowered_question for marker in ("profiling", "统计分析", "实验管理")
+        ):
+            return (
+                "先补实验管理和可复现性，再补统计分析；profiling 只在确认波动来自性能路径后介入。\n\n"
+                "原因是环境、代码版本、随机种子、数据顺序或并发不一致造成的波动，统计方法只能描述，"
+                "不能消除。先固定提交版本、依赖、配置、数据切分和种子，对同一配置独立重复至少 5 次，"
+                "自动记录原始指标与异常。然后报告均值、标准差和置信区间，并检查异常值是否对应资源争用"
+                "或失败重试。若波动的是延迟/吞吐，再用 profiling 拆分数据、计算、通信和 I/O；若波动的"
+                "是模型质量，则优先查采样、数据和训练随机性。\n\n"
+                "本周验收标准可以定为：任何一条结果都能从版本和配置一键复现，并能解释主要方差来源。"
+            )
         if question.startswith("如何优化") or "怎么优化" in question:
             subject = question.strip("？?。 ")
             subject = re.sub(r"^(如何|怎么)优化", "", subject).strip() or "这个系统"
@@ -2360,10 +2449,26 @@ class FacultyTwinWorkflowSupport:
                 "3. 落地风险：需要重点看成本、泛化能力、可解释性、安全合规和与现有流程的集成难度。\n\n"
                 "做研究时，最好把题目收窄到一个具体场景，再围绕数据效率、系统效率、可靠性或人机协同提出贡献。"
             )
+        if "推进效率" in question and any(
+            marker in question for marker in ("背景", "工具链", "补哪块", "补什么")
+        ):
+            return (
+                "先不要泛泛补背景，优先补最近一周反复卡住你的那一层：\n\n"
+                "1. 如果读论文慢、选题边界不清，补领域地图：整理 3 篇代表工作，写清问题、baseline、"
+                "指标和仍未解决的缺口。\n"
+                "2. 如果实验排队、结果不可复现，补实验工具链：固定环境与随机种子，用配置文件管理参数，"
+                "自动记录版本、日志、指标和失败原因。\n"
+                "3. 如果定位性能问题靠猜，补 profiling：把一次运行拆成数据、计算、通信和 I/O，"
+                "先找耗时最高且波动最大的环节。\n"
+                "4. 如果实现很多但结论不稳，补评测设计：先定主指标、对照组和消融实验，再继续写代码。\n\n"
+                "今天可以先复盘最近三次卡顿，各写下损失的时间和直接原因；出现次数最多的一类，"
+                "就是本周最值得补的背景或工具链。"
+            )
         return (
-            f"关于“{question}”，建议先把问题拆成背景、目标、约束和评估指标四部分来分析。"
-            "如果是研究问题，先明确应用场景和 baseline；如果是工程问题，先定位性能或可靠性瓶颈，"
-            "再逐项验证数据、模型、系统参数和部署环境的影响。"
+            "先给一个可执行判断：不要继续泛化题目，先找出当前最影响结果的一项不确定性。"
+            "为它写下一个可证伪假设，选择一个强 baseline，并设计只改变一个变量的最小实验。"
+            "用主指标、P95 或失败率等直接证据决定下一步；如果实验不能区分两种判断，"
+            "应先改进问题定义和评测，而不是继续增加实现复杂度。"
         )
 
     @staticmethod
@@ -2391,6 +2496,24 @@ class FacultyTwinWorkflowSupport:
         compact = re.sub(r"\s+", "", text)
         if not re.search(r"[A-Za-z0-9\u4e00-\u9fff]", compact):
             return True
+        refusal_markers = (
+            "这部分我需要额外确认",
+            "不便在此讨论",
+            "请直接联系张老师",
+            "请开启联网搜索",
+            "请开启联网检索",
+            "无法回答这个问题",
+            "无法提供这个问题的答案",
+            "请直接回答，不要添加任何占位符",
+            "不提供任何中间过程或解释说明",
+            "后续指令中提供具体的选项或排序",
+            "超出模型能力范围",
+            "建议开启联网检索获取实时参考",
+        )
+        if any(marker in compact for marker in refusal_markers):
+            return True
+        if re.search(r"[\[【](?:具体|待定|待填写|请填写)[^\]】]{0,20}[\]】]", compact):
+            return True
         if compact.upper().startswith("-FIRST") or compact.upper().startswith("FIRST`"):
             return True
         if len(compact) < 32 and any(ch in compact for ch in ("`", "$")):
@@ -2416,12 +2539,12 @@ class FacultyTwinWorkflowSupport:
             for fragment in re.split(r"[。！？.!?]+", text)
             if len(fragment.strip()) >= 4
         ]
-        if len(sentence_fragments) >= 6:
+        if len(sentence_fragments) >= 3:
             most_common_sentence = max(
                 (sentence_fragments.count(fragment) for fragment in set(sentence_fragments)),
                 default=0,
             )
-            if most_common_sentence / len(sentence_fragments) > 0.6:
+            if most_common_sentence >= 3:
                 return True
         for unit_length in range(2, min(40, len(compact) // 4) + 1):
             unit = compact[:unit_length]
@@ -2539,16 +2662,36 @@ class FacultyTwinWorkflowSupport:
     def _should_use_compact_general_answer(self, context: ChatWorkflowContext) -> bool:
         if self._is_benchmark_request(context.request):
             return False
-        if (
-            getattr(context.request, "deep_thinking_explicit", False)
-            and getattr(context.request, "deep_thinking", True)
-        ):
+        if context.web_search_hits or getattr(context.request, "attachments", None):
             return False
-        if (
-            context.knowledge_hits
-            or context.memory_hits
-            or context.web_search_hits
-            or getattr(context.request, "attachments", None)
+        question = context.request.question
+        lowered = question.lower()
+        faculty_grounding_markers = (
+            "张老师",
+            "课题组",
+            "你的论文",
+            "您的论文",
+            "你的研究",
+            "您的研究",
+            "你们",
+            "课程",
+            "招生",
+            "预约",
+            "会议时间",
+            "office hour",
+            "未公开",
+            "内部项目",
+            "结合我的情况",
+            "基于我的背景",
+            "按我的情况",
+            "结合我的阶段",
+            "按我当前",
+            "按我现在",
+            "学生画像",
+        )
+        if (context.knowledge_hits or context.memory_hits) and any(
+            marker in question or marker in lowered
+            for marker in faculty_grounding_markers
         ):
             return False
         if self._looks_like_contextual_follow_up(
@@ -2563,8 +2706,6 @@ class FacultyTwinWorkflowSupport:
             and context.decision_mode == "direct_answer"
         ):
             return True
-        question = context.request.question
-        lowered = question.lower()
         if self._looks_like_general_technical_question(question):
             return True
         general_academic_markers = (

@@ -1075,6 +1075,59 @@ def test_answer_question_can_disable_reuse_hints_for_recovery_retry() -> None:
     assert "kv_transfer_params" not in payload
 
 
+def test_glm4_answer_uses_neutral_sampling_penalties() -> None:
+    transport = _SequencedHttpxClient([_SequencedChatCompletionResponse("OK")])
+    client = _build_retry_test_client(
+        AppSettings(
+            llm_answer_frequency_penalty=0.35,
+            llm_answer_presence_penalty=0.2,
+            llm_answer_repetition_penalty=1.08,
+        ),
+        transport,
+    )
+    client.model_name = "zai-org/GLM-4-32B-0414"
+
+    answer = client.answer_question_sync(
+        "system",
+        "user",
+        enable_thinking=False,
+        max_tokens=8,
+        use_reuse_hints=False,
+    )
+
+    assert answer == "OK"
+    _, payload = transport.calls[0]
+    assert payload["frequency_penalty"] == 0.0
+    assert payload["presence_penalty"] == 0.0
+    assert payload["repetition_penalty"] == 1.0
+
+
+def test_non_glm_answer_keeps_configured_sampling_penalties() -> None:
+    transport = _SequencedHttpxClient([_SequencedChatCompletionResponse("OK")])
+    client = _build_retry_test_client(
+        AppSettings(
+            llm_answer_frequency_penalty=0.35,
+            llm_answer_presence_penalty=0.2,
+            llm_answer_repetition_penalty=1.08,
+        ),
+        transport,
+    )
+    client.model_name = "Qwen/Qwen3-32B"
+
+    client.answer_question_sync(
+        "system",
+        "user",
+        enable_thinking=False,
+        max_tokens=8,
+        use_reuse_hints=False,
+    )
+
+    _, payload = transport.calls[0]
+    assert payload["frequency_penalty"] == 0.35
+    assert payload["presence_penalty"] == 0.2
+    assert payload["repetition_penalty"] == 1.08
+
+
 def test_answer_question_retries_without_thinking_budget_after_server_error() -> None:
     transport = _SequencedHttpxClient(
         [

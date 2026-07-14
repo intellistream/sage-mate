@@ -91,6 +91,19 @@ def test_degenerate_answer_detection_rejects_empty_and_repeated_symbols() -> Non
     assert FacultyTwinWorkflowSupport._is_degenerate_answer(
         "这类内部信息不便在此讨论，请直接联系张老师。"
     )
+    assert FacultyTwinWorkflowSupport._is_degenerate_answer("这部分我需要额外确认。")
+    assert FacultyTwinWorkflowSupport._is_degenerate_answer(
+        "这部分我需要额外确认。如果您提供更多资料，我可以继续检索相关论文和信息。"
+    )
+    assert FacultyTwinWorkflowSupport._is_degenerate_answer(
+        "经过分析，我决定选择[具体方案]作为研究主线，下一步再说明实施步骤。"
+    )
+    assert FacultyTwinWorkflowSupport._is_degenerate_answer(
+        "很抱歉，我无法提供这个问题的答案。如果您有其他问题，请随时告诉我。"
+    )
+    assert FacultyTwinWorkflowSupport._is_degenerate_answer(
+        "这类问题已超出模型能力范围，建议开启联网检索获取实时参考。"
+    )
     assert FacultyTwinWorkflowSupport._is_degenerate_answer(
         "Answer: 这个问题是关于大模型推理服务系统的核心权衡。"
     )
@@ -106,6 +119,9 @@ def test_degenerate_answer_detection_rejects_empty_and_repeated_symbols() -> Non
     assert FacultyTwinWorkflowSupport._is_degenerate_answer(
         "医学影像需要保证流程可靠。"
         + "提高经济效益增加经济收益提高经济收益增加经济效益" * 12
+    )
+    assert FacultyTwinWorkflowSupport._is_degenerate_answer(
+        "先给一个判断。" + "补齐这两点，才能提高推进效率。" * 3
     )
     assert FacultyTwinWorkflowSupport._is_degenerate_answer(
         "1. 使用连续批处理提高吞吐。\n2. **温度管理**"
@@ -223,6 +239,10 @@ def test_task_completion_guard_rejects_generic_guidance_refusal() -> None:
         "请把上面的优化措施按实施优先级排成三步。",
         "由于您未提供具体的优化措施，我无法直接进行排序，请先提供相关内容。",
     )
+    assert _answer_does_not_complete_requested_task(
+        "这周如果想提高推进效率，我最该补哪块背景或工具链？",
+        "背景：科研指导\n\n问题：这周如果想提高推进效率，我最该补哪块背景或工具链？",
+    )
 
 
 def test_compact_general_answer_is_used_without_grounding(tmp_path: Path) -> None:
@@ -254,6 +274,23 @@ def test_general_technical_fast_path_preempts_llm_handoff_classification(tmp_pat
     assert intent.action == "answer"
     assert intent.domain == "research"
     assert intent.decision_mode == "direct_answer"
+
+
+def test_curated_deep_guidance_covers_common_research_decisions() -> None:
+    questions = (
+        "这周如果想提高推进效率，我最该补哪块背景或工具链？",
+        "我的实验结果波动很大，这周应该先补统计分析、性能 profiling，还是实验管理工具？",
+        "我在推理引擎和推理服务系统之间摇摆，如何判断哪个更适合作为研究主线？",
+        "如果目标是降低 TTFT，我该如何安排本周的文献、实验和实现优先级？",
+    )
+
+    assert all(
+        FacultyTwinWorkflowSupport._should_use_curated_deep_guidance(question)
+        for question in questions
+    )
+    assert not FacultyTwinWorkflowSupport._should_use_curated_deep_guidance(
+        "请解释什么是连续批处理。"
+    )
 
 
 def test_ascend_follow_up_uses_fast_path_from_session_context(tmp_path: Path) -> None:
@@ -313,11 +350,31 @@ def test_medical_segmentation_is_a_general_technical_question(tmp_path: Path) ->
     assert "clinical validation" in guidance
 
 
-def test_compact_general_answer_keeps_grounded_questions_on_full_path(tmp_path: Path) -> None:
+def test_general_question_ignores_incidental_knowledge_hits(tmp_path: Path) -> None:
     service = object.__new__(FacultyTwinWorkflowSupport)
     service._settings = AppSettings(knowledge_base_dir=tmp_path)
     context = _build_context()
     context.request.question = "如何优化大模型推理？"
+    context.knowledge_hits = [object()]  # type: ignore[list-item]
+
+    assert service._should_use_compact_general_answer(context)
+
+
+def test_general_question_ignores_incidental_memory_hits(tmp_path: Path) -> None:
+    service = object.__new__(FacultyTwinWorkflowSupport)
+    service._settings = AppSettings(knowledge_base_dir=tmp_path)
+    context = _build_context(deep_thinking=True, deep_thinking_explicit=True)
+    context.request.question = "如何判断哪个系统方向更适合作为研究主线？"
+    context.memory_hits = [object()]  # type: ignore[list-item]
+
+    assert service._should_use_compact_general_answer(context)
+
+
+def test_faculty_specific_question_keeps_knowledge_hits_on_full_path(tmp_path: Path) -> None:
+    service = object.__new__(FacultyTwinWorkflowSupport)
+    service._settings = AppSettings(knowledge_base_dir=tmp_path)
+    context = _build_context()
+    context.request.question = "张老师的论文主要研究哪些推理优化问题？"
     context.knowledge_hits = [object()]  # type: ignore[list-item]
 
     assert not service._should_use_compact_general_answer(context)
@@ -332,11 +389,21 @@ def test_ungrounded_general_answer_uses_compact_path(tmp_path: Path) -> None:
     assert service._should_use_compact_general_answer(context)
 
 
-def test_explicit_deep_thinking_keeps_general_answer_on_full_path(tmp_path: Path) -> None:
+def test_explicit_deep_thinking_uses_compact_path_without_grounding(tmp_path: Path) -> None:
     service = object.__new__(FacultyTwinWorkflowSupport)
     service._settings = AppSettings(knowledge_base_dir=tmp_path)
     context = _build_context(deep_thinking=True, deep_thinking_explicit=True)
     context.request.question = "请深入比较两个常见方法的优缺点。"
+
+    assert service._should_use_compact_general_answer(context)
+
+
+def test_explicit_deep_thinking_keeps_grounded_answer_on_full_path(tmp_path: Path) -> None:
+    service = object.__new__(FacultyTwinWorkflowSupport)
+    service._settings = AppSettings(knowledge_base_dir=tmp_path)
+    context = _build_context(deep_thinking=True, deep_thinking_explicit=True)
+    context.request.question = "请深入比较张老师的两个研究方向。"
+    context.knowledge_hits = [object()]  # type: ignore[list-item]
 
     assert not service._should_use_compact_general_answer(context)
 
@@ -359,6 +426,47 @@ def test_compact_retry_uses_bounded_output_budget(tmp_path: Path) -> None:
 
     assert answer.startswith("1. 建立基线")
     assert service._llm_client.max_tokens == [384]
+
+
+def test_explicit_deep_retry_regenerates_instead_of_using_generic_template(
+    tmp_path: Path,
+) -> None:
+    class FakeLlmClient:
+        def __init__(self) -> None:
+            self.calls: list[tuple[str, str, dict[str, object]]] = []
+
+        def answer_question_sync(
+            self,
+            system_prompt: str,
+            user_prompt: str,
+            **kwargs: object,
+        ) -> str:
+            self.calls.append((system_prompt, user_prompt, kwargs))
+            return (
+                "先补最常阻塞推进的工具链，而不是泛读背景。复盘最近三次卡点：如果实验不可复现，"
+                "先完善配置、版本和指标记录；如果性能定位靠猜，先补 profiling；如果研究问题边界"
+                "不清，再用代表论文、baseline 和未解缺口建立领域地图。本周只选出现次数最多的一类，"
+                "设一个可验收结果，例如复现实验一键运行或定位出最大耗时环节。"
+            )
+
+    service = object.__new__(FacultyTwinWorkflowSupport)
+    service._settings = AppSettings(knowledge_base_dir=tmp_path)
+    service._llm_client = FakeLlmClient()
+    context = _build_context(deep_thinking=True, deep_thinking_explicit=True)
+    context.request.question = "这周如果想提高推进效率，我最该补哪块背景或工具链？"
+    context.request.course_context = "科研指导"
+
+    answer = service._retry_answer_with_compact_prompt(context)
+
+    assert "先补最常阻塞推进的工具链" in answer
+    assert "背景、目标、约束和评估指标" not in answer
+    assert len(service._llm_client.calls) == 1
+    system_prompt, user_prompt, kwargs = service._llm_client.calls[0]
+    assert "先明确判断" in system_prompt
+    assert "背景：科研指导" in user_prompt
+    assert kwargs["max_tokens"] == 768
+    assert kwargs["temperature"] == 0.2
+    assert kwargs["enable_thinking"] is False
 
 
 def test_deterministic_fallback_answer_handles_ascend_question() -> None:
@@ -429,6 +537,65 @@ def test_deterministic_fallback_handles_medical_priority_followup() -> None:
     assert "临床安全" in answer
     assert "跨中心泛化" in answer
     assert "推理效率" in answer
+
+
+def test_deterministic_fallback_handles_weekly_progress_question() -> None:
+    context = _build_context(deep_thinking=True, deep_thinking_explicit=True)
+    context.request.question = "这周如果想提高推进效率，我最该补哪块背景或工具链？"
+
+    answer = FacultyTwinWorkflowSupport._build_deterministic_fallback_answer(context)
+
+    assert "最近一周反复卡住" in answer
+    assert "profiling" in answer
+    assert "背景、目标、约束和评估指标" not in answer
+
+
+def test_deterministic_fallback_handles_research_direction_choice() -> None:
+    context = _build_context(deep_thinking=True, deep_thinking_explicit=True)
+    context.request.question = (
+        "我在推理引擎和推理服务系统之间摇摆，如何判断哪个更适合作为研究主线？"
+    )
+
+    answer = FacultyTwinWorkflowSupport._build_deterministic_fallback_answer(context)
+
+    assert "真实请求、调度日志和多租户场景" in answer
+    assert "两周探针实验" in answer
+    assert "[具体方案]" not in answer
+
+
+def test_deterministic_fallback_handles_ttft_weekly_priorities() -> None:
+    context = _build_context(deep_thinking=True, deep_thinking_explicit=True)
+    context.request.question = "如果目标是降低 TTFT，我该如何安排本周的文献、实验和实现优先级？"
+
+    answer = FacultyTwinWorkflowSupport._build_deterministic_fallback_answer(context)
+
+    assert "先实验定位" in answer
+    assert "TTFT P95" in answer
+
+
+def test_deterministic_fallback_handles_unstable_experiment_results() -> None:
+    context = _build_context(deep_thinking=True, deep_thinking_explicit=True)
+    context.request.question = (
+        "我的实验结果波动很大，这周应该先补统计分析、性能 profiling，还是实验管理工具？"
+    )
+
+    answer = FacultyTwinWorkflowSupport._build_deterministic_fallback_answer(context)
+
+    assert "先补实验管理和可复现性" in answer
+    assert "独立重复至少 5 次" in answer
+
+
+def test_deterministic_fallback_handles_research_innovation_question() -> None:
+    context = _build_context(deep_thinking=True, deep_thinking_explicit=True)
+    context.request.question = (
+        "设计一个新的推理调度研究问题时，怎样判断它是否具有足够的学术创新性？"
+    )
+
+    answer = FacultyTwinWorkflowSupport._build_deterministic_fallback_answer(context)
+
+    assert "系统性缺口" in answer
+    assert "related-work 矩阵" in answer
+    assert "背景、目标、约束和评估指标" not in answer
 
 
 def test_hosted_web_deep_call_does_not_enable_engine_thinking(tmp_path: Path) -> None:

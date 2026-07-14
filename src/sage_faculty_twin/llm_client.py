@@ -983,6 +983,18 @@ class VllmChatClient:
         answer_temperature = (
             self._settings.llm_answer_temperature if temperature is None else temperature
         )
+        model_name = (self.model_name or "").strip().lower()
+        if "glm-4" in model_name:
+            # GLM-4-32B is highly sensitive to OpenAI-style frequency penalties:
+            # even modest values can turn direct answers into prompt echoes,
+            # refusals, or repeated fragments. Keep its decoding neutral.
+            frequency_penalty = 0.0
+            presence_penalty = 0.0
+            repetition_penalty = 1.0
+        else:
+            frequency_penalty = self._settings.llm_answer_frequency_penalty
+            presence_penalty = self._settings.llm_answer_presence_penalty
+            repetition_penalty = self._settings.llm_answer_repetition_penalty
         payload: dict[str, Any] = {
             "model": self.model_name,
             "messages": [
@@ -990,9 +1002,9 @@ class VllmChatClient:
                 {"role": "user", "content": user_prompt},
             ],
             "temperature": answer_temperature,
-            "frequency_penalty": self._settings.llm_answer_frequency_penalty,
-            "presence_penalty": self._settings.llm_answer_presence_penalty,
-            "repetition_penalty": self._settings.llm_answer_repetition_penalty,
+            "frequency_penalty": frequency_penalty,
+            "presence_penalty": presence_penalty,
+            "repetition_penalty": repetition_penalty,
         }
         if not enable_thinking:
             payload["chat_template_kwargs"] = {"enable_thinking": False}
