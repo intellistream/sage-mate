@@ -1,7 +1,7 @@
 [Unit]
 Description=Sage Mate Cloudflare tunnel
 After=sage-mate-site.service
-Requires=sage-mate-site.service
+Wants=sage-mate-site.service
 
 [Service]
 Type=simple

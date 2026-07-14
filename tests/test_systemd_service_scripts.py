@@ -100,8 +100,18 @@ def test_quickstart_install_renders_service_units(tmp_path: Path) -> None:
     rendered_app = (target_dir / "sage-mate-app.service").read_text(
         encoding="utf-8"
     )
+    rendered_site = (target_dir / "sage-mate-site.service").read_text(
+        encoding="utf-8"
+    )
+    rendered_tunnel = (target_dir / "sage-mate-tunnel.service").read_text(
+        encoding="utf-8"
+    )
     assert f"Environment=PYTHON_BIN={good_python}" in rendered_app
     assert "__REPO_ROOT__" not in rendered_app
+    assert "Wants=sage-mate-app.service" in rendered_site
+    assert "Requires=sage-mate-app.service" not in rendered_site
+    assert "Wants=sage-mate-site.service" in rendered_tunnel
+    assert "Requires=sage-mate-site.service" not in rendered_tunnel
 
     # Systemctl was called for daemon-reload and enable
     log_text = systemctl_log.read_text(encoding="utf-8")
