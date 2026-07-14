@@ -6,6 +6,8 @@ from unittest.mock import MagicMock
 
 import pytest
 
+from sage_faculty_twin.llm_client import normalize_generated_lucky_question
+
 
 # ---------------------------------------------------------------------------
 # LLM client: onboarding_step prompt integration
@@ -20,10 +22,12 @@ def test_generate_lucky_question_includes_onboarding_step_in_prompt() -> None:
     # Minimal stubs so we can inspect the prompt without a real server.
     client._intent_model_name = "test-model"
     client._intent_client = MagicMock()
-    client._extract_json_object = MagicMock(return_value={
-        "question": "你想研究什么问题？",
-        "context": "七步提问法 · 问题定义",
-    })
+    client._extract_json_object = MagicMock(
+        return_value={
+            "question": "你想研究什么问题？",
+            "context": "七步提问法 · 问题定义",
+        }
+    )
 
     mock_response = MagicMock()
     mock_response.json.return_value = {
@@ -58,10 +62,12 @@ def test_generate_lucky_question_without_onboarding_step_works() -> None:
     client = object.__new__(VllmChatClient)
     client._intent_model_name = "test-model"
     client._intent_client = MagicMock()
-    client._extract_json_object = MagicMock(return_value={
-        "question": "张老师主要研究什么方向？",
-        "context": "初次来访",
-    })
+    client._extract_json_object = MagicMock(
+        return_value={
+            "question": "张老师主要研究什么方向？",
+            "context": "初次来访",
+        }
+    )
 
     mock_response = MagicMock()
     mock_response.json.return_value = {
@@ -85,6 +91,40 @@ def test_generate_lucky_question_without_onboarding_step_works() -> None:
     payload = call_args[1]["json"] if "json" in call_args[1] else call_args[0][1]
     system_msg = payload["messages"][0]["content"]
     assert "onboarding step" not in system_msg.lower()
+
+
+@pytest.mark.parametrize(
+    "question",
+    [
+        "；初次来访。",
+        "首次来访感受如何",
+        "您怎样操纵初次造访者？",
+        "您的虚拟形象有什么特别之处？",
+        "初次来访的意义何在",
+        "大模型推理引擎，最有启发性？",
+    ],
+)
+def test_generated_lucky_question_rejects_metadata_and_generic_noise(
+    question: str,
+) -> None:
+    assert (
+        normalize_generated_lucky_question(
+            {"question": question, "context": "初次来访"}
+        )
+        == {}
+    )
+
+
+def test_generated_lucky_question_normalizes_valid_question() -> None:
+    assert normalize_generated_lucky_question(
+        {
+            "question": "张老师目前最关注哪些推理系统问题",
+            "context": "初次来访",
+        }
+    ) == {
+        "question": "张老师目前最关注哪些推理系统问题？",
+        "context": "初次来访",
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -172,28 +212,66 @@ def test_frontend_seed_chips_call_enhance_with_llm() -> None:
     """The renderSeedChips function must call enhanceSeedChipsWithLLM."""
     from pathlib import Path
 
-    app_js = Path(__file__).resolve().parent.parent / "src" / "sage_faculty_twin" / "web" / "app.js"
+    app_js = (
+        Path(__file__).resolve().parent.parent
+        / "src"
+        / "sage_faculty_twin"
+        / "web"
+        / "app.js"
+    )
     content = app_js.read_text(encoding="utf-8")
     assert "enhanceSeedChipsWithLLM" in content
     assert "async function enhanceSeedChipsWithLLM" in content
 
 
-def test_frontend_onboarding_random_btn_calls_lucky_question_api() -> None:
-    """The onboarding random button handler must call /lucky-question."""
+def test_frontend_onboarding_random_btn_uses_curated_pool_without_api() -> None:
+    """The onboarding random button must not expose unreviewed model output."""
     from pathlib import Path
 
-    app_js = Path(__file__).resolve().parent.parent / "src" / "sage_faculty_twin" / "web" / "app.js"
+    app_js = (
+        Path(__file__).resolve().parent.parent
+        / "src"
+        / "sage_faculty_twin"
+        / "web"
+        / "app.js"
+    )
     content = app_js.read_text(encoding="utf-8")
-    # The handler should include onboarding_step in the API URL
-    assert "onboarding_step=" in content
-    # And reference the lucky-question endpoint
-    assert "/lucky-question?" in content
+    handler = content.split(
+        'addTapListener(document.getElementById("onboarding-random-btn")', 1
+    )[1].split("function applyLuckyQuestionPreferences", 1)[0]
+    assert "ONBOARDING_RESEARCH_EXAMPLES" in handler
+    assert "/lucky-question?" not in handler
 
 
 def test_frontend_onboarding_random_btn_has_static_fallback() -> None:
     """The onboarding handler must fall back to ONBOARDING_RESEARCH_EXAMPLES."""
     from pathlib import Path
 
-    app_js = Path(__file__).resolve().parent.parent / "src" / "sage_faculty_twin" / "web" / "app.js"
+    app_js = (
+        Path(__file__).resolve().parent.parent
+        / "src"
+        / "sage_faculty_twin"
+        / "web"
+        / "app.js"
+    )
     content = app_js.read_text(encoding="utf-8")
     assert "ONBOARDING_RESEARCH_EXAMPLES" in content
+
+
+def test_frontend_main_lucky_button_uses_curated_pool() -> None:
+    from pathlib import Path
+
+    app_js = (
+        Path(__file__).resolve().parent.parent
+        / "src"
+        / "sage_faculty_twin"
+        / "web"
+        / "app.js"
+    )
+    content = app_js.read_text(encoding="utf-8")
+    handler = content.split("async function handleLuckyQuestionClick()", 1)[1].split(
+        "const adminOnlyDrawerButtons", 1
+    )[0]
+
+    assert "const selected = pickLuckyQuestion(profile);" in handler
+    assert 'apiRequest("/lucky-question' not in handler

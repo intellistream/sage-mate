@@ -1831,7 +1831,6 @@ addTapListener(document.getElementById("onboarding-random-btn"), async () => {
     const profile = currentOnboardingProfile();
     const step = onboardingSteps[onboardingCurrentStep];
     const ctx = (step && step.context) || "";
-    const onboardingStepLabel = ctx;
 
     // Show loading state while generating
     btn.disabled = true;
@@ -1839,32 +1838,15 @@ addTapListener(document.getElementById("onboarding-random-btn"), async () => {
     btn.setAttribute("aria-label", "正在生成示例问题");
     btn.innerHTML = '<span class="lucky-loading-spinner" aria-hidden="true"></span>';
 
-    // Try LLM-generated question first (contextual to the onboarding step)
-    let pick = null;
-    if (onboardingStepLabel && !isCodeAssistantProfile(profile)) {
-        try {
-            const apiUrl = `/lucky-question?visitor_profile=${encodeURIComponent(profile)}&onboarding_step=${encodeURIComponent(onboardingStepLabel)}`;
-            const result = await apiRequest(apiUrl, { timeoutMs: 6000 });
-            if (result && typeof result === "object" && result.question) {
-                pick = result.question;
-            }
-        } catch {
-            // API failed — fall through to static pool.
-        }
+    const pool = ONBOARDING_RESEARCH_EXAMPLES[profile] || ONBOARDING_RESEARCH_EXAMPLES.lab_member;
+    if (!pool || pool.length === 0) {
+        btn.disabled = false;
+        btn.classList.remove("is-loading");
+        btn.setAttribute("aria-label", originalLabel);
+        btn.innerHTML = originalHtml;
+        return;
     }
-
-    // Fall back to static pool
-    if (!pick) {
-        const pool = ONBOARDING_RESEARCH_EXAMPLES[profile] || ONBOARDING_RESEARCH_EXAMPLES.lab_member;
-        if (!pool || pool.length === 0) {
-            btn.disabled = false;
-            btn.classList.remove("is-loading");
-            btn.setAttribute("aria-label", originalLabel);
-            btn.innerHTML = originalHtml;
-            return;
-        }
-        pick = pool[Math.floor(Math.random() * pool.length)];
-    }
+    const pick = pool[Math.floor(Math.random() * pool.length)];
 
     if (chatQuestion) {
         seedChatQuestion(pick, ctx);
@@ -1950,25 +1932,7 @@ async function handleLuckyQuestionClick() {
     luckyQuestionButton.innerHTML = '<span class="lucky-loading-spinner" aria-hidden="true"></span>';
     try {
         const profile = visitorProfileInput?.value || "general_visitor";
-        // Try LLM-powered generation first (with short timeout).
-        let selected = null;
-        try {
-            const recentParam = luckyQuestionHistory.length > 0
-                ? encodeURIComponent(luckyQuestionHistory.join(","))
-                : "";
-            const apiUrl = `/lucky-question?visitor_profile=${encodeURIComponent(profile)}&recent=${recentParam}`;
-            const result = await apiRequest(apiUrl, { timeoutMs: 6000 });
-            if (result && typeof result === "object" && result.question) {
-                selected = { question: result.question, context: result.context || "" };
-            }
-        } catch {
-            // API failed or timed out — fall through to static pool.
-        }
-
-        // Fall back to static question pool.
-        if (!selected) {
-            selected = pickLuckyQuestion(profile);
-        }
+        const selected = pickLuckyQuestion(profile);
         if (!selected) {
             return;
         }

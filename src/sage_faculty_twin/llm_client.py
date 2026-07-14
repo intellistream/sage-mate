@@ -52,6 +52,90 @@ _THROUGHPUT_WINDOW_SECONDS = 60.0
 _SEGMENT_REUSE_TAG_PREFIX = "segreuse:v1"
 _SEGMENT_REUSE_TAG_SEPARATOR = "||"
 
+_LUCKY_QUESTION_CONTEXTS = {
+    "初次来访",
+    "科研指导",
+    "大模型推理引擎课程答疑",
+    "数据库实验课答疑",
+    "本科课程答疑",
+    "论文写作课",
+    "组会准备",
+}
+_LUCKY_QUESTION_RELEVANCE_MARKERS = (
+    "张老师",
+    "研究",
+    "推理",
+    "大模型",
+    "llm",
+    "npu",
+    "ascend",
+    "数据库",
+    "流处理",
+    "系统",
+    "课程",
+    "论文",
+    "实验",
+    "组会",
+    "学术",
+    "预约",
+    "项目",
+    "投稿",
+    "写作",
+    "文献",
+    "blocker",
+)
+_LUCKY_QUESTION_FORBIDDEN_MARKERS = (
+    "初次来访",
+    "首次来访",
+    "初次造访",
+    "来访感受",
+    "虚拟形象",
+    "数字分身",
+    "操纵",
+    "有何巧妙",
+    "最有启发性",
+    "意义何在",
+)
+_LUCKY_QUESTION_INTENT_MARKERS = (
+    "什么",
+    "如何",
+    "怎么",
+    "为什么",
+    "为何",
+    "哪些",
+    "哪个",
+    "哪块",
+    "是否",
+    "能否",
+    "可否",
+    "有没有",
+    "应该",
+    "需要",
+    "建议",
+    "值得",
+)
+
+
+def normalize_generated_lucky_question(result: dict[str, Any]) -> dict[str, str]:
+    question = str(result.get("question") or "").strip().strip('"\'“”')
+    context = str(result.get("context") or "").strip().strip('"\'“”')
+    question = question.rstrip('"\'“”。，；;！？!? ')
+    lowered_question = question.lower()
+
+    if not 6 <= len(question) <= 60:
+        return {}
+    if context not in _LUCKY_QUESTION_CONTEXTS:
+        return {}
+    if any(marker in lowered_question for marker in _LUCKY_QUESTION_FORBIDDEN_MARKERS):
+        return {}
+    if any(label in question for label in _LUCKY_QUESTION_CONTEXTS):
+        return {}
+    if not any(marker in lowered_question for marker in _LUCKY_QUESTION_RELEVANCE_MARKERS):
+        return {}
+    if not any(marker in question for marker in _LUCKY_QUESTION_INTENT_MARKERS):
+        return {}
+    return {"question": f"{question}？", "context": context}
+
 
 class StreamingServerError(RuntimeError):
     """Raised when the vLLM SSE stream delivers an error event.
@@ -744,11 +828,17 @@ class VllmChatClient:
             "research on LLM inference engines, Ascend NPU systems, "
             "database/stream-processing/runtime systems, teaching courses "
             "on large-model inference engines and databases, or academic advising. "
-            "Make it thought-provoking, not generic. "
+            "Make it thought-provoking, not generic. The question field must contain "
+            "only the visitor's complete question; never include a context label, visitor "
+            "state, JSON commentary, or semicolon-delimited metadata in it. "
+            "Do not ask about the digital twin itself or the experience of visiting it. "
             "Return JSON only: {\"question\": \"...\", \"context\": \"...\"}. "
             "context is a short label like '科研指导', '大模型推理引擎课程答疑', "
             "'论文写作课', '初次来访', or '组会准备'. "
-            "The question must be in Chinese. Keep it under 40 characters."
+            "The question must be in Chinese, clearly interrogative, and end with '？'. "
+            "Keep it under 40 characters. Good example: "
+            "{\"question\": \"张老师目前最关注哪些推理系统问题？\", "
+            "\"context\": \"初次来访\"}."
         )
         if onboarding_step:
             system_prompt += (
@@ -783,11 +873,7 @@ class VllmChatClient:
             elapsed_ms = (perf_counter() - started_at) * 1000.0
             self._record_request_success(latency_ms=elapsed_ms)
             result = self._extract_json_object(content)
-            question = str(result.get("question") or "").strip()
-            context = str(result.get("context") or "").strip()
-            if not question:
-                return {}
-            return {"question": question, "context": context}
+            return normalize_generated_lucky_question(result)
         except Exception as exc:
             self._record_request_error(exc)
             logger.warning("generate_lucky_question failed: %s", exc)
