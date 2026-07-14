@@ -33,7 +33,7 @@ Hosted Faculty Twin releases can populate this directory from a dedicated privat
 runtime-data repository before seeding defaults:
 
 ```bash
-FACULTY_TWIN_RUNTIME_REPO_URL=https://github.com/Qixin-Gaoke/sage-faculty-twin-runtime-private.git
+FACULTY_TWIN_RUNTIME_REPO_URL=https://github.com/Qixin-Gaoke/sage-mate-runtime-private.git
 FACULTY_TWIN_RUNTIME_REPO_BRANCH=main
 FACULTY_TWIN_RUNTIME_REPO_REQUIRED=true
 ```

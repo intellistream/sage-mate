@@ -4,6 +4,8 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
+import subprocess
 import sys
 import time
 import urllib.error
@@ -97,6 +99,28 @@ def env_bool_false(value: str) -> bool:
     return value.strip().lower() in {"", "0", "false", "no", "off"}
 
 
+def runtime_repo_identity(url: str) -> str:
+    value = url.strip().rstrip("/")
+    match = re.search(r"github\.com(?::|/)([^/]+/[^/]+?)(?:\.git)?$", value, re.IGNORECASE)
+    if match:
+        return f"github.com/{match.group(1).removesuffix('.git').lower()}"
+    return "configured-runtime-repository" if value else "<empty>"
+
+
+def runtime_repo_remote(runtime_dir: Path) -> str:
+    try:
+        result = subprocess.run(
+            ["git", "-C", str(runtime_dir), "config", "--get", "remote.origin.url"],
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return ""
+    return result.stdout.strip() if result.returncode == 0 else ""
+
+
 def wait_for_models(vllm_url: str, *, timeout: float, api_key: str) -> tuple[int, Any]:
     deadline = time.time() + timeout
     last_status = 0
@@ -154,6 +178,25 @@ def main() -> int:
     check(app_profile == "faculty_twin", "app profile", f"DIGITAL_TWIN_APP_PROFILE={app_profile or '<empty>'}", failures)
     check(env_bool_false(code_enabled), "code workbench disabled", f"DIGITAL_TWIN_CODE_WORKBENCH_ENABLED={code_enabled or '<empty>'}", failures)
     check(not workspace_roots.strip(), "workspace roots empty", "DIGITAL_TWIN_CODE_WORKSPACE_ROOTS is empty", failures)
+
+    runtime_repo_url = env.get("FACULTY_TWIN_RUNTIME_REPO_URL", "").strip()
+    if runtime_repo_url:
+        runtime_dir = Path(env.get("DIGITAL_TWIN_RUNTIME_DIR", "")).expanduser()
+        runtime_remote = runtime_repo_remote(runtime_dir) if runtime_dir.is_dir() else ""
+        expected_identity = runtime_repo_identity(runtime_repo_url)
+        actual_identity = runtime_repo_identity(runtime_remote)
+        check(
+            bool(runtime_remote),
+            "runtime repository checkout",
+            f"path={runtime_dir} remote={actual_identity}",
+            failures,
+        )
+        check(
+            bool(runtime_remote) and actual_identity == expected_identity,
+            "runtime repository source",
+            f"expected={expected_identity} actual={actual_identity}",
+            failures,
+        )
 
     app_url = args.app_url.rstrip("/")
     status, body = request_json(f"{app_url}/healthz", timeout=10)
@@ -219,6 +262,8 @@ def main() -> int:
         "DIGITAL_TWIN_CODE_WORKBENCH_ENABLED",
         "DIGITAL_TWIN_CODE_WORKSPACE_ROOTS",
         "DIGITAL_TWIN_MODEL_NAME",
+        "DIGITAL_TWIN_RUNTIME_DIR",
+        "FACULTY_TWIN_RUNTIME_REPO_URL",
         "VLLM_NVIDIA_MODEL",
         "VLLM_NVIDIA_ACTUAL_MODEL_ID",
         "VLLM_NVIDIA_SERVED_MODEL_NAME",

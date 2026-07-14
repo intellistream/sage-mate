@@ -5,6 +5,21 @@
 
 set -euo pipefail
 
+load_repo_env_if_unset() {
+    local repo_root="$1"
+    local env_file="$repo_root/.env"
+    [[ -f "$env_file" ]] || return 0
+
+    local line key
+    while IFS= read -r line || [[ -n "$line" ]]; do
+        [[ -z "$line" || "$line" =~ ^[[:space:]]*# || "$line" != *"="* ]] && continue
+        key="${line%%=*}"
+        key="${key// /}"
+        [[ -z "$key" || ! "$key" =~ ^[A-Za-z_][A-Za-z0-9_]*$ || -n "${!key:-}" ]] && continue
+        export "$line"
+    done < "$env_file"
+}
+
 resolve_repo_python() {
     local repo_root="$1"
 

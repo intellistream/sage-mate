@@ -7,17 +7,8 @@ repo_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 source "$repo_root/tools/lib/runtime_env.sh"
 app_port="${APP_PORT:-55601}"
 
-# --- Load .env before runtime defaults so installer-written paths take effect. ---
-if [[ -f "$repo_root/.env" ]]; then
-    while IFS= read -r line || [[ -n "$line" ]]; do
-        [[ -z "$line" || "$line" =~ ^[[:space:]]*# ]] && continue
-        key="${line%%=*}"
-        key="${key// /}"
-        [[ -z "$key" || -n "${!key:-}" ]] && continue
-        export "$line"
-    done < "$repo_root/.env"
-fi
-
+# Load installer-written paths before applying shared runtime defaults.
+load_repo_env_if_unset "$repo_root"
 export_repo_runtime_env "$repo_root"
 python_exec="$PYTHON_BIN"
 

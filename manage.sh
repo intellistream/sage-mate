@@ -38,6 +38,7 @@ set -euo pipefail
 
 repo_root=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 source "$repo_root/tools/lib/runtime_env.sh"
+load_repo_env_if_unset "$repo_root"
 user_runtime_dir="/run/user/$(id -u)"
 user_bus_path="$user_runtime_dir/bus"
 

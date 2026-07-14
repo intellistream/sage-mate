@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import subprocess
 from pathlib import Path
 
@@ -7,6 +8,7 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[1]
 SYNC_SCRIPT = REPO_ROOT / "tools" / "sync_runtime_repo.sh"
 HOSTED_WEB_SCRIPT = REPO_ROOT / "release" / "hosted-web.sh"
+RUNTIME_ENV_SCRIPT = REPO_ROOT / "tools" / "lib" / "runtime_env.sh"
 
 
 def run_git(*args: str, cwd: Path | None = None) -> subprocess.CompletedProcess[str]:
@@ -29,6 +31,8 @@ def test_runtime_repo_replaces_seed_folder_and_preserves_local_only_files(
     run_git("config", "user.name", "Runtime Test", cwd=source)
     (source / "data").mkdir()
     (source / "data" / "canonical.json").write_text("repo", encoding="utf-8")
+    (source / "cloudflared").mkdir()
+    (source / "cloudflared" / "config.yml").write_text("repo-tunnel", encoding="utf-8")
     run_git("add", ".", cwd=source)
     run_git("commit", "-m", "seed runtime", cwd=source)
 
@@ -37,6 +41,9 @@ def test_runtime_repo_replaces_seed_folder_and_preserves_local_only_files(
     (runtime_dir / "data" / "canonical.json").write_text("stale", encoding="utf-8")
     (runtime_dir / "cloudflared").mkdir()
     (runtime_dir / "cloudflared" / "token").write_text("secret", encoding="utf-8")
+    (runtime_dir / "cloudflared" / "config.yml").write_text(
+        "local-tunnel", encoding="utf-8"
+    )
 
     result = subprocess.run(
         [
@@ -60,6 +67,9 @@ def test_runtime_repo_replaces_seed_folder_and_preserves_local_only_files(
     assert (runtime_dir / "cloudflared" / "token").read_text(
         encoding="utf-8"
     ) == "secret"
+    assert (runtime_dir / "cloudflared" / "config.yml").read_text(
+        encoding="utf-8"
+    ) == "local-tunnel"
     assert "secret" not in result.stdout
     assert list(tmp_path.glob("runtime-private.pre-repo-*"))
 
@@ -122,4 +132,32 @@ def test_hosted_release_configures_private_runtime_before_quickstart() -> None:
     quickstart_index = main_body.index('./quickstart.sh "${quickstart_args[@]}"')
 
     assert configure_index < quickstart_index
-    assert "Qixin-Gaoke/sage-faculty-twin-runtime-private.git" in script
+    assert "Qixin-Gaoke/sage-mate-runtime-private.git" in script
+
+
+def test_runtime_env_file_is_loaded_before_shared_defaults(tmp_path: Path) -> None:
+    configured_runtime = tmp_path / "dedicated-runtime"
+    (tmp_path / ".env").write_text(
+        f"DIGITAL_TWIN_RUNTIME_DIR={configured_runtime}\n",
+        encoding="utf-8",
+    )
+    env = os.environ.copy()
+    env.pop("DIGITAL_TWIN_RUNTIME_DIR", None)
+
+    result = subprocess.run(
+        [
+            "bash",
+            "-c",
+            'source "$1"; load_repo_env_if_unset "$2"; '
+            'export_repo_runtime_env "$2"; printf "%s" "$DIGITAL_TWIN_RUNTIME_DIR"',
+            "runtime-env-test",
+            str(RUNTIME_ENV_SCRIPT),
+            str(tmp_path),
+        ],
+        env=env,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.stdout == str(configured_runtime)

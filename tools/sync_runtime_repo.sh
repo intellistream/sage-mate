@@ -130,6 +130,11 @@ chmod 0700 "$runtime_dir"
 
 if [[ -n "$backup_dir" ]]; then
     cp -a -n "$backup_dir"/. "$runtime_dir"/
+    for local_runtime_dir in cloudflared .runtime logs downloads; do
+        [[ -d "$backup_dir/$local_runtime_dir" ]] || continue
+        mkdir -p "$runtime_dir/$local_runtime_dir"
+        cp -a "$backup_dir/$local_runtime_dir"/. "$runtime_dir/$local_runtime_dir"/
+    done
     log "Preserved previous runtime files in $backup_dir and merged local-only files"
 fi
 log "Runtime repository ready: $runtime_dir"
