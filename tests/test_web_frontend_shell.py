@@ -63,3 +63,15 @@ def test_status_and_workflow_buttons_use_distinct_icons() -> None:
     assert '<polyline points="22 12 18 12 15 21 9 3 6 12 2 12"' in status_button
     assert '<rect x="3" y="3" width="8" height="8" rx="2"' in workflow_button
     assert status_button != workflow_button
+
+
+def test_operations_console_exposes_admin_shadow_planner_toggle() -> None:
+    index_html = (WEB_DIR / "index.html").read_text(encoding="utf-8")
+    app_js = (WEB_DIR / "app.js").read_text(encoding="utf-8")
+
+    assert 'id="shadow-planner-toggle"' in index_html
+    assert 'id="runtime-features-response"' in index_html
+    assert "影子规划器会在正式规划之外额外运行一次模型规划" in index_html
+    assert 'apiRequest("/operations/runtime-features"' in app_js
+    assert 'method: "PATCH"' in app_js
+    assert "function updateShadowPlannerRuntimeFlag()" in app_js

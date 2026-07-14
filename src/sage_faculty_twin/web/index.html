@@ -1122,6 +1122,18 @@
             <button type="button" id="refresh-operations-console" class="ghost-button">刷新后台</button>
         </div>
         <div id="operations-response" class="inline-status inline-status-empty">正在等待管理员打开运营后台。</div>
+        <section class="operations-runtime-controls" aria-labelledby="runtime-features-title">
+            <div class="operations-runtime-copy">
+                <h3 id="runtime-features-title">实验功能</h3>
+                <p>影子规划器会在正式规划之外额外运行一次模型规划，用于质量对比。开启后聊天延迟和推理开销都会增加。</p>
+            </div>
+            <label class="runtime-feature-switch" for="shadow-planner-toggle">
+                <input type="checkbox" id="shadow-planner-toggle" />
+                <span class="runtime-feature-switch-track" aria-hidden="true"></span>
+                <span id="shadow-planner-toggle-label">已关闭</span>
+            </label>
+        </section>
+        <div id="runtime-features-response" class="inline-status inline-status-empty">正在读取实验功能状态。</div>
         <div id="operations-summary" class="operations-summary-grid"></div>
         <div id="operations-queues" class="operations-queue-grid"></div>
         <div class="operations-workbench-grid">

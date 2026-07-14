@@ -204,6 +204,7 @@ class AppSettings(BaseSettings):
     escalation_queue_dir: Path = Field(default=Path("data/escalations"))
     follow_up_queue_dir: Path = Field(default=Path("data/follow_up_actions"))
     operations_task_state_dir: Path = Field(default=Path("data/operations_task_state"))
+    runtime_feature_flags_path: Path = Field(default=Path("data/runtime_feature_flags.json"))
     suggestion_board_dir: Path = Field(default=Path("data/suggestions"))
     user_account_store_dir: Path = Field(default=Path("data/user_accounts"))
     slack_user_link_dir: Path = Field(default=Path("data/slack_user_links"))
@@ -379,6 +380,7 @@ class AppSettings(BaseSettings):
             "escalation_queue_dir": runtime_root / "data/escalations",
             "follow_up_queue_dir": runtime_root / "data/follow_up_actions",
             "operations_task_state_dir": runtime_root / "data/operations_task_state",
+            "runtime_feature_flags_path": runtime_root / "data/runtime_feature_flags.json",
             "suggestion_board_dir": runtime_root / "data/suggestions",
             "user_account_store_dir": runtime_root / "data/user_accounts",
             "slack_user_link_dir": runtime_root / "data/slack_user_links",

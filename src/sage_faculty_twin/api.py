@@ -102,6 +102,8 @@ from .models import (
     OperationsTaskStateUpdateRequest,
     OperationsWorkbenchResponse,
     QuestionAnalyticsReportResponse,
+    RuntimeFeatureFlagsResponse,
+    RuntimeFeatureFlagsUpdateRequest,
     ServiceControlResponse,
     SlackTwinLinkCodeResponse,
     SlackTwinLinkStatusResponse,
@@ -1910,6 +1912,27 @@ async def get_workflow_replay_report(
     _: dict = Depends(require_admin_session),
 ) -> WorkflowReplayReportResponse:
     return service.get_workflow_replay_report()
+
+
+@llm_app.get(
+    "/operations/runtime-features",
+    response_model=RuntimeFeatureFlagsResponse,
+)
+async def get_runtime_feature_flags(
+    _: dict = Depends(require_admin_session),
+) -> RuntimeFeatureFlagsResponse:
+    return service.get_runtime_feature_flags()
+
+
+@llm_app.patch(
+    "/operations/runtime-features",
+    response_model=RuntimeFeatureFlagsResponse,
+)
+async def update_runtime_feature_flags(
+    request: RuntimeFeatureFlagsUpdateRequest,
+    _: dict = Depends(require_admin_session),
+) -> RuntimeFeatureFlagsResponse:
+    return service.update_runtime_feature_flags(request)
 
 
 @llm_app.patch("/operations/tasks/{task_key}", response_model=OperationsTaskStateRecord)

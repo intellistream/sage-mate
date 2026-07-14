@@ -134,6 +134,8 @@ from .models import (
     QuestionAnalyticsOverview,
     QuestionAnalyticsReportResponse,
     QuestionClusterSummary,
+    RuntimeFeatureFlagsResponse,
+    RuntimeFeatureFlagsUpdateRequest,
     ServiceControlResponse,
     StudentOperationsProfile,
     TokenUsage,
@@ -151,6 +153,7 @@ from .models import (
 from .notifications import BookingEmailNotifier, BookingNotificationError
 from .online_presence_store import OnlinePresenceStore
 from .operations_store import OperationsTaskStateStore
+from .runtime_feature_store import RuntimeFeatureFlagStore
 from .persona import build_system_prompt
 from .planner_comparison_store import PlannerComparisonEntry, PlannerComparisonStore
 from .planner_metrics_store import PlannerMetricsStore
@@ -6709,6 +6712,7 @@ class DigitalTwinService:
         self._escalation_store = EscalationQueueStore(settings)
         self._follow_up_store = FollowUpQueueStore(settings)
         self._operations_task_state_store = OperationsTaskStateStore(settings)
+        self._runtime_feature_flag_store = RuntimeFeatureFlagStore(settings)
         self._planner_comparison_store = PlannerComparisonStore(settings)
         self._planner_metrics_store = PlannerMetricsStore(settings)
         self._suggestion_store = SuggestionBoardStore(settings)
@@ -7115,7 +7119,7 @@ class DigitalTwinService:
                 "Benchmark evaluation request skips shadow planner to keep latency and scoring focused on the main execution lane.",
             )
 
-        if not self._settings.shadow_planner_enabled:
+        if not self._runtime_feature_flag_store.get().shadow_planner_enabled:
             return None, "shadow_disabled", "LLM shadow planner not enabled yet."
 
         proposal_method = getattr(self._llm_client, "propose_shadow_plan_candidate_sync", None)
@@ -7140,6 +7144,22 @@ class DigitalTwinService:
                 else "Shadow planner proposal failed policy validation."
             )
         return shadow_decision, "shadow_ready", shadow_message
+
+    def get_runtime_feature_flags(self) -> RuntimeFeatureFlagsResponse:
+        return self._runtime_feature_flag_store.get()
+
+    def update_runtime_feature_flags(
+        self,
+        request: RuntimeFeatureFlagsUpdateRequest | dict[str, Any],
+    ) -> RuntimeFeatureFlagsResponse:
+        normalized = (
+            request
+            if isinstance(request, RuntimeFeatureFlagsUpdateRequest)
+            else RuntimeFeatureFlagsUpdateRequest.model_validate(request)
+        )
+        return self._runtime_feature_flag_store.update_shadow_planner(
+            normalized.shadow_planner_enabled
+        )
 
     def get_admin_session(self, session_token: str | None) -> AdminSessionResponse:
         support = self._build_support()

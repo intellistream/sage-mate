@@ -602,6 +602,15 @@ class OperationsTaskStateUpdateRequest(BaseModel):
     note: str | None = Field(default=None, max_length=1000)
 
 
+class RuntimeFeatureFlagsResponse(BaseModel):
+    shadow_planner_enabled: bool
+    updated_at: datetime | None = None
+
+
+class RuntimeFeatureFlagsUpdateRequest(BaseModel):
+    shadow_planner_enabled: bool
+
+
 class OperationsTaskStateRecord(BaseModel):
     task_key: str
     status: str = Field(pattern="^(open|in_progress|done|deferred)$")

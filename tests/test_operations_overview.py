@@ -22,6 +22,7 @@ from sage_faculty_twin.models import (
 from sage_faculty_twin.operations_store import OperationsTaskStateStore
 from sage_faculty_twin.planner_comparison_store import PlannerComparisonStore
 from sage_faculty_twin.planner_metrics_store import PlannerMetricsStore
+from sage_faculty_twin.runtime_feature_store import RuntimeFeatureFlagStore
 from sage_faculty_twin.suggestion_store import SuggestionBoardStore
 
 
@@ -41,6 +42,7 @@ def isolated_operations_stores(tmp_path: Path):
     original_operations_task_state_store = service._operations_task_state_store
     original_planner_comparison_store = service._planner_comparison_store
     original_planner_metrics_store = service._planner_metrics_store
+    original_runtime_feature_flag_store = service._runtime_feature_flag_store
     original_suggestion_store = service._suggestion_store
     original_meeting_service = service._meeting_service
 
@@ -55,6 +57,7 @@ def isolated_operations_stores(tmp_path: Path):
             "operations_task_state_dir": tmp_path / "operations-task-state",
             "planner_comparison_dir": tmp_path / "planner-comparisons",
             "planner_metrics_dir": tmp_path / "planner-metrics",
+            "runtime_feature_flags_path": tmp_path / "runtime-feature-flags.json",
             "suggestion_board_dir": tmp_path / "suggestions",
             "availability_schedule_path": tmp_path
             / "availability"
@@ -73,6 +76,7 @@ def isolated_operations_stores(tmp_path: Path):
     service._operations_task_state_store = OperationsTaskStateStore(isolated_settings)
     service._planner_comparison_store = PlannerComparisonStore(isolated_settings)
     service._planner_metrics_store = PlannerMetricsStore(isolated_settings)
+    service._runtime_feature_flag_store = RuntimeFeatureFlagStore(isolated_settings)
     service._suggestion_store = SuggestionBoardStore(isolated_settings)
     service._meeting_service = MeetingService(isolated_settings)
     try:
@@ -88,6 +92,7 @@ def isolated_operations_stores(tmp_path: Path):
         service._operations_task_state_store = original_operations_task_state_store
         service._planner_comparison_store = original_planner_comparison_store
         service._planner_metrics_store = original_planner_metrics_store
+        service._runtime_feature_flag_store = original_runtime_feature_flag_store
         service._suggestion_store = original_suggestion_store
         service._meeting_service = original_meeting_service
 
@@ -98,6 +103,11 @@ def test_operations_overview_requires_admin_session(isolated_operations_stores) 
     overview_response = client.get("/operations/overview")
     workbench_response = client.get("/operations/workbench")
     replay_response = client.get("/workflow/replay")
+    runtime_features_response = client.get("/operations/runtime-features")
+    runtime_features_update_response = client.patch(
+        "/operations/runtime-features",
+        json={"shadow_planner_enabled": True},
+    )
 
     assert overview_response.status_code == 403
     assert overview_response.json()["detail"] == "需要管理员身份验证。"
@@ -105,6 +115,38 @@ def test_operations_overview_requires_admin_session(isolated_operations_stores) 
     assert workbench_response.json()["detail"] == "需要管理员身份验证。"
     assert replay_response.status_code == 403
     assert replay_response.json()["detail"] == "需要管理员身份验证。"
+    assert runtime_features_response.status_code == 403
+    assert runtime_features_response.json()["detail"] == "需要管理员身份验证。"
+    assert runtime_features_update_response.status_code == 403
+    assert runtime_features_update_response.json()["detail"] == "需要管理员身份验证。"
+
+
+def test_admin_can_toggle_shadow_planner_at_runtime(
+    isolated_operations_stores,
+) -> None:
+    client.cookies.clear()
+    login_response = client.post(
+        "/auth/admin/login",
+        json={"username": settings.admin_username, "password": settings.admin_password},
+    )
+    assert login_response.status_code == 200
+
+    initial_response = client.get("/operations/runtime-features")
+    assert initial_response.status_code == 200
+    assert initial_response.json()["shadow_planner_enabled"] is False
+
+    update_response = client.patch(
+        "/operations/runtime-features",
+        json={"shadow_planner_enabled": True},
+    )
+    assert update_response.status_code == 200
+    assert update_response.json()["shadow_planner_enabled"] is True
+    assert update_response.json()["updated_at"] is not None
+
+    persisted_response = client.get("/operations/runtime-features")
+    assert persisted_response.status_code == 200
+    assert persisted_response.json()["shadow_planner_enabled"] is True
+    client.cookies.clear()
 
 
 def test_operations_overview_aggregates_existing_work_queues(

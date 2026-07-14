@@ -282,6 +282,9 @@ const questionAnalyticsHandoffs = document.getElementById("question-analytics-ha
 const questionAnalyticsDrafts = document.getElementById("question-analytics-drafts");
 const operationsWindow = document.getElementById("operations-window");
 const operationsResponse = document.getElementById("operations-response");
+const runtimeFeaturesResponse = document.getElementById("runtime-features-response");
+const shadowPlannerToggle = document.getElementById("shadow-planner-toggle");
+const shadowPlannerToggleLabel = document.getElementById("shadow-planner-toggle-label");
 const operationsSummary = document.getElementById("operations-summary");
 const operationsQueues = document.getElementById("operations-queues");
 const operationsWorkflowReplaySummary = document.getElementById("operations-workflow-replay-summary");
@@ -2430,6 +2433,9 @@ questionAnalyticsWindow?.addEventListener("change", async () => {
 });
 operationsWindow?.addEventListener("change", async () => {
     await loadOperationsWorkbench();
+});
+shadowPlannerToggle?.addEventListener("change", async () => {
+    await updateShadowPlannerRuntimeFlag();
 });
 memoryProfilesStudentQuery?.addEventListener("keydown", async (event) => {
     if (event.key !== "Enter") {
@@ -4626,9 +4632,10 @@ async function loadOperationsWorkbench() {
     renderOperationsLoadingState();
 
     try {
-        const [workbenchResult, workflowReplayResult] = await Promise.allSettled([
+        const [workbenchResult, workflowReplayResult, runtimeFeaturesResult] = await Promise.allSettled([
             apiRequest(`/operations/workbench?days=${encodeURIComponent(days)}&limit=6`),
             apiRequest("/workflow/replay"),
+            apiRequest("/operations/runtime-features"),
         ]);
         if (workbenchResult.status !== "fulfilled") {
             throw new Error(workbenchResult.reason?.message || "运营后台加载失败，请稍后重试。");
@@ -4655,10 +4662,63 @@ async function loadOperationsWorkbench() {
                 workflowReplayResult.reason?.message || "Workflow replay 拉取失败。"
             );
         }
+        if (runtimeFeaturesResult.status === "fulfilled") {
+            renderRuntimeFeatureFlags(runtimeFeaturesResult.value);
+            setInlineStatus(runtimeFeaturesResponse, "实验功能状态已同步。", "success");
+        } else {
+            setInlineStatus(
+                runtimeFeaturesResponse,
+                runtimeFeaturesResult.reason?.message || "实验功能状态读取失败。",
+                "error"
+            );
+        }
         setInlineStatus(operationsResponse, `已加载最近 ${days} 天运营后台。`, "success");
     } catch (error) {
         renderOperationsErrorState(error.message);
         setInlineStatus(operationsResponse, error.message, "error");
+    }
+}
+
+function renderRuntimeFeatureFlags(data) {
+    const enabled = Boolean(data?.shadow_planner_enabled);
+    if (shadowPlannerToggle) {
+        shadowPlannerToggle.checked = enabled;
+    }
+    if (shadowPlannerToggleLabel) {
+        shadowPlannerToggleLabel.textContent = enabled ? "已开启" : "已关闭";
+    }
+}
+
+async function updateShadowPlannerRuntimeFlag() {
+    if (!shadowPlannerToggle || !ensureAdminOnlyAccess({ responseElement: runtimeFeaturesResponse })) {
+        return;
+    }
+
+    const enabled = shadowPlannerToggle.checked;
+    if (enabled && !globalThis.confirm("开启影子规划器会为每次聊天增加一次额外模型规划，并提高延迟和推理开销。确认开启？")) {
+        renderRuntimeFeatureFlags({ shadow_planner_enabled: false });
+        return;
+    }
+
+    shadowPlannerToggle.disabled = true;
+    setInlineStatus(runtimeFeaturesResponse, enabled ? "正在开启影子规划器..." : "正在关闭影子规划器...", "empty");
+    try {
+        const data = await apiRequest("/operations/runtime-features", {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ shadow_planner_enabled: enabled }),
+        });
+        renderRuntimeFeatureFlags(data);
+        setInlineStatus(
+            runtimeFeaturesResponse,
+            enabled ? "影子规划器已开启，新聊天将增加一次对比规划。" : "影子规划器已关闭，聊天恢复标准规划路径。",
+            enabled ? "warning" : "success"
+        );
+    } catch (error) {
+        renderRuntimeFeatureFlags({ shadow_planner_enabled: !enabled });
+        setInlineStatus(runtimeFeaturesResponse, error.message, "error");
+    } finally {
+        shadowPlannerToggle.disabled = false;
     }
 }
 
