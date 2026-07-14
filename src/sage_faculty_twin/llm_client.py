@@ -892,6 +892,7 @@ class VllmChatClient:
         segment_reuse_body_text: str | None = None,
         segment_reuse_scope: str | None = None,
         use_reuse_hints: bool = True,
+        continue_on_length: bool = True,
     ) -> str:
         answer_temperature = (
             self._settings.llm_answer_temperature if temperature is None else temperature
@@ -987,10 +988,16 @@ class VllmChatClient:
                 logger.warning("Streaming chat response was empty; retrying once without streaming")
                 payload.pop("stream", None)
                 payload.pop("stream_options", None)
-                return self._request_chat_completion_sync(payload)
+                return self._request_chat_completion_sync(
+                    payload,
+                    continue_on_length=continue_on_length,
+                )
 
         try:
-            return self._request_chat_completion_sync(payload)
+            return self._request_chat_completion_sync(
+                payload,
+                continue_on_length=continue_on_length,
+            )
         except httpx.HTTPStatusError as exc:
             if self._is_thinking_budget_unsupported(exc) or (
                 "thinking_token_budget" in payload
@@ -998,7 +1005,10 @@ class VllmChatClient:
             ):
                 self._supports_thinking_budget = False
                 payload.pop("thinking_token_budget", None)
-                return self._request_chat_completion_sync(payload)
+                return self._request_chat_completion_sync(
+                    payload,
+                    continue_on_length=continue_on_length,
+                )
             raise
 
     def _is_local_mlx_model(self) -> bool:
@@ -1206,7 +1216,12 @@ class VllmChatClient:
             logger.warning("Fixed-prefix warmup failed: %s", exc)
             return False
 
-    def _request_chat_completion_sync(self, payload: dict[str, Any]) -> str:
+    def _request_chat_completion_sync(
+        self,
+        payload: dict[str, Any],
+        *,
+        continue_on_length: bool = True,
+    ) -> str:
         cache_ns = payload.pop("_cache_ns", None)
 
         cache_key = self._cache_key(payload, namespace=cache_ns)
@@ -1246,7 +1261,7 @@ class VllmChatClient:
                     raise RuntimeError("vllm-hust returned an empty chat message")
                 answer = str(content)
                 finish_reason = str(choices[0].get("finish_reason") or "").strip().lower()
-                if finish_reason == "length":
+                if finish_reason == "length" and continue_on_length:
                     answer = self._continue_truncated_answer(payload, answer)
                 break
             except httpx.TimeoutException as exc:
@@ -1771,6 +1786,12 @@ class VllmChatClient:
             self._evict_expired_locked(now)
             cached = self._response_cache.get(cache_key)
             if cached is None:
+                # Conversation-scoped answers must never use fuzzy reuse. A
+                # near-identical prompt can still represent a different turn,
+                # user, or follow-up; returning an older generated answer here
+                # causes cross-conversation and second-turn contamination.
+                if self._cache_key_namespace(cache_key) is not None:
+                    return None, None
                 best_key = ""
                 best_score = 0.0
                 best_value = ""
@@ -1796,6 +1817,13 @@ class VllmChatClient:
                 return None, None
             self._response_cache.move_to_end(cache_key)
             return value, "exact"
+
+    @staticmethod
+    def _cache_key_namespace(cache_key: str) -> str | None:
+        if cache_key.startswith("{") or "::" not in cache_key:
+            return None
+        namespace, _ = cache_key.split("::", 1)
+        return namespace or None
 
     def _store_cached_response(self, cache_key: str, value: str, semantic_key: str) -> None:
         ttl_seconds = self._settings.llm_cache_ttl_seconds

@@ -601,6 +601,30 @@ def test_request_chat_completion_continues_when_finish_reason_is_length() -> Non
     assert "继续" in second_payload["messages"][-1]["content"]
 
 
+def test_request_chat_completion_can_keep_bounded_truncated_answer() -> None:
+    settings = AppSettings(
+        llm_cache_ttl_seconds=0,
+        llm_cache_max_entries=0,
+        llm_retry_attempts=0,
+    )
+    transport = _SequencedHttpxClient(
+        [_SequencedChatCompletionResponse("已经包含足够信息。", finish_reason="length")]
+    )
+    client = _build_retry_test_client(settings, transport)
+
+    answer = client._request_chat_completion_sync(
+        {
+            "model": "demo",
+            "messages": [{"role": "user", "content": "请简要回答"}],
+            "max_tokens": 256,
+        },
+        continue_on_length=False,
+    )
+
+    assert answer == "已经包含足够信息。"
+    assert len(transport.calls) == 1
+
+
 def test_request_chat_completion_marks_truncation_when_continuation_fails() -> None:
     settings = AppSettings(
         llm_cache_ttl_seconds=0,
@@ -676,6 +700,73 @@ def test_cache_namespace_scopes_responses_per_conversation() -> None:
     cached_a, hit_type_a = client._get_cached_response(cache_key_a, semantic_key_a)
     assert cached_a == "Alice's personalised answer"
     assert hit_type_a == "exact"
+
+
+def test_namespaced_cache_never_fuzzy_matches_long_similar_prompts() -> None:
+    client = object.__new__(VllmChatClient)
+    client._cache_lock = threading.Lock()
+    client._response_cache = OrderedDict()
+    client._metrics_lock = threading.Lock()
+    client._cache_hit_count = 0
+    client._exact_cache_hit_count = 0
+    client._semantic_cache_hit_count = 0
+    client._cache_lookup_count = 0
+    client._settings = AppSettings(
+        llm_cache_ttl_seconds=300,
+        llm_cache_max_entries=100,
+    )
+    shared_system = "你是中文学术助理。" * 120
+    payload = {
+        "model": "demo",
+        "messages": [
+            {"role": "system", "content": shared_system},
+            {"role": "user", "content": "如何优化大模型推理？"},
+        ],
+    }
+    client._store_cached_response(
+        client._cache_key(payload, namespace="conversation-a"),
+        "stale answer",
+        client._semantic_cache_key(payload, namespace="conversation-a"),
+    )
+
+    cache_key = client._cache_key(payload, namespace="conversation-b")
+    semantic_key = client._semantic_cache_key(payload, namespace="conversation-b")
+
+    assert client._get_cached_response(cache_key, semantic_key) == (None, None)
+
+
+def test_namespaced_cache_does_not_fuzzy_match_a_followup_in_same_conversation() -> None:
+    client = object.__new__(VllmChatClient)
+    client._cache_lock = threading.Lock()
+    client._response_cache = OrderedDict()
+    client._metrics_lock = threading.Lock()
+    client._cache_hit_count = 0
+    client._exact_cache_hit_count = 0
+    client._semantic_cache_hit_count = 0
+    client._cache_lookup_count = 0
+    client._settings = AppSettings(
+        llm_cache_ttl_seconds=300,
+        llm_cache_max_entries=100,
+    )
+    first = {
+        "model": "demo",
+        "messages": [{"role": "user", "content": "医学影像分割有哪些核心挑战？"}],
+    }
+    followup = {
+        "model": "demo",
+        "messages": [{"role": "user", "content": "把上面的核心挑战归纳成三个优先级。"}],
+    }
+    namespace = "conversation-medical"
+    client._store_cached_response(
+        client._cache_key(first, namespace=namespace),
+        "first answer",
+        client._semantic_cache_key(first, namespace=namespace),
+    )
+
+    assert client._get_cached_response(
+        client._cache_key(followup, namespace=namespace),
+        client._semantic_cache_key(followup, namespace=namespace),
+    ) == (None, None)
 
 
 def test_cache_key_includes_namespace() -> None:

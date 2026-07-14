@@ -93,7 +93,7 @@ def test_proxy_forwards_streaming_request_with_auth(monkeypatch: pytest.MonkeyPa
         ProxySettings(
             listen_host="127.0.0.1",
             listen_port=18001,
-            upstream_base_url="http://127.0.0.1:18000/v1",
+            upstream_base_url="https://inference.example.test/v1",
             path_prefix="/v1",
             api_key="secret",
             upstream_api_key="upstream-secret",
@@ -116,10 +116,40 @@ def test_proxy_forwards_streaming_request_with_auth(monkeypatch: pytest.MonkeyPa
     assert "text/event-stream" in response.headers.get("content-type", "")
     assert response.text.count("data:") == 2
     assert _FakeAsyncClient.last_request is not None
-    assert _FakeAsyncClient.last_request["url"] == "http://127.0.0.1:18000/v1/chat/completions"
+    assert _FakeAsyncClient.last_request["url"] == "https://inference.example.test/v1/chat/completions"
     assert _FakeAsyncClient.last_request["headers"]["Authorization"] == "Bearer upstream-secret"
     payload = json.loads(_FakeAsyncClient.last_request["content"])
     assert payload["stream"] is True
+
+
+def test_proxy_does_not_forward_upstream_key_to_loopback_vllm(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    app = create_app(
+        ProxySettings(
+            listen_host="127.0.0.1",
+            listen_port=18001,
+            upstream_base_url="http://127.0.0.1:18000/v1",
+            path_prefix="/v1",
+            api_key="secret",
+            upstream_api_key="must-not-reach-local-vllm",
+        )
+    )
+    monkeypatch.setattr("sage_faculty_twin.vllm_openai_proxy.httpx.AsyncClient", _FakeAsyncClient)
+
+    with TestClient(app) as client:
+        response = client.post(
+            "/v1/chat/completions",
+            headers={"Authorization": "Bearer secret"},
+            json={
+                "model": "zai-org/GLM-4-32B-0414",
+                "messages": [{"role": "user", "content": "hi"}],
+            },
+        )
+
+    assert response.status_code == 200
+    assert _FakeAsyncClient.last_request is not None
+    assert "Authorization" not in _FakeAsyncClient.last_request["headers"]
 
 
 def test_proxy_returns_503_when_upstream_is_not_ready(monkeypatch: pytest.MonkeyPatch) -> None:

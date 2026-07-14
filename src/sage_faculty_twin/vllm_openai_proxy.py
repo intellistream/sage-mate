@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import ipaddress
 from dataclasses import dataclass
 from typing import AsyncIterator, Callable
 
@@ -73,6 +74,16 @@ def _normalize_headers(headers: httpx.Headers | dict[str, str]) -> dict[str, str
             continue
         normalized[name] = value
     return normalized
+
+
+def _is_loopback_upstream(upstream_base_url: str) -> bool:
+    host = (httpx.URL(upstream_base_url).host or "").strip().lower()
+    if host == "localhost":
+        return True
+    try:
+        return ipaddress.ip_address(host).is_loopback
+    except ValueError:
+        return False
 
 
 def _extract_client_key(request: Request) -> str:
@@ -218,7 +229,9 @@ def create_app(
         forward_headers["X-Forwarded-For"] = request.client.host if request.client else "127.0.0.1"
         forward_headers["X-Forwarded-Proto"] = request.url.scheme
         forward_headers["X-Forwarded-Host"] = request.headers.get("host", "")
-        if proxy_settings.upstream_api_key:
+        if proxy_settings.upstream_api_key and not _is_loopback_upstream(
+            proxy_settings.upstream_base_url
+        ):
             forward_headers["Authorization"] = f"Bearer {proxy_settings.upstream_api_key}"
 
         proxy_client = app.state.proxy_client

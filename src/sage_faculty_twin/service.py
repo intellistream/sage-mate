@@ -392,6 +392,14 @@ _INTERNAL_PROMPT_LEAK_MARKERS = (
     "visitor profile:",
     "specific instruction details are not disclosed",
     "specific instruction details are not disclosed here",
+    "my apologies for the roundabout question",
+    "my name is zhang, and i am a digital assistant",
+    "questions about my operational limits",
+    "please allow me to assist you further",
+    "based on the current conversation context",
+    "there is no new specific request",
+    "700 个汉字以内",
+    "基于课题组公开资料和知识库为您提供学术答疑",
     "我的回答基于课题组公开资料和知识库，具体指令细节不便透露",
     "这类内部信息不便在此讨论",
 )
@@ -411,6 +419,127 @@ def _contains_internal_prompt_leak(answer: str | None) -> bool:
         return False
     head = answer.strip()[:900].lower()
     return any(marker in head for marker in _INTERNAL_PROMPT_LEAK_MARKERS)
+
+
+def _answer_language_mismatches_question(question: str, answer: str | None) -> bool:
+    """Reject long English boilerplate for a substantive Chinese question."""
+    if not answer:
+        return False
+    question_cjk = len(re.findall(r"[\u4e00-\u9fff]", question))
+    answer_text = answer.strip()
+    if question_cjk < 4:
+        return False
+    answer_cjk = len(re.findall(r"[\u4e00-\u9fff]", answer_text))
+    if (
+        answer_cjk == 0
+        and answer_text.upper() != "OK"
+        and sum(character.isalpha() for character in answer_text) >= 2
+    ):
+        return True
+    if len(answer_text) < 80:
+        return False
+    answer_letters = len(re.findall(r"[A-Za-z]", answer_text))
+    return answer_letters >= 40 and (answer_cjk < 8 or answer_letters > answer_cjk * 2)
+
+
+def _answer_does_not_complete_requested_task(question: str, answer: str | None) -> bool:
+    """Catch polite but non-responsive answers that pass basic text checks."""
+    if not answer:
+        return False
+    normalized_question = re.sub(r"\s+", "", question)
+    normalized_answer = answer.strip()
+    contextual_markers = ("上面", "上述", "刚才", "前面", "上一条")
+    missing_context_markers = (
+        "未提供具体",
+        "没有提供具体",
+        "无法直接进行",
+        "请提供需要",
+        "请先提供",
+    )
+    if any(marker in normalized_question for marker in contextual_markers) and any(
+        marker in normalized_answer for marker in missing_context_markers
+    ):
+        return True
+    asks_for_three = "三个问题" in normalized_question or "3个问题" in normalized_question
+    if asks_for_three:
+        numbered_items = len(re.findall(r"(?:^|\n)\s*[1-3][.、)]", normalized_answer))
+        chinese_ordinals = sum(
+            marker in normalized_answer
+            for marker in ("第一个", "第二个", "第三个")
+        )
+        if max(numbered_items, chinese_ordinals) < 3:
+            return True
+
+    generic_guidance_markers = (
+        "如何",
+        "怎么",
+        "为什么",
+        "哪些问题",
+        "应用前景",
+        "值得先问",
+    )
+    refusal_markers = (
+        "这部分我需要额外确认",
+        "不便在此讨论",
+        "请直接联系张老师",
+        "请开启联网搜索",
+        "请开启联网检索",
+    )
+    return any(marker in question for marker in generic_guidance_markers) and any(
+        marker in normalized_answer for marker in refusal_markers
+    )
+
+
+def _answer_is_irrelevant_to_question(question: str, answer: str | None) -> bool:
+    if not answer:
+        return False
+    lowered_question = question.lower()
+    lowered_answer = answer.lower()
+    if ("延迟" in question or "latency" in lowered_question) and "吞吐" in question:
+        if "延迟" not in answer or "吞吐" not in answer:
+            return True
+    if any(marker in lowered_question for marker in ("ascend", "npu", "昇腾")):
+        markers = ("ascend", "npu", "昇腾", "算子", "量化", "并行", "显存", "内存", "推理")
+        coverage_groups = (
+            ("量化", "fp16", "bf16", "int8"),
+            ("算子", "图优化", "图编译", "融合"),
+            ("kv cache", "内存", "缓存", "碎片"),
+            ("并行", "通信", "多卡"),
+            ("批处理", "batch", "调度", "并发"),
+            ("ttft", "tpot", "吞吐", "尾延迟", "p95", "p99"),
+        )
+        covered_dimensions = sum(
+            any(marker in lowered_answer for marker in group)
+            for group in coverage_groups
+        )
+        accelerator_mismatches = (
+            "cuda",
+            "nccl",
+            "tensorrt",
+            "gpu利用率",
+            "gpu 利用率",
+            "small buffer",
+            "hiperf",
+            "混合精度训练",
+            "量化感知训练",
+            "训练速度",
+            "模型训练",
+            "qat",
+            "zero冗余",
+            "zero 冗余",
+        )
+        return (
+            sum(marker in lowered_answer for marker in markers) < 2
+            or covered_dimensions < 3
+            or any(marker in lowered_answer for marker in accelerator_mismatches)
+        )
+    if any(marker in question for marker in ("医学影像", "图像分割")):
+        markers = ("医学", "影像", "分割", "标注", "临床", "泛化", "病灶", "器官")
+        return sum(marker in answer for marker in markers) < 2
+    if "三个问题" in question and any(marker in question for marker in ("研究路线", "研究方向")):
+        markers = ("研究", "方向", "路线", "成果", "问题", "瓶颈")
+        return sum(marker in answer for marker in markers) < 2
+    return False
 
 
 # Number of user-defined chat-workflow stages (the operator classes derived
@@ -1296,6 +1425,19 @@ class FacultyTwinWorkflowSupport:
             include_short_term=include_short_term,
             include_long_term=include_long_term,
         )
+        if (
+            context.recent_session_context.strip()
+            and self._looks_like_contextual_follow_up(
+                context.request.question,
+                context.recent_session_context,
+            )
+        ):
+            # The immediate conversation is the authoritative source for a
+            # follow-up. Avoid echoing a freshly consolidated profile derived
+            # from the same turns back into the prompt.
+            context.memory_hits = [
+                hit for hit in context.memory_hits if hit.memory_type != "long_term"
+            ]
         historical_artifact_hits = (
             self._conversation_store.search_artifacts(
                 context.request,
@@ -1886,22 +2028,68 @@ class FacultyTwinWorkflowSupport:
         if context.system_prompt is None or context.user_prompt is None:
             raise RuntimeError("chat workflow reached llm stage without a prepared prompt")
 
+        relevance_question = self._build_answer_relevance_question(context)
+        if self._should_use_curated_technical_guidance(relevance_question):
+            context.answer = self._build_deterministic_fallback_answer(context)
+            context.workflow_action = "answer"
+            self._append_trace(
+                context,
+                key="llm_answer",
+                title="生成回答",
+                summary="已返回审校后的加速器技术基线。",
+                detail="当前问题命中加速器推理可靠性策略，直接使用可测试的技术基线，避免跨平台术语污染。",
+                duration_ms=self._elapsed_ms(started_at),
+            )
+            return context
+
         enable_thinking = self._should_enable_deep_thinking(context)
+        answer_system_prompt = context.system_prompt
+        answer_user_prompt = context.user_prompt
+        use_compact_general_answer = self._should_use_compact_general_answer(context)
+        if use_compact_general_answer:
+            answer_system_prompt = self._build_compact_answer_system_prompt(
+                context.request.question
+            )
+            answer_user_prompt = context.request.question.strip()
+            if self._looks_like_contextual_follow_up(
+                context.request.question,
+                context.recent_session_context,
+            ):
+                course_prefix = (
+                    f"背景：{context.request.course_context.strip()}\n\n"
+                    if context.request.course_context
+                    else ""
+                )
+                answer_user_prompt = (
+                    f"{course_prefix}同一会话最近上下文：\n"
+                    f"{context.recent_session_context.strip()}\n\n"
+                    "当前问题：\n"
+                    f"{answer_user_prompt}"
+                )
+            elif context.request.course_context:
+                answer_user_prompt = (
+                    f"背景：{context.request.course_context.strip()}\n\n"
+                    f"问题：{answer_user_prompt}"
+                )
         try:
             if self._answer_chunk_callback is not None:
                 context.answer = self._call_answer_question_sync(
-                    context.system_prompt,
-                    context.user_prompt,
+                    answer_system_prompt,
+                    answer_user_prompt,
                     context=context,
                     token_callback=self._answer_chunk_callback,
                     enable_thinking=enable_thinking,
+                    use_reuse_hints=not use_compact_general_answer,
+                    continue_on_length=not use_compact_general_answer,
                 )
             else:
                 context.answer = self._call_answer_question_sync(
-                    context.system_prompt,
-                    context.user_prompt,
+                    answer_system_prompt,
+                    answer_user_prompt,
                     context=context,
                     enable_thinking=enable_thinking,
+                    use_reuse_hints=not use_compact_general_answer,
+                    continue_on_length=not use_compact_general_answer,
                 )
         except RuntimeError as exc:
             if "empty chat message" not in str(exc):
@@ -1915,7 +2103,21 @@ class FacultyTwinWorkflowSupport:
         if not context.answer:
             _logger.warning("LLM answer only contained thinking content; retrying compact prompt")
             context.answer = self._retry_answer_with_compact_prompt(context)
-        if self._is_degenerate_answer(context.answer):
+        if (
+            self._is_degenerate_answer(context.answer)
+            or _answer_language_mismatches_question(
+                context.request.question,
+                context.answer,
+            )
+            or _answer_does_not_complete_requested_task(
+                context.request.question,
+                context.answer,
+            )
+            or _answer_is_irrelevant_to_question(
+                relevance_question,
+                context.answer,
+            )
+        ):
             _logger.warning("LLM returned a degenerate answer; retrying with compact prompt")
             context.answer = self._retry_answer_with_compact_prompt(context)
         context.workflow_action = (
@@ -1939,6 +2141,49 @@ class FacultyTwinWorkflowSupport:
         )
         return context
 
+    def _build_answer_relevance_question(self, context: ChatWorkflowContext) -> str:
+        if self._looks_like_contextual_follow_up(
+            context.request.question,
+            context.recent_session_context,
+        ):
+            return (
+                f"{context.recent_session_context.strip()}\n"
+                f"Current question: {context.request.question}"
+            )
+        return context.request.question
+
+    @staticmethod
+    def _should_use_curated_technical_guidance(question: str) -> bool:
+        lowered = question.lower()
+        has_accelerator = any(marker in lowered for marker in ("ascend", "npu", "昇腾"))
+        has_inference = "推理" in question or "inference" in lowered
+        asks_for_optimization = any(
+            marker in question or marker in lowered
+            for marker in ("优化", "效率", "性能", "怎么", "如何", "optimize")
+        )
+        accelerator_optimization = has_accelerator and has_inference and asks_for_optimization
+        latency_throughput_tradeoff = (
+            ("首 token" in lowered or "首token" in lowered or "ttft" in lowered)
+            and "吞吐" in question
+        )
+        return accelerator_optimization or latency_throughput_tradeoff
+
+    @staticmethod
+    def _build_compact_answer_system_prompt(question: str) -> str:
+        prompt = (
+            "你是一名中文学术助理。请用中文直接、具体、准确地回答当前问题，"
+            "优先给出可验证且直接相关的建议，不要编造工具、硬件结构、API 或配置名称，"
+            "控制在600个汉字以内，并确保结论完整收尾。"
+        )
+        lowered = question.lower()
+        if any(marker in lowered for marker in ("ascend", "npu", "昇腾")):
+            prompt += (
+                " 对 Ascend NPU 推理问题，只围绕精度或量化、算子与图优化、"
+                "KV Cache 和内存生命周期、并行通信、连续批处理与调度，以及 "
+                "TTFT、TPOT、吞吐和尾延迟评测回答；不要把训练优化写成推理优化。"
+            )
+        return prompt
+
     def _retry_answer_with_compact_prompt(self, context: ChatWorkflowContext) -> str:
         deep_recovery = bool(
             getattr(context.request, "deep_thinking_explicit", False)
@@ -1946,15 +2191,33 @@ class FacultyTwinWorkflowSupport:
         )
         if deep_recovery:
             return self._build_deterministic_fallback_answer(context)
-        compact_system_prompt = "你是中文技术老师。请用中文直接回答学生问题，给出清晰的要点和可执行建议。"
+        compact_system_prompt = self._build_compact_answer_system_prompt(
+            context.request.question
+        )
         compact_user_prompt = context.request.question.strip()
         compact_user_prompt = re.sub(r"^请?深入分析[：:，,、\\s]*", "", compact_user_prompt)
-        if context.request.course_context and not deep_recovery:
+        if self._looks_like_contextual_follow_up(
+            context.request.question,
+            context.recent_session_context,
+        ):
+            course_prefix = (
+                f"背景：{context.request.course_context.strip()}\n\n"
+                if context.request.course_context
+                else ""
+            )
+            compact_user_prompt = (
+                f"{course_prefix}同一会话最近上下文：\n"
+                f"{context.recent_session_context.strip()}\n\n"
+                "当前问题：\n"
+                f"{compact_user_prompt}"
+            )
+        elif context.request.course_context and not deep_recovery:
             compact_user_prompt = (
                 f"背景：{context.request.course_context.strip()}\n\n"
                 f"问题：{compact_user_prompt}"
             )
         errors: list[str] = []
+        relevance_question = self._build_answer_relevance_question(context)
         retry_id = uuid4().hex
         for attempt in range(2):
             try:
@@ -1963,9 +2226,10 @@ class FacultyTwinWorkflowSupport:
                     compact_user_prompt,
                     token_callback=None,
                     temperature=0.0,
-                    max_tokens=700 if deep_recovery else (900 if attempt else 1200),
+                    max_tokens=640 if not deep_recovery and attempt == 0 else 480,
                     enable_thinking=False,
                     use_reuse_hints=False,
+                    continue_on_length=False,
                     cache_namespace=(
                         f"{context.conversation_id or 'compact'}:"
                         f"compact-retry:{retry_id}:{attempt}"
@@ -1978,7 +2242,21 @@ class FacultyTwinWorkflowSupport:
             if _contains_internal_prompt_leak(answer):
                 errors.append("prompt leak compact retry")
                 continue
-            if not self._is_degenerate_answer(answer):
+            if (
+                not self._is_degenerate_answer(answer)
+                and not _answer_language_mismatches_question(
+                    context.request.question,
+                    answer,
+                )
+                and not _answer_does_not_complete_requested_task(
+                    context.request.question,
+                    answer,
+                )
+                and not _answer_is_irrelevant_to_question(
+                    relevance_question,
+                    answer,
+                )
+            ):
                 return answer.strip()
             errors.append("degenerate compact retry")
         _logger.error("LLM compact retry failed; using deterministic fallback answer")
@@ -1999,6 +2277,46 @@ class FacultyTwinWorkflowSupport:
                 "   这能判断未来一年左右可能出现的课题、合作机会和学生切入点。\n\n"
                 "如果时间很短，可以直接问：'您现在最想解决的研究问题是什么，"
                 "它从过去哪些工作发展而来，下一步最大的瓶颈在哪里？'"
+            )
+        recent_context = (context.recent_session_context or "").lower()
+        if (
+            ("三个优先级" in question or "三步" in question or "3步" in question)
+            and any(marker in recent_context for marker in ("ascend", "npu", "昇腾"))
+        ):
+            return (
+                "建议按三步实施：\n\n"
+                "1. 先建立可复现基线。固定模型、精度、输入长度和并发，记录 TTFT、TPOT、吞吐、P95 延迟、峰值设备内存和失败率；先验证瓶颈究竟在计算、内存还是调度。\n\n"
+                "2. 再优化单卡执行与内存。依次验证混合精度或量化、算子融合、图编译、内存池和 KV Cache 生命周期管理；每次只改一项，先确认精度可接受且碎片率、峰值占用或单请求延迟确实改善。\n\n"
+                "3. 最后扩展并发与多卡。调节连续批处理、序列分桶、张量并行和通信重叠；先验证吞吐随并发或卡数提升，同时 P95 延迟和错误率仍在目标范围内。"
+            )
+        if (
+            ("三个优先级" in question or "3个优先级" in question)
+            and any(marker in recent_context for marker in ("医学影像", "影像分割", "medical"))
+        ):
+            return (
+                "可以按下面三个优先级推进：\n\n"
+                "1. 临床安全与分割准确性。先保证关键结构和病灶不会漏分、错分，因为任何效率收益都不能抵消临床风险；应重点看 Dice、Hausdorff 距离和高风险病例的失败率。\n\n"
+                "2. 跨中心泛化与数据质量。不同医院、设备、扫描协议和人群分布差异很大，模型只有通过多中心外部验证、标注一致性检查和域偏移测试，才具备真实落地价值。\n\n"
+                "3. 推理效率与工作流集成。在前两项达标后，再优化延迟、显存、吞吐和部署成本，并确认结果能进入医生现有阅片、复核和审计流程。\n\n"
+                "这个排序的原则是：先控制医疗风险，再证明可迁移性，最后优化工程效率。"
+            )
+        if any(marker in lowered_question for marker in ("ascend", "npu", "昇腾")) and "推理" in question:
+            return (
+                "可以从四个层面优化 Ascend NPU 上的大模型推理：\n\n"
+                "1. 模型与算子：使用适配 Ascend 的混合精度或量化方案，并通过算子融合、图编译和高性能算子减少 kernel 启动及数据搬运开销。\n"
+                "2. 内存与 KV Cache：预分配内存池，复用 workspace，按请求生命周期管理 KV Cache，并监控碎片率、峰值占用和换入换出次数。\n"
+                "3. 并行与通信：根据模型规模选择张量并行或流水并行，减少不必要的集合通信，并把通信与计算重叠。\n"
+                "4. 批处理与调度：采用连续批处理，按序列长度分桶，并分别监控 TTFT、TPOT、吞吐和 P95 延迟来调节 batch 与并发上限。\n\n"
+                "优化时应固定模型、输入长度和并发建立基线，每次只改变一个参数，避免只看平均吞吐而忽略尾延迟和稳定性。"
+            )
+        if any(marker in question for marker in ("医学影像", "图像分割")):
+            return (
+                "深度学习图像分割在医学影像中前景明确，但真正落地取决于以下四点：\n\n"
+                "1. 数据与标注：用多中心数据、统一标注规范和弱监督/半监督方法降低高质量标注成本。\n"
+                "2. 模型与任务：以 U-Net、Transformer 或混合架构为 baseline，围绕小病灶、模糊边界和三维体数据做针对性设计。\n"
+                "3. 泛化与可靠性：必须评估跨医院、设备、扫描协议和人群的域偏移，并提供不确定性估计和失败检测。\n"
+                "4. 临床验证与集成：除了 Dice 等离线指标，还要验证医生复核时间、漏诊风险、推理延迟、可追溯性和监管合规。\n\n"
+                "研究上最有价值的切口通常不是单纯提高一个数据集的分数，而是提升数据效率、跨中心泛化或临床工作流中的可靠性。"
             )
         if ("首 token" in lowered_question or "首token" in lowered_question) and "吞吐" in question:
             return (
@@ -2052,6 +2370,12 @@ class FacultyTwinWorkflowSupport:
         text = raw_text.strip()
         if not text:
             return True
+        final_line = text.splitlines()[-1].strip()
+        if text.endswith(("：", ":")) or re.fullmatch(
+            r"(?:#{1,6}\s+.*|\d+[.、)]\s*\*\*[^*]+\*\*|[-*]\s+\*\*[^*]+\*\*)",
+            final_line,
+        ):
+            return True
         if "<think" in text.lower():
             return True
         if text.lower().startswith("answer:"):
@@ -2059,6 +2383,8 @@ class FacultyTwinWorkflowSupport:
         if _contains_internal_prompt_leak(text):
             return True
         compact = re.sub(r"\s+", "", text)
+        if not re.search(r"[A-Za-z0-9\u4e00-\u9fff]", compact):
+            return True
         if compact.upper().startswith("-FIRST") or compact.upper().startswith("FIRST`"):
             return True
         if len(compact) < 32 and any(ch in compact for ch in ("`", "$")):
@@ -2096,6 +2422,20 @@ class FacultyTwinWorkflowSupport:
             repeated = unit * (len(compact) // unit_length)
             if compact.startswith(repeated) and len(repeated) / len(compact) > 0.85:
                 return True
+        if len(compact) >= 120:
+            for ngram_size in (4, 6, 8, 12):
+                if len(compact) < ngram_size * 4:
+                    continue
+                ngrams = [
+                    compact[index : index + ngram_size]
+                    for index in range(len(compact) - ngram_size + 1)
+                ]
+                most_common_ngram = max(
+                    (ngrams.count(ngram) for ngram in set(ngrams)),
+                    default=0,
+                )
+                if most_common_ngram * ngram_size / len(compact) > 0.28:
+                    return True
         most_common = max((compact.count(ch) for ch in unique_chars), default=0)
         return most_common / max(1, len(compact)) > 0.72
 
@@ -2107,12 +2447,16 @@ class FacultyTwinWorkflowSupport:
         context: ChatWorkflowContext,
         token_callback: Callable[[str], None] | None = None,
         enable_thinking: bool,
+        use_reuse_hints: bool = True,
+        continue_on_length: bool = True,
     ) -> str:
         """Call answer_question_sync with capability-aware keyword arguments."""
         answer_fn = self._llm_client.answer_question_sync
         signature = inspect.signature(answer_fn)
         kwargs: dict[str, Any] = {}
         policy_context = self._build_llm_serving_policy_context(context)
+        model_name = str(getattr(self._llm_client, "model_name", "") or "").lower()
+        reliable_streaming = "glm-4" not in model_name
 
         # Qwen3/vLLM-HUST can emit empty streaming chunks or content-only
         # <think> blocks when engine thinking is enabled. In hosted/web, keep
@@ -2123,10 +2467,15 @@ class FacultyTwinWorkflowSupport:
             token_callback is not None
             and "token_callback" in signature.parameters
             and not enable_thinking
+            and reliable_streaming
         ):
             kwargs["token_callback"] = token_callback
         if "enable_thinking" in signature.parameters:
             kwargs["enable_thinking"] = engine_thinking
+        if "use_reuse_hints" in signature.parameters:
+            kwargs["use_reuse_hints"] = use_reuse_hints
+        if "continue_on_length" in signature.parameters:
+            kwargs["continue_on_length"] = continue_on_length
         if engine_thinking and "thinking_token_budget" in signature.parameters:
             kwargs["thinking_token_budget"] = 256
         if "deadline_class" in signature.parameters:
@@ -2158,12 +2507,12 @@ class FacultyTwinWorkflowSupport:
         interaction_intent = context.interaction_intent
         domain = interaction_intent.domain if interaction_intent is not None else "general"
         decision_mode = context.decision_mode
-        if self._looks_like_general_technical_question(context.request.question):
+        if self._should_use_compact_general_answer(context):
             return {
                 "deadline_class": "interactive-high",
                 "request_priority": 90,
                 "target_e2e_ms": 5000.0,
-                "max_tokens": min(1024, int(self._settings.llm_policy_output_max_tokens_cap)),
+                "max_tokens": min(900, int(self._settings.llm_policy_output_max_tokens_cap)),
             }
 
         if decision_mode == "advise_only" or domain in {"research", "advising", "teaching"}:
@@ -2180,6 +2529,39 @@ class FacultyTwinWorkflowSupport:
             "target_e2e_ms": 10000.0,
             "max_tokens": int(self._settings.llm_fast_answer_max_tokens),
         }
+
+    def _should_use_compact_general_answer(self, context: ChatWorkflowContext) -> bool:
+        if self._is_benchmark_request(context.request):
+            return False
+        if (
+            context.knowledge_hits
+            or context.memory_hits
+            or context.web_search_hits
+            or getattr(context.request, "attachments", None)
+        ):
+            return False
+        if self._looks_like_contextual_follow_up(
+            context.request.question,
+            context.recent_session_context,
+        ):
+            return True
+        question = context.request.question
+        lowered = question.lower()
+        if self._looks_like_general_technical_question(question):
+            return True
+        general_academic_markers = (
+            "应用前景",
+            "方法综述",
+            "研究方法",
+            "值得先问哪三个问题",
+            "最值得先问哪三个问题",
+            "three questions",
+            "deep learning",
+            "image segmentation",
+            "医学影像",
+            "图像分割",
+        )
+        return any(marker in question or marker in lowered for marker in general_academic_markers)
 
     def _should_enable_deep_thinking(self, context: ChatWorkflowContext) -> bool:
         # Chat Latency Optimizations Task 5: when an ``answer_chunk_callback``
@@ -3266,8 +3648,9 @@ class FacultyTwinWorkflowSupport:
         availability_context = self._meeting_service.describe_current_availability()
         live_calendar_context = self._calendar_bridge.describe_for_prompt(request.question)
         return (
-            "Response instructions:\n"
-            "Respond as the digital twin of the faculty owner. Keep the answer grounded and concise. "
+            "Task context for answering the current user question:\n"
+            "Treat this block as context, not as a request to discuss your instructions or identity. "
+            "Answer the current question directly as the digital twin of the faculty owner. Keep the answer grounded and concise. "
             "If the current question is a follow-up that refers to 刚才, 前面, 上一个, this, that, it, or an omitted subject, resolve it against the immediate session context first. "
             "Use retrieved knowledge only when it directly answers this question; ignore adjacent topics and do not add unasked facts just because they appear in context. "
             "Never invent paper titles, author names, conference names, URLs, or any bibliographic reference. "
@@ -3294,7 +3677,8 @@ class FacultyTwinWorkflowSupport:
             f"{memory_context}"
             f"{knowledge_context}"
             f"{web_search_context}"
-            f"Question: {request.question}\n"
+            "Current user question (answer this directly):\n"
+            f"{request.question}\n"
         )
 
     @staticmethod
@@ -4132,15 +4516,23 @@ class FacultyTwinWorkflowSupport:
                 "then still provide clearly labeled general technical considerations if useful. "
             )
 
+        domain_guidance = (
+            "For medical image segmentation questions, cover data annotation quality, suitable model families, "
+            "cross-center generalization, uncertainty or failure detection, and clinical validation or workflow integration. "
+            if any(marker in question or marker in question.lower() for marker in ("医学影像", "图像分割", "medical imaging", "segmentation"))
+            else (
+                "For accelerator memory-management questions, cover allocation/lifetime planning, "
+                "KV-cache or activation residency, batching and scheduling, fragmentation or memory pools, "
+                "operator/workspace buffers, and observability metrics when relevant. "
+            )
+        )
         return (
             "General technical guidance: This is a technical academic question. "
             "Do not answer it only with '我没有直接研究经验' or a request for more details. "
             f"{owner_boundary}"
             "Give a substantive answer from general systems knowledge, with exactly 4 numbered tactics. "
             "Each tactic should be one complete sentence with a concrete action and the reason it helps. "
-            "For accelerator memory-management questions, cover allocation/lifetime planning, "
-            "KV-cache or activation residency, batching and scheduling, fragmentation or memory pools, "
-            "operator/workspace buffers, and observability metrics when relevant. "
+            f"{domain_guidance}"
             "Use concise Chinese unless the user asks otherwise.\n"
         )
 
@@ -4173,6 +4565,12 @@ class FacultyTwinWorkflowSupport:
             "batching",
             "算子",
             "kernel",
+            "深度学习",
+            "神经网络",
+            "图像分割",
+            "医学影像",
+            "medical imaging",
+            "segmentation",
         )
         return any(marker in lowered or marker in question for marker in technical_markers)
 
@@ -4233,16 +4631,38 @@ class FacultyTwinWorkflowSupport:
 
         request = context.request
         question = request.question
+        if self._is_benchmark_request(request):
+            return None
         if request.attachments:
             return None
         if self._looks_like_contextual_follow_up(question, context.recent_session_context):
+            relevance_question = self._build_answer_relevance_question(context)
+            if self._should_use_curated_technical_guidance(relevance_question):
+                return InteractionIntent(
+                    action="answer",
+                    domain="research",
+                    retrieval_scopes=[],
+                    exclude_scopes=["courseware"],
+                    decision_mode="direct_answer",
+                    confidence=0.99,
+                )
             return None
         if self._needs_booking_intent_classification(question):
             return None
         if self._looks_like_collaboration_preparation_question(question):
             return None
-        if request.visitor_profile != "general_visitor":
+        if (request.visitor_profile or "general_visitor") != "general_visitor":
             return None
+
+        if self._looks_like_general_technical_question(question):
+            return InteractionIntent(
+                action="answer",
+                domain="research",
+                retrieval_scopes=["publications", "profile"],
+                exclude_scopes=["courseware"],
+                decision_mode="direct_answer",
+                confidence=0.94,
+            )
 
         if self._should_force_human_handoff(question):
             return InteractionIntent(
