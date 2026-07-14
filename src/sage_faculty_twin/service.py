@@ -460,7 +460,10 @@ def _answer_does_not_complete_requested_task(question: str, answer: str | None) 
         marker in normalized_answer for marker in missing_context_markers
     ):
         return True
-    asks_for_three = "三个问题" in normalized_question or "3个问题" in normalized_question
+    asks_for_three = any(
+        marker in normalized_question
+        for marker in ("三个问题", "3个问题", "三个要点", "3个要点", "归纳三点")
+    )
     if asks_for_three:
         numbered_items = len(re.findall(r"(?:^|\n)\s*[1-3][.、)]", normalized_answer))
         chinese_ordinals = sum(
@@ -2173,7 +2176,7 @@ class FacultyTwinWorkflowSupport:
         prompt = (
             "你是一名中文学术助理。请用中文直接、具体、准确地回答当前问题，"
             "优先给出可验证且直接相关的建议，不要编造工具、硬件结构、API 或配置名称，"
-            "控制在600个汉字以内，并确保结论完整收尾。"
+            "控制在450个汉字以内，并确保结论完整收尾。"
         )
         lowered = question.lower()
         if any(marker in lowered for marker in ("ascend", "npu", "昇腾")):
@@ -2226,7 +2229,7 @@ class FacultyTwinWorkflowSupport:
                     compact_user_prompt,
                     token_callback=None,
                     temperature=0.0,
-                    max_tokens=640 if not deep_recovery and attempt == 0 else 480,
+                    max_tokens=384 if not deep_recovery and attempt == 0 else 320,
                     enable_thinking=False,
                     use_reuse_hints=False,
                     continue_on_length=False,
@@ -2512,7 +2515,7 @@ class FacultyTwinWorkflowSupport:
                 "deadline_class": "interactive-high",
                 "request_priority": 90,
                 "target_e2e_ms": 5000.0,
-                "max_tokens": min(900, int(self._settings.llm_policy_output_max_tokens_cap)),
+                "max_tokens": min(512, int(self._settings.llm_policy_output_max_tokens_cap)),
             }
 
         if decision_mode == "advise_only" or domain in {"research", "advising", "teaching"}:
@@ -2534,6 +2537,11 @@ class FacultyTwinWorkflowSupport:
         if self._is_benchmark_request(context.request):
             return False
         if (
+            getattr(context.request, "deep_thinking_explicit", False)
+            and getattr(context.request, "deep_thinking", True)
+        ):
+            return False
+        if (
             context.knowledge_hits
             or context.memory_hits
             or context.web_search_hits
@@ -2543,6 +2551,13 @@ class FacultyTwinWorkflowSupport:
         if self._looks_like_contextual_follow_up(
             context.request.question,
             context.recent_session_context,
+        ):
+            return True
+        if (
+            context.interaction_intent is not None
+            and context.interaction_intent.action == "answer"
+            and context.interaction_intent.domain == "general"
+            and context.decision_mode == "direct_answer"
         ):
             return True
         question = context.request.question
@@ -4646,7 +4661,13 @@ class FacultyTwinWorkflowSupport:
                     decision_mode="direct_answer",
                     confidence=0.99,
                 )
-            return None
+            return InteractionIntent(
+                action="answer",
+                domain="general",
+                retrieval_scopes=[],
+                decision_mode="direct_answer",
+                confidence=0.86,
+            )
         if self._needs_booking_intent_classification(question):
             return None
         if self._looks_like_collaboration_preparation_question(question):
@@ -4758,7 +4779,13 @@ class FacultyTwinWorkflowSupport:
                 confidence=0.82,
             )
 
-        return None
+        return InteractionIntent(
+            action="answer",
+            domain="general",
+            retrieval_scopes=[],
+            decision_mode="direct_answer",
+            confidence=0.76,
+        )
 
     def _apply_policy_guardrails(
         self,

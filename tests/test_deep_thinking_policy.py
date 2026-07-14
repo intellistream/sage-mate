@@ -199,6 +199,10 @@ def test_task_completion_guard_rejects_three_question_refusal() -> None:
         "如果我想快速了解张老师的研究路线，最值得先问哪三个问题？",
         answer,
     )
+    assert _answer_does_not_complete_requested_task(
+        "请用三个要点解释召回率和回答准确性的关系。",
+        "召回率和准确性需要结合具体系统综合分析。",
+    )
 
 
 def test_task_completion_guard_keeps_three_numbered_questions() -> None:
@@ -228,7 +232,7 @@ def test_compact_general_answer_is_used_without_grounding(tmp_path: Path) -> Non
     context.request.question = "如何优化大模型在 Ascend NPU 上的推理效率？"
 
     assert service._should_use_compact_general_answer(context)
-    assert service._build_llm_serving_policy_context(context)["max_tokens"] == 900
+    assert service._build_llm_serving_policy_context(context)["max_tokens"] == 512
     compact_prompt = service._build_compact_answer_system_prompt(context.request.question)
     assert "KV Cache" in compact_prompt
     assert "不要把训练优化写成推理优化" in compact_prompt
@@ -266,6 +270,34 @@ def test_ascend_follow_up_uses_fast_path_from_session_context(tmp_path: Path) ->
     assert intent.domain == "research"
 
 
+def test_general_question_uses_fast_path_without_llm_classification(tmp_path: Path) -> None:
+    service = object.__new__(FacultyTwinWorkflowSupport)
+    service._settings = AppSettings(knowledge_base_dir=tmp_path)
+    context = _build_context()
+    context.request.question = "请解释检索增强生成中召回率和准确性的关系。"
+
+    intent = service._build_fast_path_interaction_intent(context)
+
+    assert intent is not None
+    assert intent.action == "answer"
+    assert intent.domain == "general"
+    assert intent.decision_mode == "direct_answer"
+
+
+def test_general_follow_up_uses_fast_path_from_session_context(tmp_path: Path) -> None:
+    service = object.__new__(FacultyTwinWorkflowSupport)
+    service._settings = AppSettings(knowledge_base_dir=tmp_path)
+    context = _build_context()
+    context.request.question = "请把上面的结论再压缩成两点。"
+    context.recent_session_context = "前面讨论了检索增强生成的召回率和准确性。"
+
+    intent = service._build_fast_path_interaction_intent(context)
+
+    assert intent is not None
+    assert intent.action == "answer"
+    assert intent.domain == "general"
+
+
 def test_medical_segmentation_is_a_general_technical_question(tmp_path: Path) -> None:
     service = object.__new__(FacultyTwinWorkflowSupport)
     service._settings = AppSettings(knowledge_base_dir=tmp_path)
@@ -291,6 +323,24 @@ def test_compact_general_answer_keeps_grounded_questions_on_full_path(tmp_path: 
     assert not service._should_use_compact_general_answer(context)
 
 
+def test_ungrounded_general_answer_uses_compact_path(tmp_path: Path) -> None:
+    service = object.__new__(FacultyTwinWorkflowSupport)
+    service._settings = AppSettings(knowledge_base_dir=tmp_path)
+    context = _build_context()
+    context.request.question = "请比较两个常见方法的优缺点。"
+
+    assert service._should_use_compact_general_answer(context)
+
+
+def test_explicit_deep_thinking_keeps_general_answer_on_full_path(tmp_path: Path) -> None:
+    service = object.__new__(FacultyTwinWorkflowSupport)
+    service._settings = AppSettings(knowledge_base_dir=tmp_path)
+    context = _build_context(deep_thinking=True, deep_thinking_explicit=True)
+    context.request.question = "请深入比较两个常见方法的优缺点。"
+
+    assert not service._should_use_compact_general_answer(context)
+
+
 def test_compact_retry_uses_bounded_output_budget(tmp_path: Path) -> None:
     class FakeLlmClient:
         def __init__(self) -> None:
@@ -308,7 +358,7 @@ def test_compact_retry_uses_bounded_output_budget(tmp_path: Path) -> None:
     answer = service._retry_answer_with_compact_prompt(context)
 
     assert answer.startswith("1. 建立基线")
-    assert service._llm_client.max_tokens == [640]
+    assert service._llm_client.max_tokens == [384]
 
 
 def test_deterministic_fallback_answer_handles_ascend_question() -> None:

@@ -49,3 +49,17 @@ def test_overlay_modal_registry_and_frontend_shell() -> None:
     assert "data-feedback-web-action" in app_js
     assert "const overlayModals = [" in app_js
     assert "function hasVisibleOverlayModal()" in app_js
+
+
+def test_status_and_workflow_buttons_use_distinct_icons() -> None:
+    index_html = (WEB_DIR / "index.html").read_text(encoding="utf-8")
+    status_button = index_html.split('id="open-status-drawer"', 1)[1].split(
+        "</button>", 1
+    )[0]
+    workflow_button = index_html.split('id="mobile-workflow-trigger"', 1)[1].split(
+        "</button>", 1
+    )[0]
+
+    assert '<polyline points="22 12 18 12 15 21 9 3 6 12 2 12"' in status_button
+    assert '<rect x="3" y="3" width="8" height="8" rx="2"' in workflow_button
+    assert status_button != workflow_button

@@ -228,7 +228,11 @@ class AppSettings(BaseSettings):
         description="When True, skip the LLM intent classifier for high-confidence "
         "requests that can be routed by deterministic guardrails.",
     )
-    shadow_planner_enabled: bool = Field(default=True)
+    shadow_planner_enabled: bool = Field(
+        default=False,
+        description="Run the experimental LLM shadow planner before each chat request. "
+        "Disabled by default because it does not affect execution and adds model latency.",
+    )
     shadow_planner_temperature: float = Field(default=0.0, ge=0.0, le=1.0)
     shadow_planner_max_tokens: int = Field(default=384, ge=64, le=2048)
     conversation_memory_top_k: int = Field(default=4, ge=1, le=10)

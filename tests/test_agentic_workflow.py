@@ -310,7 +310,7 @@ def test_chat_books_meeting_when_details_are_complete(tmp_path: Path) -> None:
     assert response.shadow_planner_preview.accepted is False
     assert (
         response.shadow_planner_preview.fallback_reason
-        == "Current LLM client does not implement shadow planner proposals."
+        == "LLM shadow planner not enabled yet."
     )
     assert response.shadow_planner_preview.planned_steps == []
     assert response.planner_comparison is not None
@@ -857,6 +857,7 @@ def test_chat_surfaces_llm_shadow_planner_comparison_without_affecting_execution
     settings = AppSettings(
         knowledge_base_dir=tmp_path,
         planner_comparison_dir=tmp_path / "planner-comparisons",
+        shadow_planner_enabled=True,
     )
     service = DigitalTwinService(settings)
     service._llm_client = ShadowPlanningLLMClient(
