@@ -1,20 +1,20 @@
 [submodule "deps/vllm-hust-dev-hub"]
 	path = deps/vllm-hust-dev-hub
 	url = git@github.com:vLLM-HUST/vllm-hust-dev-hub.git
-	branch = feature/wiki-link-retrieval-www2027
+	branch = feat/wiki-link-retrieval-www2027
 [submodule "deps/vllm-hust"]
 	path = deps/vllm-hust
 	url = git@github.com:vLLM-HUST/vllm-hust.git
-	branch = feature/wiki-link-retrieval-www2027
+	branch = feat/wiki-link-retrieval-www2027
 [submodule "deps/vllm-ascend-hust"]
 	path = deps/vllm-ascend-hust
 	url = git@github.com:vLLM-HUST/vllm-ascend-hust.git
-	branch = feature/wiki-link-retrieval-www2027
+	branch = feat/wiki-link-retrieval-www2027
 [submodule "deps/ascend-runtime-manager"]
 	path = deps/ascend-runtime-manager
 	url = git@github.com:vLLM-HUST/ascend-runtime-manager.git
-	branch = feature/wiki-link-retrieval-www2027
+	branch = feat/wiki-link-retrieval-www2027
 [submodule "deps/vllm-metal-hust"]
 	path = deps/vllm-metal-hust
 	url = https://github.com/vLLM-HUST/vllm-metal-hust.git
-	branch = main
+	branch = feat/wiki-link-retrieval-www2027

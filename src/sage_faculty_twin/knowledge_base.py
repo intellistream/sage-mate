@@ -153,7 +153,7 @@ class LocalKnowledgeStore:
         # linked document_ids.  Built from ``metadata["linked_source_names"]``
         # at load time.  See wiki-link-retrieval repo for research context.
         self._link_graph: dict[str, list[str]] = {}
-        self._link_expansion_enabled = True
+        self._link_expansion_enabled = settings.knowledge_link_expansion_enabled
         self._load_documents_from_disk()
         self._rebuild_link_graph()
         if self._backend == "sagevdb":
@@ -369,11 +369,7 @@ class LocalKnowledgeStore:
 
         limit = top_k or self._settings.retrieval_top_k
         reranked = sorted(scored_hits, key=lambda item: item.score, reverse=True)
-        # Wiki-link retrieval: 1-hop expansion after reranking.
-        if self._link_expansion_enabled:
-            reranked = self._expand_hits_with_links(reranked, query_tokens, query_profile)
-            reranked.sort(key=lambda item: item.score, reverse=True)
-        hits = self._finalize_hits(reranked, query_profile, limit)
+        hits = self._expand_and_finalize_hits(reranked, query_tokens, query_profile, limit)
         self._store_cached_search(cache_key, hits)
         return hits
 
@@ -391,6 +387,10 @@ class LocalKnowledgeStore:
                 str(top_k or self._settings.retrieval_top_k),
                 visitor_profile or "",
                 admin_role or "",
+                str(self._link_expansion_enabled),
+                str(id(self._link_graph)),
+                str(self._settings.knowledge_link_expansion_decay),
+                str(self._settings.knowledge_link_expansion_max_documents),
                 normalized_query,
             )
         )
@@ -823,11 +823,7 @@ class LocalKnowledgeStore:
             ),
             reverse=True,
         )
-        # Wiki-link retrieval: 1-hop expansion after reranking.
-        if self._link_expansion_enabled:
-            reranked = self._expand_hits_with_links(reranked, query_tokens, query_profile)
-            reranked.sort(key=lambda item: item.score, reverse=True)
-        return self._finalize_hits(reranked, query_profile, limit)
+        return self._expand_and_finalize_hits(reranked, query_tokens, query_profile, limit)
 
     def _build_text_embedder(self, np_module):
         embedding_backend = self._settings.sagevdb_embedding_backend.lower()
@@ -943,11 +939,7 @@ class LocalKnowledgeStore:
                 )
             )
         hits.sort(key=lambda h: h.score, reverse=True)
-        # Wiki-link retrieval: 1-hop expansion after reranking.
-        if self._link_expansion_enabled:
-            hits = self._expand_hits_with_links(hits, query_tokens, query_profile)
-            hits.sort(key=lambda h: h.score, reverse=True)
-        return self._finalize_hits(hits, query_profile, limit)
+        return self._expand_and_finalize_hits(hits, query_tokens, query_profile, limit)
 
     def _score_document(
         self,
@@ -1245,6 +1237,26 @@ class LocalKnowledgeStore:
             return _dedupe_hits_by_source_group(aligned_hits, limit)
         return _dedupe_hits_by_source_group(visible_hits, limit)
 
+    def _expand_and_finalize_hits(
+        self,
+        ranked_hits: list[KnowledgeSearchHit],
+        query_tokens: set[str],
+        query_profile: "QueryProfile",
+        limit: int,
+    ) -> list[KnowledgeSearchHit]:
+        """Apply the backend-independent link-expansion result contract."""
+        first_stage = self._finalize_hits(ranked_hits, query_profile, limit)
+        if not self._link_expansion_enabled:
+            return first_stage
+        expanded = self._expand_hits_with_links(
+            first_stage,
+            query_tokens,
+            query_profile,
+            source_limit=limit,
+        )
+        expanded.sort(key=lambda item: item.score, reverse=True)
+        return self._finalize_hits(expanded, query_profile, limit)
+
     # ── Wiki-link retrieval: link graph construction + expansion ────────
 
     # Tags that are too generic to signal topical relatedness.
@@ -1343,6 +1355,16 @@ class LocalKnowledgeStore:
         return False
 
     def _rebuild_link_graph(self) -> None:
+        self._link_graph = self.build_link_graph()
+
+    def build_link_graph(
+        self,
+        *,
+        include_explicit: bool = True,
+        include_manual: bool = True,
+        include_tags: bool = True,
+        include_concepts: bool = True,
+    ) -> dict[str, list[str]]:
         """Build bidirectional adjacency list from document metadata.
 
         Four edge sources are combined:
@@ -1352,18 +1374,20 @@ class LocalKnowledgeStore:
         2. **Manual cross-references** — ``_MANUAL_CROSS_REFS`` maps
            key non-wiki documents (lectures, project docs) to related
            wiki pages.
-        3. **Tag-based auto-linking** — documents sharing ≥ 1 topic
-           tag are linked, bridging the gap between isolated non-wiki
-           content and the wiki link graph.
-        4. **Concept-keyword linking** — scan document titles and
+        3. **Concept-keyword linking** — scan document titles and
            source names for key concepts (KV Cache, NPU, RAG, …) and
            link matching documents to the corresponding wiki pages.
            This is the most important bridge for documents that have
            no topic tags (e.g. paper-page, homepage docs).
+        4. **Tag-based auto-linking** — documents sharing ≥ 1 topic
+           tag are linked, bridging the gap between isolated non-wiki
+           content and the wiki link graph.
 
         Edges are bidirectional: if A links to B, both A→B and B→A are
         added so that expansion can reach documents that are only link
-        targets (no outbound links of their own).
+        targets (no outbound links of their own). Edge sources are added
+        in the order above so broad tag edges cannot exhaust a node's cap
+        before higher-priority concept bridges are recorded.
         """
         source_to_id: dict[str, str] = {
             doc.source_name: doc_id
@@ -1382,74 +1406,82 @@ class LocalKnowledgeStore:
                 adj.append(dst)
 
         # ── 1. Explicit wiki links ──────────────────────────────────
-        for doc_id, doc in self._documents.items():
-            linked_sources = (doc.metadata or {}).get("linked_source_names", "")
-            if not linked_sources:
-                continue
-            for src_name in linked_sources.split("|"):
-                src_name = src_name.strip()
-                if src_name and src_name in source_to_id:
-                    target_id = source_to_id[src_name]
-                    _add_edge(doc_id, target_id)
-                    _add_edge(target_id, doc_id)
+        if include_explicit:
+            for doc_id, doc in self._documents.items():
+                linked_sources = (doc.metadata or {}).get("linked_source_names", "")
+                if not linked_sources:
+                    continue
+                for src_name in linked_sources.split("|"):
+                    src_name = src_name.strip()
+                    if src_name and src_name in source_to_id:
+                        target_id = source_to_id[src_name]
+                        _add_edge(doc_id, target_id)
+                        _add_edge(target_id, doc_id)
 
         # ── 2. Manual cross-references ──────────────────────────────
-        for source_name, target_names in self._MANUAL_CROSS_REFS.items():
-            src_id = source_to_id.get(source_name)
-            if src_id is None:
-                continue
-            for target_name in target_names:
-                dst_id = source_to_id.get(target_name)
-                if dst_id is not None:
-                    _add_edge(src_id, dst_id)
-                    _add_edge(dst_id, src_id)
+        if include_manual:
+            for source_name, target_names in self._MANUAL_CROSS_REFS.items():
+                src_id = source_to_id.get(source_name)
+                if src_id is None:
+                    continue
+                for target_name in target_names:
+                    dst_id = source_to_id.get(target_name)
+                    if dst_id is not None:
+                        _add_edge(src_id, dst_id)
+                        _add_edge(dst_id, src_id)
 
-        # ── 3. Tag-based auto-linking ───────────────────────────────
-        # Build inverted index: topic_tag → list of doc_ids
-        tag_index: dict[str, list[str]] = {}
-        for doc_id, doc in self._documents.items():
-            topic_tags = {t for t in doc.tags if self._is_topic_tag(t)}
-            for tag in topic_tags:
-                tag_index.setdefault(tag, []).append(doc_id)
-
-        # For each doc, find others sharing ≥ 1 topic tag
-        for doc_id, doc in self._documents.items():
-            doc_topic_tags = {t for t in doc.tags if self._is_topic_tag(t)}
-            if len(doc_topic_tags) < 1:
-                continue
-            # Count shared tags with every candidate
-            candidate_shared: dict[str, int] = {}
-            for tag in doc_topic_tags:
-                for other_id in tag_index.get(tag, []):
-                    if other_id != doc_id:
-                        candidate_shared[other_id] = candidate_shared.get(other_id, 0) + 1
-            # Link to candidates sharing ≥ 1 topic tag
-            for other_id, shared_count in sorted(
-                candidate_shared.items(), key=lambda x: -x[1]
-            ):
-                if shared_count < 1:
-                    break
-                _add_edge(doc_id, other_id, cap=12)
-                _add_edge(other_id, doc_id, cap=12)
-
-        # ── 4. Concept-keyword linking ──────────────────────────────
+        # ── 3. Concept-keyword linking ──────────────────────────────
         # Scan document title + source_name for concept keywords and
         # link to matching wiki pages.  This catches documents that have
         # no topic tags but whose titles clearly indicate the subject
         # (e.g. paper pages, lecture slides, project docs).
-        for doc_id, doc in self._documents.items():
-            if (doc.source_name or "").startswith("wiki:"):
-                continue  # wiki pages already have explicit links
-            haystack = f"{(doc.title or '')} {(doc.source_name or '')}".lower()
-            for keyword, wiki_sources in self._CONCEPT_TO_WIKI.items():
-                if keyword.lower() in haystack:
-                    for wiki_src in wiki_sources:
-                        wiki_id = source_to_id.get(wiki_src)
-                        if wiki_id is not None:
-                            _add_edge(doc_id, wiki_id, cap=12)
-                            _add_edge(wiki_id, doc_id, cap=12)
+        if include_concepts:
+            for doc_id, doc in self._documents.items():
+                if (doc.source_name or "").startswith("wiki:"):
+                    continue  # wiki pages already have explicit links
+                haystack = f"{(doc.title or '')} {(doc.source_name or '')}".lower()
+                for keyword, wiki_sources in self._CONCEPT_TO_WIKI.items():
+                    if keyword.lower() in haystack:
+                        for wiki_src in wiki_sources:
+                            wiki_id = source_to_id.get(wiki_src)
+                            if wiki_id is not None:
+                                _add_edge(doc_id, wiki_id, cap=12)
+                                _add_edge(wiki_id, doc_id, cap=12)
 
-        self._link_graph = graph
+        # ── 4. Tag-based auto-linking ───────────────────────────────
+        if include_tags:
+            # Build inverted index: topic_tag → list of doc_ids
+            tag_index: dict[str, list[str]] = {}
+            for doc_id, doc in self._documents.items():
+                topic_tags = sorted(
+                    {tag.strip().lower() for tag in doc.tags if self._is_topic_tag(tag)}
+                )
+                for tag in topic_tags:
+                    tag_index.setdefault(tag, []).append(doc_id)
+
+            # For each doc, find others sharing ≥ 1 topic tag
+            for doc_id, doc in self._documents.items():
+                doc_topic_tags = sorted(
+                    {tag.strip().lower() for tag in doc.tags if self._is_topic_tag(tag)}
+                )
+                if len(doc_topic_tags) < 1:
+                    continue
+                # Count shared tags with every candidate
+                candidate_shared: dict[str, int] = {}
+                for tag in doc_topic_tags:
+                    for other_id in tag_index.get(tag, []):
+                        if other_id != doc_id:
+                            candidate_shared[other_id] = candidate_shared.get(other_id, 0) + 1
+                # Link to candidates sharing ≥ 1 topic tag
+                for other_id, shared_count in sorted(
+                    candidate_shared.items(), key=lambda item: (-item[1], item[0])
+                ):
+                    if shared_count < 1:
+                        break
+                    _add_edge(doc_id, other_id, cap=12)
+                    _add_edge(other_id, doc_id, cap=12)
+
+        return graph
 
     def _expand_hits_with_links(
         self,
@@ -1457,31 +1489,36 @@ class LocalKnowledgeStore:
         query_tokens: set[str],
         query_profile: "QueryProfile",
         *,
-        max_expansion: int = 8,
+        max_expansion: int | None = None,
+        decay: float | None = None,
+        source_limit: int | None = None,
     ) -> list[KnowledgeSearchHit]:
         """Post-retrieval 1-hop link expansion.
 
-        For each hit in the result set, follow outgoing links in the
-        adjacency list and inject linked documents that are not already
-        present.  Expanded documents receive a fraction of the parent
-        hit's score so they rank below the primary result but above
-        unrelated documents.
+        Follow outgoing links from the first-stage top-k and accumulate
+        decay-weighted support when multiple source hits reach the same
+        candidate. Expanded documents remain candidates rather than
+        relevance-scored matches, so callers should use a downstream rank
+        budget or reranker when preserving an existing top-ranked prefix is
+        required.
         """
-        if not self._link_graph or not hits:
+        if max_expansion is None:
+            max_expansion = self._settings.knowledge_link_expansion_max_documents
+        if decay is None:
+            decay = self._settings.knowledge_link_expansion_decay
+        if decay <= 0.0 or max_expansion <= 0 or not self._link_graph or not hits:
             return hits
 
-        seen_ids = {h.document_id for h in hits}
+        seen_ids = {hit.document_id for hit in hits}
         expanded: list[KnowledgeSearchHit] = list(hits)
+        candidate_scores: dict[str, float] = {}
 
-        for hit in hits:
-            if len(expanded) - len(hits) >= max_expansion:
-                break
+        source_hits = hits[:source_limit] if source_limit is not None else hits
+        for hit in source_hits:
             neighbors = self._link_graph.get(hit.document_id, [])
             for neighbor_id in neighbors:
                 if neighbor_id in seen_ids:
                     continue
-                if len(expanded) - len(hits) >= max_expansion:
-                    break
                 doc = self._documents.get(neighbor_id)
                 if doc is None:
                     continue
@@ -1489,20 +1526,27 @@ class LocalKnowledgeStore:
                     doc, query_profile.visitor_profile, query_profile.admin_role
                 ):
                     continue
-                # Linked docs get a fraction of the parent hit's score
-                link_score = max(hit.score * 0.6, 1.5)
-                expanded.append(
-                    KnowledgeSearchHit(
-                        document_id=doc.document_id,
-                        title=doc.title,
-                        excerpt=self._build_excerpt(doc.content, query_tokens),
-                        score=link_score,
-                        tags=doc.tags,
-                        source_name=doc.source_name,
-                        metadata=doc.metadata,
-                    )
+                candidate_scores[neighbor_id] = (
+                    candidate_scores.get(neighbor_id, 0.0) + hit.score * decay
                 )
-                seen_ids.add(neighbor_id)
+
+        selected = sorted(
+            candidate_scores.items(),
+            key=lambda item: (-item[1], item[0]),
+        )[:max_expansion]
+        for neighbor_id, link_score in selected:
+            doc = self._documents[neighbor_id]
+            expanded.append(
+                KnowledgeSearchHit(
+                    document_id=doc.document_id,
+                    title=doc.title,
+                    excerpt=self._build_excerpt(doc.content, query_tokens),
+                    score=link_score,
+                    tags=doc.tags,
+                    source_name=doc.source_name,
+                    metadata=doc.metadata,
+                )
+            )
 
         return expanded
 

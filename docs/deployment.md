@@ -240,7 +240,15 @@ DIGITAL_TWIN_KNOWLEDGE_BACKEND=sagevdb      # knowledge backend type
 DIGITAL_TWIN_SAGEVDB_BACKEND=sage-anns       # ANNS backend (or "native" for flat index)
 DIGITAL_TWIN_SAGEVDB_ANNS_ALGORITHM=faiss_hnsw
 DIGITAL_TWIN_SAGEVDB_EMBEDDING_BACKEND=hash
+DIGITAL_TWIN_KNOWLEDGE_LINK_EXPANSION_ENABLED=false
+DIGITAL_TWIN_KNOWLEDGE_LINK_EXPANSION_DECAY=0.6
+DIGITAL_TWIN_KNOWLEDGE_LINK_EXPANSION_MAX_DOCUMENTS=8
 ```
+
+Link expansion follows one-hop knowledge-base edges after first-stage retrieval.
+It is opt-in because injected candidates can displace stronger first-stage
+results. Enable it only when the caller applies an appropriate rank budget or
+reranker. A zero decay or document budget also disables candidate injection.
 
 ### Auto-dependency installation
 

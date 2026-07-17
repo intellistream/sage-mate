@@ -126,10 +126,10 @@ requires_neuromem_model = pytest.mark.skipif(
 
 @pytest.fixture(autouse=True)
 def _isolate_conversation_memory(tmp_path, monkeypatch):
-    """Redirect conversation_memory_dir to a temp path so tests never
-    pollute the live production SQLite memory store."""
+    """Keep unit tests independent from the developer's runtime settings."""
     isolated = tmp_path / "conversation_memory"
     monkeypatch.setenv("DIGITAL_TWIN_CONVERSATION_MEMORY_DIR", str(isolated))
+    monkeypatch.setenv("DIGITAL_TWIN_KNOWLEDGE_BACKEND", "local")
 
 
 def pytest_collection_modifyitems(config, items):

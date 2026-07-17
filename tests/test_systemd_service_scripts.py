@@ -208,6 +208,7 @@ def test_run_vllm_engine_script_errors_without_container(tmp_path: Path) -> None
     # Set a non-empty value so the .env loader skips it (already set).
     # docker inspect will fail because this container doesn't exist.
     env["VLLM_ENGINE_CONTAINER"] = "nonexistent-test-container"
+    env["VLLM_ENGINE_AUTO_CREATE_CONTAINER"] = "false"
     env["VLLM_HUST_API_KEY"] = "test-api-key"
 
     result = subprocess.run(
